@@ -47,20 +47,27 @@ jobs:
 
       - name: Start Dongo
         run: |
-          dongo --port 27018 &
+          dongo --port 27018 --data-dir /tmp/dongo-data > /tmp/dongo.log 2>&1 &
           echo $! > /tmp/dongo.pid
 
       - name: Wait for Dongo to be ready
         run: |
           for i in $(seq 1 30); do
-            if mongosh --port 27018 --eval 'db.runCommand({ping:1})' --quiet 2>/dev/null; then
+            if nc -z 127.0.0.1 27018 2>/dev/null; then
               echo "Dongo ready"
               exit 0
+            fi
+            # Bail early if dongo process has already died
+            if ! kill -0 $(cat /tmp/dongo.pid) 2>/dev/null; then
+              echo "Dongo process died:" >&2
+              cat /tmp/dongo.log >&2
+              exit 1
             fi
             echo "Waiting for Dongo ($i/30)..."
             sleep 2
           done
-          echo "Dongo did not start in time" >&2
+          echo "Dongo did not start in time. Log:" >&2
+          cat /tmp/dongo.log >&2
           exit 1
 
       - name: Run parity suite
