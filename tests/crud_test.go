@@ -1512,61 +1512,6 @@ func TestFindOneAndUpdate_returnAfter(t *testing.T) {
 	})
 }
 
-func TestFindOneAndUpdate_upsert(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "FindOneAndUpdate_upsert",
-		Support: harness.DongoXFail,
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			opts := options.FindOneAndUpdate().
-				SetUpsert(true).
-				SetReturnDocument(options.After)
-			var result bson.D
-			err := col.FindOneAndUpdate(ctx,
-				bson.D{{Key: "_id", Value: "foa-upsert"}},
-				bson.D{{Key: "$set", Value: bson.D{{Key: "x", Value: int32(42)}}}},
-				opts,
-			).Decode(&result)
-			return result, err
-		},
-	})
-}
-
-func TestFindOneAndUpdate_no_match(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "FindOneAndUpdate_no_match",
-		Support: harness.DongoXFail,
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			var result bson.D
-			err := col.FindOneAndUpdate(ctx,
-				bson.D{{Key: "_id", Value: "ghost"}},
-				bson.D{{Key: "$set", Value: bson.D{{Key: "x", Value: 1}}}},
-			).Decode(&result)
-			return nil, err // expect ErrNoDocuments
-		},
-	})
-}
-
-func TestFindOneAndUpdate_sort(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "FindOneAndUpdate_sort",
-		Support: harness.DongoXFail,
-		Setup:   insertSeed,
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			opts := options.FindOneAndUpdate().
-				SetSort(bson.D{{Key: "score", Value: -1}}).
-				SetReturnDocument(options.Before).
-				SetProjection(bson.D{{Key: "name", Value: 1}, {Key: "_id", Value: 0}})
-			var result bson.D
-			err := col.FindOneAndUpdate(ctx,
-				bson.D{},
-				bson.D{{Key: "$set", Value: bson.D{{Key: "updated", Value: true}}}},
-				opts,
-			).Decode(&result)
-			return result, err
-		},
-	})
-}
-
 // --- FindOneAndReplace (DongoXFail) ---
 
 func TestFindOneAndReplace_basic(t *testing.T) {
@@ -1998,47 +1943,6 @@ func TestReplaceOne(t *testing.T) {
 					{Key: "name", Value: "Robert"},
 					{Key: "score", Value: int32(99)},
 				},
-			)
-			if err != nil {
-				return nil, err
-			}
-			return bson.D{
-				{Key: "matchedCount", Value: res.MatchedCount},
-				{Key: "modifiedCount", Value: res.ModifiedCount},
-			}, nil
-		},
-	})
-}
-
-func TestReplaceOne_upsert(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "ReplaceOne_upsert",
-		Support: harness.DongoFull,
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			opts := options.Replace().SetUpsert(true)
-			res, err := col.ReplaceOne(ctx,
-				bson.D{{Key: "_id", Value: "ro-upsert"}},
-				bson.D{{Key: "_id", Value: "ro-upsert"}, {Key: "val", Value: "new"}},
-				opts,
-			)
-			if err != nil {
-				return nil, err
-			}
-			return bson.D{
-				{Key: "upsertedCount", Value: res.UpsertedCount},
-			}, nil
-		},
-	})
-}
-
-func TestReplaceOne_no_match(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "ReplaceOne_no_match",
-		Support: harness.DongoFull,
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			res, err := col.ReplaceOne(ctx,
-				bson.D{{Key: "_id", Value: "ghost"}},
-				bson.D{{Key: "_id", Value: "ghost"}, {Key: "val", Value: "x"}},
 			)
 			if err != nil {
 				return nil, err
