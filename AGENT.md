@@ -1,5 +1,18 @@
 # Parity Rig Agent Guide
 
+## Cross-Repo Gaps: Escalate to Mayor
+
+The parity rig depends on dongo features that may not exist yet. **If you discover that dongo is missing a flag, API, or behavior you need, stop and mail the mayor immediately.** Do not write documentation or tests that assume the feature exists — that creates silent lies in the repo.
+
+Examples of things to escalate:
+- A dongo CLI flag that doesn't exist (`--port`, `--log-level`, etc.)
+- A dongo command that behaves differently than MongoDB
+- A dongo bug that blocks writing a test
+
+The mayor will file a bead in the dongo rig and coordinate the fix.
+
+---
+
 ## HARD RULE: Do Not Touch known-divergences.txt
 
 **You are NOT allowed to modify `known-divergences.txt` under any circumstances.**
