@@ -63,8 +63,93 @@ const (
 - **FULL**: Use for behavior Dongo is expected to implement. Divergences break CI.
 - **MONGO_ONLY**: Use for MongoDB features Dongo explicitly punts (auth, atlas, sharding,
   GridFS, change streams, deprecated JS operators, Symbol/DBPointer BSON types).
-- **DONGO_XFAIL**: Use for features Dongo hasn't implemented yet but should eventually
-  (transactions, time series, etc.). Records divergences without breaking CI.
+- **DONGO_XFAIL**: Use for features Dongo hasn't implemented yet but should eventually.
+  Records divergences without breaking CI. **This is the most important label.**
+
+---
+
+## MANDATORY: Write DongoXFail Tests for Dongo Gaps
+
+**The default label for any operator you are not 100% certain Dongo supports is DongoXFail.**
+
+DongoXFail tests are the primary deliverable of this rig. They document Dongo's
+current capability gap against MongoDB 8. Every unimplemented operator, every missing
+option, every edge case that Dongo gets wrong — write the test, mark it DongoXFail.
+
+**The antipattern to avoid:** Writing only DongoFull happy-path tests that you already
+know Dongo handles. A test file with 20 DongoFull tests and 0 DongoXFail tests is a
+failure of this rig's purpose.
+
+**Decision tree for every operator/feature you test:**
+
+1. Is it auth, sharding, GridFS, Atlas, deprecated JS, deprecated BSON types? → **DongoMongoOnly**
+2. Do you know for a fact Dongo handles it correctly? → **DongoFull**
+3. Everything else → **DongoXFail**
+
+**When in doubt → DongoXFail. Never skip writing a test because you don't know if Dongo supports it.**
+
+### Known Dongo gaps requiring DongoXFail tests (non-exhaustive)
+
+These are areas where tests MUST include DongoXFail coverage:
+
+**Transactions:**
+- `StartSession` + `StartTransaction` + `CommitTransaction` / `AbortTransaction`
+- `WithTransaction` helper
+- Multi-document atomic reads within a session
+
+**Update operators (advanced):**
+- `$push` with modifiers: `$each`, `$slice`, `$sort`, `$position`
+- `$pull` with query conditions (not just equality)
+- `$addToSet` with `$each`
+- `$pop` (first/last element removal)
+- `$bit` (bitwise AND/OR/XOR)
+- `$currentDate` with `$type: "timestamp"`
+- `arrayFilters` with positional `$[identifier]` operator
+- Pipeline-style updates (`Update` with `[]bson.D` instead of `bson.D`)
+
+**Query operators (advanced):**
+- `$expr` (aggregation expression in query context)
+- `$jsonSchema` validation
+- `$mod` (modulo)
+- `$bitsAllClear`, `$bitsAllSet`, `$bitsAnyClear`, `$bitsAnySet`
+- `$geoWithin`, `$geoIntersects`, `$near`, `$nearSphere`
+- `$regex` with `s` (dot-all), `m` (multiline), `x` (extended) flags
+
+**Collection operations:**
+- `FindOneAndUpdate` with `returnDocument: After`
+- `FindOneAndReplace`, `FindOneAndDelete`
+- `CountDocuments` with filter options (hint, skip, limit)
+- `Distinct` on nested fields and array fields
+- `watch` / change streams (DongoMongoOnly — Dongo punts)
+
+**Aggregation pipeline:**
+- `$lookup` (simple and pipeline form)
+- `$group` with accumulators: `$sum`, `$avg`, `$min`, `$max`, `$push`, `$addToSet`, `$first`, `$last`
+- `$unwind` with `preserveNullAndEmptyArrays`
+- `$facet`
+- `$bucket`, `$bucketAuto`
+- `$graphLookup`
+- `$merge`, `$out`
+- Window functions (`$setWindowFields`)
+
+**Indexes:**
+- Compound indexes
+- Sparse indexes
+- TTL indexes
+- Partial indexes (with `partialFilterExpression`)
+- Wildcard indexes
+- Text indexes (DongoXFail unless Dongo implements)
+
+### Volume target
+
+Each test file should contain a minimum of **80 tests**. Target **100+**.
+A file with fewer than 50 tests is incomplete.
+
+For every major operator or feature area, write:
+- The basic happy-path case (DongoFull or DongoXFail as appropriate)
+- At least one edge case (empty input, missing field, null, type mismatch)
+- At least one error case (invalid operator usage, wrong type)
+- Option variants where meaningful
 
 ---
 
@@ -121,5 +206,15 @@ The CI workflow:
 
 ## Current Goal
 
-Build the harness infrastructure (do-adl). All category test sub-epics depend on this.
-See the bead description for the full deliverable list.
+Expand test coverage across all Tier 1 categories with heavy DongoXFail coverage.
+
+Harness is complete. Active work:
+- **do-8ps**: Expand CRUD tests — add DongoXFail for arrayFilters, pipeline updates,
+  FindOneAndX, advanced update operators. Target: 100+ tests in crud_test.go.
+- **do-afu**: Expand query operator tests — add DongoXFail for $expr, $mod, $jsonSchema,
+  bitwise, geospatial. Target: 100+ tests in query_test.go.
+- **do-piz**: Write update_test.go from scratch — ALL update operators with DongoXFail
+  for advanced/unimplemented behavior. Target: 100+ tests.
+
+**If you finish your assigned file and have time:** look at what other gaps exist and
+add DongoXFail tests. The rig is hungry for coverage.
