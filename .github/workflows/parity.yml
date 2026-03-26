@@ -36,7 +36,7 @@ jobs:
         env:
           DONGO_COMMIT: ${{ vars.DONGO_COMMIT || 'main' }}
         run: |
-          git clone --depth 1 https://github.com/dolthub/dongo.git /tmp/dongo
+          git clone --depth 1 https://x:${{ secrets.DONGO_READ_TOKEN }}@github.com/dolthub/dongo.git /tmp/dongo
           cd /tmp/dongo
           if [ -n "$DONGO_COMMIT" ] && [ "$DONGO_COMMIT" != "main" ]; then
             git fetch --depth 1 origin "$DONGO_COMMIT"
