@@ -1,0 +1,79 @@
+name: Parity Suite
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+
+    services:
+      mongo:
+        image: mongo:8.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ping:1})' --quiet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      MONGO_URI: mongodb://localhost:27017
+      DONGO_URI: mongodb://localhost:27018
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+
+      - name: Build Dongo
+        env:
+          DONGO_COMMIT: ${{ vars.DONGO_COMMIT || 'main' }}
+        run: |
+          git clone --depth 1 https://github.com/dolthub/dongo.git /tmp/dongo
+          cd /tmp/dongo
+          if [ -n "$DONGO_COMMIT" ] && [ "$DONGO_COMMIT" != "main" ]; then
+            git fetch --depth 1 origin "$DONGO_COMMIT"
+            git checkout "$DONGO_COMMIT"
+          fi
+          # Build the dongo binary (adjust path if the repo layout differs)
+          go build -o /usr/local/bin/dongo ./cmd/dongo
+
+      - name: Start Dongo
+        run: |
+          dongo --port 27018 &
+          echo $! > /tmp/dongo.pid
+
+      - name: Wait for Dongo to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if mongosh --port 27018 --eval 'db.runCommand({ping:1})' --quiet 2>/dev/null; then
+              echo "Dongo ready"
+              exit 0
+            fi
+            echo "Waiting for Dongo ($i/30)..."
+            sleep 2
+          done
+          echo "Dongo did not start in time" >&2
+          exit 1
+
+      - name: Run parity suite
+        run: |
+          mkdir -p results
+          go test ./... -v -timeout 5m -json | tee results/parity.json
+          # Re-run without -json for human-readable output; ignore exit code (json run sets it)
+          go test ./... -timeout 5m
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-results
+          path: results/
+          if-no-files-found: ignore
