@@ -30,7 +30,7 @@ func insertWindowSeed(ctx context.Context, col *mongo.Collection) error {
 func TestWindow_rank_overall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_rank_overall",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -51,7 +51,7 @@ func TestWindow_rank_overall(t *testing.T) {
 func TestWindow_rank_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_rank_partitioned",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -75,7 +75,7 @@ func TestWindow_rank_partitioned(t *testing.T) {
 func TestWindow_denseRank_overall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_denseRank_overall",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -96,7 +96,7 @@ func TestWindow_denseRank_overall(t *testing.T) {
 func TestWindow_denseRank_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_denseRank_partitioned",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -120,7 +120,7 @@ func TestWindow_denseRank_partitioned(t *testing.T) {
 func TestWindow_rowNumber_overall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_rowNumber_overall",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -141,7 +141,7 @@ func TestWindow_rowNumber_overall(t *testing.T) {
 func TestWindow_rowNumber_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_rowNumber_partitioned",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -165,7 +165,7 @@ func TestWindow_rowNumber_partitioned(t *testing.T) {
 func TestWindow_sum_unboundedCumulative(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_sum_unboundedCumulative",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -191,7 +191,7 @@ func TestWindow_sum_unboundedCumulative(t *testing.T) {
 func TestWindow_sum_partitioned_cumulative(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_sum_partitioned_cumulative",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -218,7 +218,7 @@ func TestWindow_sum_partitioned_cumulative(t *testing.T) {
 func TestWindow_sum_full_partition(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_sum_full_partition",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -246,7 +246,7 @@ func TestWindow_sum_full_partition(t *testing.T) {
 func TestWindow_avg_overall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_avg_overall",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -271,7 +271,7 @@ func TestWindow_avg_overall(t *testing.T) {
 func TestWindow_avg_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_avg_partitioned",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -299,7 +299,7 @@ func TestWindow_avg_partitioned(t *testing.T) {
 func TestWindow_first_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_first_partitioned",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -326,7 +326,7 @@ func TestWindow_first_partitioned(t *testing.T) {
 func TestWindow_last_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_last_partitioned",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -353,7 +353,7 @@ func TestWindow_last_partitioned(t *testing.T) {
 func TestWindow_first_overall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_first_overall",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -379,7 +379,7 @@ func TestWindow_first_overall(t *testing.T) {
 func TestWindow_last_overall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_last_overall",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -407,7 +407,7 @@ func TestWindow_last_overall(t *testing.T) {
 func TestWindow_partitionSortMultiOutput(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_partitionSortMultiOutput",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -441,7 +441,7 @@ func TestWindow_partitionSortMultiOutput(t *testing.T) {
 func TestWindow_partitionOnly_noSort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_partitionOnly_noSort",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -469,7 +469,7 @@ func TestWindow_partitionOnly_noSort(t *testing.T) {
 func TestWindow_range_currentToCurrent(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_range_currentToCurrent",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -522,7 +522,7 @@ func TestWindow_range_minusN_to_current(t *testing.T) {
 func TestWindow_documents_trailing3(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_documents_trailing3",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Sliding window: previous 2 documents + current.
@@ -549,7 +549,7 @@ func TestWindow_documents_trailing3(t *testing.T) {
 func TestWindow_documents_leadLag(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_documents_leadLag",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Window from -1 to +1 (current row with one neighbor each side).
@@ -578,7 +578,7 @@ func TestWindow_documents_leadLag(t *testing.T) {
 func TestWindow_min_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_min_partitioned",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -604,7 +604,7 @@ func TestWindow_min_partitioned(t *testing.T) {
 func TestWindow_max_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_max_partitioned",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
