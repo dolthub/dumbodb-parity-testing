@@ -375,7 +375,7 @@ func TestAdvancedQuery_Regex_InlineSyntax_vs_ObjectSyntax(t *testing.T) {
 func TestAdvancedQuery_Regex_Multiline_m_Flag(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Regex_Multiline_m_Flag",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "ml1"}, {Key: "text", Value: "line one\nline two\nline three"}},
@@ -400,7 +400,7 @@ func TestAdvancedQuery_Regex_Multiline_m_Flag(t *testing.T) {
 func TestAdvancedQuery_Regex_Multiline_EndAnchor(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Regex_Multiline_EndAnchor",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "ml1"}, {Key: "text", Value: "line one\nend here"}},
@@ -424,7 +424,7 @@ func TestAdvancedQuery_Regex_Multiline_EndAnchor(t *testing.T) {
 func TestAdvancedQuery_Regex_DotAll_s_Flag(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Regex_DotAll_s_Flag",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "da1"}, {Key: "text", Value: "start\nmiddle\nend"}},
