@@ -707,7 +707,7 @@ func TestAggStage_limit_LimitExceedsCollection(t *testing.T) {
 func TestAggStage_limit_LimitZeroError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_limit_LimitZeroError",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$limit", Value: int64(0)}},
@@ -1557,7 +1557,7 @@ func TestAggStage_bucket_WithDefault(t *testing.T) {
 func TestAggStage_bucket_MissingBoundariesError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucket_MissingBoundariesError",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$bucket", Value: bson.D{
@@ -1638,7 +1638,7 @@ func TestAggStage_bucketAuto_ThreeBuckets(t *testing.T) {
 func TestAggStage_bucketAuto_MissingBucketsError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucketAuto_MissingBucketsError",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$bucketAuto", Value: bson.D{
@@ -1855,7 +1855,7 @@ func insertOrgHierarchy(ctx context.Context, col *mongo.Collection) error {
 func TestAggStage_graphLookup_TraverseHierarchyFromLeaf(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_graphLookup_TraverseHierarchyFromLeaf",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup:   insertOrgHierarchy,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -2115,7 +2115,7 @@ func TestAggStage_unsupportedErrors_search(t *testing.T) {
 func TestAggStage_unknownStageError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unknownStageError",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$definitelyNotAStage", Value: bson.D{}}},

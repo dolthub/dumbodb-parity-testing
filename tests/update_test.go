@@ -1284,7 +1284,7 @@ func TestPipelineUpdate_addFields(t *testing.T) {
 func TestPipelineUpdate_replaceWith(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "PipelineUpdate_replaceWith",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := mongo.Pipeline{

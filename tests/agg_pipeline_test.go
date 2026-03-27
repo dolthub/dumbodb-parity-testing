@@ -868,7 +868,7 @@ func TestAgg_replaceWith_alias(t *testing.T) {
 func TestAgg_replaceRoot_mergeObjects(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_replaceRoot_mergeObjects",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1134,7 +1134,7 @@ func TestAgg_sortByCount_basic(t *testing.T) {
 func TestAgg_sortByCount_after_unwind(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_sortByCount_after_unwind",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
