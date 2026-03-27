@@ -2007,10 +2007,12 @@ func TestAggPipeline_multiStage_UnwindThenGroup(t *testing.T) {
 		Name:    "AggPipeline_multiStage_UnwindThenGroup",
 		Support: harness.DongoXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			// Use distinct per-tag counts so $sortByCount output is deterministic.
+			// go=3, db=2, api=1 — no ties means a stable comparison regardless of implementation.
 			_, err := col.InsertMany(ctx, []interface{}{
-				bson.D{{Key: "_id", Value: "p1"}, {Key: "tags", Value: bson.A{"go", "db"}}},
-				bson.D{{Key: "_id", Value: "p2"}, {Key: "tags", Value: bson.A{"go", "api"}}},
-				bson.D{{Key: "_id", Value: "p3"}, {Key: "tags", Value: bson.A{"db", "api"}}},
+				bson.D{{Key: "_id", Value: "p1"}, {Key: "tags", Value: bson.A{"go", "db", "api"}}},
+				bson.D{{Key: "_id", Value: "p2"}, {Key: "tags", Value: bson.A{"go", "db"}}},
+				bson.D{{Key: "_id", Value: "p3"}, {Key: "tags", Value: bson.A{"go"}}},
 			})
 			return err
 		},
