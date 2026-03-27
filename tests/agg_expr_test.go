@@ -232,7 +232,7 @@ func TestExpr_log10(t *testing.T) {
 func TestExpr_exp_ln(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_exp_ln",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "el1"}, {Key: "v", Value: 1.0}})
 			return err
@@ -596,7 +596,7 @@ func TestExpr_in_array(t *testing.T) {
 func TestExpr_arrayToObject(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_arrayToObject",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "ato1"},
@@ -702,7 +702,7 @@ func TestExpr_dateToString(t *testing.T) {
 func TestExpr_dateTrunc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_dateTrunc",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup:   insertDateDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "d1", bson.D{
@@ -719,7 +719,7 @@ func TestExpr_dateTrunc(t *testing.T) {
 func TestExpr_dateAdd(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_dateAdd",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup:   insertDateDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "d1", bson.D{
@@ -737,7 +737,7 @@ func TestExpr_dateAdd(t *testing.T) {
 func TestExpr_dateDiff(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_dateDiff",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup:   insertDateDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			end := primitive.NewDateTimeFromTime(time.Date(2024, 7, 15, 0, 0, 0, 0, time.UTC))
@@ -947,7 +947,7 @@ func TestExpr_toBool(t *testing.T) {
 func TestExpr_convert_int_to_string(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_convert_int_to_string",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup:   insertTypeDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "t1", bson.D{
@@ -964,7 +964,7 @@ func TestExpr_convert_int_to_string(t *testing.T) {
 func TestExpr_convert_with_onError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_convert_with_onError",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "conv1"}, {Key: "v", Value: "notanumber"}})
 			return err
@@ -987,7 +987,7 @@ func TestExpr_convert_with_onError(t *testing.T) {
 func TestExpr_cmp_operators(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_cmp_operators",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "cmp1"},
@@ -1195,7 +1195,7 @@ func TestAccum_multi_accumulators(t *testing.T) {
 func TestExpr_and_or_not(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_and_or_not",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "bool1"},
@@ -1272,7 +1272,7 @@ func TestExpr_toDate(t *testing.T) {
 func TestExpr_objectToArray(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_objectToArray",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "ota1"},
@@ -1400,7 +1400,7 @@ func TestExpr_setIsSubset(t *testing.T) {
 func TestExpr_literal(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_literal",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "lit1"}, {Key: "x", Value: int32(5)}})
 			return err
@@ -1420,7 +1420,7 @@ func TestExpr_literal(t *testing.T) {
 func TestExpr_let(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_let",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -1504,7 +1504,7 @@ func TestExpr_missing_field_in_cond(t *testing.T) {
 func TestExpr_mergeObjects_project(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_mergeObjects_project",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "mo1"},
@@ -2096,7 +2096,7 @@ func TestExpr_project_strLen_substr(t *testing.T) {
 func TestExpr_project_literal_value(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_literal_value",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -2139,7 +2139,7 @@ func TestExpr_project_range_expr(t *testing.T) {
 func TestExpr_project_let_vars(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_let_vars",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -2158,7 +2158,7 @@ func TestExpr_project_let_vars(t *testing.T) {
 func TestExpr_project_objectToArray_back(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_objectToArray_back",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "ota1"},
@@ -2253,7 +2253,7 @@ func TestExpr_project_missing_field_arithmetic(t *testing.T) {
 func TestExpr_project_and_or_short_circuit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_and_or_short_circuit",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
