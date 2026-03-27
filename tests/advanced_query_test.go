@@ -963,7 +963,7 @@ func TestAdvancedQuery_JsonSchema_NoMatch(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_Title_Description(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_Title_Description",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertJsonSchemaDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// title and description annotations are ignored by the validator
@@ -992,7 +992,7 @@ func TestAdvancedQuery_JsonSchema_Title_Description(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_MinLength_MaxLength(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_MinLength_MaxLength",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "s1"}, {Key: "code", Value: "AB"}},   // too short
@@ -1027,7 +1027,7 @@ func TestAdvancedQuery_JsonSchema_MinLength_MaxLength(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_Pattern(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_Pattern",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "p1"}, {Key: "email", Value: "user@example.com"}},
@@ -1060,7 +1060,7 @@ func TestAdvancedQuery_JsonSchema_Pattern(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_ArrayItems(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_ArrayItems",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a1"}, {Key: "tags", Value: bson.A{"go", "db"}}},
@@ -1094,7 +1094,7 @@ func TestAdvancedQuery_JsonSchema_ArrayItems(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_MinItems_MaxItems(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_MinItems_MaxItems",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "mi1"}, {Key: "tags", Value: bson.A{"a"}}},
@@ -1163,7 +1163,7 @@ func TestAdvancedQuery_JsonSchema_MultipleOf(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_AdditionalProperties_False(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_AdditionalProperties_False",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "ap1"}, {Key: "name", Value: "Alice"}, {Key: "age", Value: int32(25)}},
@@ -1194,7 +1194,7 @@ func TestAdvancedQuery_JsonSchema_AdditionalProperties_False(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_Combined_WithRegularQuery(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_Combined_WithRegularQuery",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertJsonSchemaDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -1220,7 +1220,7 @@ func TestAdvancedQuery_JsonSchema_Combined_WithRegularQuery(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_BsonType_Double(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_BsonType_Double",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "d1"}, {Key: "val", Value: 3.14}},
@@ -1250,7 +1250,7 @@ func TestAdvancedQuery_JsonSchema_BsonType_Double(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_BsonType_Bool(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_BsonType_Bool",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "b1"}, {Key: "active", Value: true}},
@@ -1281,7 +1281,7 @@ func TestAdvancedQuery_JsonSchema_BsonType_Bool(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_BsonType_Array_Constraint(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_BsonType_Array_Constraint",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "ar1"}, {Key: "items", Value: bson.A{1, 2, 3}}},
@@ -1311,7 +1311,7 @@ func TestAdvancedQuery_JsonSchema_BsonType_Array_Constraint(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_BsonType_Null(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_BsonType_Null",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "nl1"}, {Key: "val", Value: nil}},
@@ -1343,7 +1343,7 @@ func TestAdvancedQuery_JsonSchema_BsonType_Null(t *testing.T) {
 func TestAdvancedQuery_TextSearch_DiacriticSensitive(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_TextSearch_DiacriticSensitive",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocsWithTextIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -1363,7 +1363,7 @@ func TestAdvancedQuery_TextSearch_DiacriticSensitive(t *testing.T) {
 func TestAdvancedQuery_TextSearch_EmptyCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_TextSearch_EmptyCollection",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys: bson.D{{Key: "title", Value: "text"}},
@@ -1379,7 +1379,7 @@ func TestAdvancedQuery_TextSearch_EmptyCollection(t *testing.T) {
 func TestAdvancedQuery_TextSearch_FindOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_TextSearch_FindOne",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocsWithTextIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			var doc bson.D
@@ -1398,7 +1398,7 @@ func TestAdvancedQuery_TextSearch_FindOne(t *testing.T) {
 func TestAdvancedQuery_TextSearch_MultiFieldIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_TextSearch_MultiFieldIndex",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocsWithTextIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// "indexes" appears in body of aq2 and aq7
@@ -1435,7 +1435,7 @@ func TestAdvancedQuery_Regex_WordBoundary(t *testing.T) {
 func TestAdvancedQuery_Regex_Multiline_Both_Flags(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Regex_Multiline_Both_Flags",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "mb1"}, {Key: "text", Value: "START\nmiddle\nEND"}},
@@ -1472,7 +1472,7 @@ func TestAdvancedQuery_Regex_OnNonStringField(t *testing.T) {
 func TestAdvancedQuery_Regex_CombinedWithMod(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Regex_CombinedWithMod",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// title matches "^[A-Z]" (capital letter start) AND num % 5 == 0
@@ -1496,7 +1496,7 @@ func TestAdvancedQuery_Regex_CombinedWithMod(t *testing.T) {
 func TestAdvancedQuery_Mod_Divisor3(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Mod_Divisor3",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -1514,7 +1514,7 @@ func TestAdvancedQuery_Mod_Divisor3(t *testing.T) {
 func TestAdvancedQuery_Mod_NegativeDivisor(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Mod_NegativeDivisor",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "nd1"}, {Key: "val", Value: int32(10)}},
@@ -1539,7 +1539,7 @@ func TestAdvancedQuery_Mod_NegativeDivisor(t *testing.T) {
 func TestAdvancedQuery_Mod_OnStringField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Mod_OnStringField",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "sf1"}, {Key: "val", Value: "hello"}},
@@ -1557,7 +1557,7 @@ func TestAdvancedQuery_Mod_OnStringField(t *testing.T) {
 func TestAdvancedQuery_Mod_InOrClause(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Mod_InOrClause",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -1581,7 +1581,7 @@ func TestAdvancedQuery_Mod_InOrClause(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_UniqueItems(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_UniqueItems",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "ui1"}, {Key: "tags", Value: bson.A{"a", "b", "c"}}},
@@ -1614,7 +1614,7 @@ func TestAdvancedQuery_JsonSchema_UniqueItems(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_Not(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_Not",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertJsonSchemaDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -1640,7 +1640,7 @@ func TestAdvancedQuery_JsonSchema_Not(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_AnyOf(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_AnyOf",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertJsonSchemaDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -1669,7 +1669,7 @@ func TestAdvancedQuery_JsonSchema_AnyOf(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_AllOf(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_AllOf",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertJsonSchemaDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -1729,7 +1729,7 @@ func TestAdvancedQuery_JsonSchema_OneOf(t *testing.T) {
 func TestAdvancedQuery_Mod_Divisor1_AllMatch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Mod_Divisor1_AllMatch",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// num % 1 == 0 — every integer matches
@@ -1759,7 +1759,7 @@ func TestAdvancedQuery_Regex_LookaheadUnsupported(t *testing.T) {
 func TestAdvancedQuery_TextSearch_AggregationMatch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_TextSearch_AggregationMatch",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocsWithTextIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $text in aggregation $match stage
@@ -1818,7 +1818,7 @@ func TestAdvancedQuery_JsonSchema_ExclusiveMinimum_Maximum(t *testing.T) {
 func TestAdvancedQuery_Mod_CountWithFilter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Mod_CountWithFilter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Count docs where num is divisible by 5 OR by 3

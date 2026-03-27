@@ -617,7 +617,7 @@ func findSortedIDs(ctx context.Context, col *mongo.Collection, filter, sort inte
 func TestQuery_expr_field_eq(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_expr_field_eq",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "e1"}, {Key: "x", Value: int32(5)}, {Key: "y", Value: int32(5)}},
@@ -637,7 +637,7 @@ func TestQuery_expr_field_eq(t *testing.T) {
 func TestQuery_expr_field_gt(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_expr_field_gt",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "e1"}, {Key: "x", Value: int32(5)}, {Key: "y", Value: int32(3)}},
@@ -657,7 +657,7 @@ func TestQuery_expr_field_gt(t *testing.T) {
 func TestQuery_expr_field_lt(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_expr_field_lt",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "e1"}, {Key: "a", Value: int32(10)}, {Key: "b", Value: int32(20)}},
@@ -677,7 +677,7 @@ func TestQuery_expr_field_lt(t *testing.T) {
 func TestQuery_expr_add(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_expr_add",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "e1"}, {Key: "price", Value: int32(80)}, {Key: "tax", Value: int32(10)}},
@@ -700,7 +700,7 @@ func TestQuery_expr_add(t *testing.T) {
 func TestQuery_expr_subtract(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_expr_subtract",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "e1"}, {Key: "revenue", Value: int32(100)}, {Key: "cost", Value: int32(40)}},
@@ -723,7 +723,7 @@ func TestQuery_expr_subtract(t *testing.T) {
 func TestQuery_expr_multiply(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_expr_multiply",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "e1"}, {Key: "qty", Value: int32(3)}, {Key: "price", Value: int32(50)}},
@@ -746,7 +746,7 @@ func TestQuery_expr_multiply(t *testing.T) {
 func TestQuery_expr_literal_compare(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_expr_literal_compare",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $expr comparing field against literal: find docs where score > 7.0.
@@ -763,7 +763,7 @@ func TestQuery_expr_literal_compare(t *testing.T) {
 func TestQuery_mod_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_mod_basic",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Find docs where age % 5 == 0 (ages 25, 30, 35, 40).
@@ -776,7 +776,7 @@ func TestQuery_mod_basic(t *testing.T) {
 func TestQuery_mod_nonzero_remainder(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_mod_nonzero_remainder",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Find docs where age % 3 == 1.
@@ -789,7 +789,7 @@ func TestQuery_mod_nonzero_remainder(t *testing.T) {
 func TestQuery_mod_even(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_mod_even",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "m1"}, {Key: "val", Value: int32(10)}},
@@ -814,7 +814,7 @@ func TestQuery_mod_even(t *testing.T) {
 func TestQuery_jsonSchema_required(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_jsonSchema_required",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Match docs that have both 'name' and 'score' fields.
@@ -829,7 +829,7 @@ func TestQuery_jsonSchema_required(t *testing.T) {
 func TestQuery_jsonSchema_bsonType(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_jsonSchema_bsonType",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Match docs where 'age' is an integer.
@@ -846,7 +846,7 @@ func TestQuery_jsonSchema_bsonType(t *testing.T) {
 func TestQuery_jsonSchema_properties_minimum(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_jsonSchema_properties_minimum",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Match docs where 'score' exists and is at least 7.0.
@@ -871,7 +871,7 @@ func TestQuery_jsonSchema_properties_minimum(t *testing.T) {
 func TestQuery_regex_multiline(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_regex_multiline",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "r1"}, {Key: "text", Value: "line one\nline two"}},
@@ -894,7 +894,7 @@ func TestQuery_regex_multiline(t *testing.T) {
 func TestQuery_regex_dotall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_regex_dotall",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "r1"}, {Key: "text", Value: "start\nmiddle\nend"}},
@@ -921,7 +921,7 @@ func TestQuery_regex_dotall(t *testing.T) {
 func TestQuery_bitsAllClear_bitmask(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_bitsAllClear_bitmask",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertBitwiseDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// bitmask 2 (bit 1): find docs where bit 1 is clear.
@@ -935,7 +935,7 @@ func TestQuery_bitsAllClear_bitmask(t *testing.T) {
 func TestQuery_bitsAllClear_positions(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_bitsAllClear_positions",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertBitwiseDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Positions [1, 4]: find docs where bits 1 and 4 are both clear.
@@ -948,7 +948,7 @@ func TestQuery_bitsAllClear_positions(t *testing.T) {
 func TestQuery_bitsAllSet_bitmask(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_bitsAllSet_bitmask",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertBitwiseDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// bitmask 5 (0b101): find docs where bits 0 and 2 are both set.
@@ -962,7 +962,7 @@ func TestQuery_bitsAllSet_bitmask(t *testing.T) {
 func TestQuery_bitsAllSet_positions(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_bitsAllSet_positions",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertBitwiseDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Positions [0, 3]: find docs where bits 0 and 3 are both set.
@@ -975,7 +975,7 @@ func TestQuery_bitsAllSet_positions(t *testing.T) {
 func TestQuery_bitsAnyClear_bitmask(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_bitsAnyClear_bitmask",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertBitwiseDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// bitmask 255: find docs where any of bits 0-7 is clear.
@@ -989,7 +989,7 @@ func TestQuery_bitsAnyClear_bitmask(t *testing.T) {
 func TestQuery_bitsAnyClear_positions(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_bitsAnyClear_positions",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertBitwiseDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Positions [0,1,2,3]: find docs where any of bits 0-3 is clear.
@@ -1002,7 +1002,7 @@ func TestQuery_bitsAnyClear_positions(t *testing.T) {
 func TestQuery_bitsAnySet_bitmask(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_bitsAnySet_bitmask",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertBitwiseDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// bitmask 48 (0b110000): find docs where bit 4 or bit 5 is set.
@@ -1016,7 +1016,7 @@ func TestQuery_bitsAnySet_bitmask(t *testing.T) {
 func TestQuery_bitsAnySet_positions(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_bitsAnySet_positions",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertBitwiseDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Positions [4,5,6,7]: find docs where any high bit (4-7) is set.
@@ -1205,7 +1205,7 @@ func TestQuery_elemMatch_embedded_multi_cond(t *testing.T) {
 func TestQuery_array_dot_notation_index(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_array_dot_notation_index",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a1"}, {Key: "vals", Value: bson.A{int32(10), int32(20), int32(30)}}},
@@ -1238,7 +1238,7 @@ func TestQuery_array_dot_notation_subfield(t *testing.T) {
 func TestQuery_all_embedded_docs(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_all_embedded_docs",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "ae1"}, {Key: "items", Value: bson.A{
@@ -1324,7 +1324,7 @@ func TestQuery_nested_document_query(t *testing.T) {
 func TestQuery_deep_nested_dot_notation(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_deep_nested_dot_notation",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "d1"}, {Key: "a", Value: bson.D{
@@ -1418,7 +1418,7 @@ func TestQuery_proj_slice_last_n(t *testing.T) {
 func TestQuery_proj_slice_skip_limit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_proj_slice_skip_limit",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "sl1"}, {Key: "nums", Value: bson.A{int32(1), int32(2), int32(3), int32(4), int32(5)}}},
@@ -1437,7 +1437,7 @@ func TestQuery_proj_slice_skip_limit(t *testing.T) {
 func TestQuery_proj_positional(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_proj_positional",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "p1"}, {Key: "scores", Value: bson.A{int32(70), int32(85), int32(90)}}},
@@ -1457,7 +1457,7 @@ func TestQuery_proj_positional(t *testing.T) {
 func TestQuery_proj_elemMatch_projection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_proj_elemMatch_projection",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertNestedDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $elemMatch in projection: return only the first matching grade per document.
@@ -1554,7 +1554,7 @@ func TestQuery_sort_with_limit(t *testing.T) {
 func TestQuery_sort_on_array_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_sort_on_array_field",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Sort on array field: MongoDB sorts by the minimum element of the array.
@@ -1594,7 +1594,7 @@ func TestQuery_sort_nested_field(t *testing.T) {
 func TestQuery_type_int(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_type_int",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertTypedDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// "int" alias matches BSON int32.
@@ -1606,7 +1606,7 @@ func TestQuery_type_int(t *testing.T) {
 func TestQuery_type_long(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_type_long",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertTypedDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// "long" alias matches BSON int64.
@@ -1642,7 +1642,7 @@ func TestQuery_type_decimal(t *testing.T) {
 func TestQuery_type_objectid(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_type_objectid",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertTypedDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// "objectId" alias matches BSON ObjectID.
@@ -1654,7 +1654,7 @@ func TestQuery_type_objectid(t *testing.T) {
 func TestQuery_type_date(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_type_date",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertTypedDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// "date" alias matches BSON DateTime.
@@ -1666,7 +1666,7 @@ func TestQuery_type_date(t *testing.T) {
 func TestQuery_type_bindata(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_type_bindata",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertTypedDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// "binData" alias matches BSON Binary.
@@ -1678,7 +1678,7 @@ func TestQuery_type_bindata(t *testing.T) {
 func TestQuery_type_null(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_type_null",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertTypedDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// "null" alias matches BSON null values.
@@ -1690,7 +1690,7 @@ func TestQuery_type_null(t *testing.T) {
 func TestQuery_type_array(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_type_array",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertTypedDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// "array" alias matches BSON array fields.
@@ -1702,7 +1702,7 @@ func TestQuery_type_array(t *testing.T) {
 func TestQuery_type_object(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_type_object",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertTypedDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// "object" alias matches BSON embedded documents.
@@ -1714,7 +1714,7 @@ func TestQuery_type_object(t *testing.T) {
 func TestQuery_type_multiple(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_type_multiple",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertTypedDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $type accepts an array of type aliases: match int32 OR int64.
@@ -1853,7 +1853,7 @@ func TestQuery_not_regex(t *testing.T) {
 func TestQuery_nested_and_or(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_nested_and_or",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Nested $and inside $or.
@@ -1896,7 +1896,7 @@ func TestQuery_ne_on_array_field(t *testing.T) {
 func TestQuery_in_mixed_types(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_in_mixed_types",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "mx1"}, {Key: "val", Value: int32(1)}},

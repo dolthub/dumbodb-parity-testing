@@ -376,7 +376,7 @@ func TestGeo_NearSphere_MinDistance(t *testing.T) {
 func TestGeo_NearSphere_MinMax(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_NearSphere_MinMax",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Annular region: 500km–3000km from London.
@@ -524,7 +524,7 @@ func TestGeo_GeoWithin_Polygon_California(t *testing.T) {
 func TestGeo_GeoWithin_Polygon_NoMatch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoWithin_Polygon_NoMatch",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Polygon in the middle of the Pacific — no cities match.
@@ -622,7 +622,7 @@ func TestGeo_GeoIntersects_Point_Exact(t *testing.T) {
 func TestGeo_GeoIntersects_Point_NoMatch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoIntersects_Point_NoMatch",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Point in the ocean — no city documents intersect this point.
@@ -661,7 +661,7 @@ func TestGeo_GeoIntersects_Polygon_Contains(t *testing.T) {
 func TestGeo_GeoIntersects_LineString(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoIntersects_LineString",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// LineString crossing through NYC/Philadelphia area.
@@ -1254,7 +1254,7 @@ func TestGeo_Edge_MissingLocation(t *testing.T) {
 func TestGeo_Edge_EmptyResult(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Edge_EmptyResult",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Very small radius in the middle of the ocean — zero results.

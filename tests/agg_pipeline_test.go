@@ -1776,7 +1776,7 @@ func TestAgg_match_gt_lt_range(t *testing.T) {
 func TestProject_computed_add(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_computed_add",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1800,7 +1800,7 @@ func TestProject_computed_add(t *testing.T) {
 func TestProject_conditional_cond_array_form(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_conditional_cond_array_form",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1828,7 +1828,7 @@ func TestProject_conditional_cond_array_form(t *testing.T) {
 func TestProject_ifNull_default(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_ifNull_default",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1852,7 +1852,7 @@ func TestProject_ifNull_default(t *testing.T) {
 func TestProject_string_toLower_name(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_string_toLower_name",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1873,7 +1873,7 @@ func TestProject_string_toLower_name(t *testing.T) {
 func TestProject_string_concat_category_name(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_string_concat_category_name",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1897,7 +1897,7 @@ func TestProject_string_concat_category_name(t *testing.T) {
 func TestProject_size_tags_array(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_size_tags_array",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1918,7 +1918,7 @@ func TestProject_size_tags_array(t *testing.T) {
 func TestProject_arrayElemAt_first_tag(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_arrayElemAt_first_tag",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1939,7 +1939,7 @@ func TestProject_arrayElemAt_first_tag(t *testing.T) {
 func TestProject_switch_price_tier(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_switch_price_tier",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2177,7 +2177,7 @@ func TestProject_computed_boolean(t *testing.T) {
 func TestProject_toInt_price(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_toInt_price",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2198,7 +2198,7 @@ func TestProject_toInt_price(t *testing.T) {
 func TestProject_toString_qty(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_toString_qty",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2222,7 +2222,7 @@ func TestProject_toString_qty(t *testing.T) {
 func TestProject_in_array_check(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_in_array_check",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2298,7 +2298,7 @@ func TestProject_let_vars_expr(t *testing.T) {
 func TestProject_filter_tags(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_filter_tags",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2327,7 +2327,7 @@ func TestProject_filter_tags(t *testing.T) {
 func TestProject_map_tags_upper(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_map_tags_upper",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2424,7 +2424,7 @@ func TestAddFields_then_match(t *testing.T) {
 func TestProject_slice_tags(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_slice_tags",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{

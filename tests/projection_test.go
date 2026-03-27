@@ -426,7 +426,7 @@ func TestProjection_Slice_AllElements(t *testing.T) {
 func TestProjection_Slice_Tags_FirstOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_Slice_Tags_FirstOne",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -461,7 +461,7 @@ func TestProjection_Slice_NegativeSkip(t *testing.T) {
 func TestProjection_ElemMatch_ScoresGte80(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_ElemMatch_ScoresGte80",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -478,7 +478,7 @@ func TestProjection_ElemMatch_ScoresGte80(t *testing.T) {
 func TestProjection_ElemMatch_ScoresLt70(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_ElemMatch_ScoresLt70",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -495,7 +495,7 @@ func TestProjection_ElemMatch_ScoresLt70(t *testing.T) {
 func TestProjection_ElemMatch_TagsValue(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_ElemMatch_TagsValue",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -512,7 +512,7 @@ func TestProjection_ElemMatch_TagsValue(t *testing.T) {
 func TestProjection_ElemMatch_NoMatchInDoc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_ElemMatch_NoMatchInDoc",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -534,7 +534,7 @@ func TestProjection_ElemMatch_NoMatchInDoc(t *testing.T) {
 func TestProjection_Positional_ScoresGte80(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_Positional_ScoresGte80",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -548,7 +548,7 @@ func TestProjection_Positional_ScoresGte80(t *testing.T) {
 func TestProjection_Positional_TagsGo(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_Positional_TagsGo",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -760,7 +760,7 @@ func TestSort_FourFields(t *testing.T) {
 func TestSort_ArrayField_Ascending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_ArrayField_Ascending",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -774,7 +774,7 @@ func TestSort_ArrayField_Ascending(t *testing.T) {
 func TestSort_ArrayField_Descending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_ArrayField_Descending",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
