@@ -2033,6 +2033,53 @@ func TestAggPipeline_multiStage_UnwindThenGroup(t *testing.T) {
 	})
 }
 
+func TestAggPipeline_multiStage_UnwindThenGroup_tiebreakOrder(t *testing.T) {
+	// Diverge (do-u7ta): $unwind + $sortByCount with all-equal counts — dongo
+	// applies a different (non-spec) tiebreak order than MongoDB.
+	//
+	// Each tag appears exactly twice. Per spec, $sortByCount is equivalent to
+	// {$group: {_id: "$x", count: {$sum:1}}} + {$sort: {count:-1, _id:1}}, so
+	// the secondary ascending sort on _id should produce [api(2), db(2), go(2)].
+	//
+	// In practice MongoDB does not guarantee this order either (it is
+	// non-deterministic when counts are equal), but dongo consistently emits
+	// [go(2), db(2), api(2)] — a fixed internal ordering that neither matches
+	// the spec nor MongoDB's observed output.
+	//
+	// This test was promoted to DongoFull and failed on CI runs 23670354194 and
+	// 23670455337 before being reverted. Keep as DongoXFail until the secondary
+	// sort in dongo's $sortByCount is made spec-compliant.
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AggPipeline_multiStage_UnwindThenGroup_tiebreakOrder",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: "p1"}, {Key: "tags", Value: bson.A{"go", "db"}}},
+				bson.D{{Key: "_id", Value: "p2"}, {Key: "tags", Value: bson.A{"go", "api"}}},
+				bson.D{{Key: "_id", Value: "p3"}, {Key: "tags", Value: bson.A{"db", "api"}}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			// Unwind tags, then count occurrences. All three tags appear exactly
+			// twice (count=2), so sort order is determined entirely by the
+			// secondary _id tiebreaker. Dongo ignores that tiebreaker.
+			cursor, err := col.Aggregate(ctx, bson.A{
+				bson.D{{Key: "$unwind", Value: "$tags"}},
+				bson.D{{Key: "$sortByCount", Value: "$tags"}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cursor.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
+
 func TestAggPipeline_multiStage_ProjectThenSort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggPipeline_multiStage_ProjectThenSort",
