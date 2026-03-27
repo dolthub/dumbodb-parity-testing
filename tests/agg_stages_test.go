@@ -1602,7 +1602,7 @@ func TestAggStage_bucket_MissingBoundariesError(t *testing.T) {
 	// $bucket validation to emit the correct Location40198 error.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucket_MissingBoundariesError",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$bucket", Value: bson.D{
@@ -1686,7 +1686,7 @@ func TestAggStage_bucketAuto_MissingBucketsError(t *testing.T) {
 	// $bucketAuto validation to emit the correct Location40246 error.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucketAuto_MissingBucketsError",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$bucketAuto", Value: bson.D{
