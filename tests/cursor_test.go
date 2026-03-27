@@ -188,7 +188,7 @@ func TestCursor_find_hint_naturalOrder(t *testing.T) {
 func TestCursor_find_hint_idIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_hint_idIndex",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -210,7 +210,7 @@ func TestCursor_find_hint_idIndex(t *testing.T) {
 func TestCursor_find_comment(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_comment",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -232,7 +232,7 @@ func TestCursor_find_comment(t *testing.T) {
 func TestCursor_find_allowDiskUse(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_allowDiskUse",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -254,7 +254,7 @@ func TestCursor_find_allowDiskUse(t *testing.T) {
 func TestCursor_find_readPreference_primary(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_readPreference_primary",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -274,7 +274,7 @@ func TestCursor_find_readPreference_primary(t *testing.T) {
 func TestCursor_find_readPreference_primaryPreferred(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_readPreference_primaryPreferred",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -296,7 +296,7 @@ func TestCursor_find_readPreference_primaryPreferred(t *testing.T) {
 func TestCursor_sort_multiField_groupThenVal(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_sort_multiField_groupThenVal",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -315,7 +315,7 @@ func TestCursor_sort_multiField_groupThenVal(t *testing.T) {
 func TestCursor_sort_multiField_valThenId(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_sort_multiField_valThenId",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -336,7 +336,7 @@ func TestCursor_sort_multiField_valThenId(t *testing.T) {
 func TestCursor_skipLimit_page1(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_skipLimit_page1",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -356,7 +356,7 @@ func TestCursor_skipLimit_page1(t *testing.T) {
 func TestCursor_skipLimit_page2(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_skipLimit_page2",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -376,7 +376,7 @@ func TestCursor_skipLimit_page2(t *testing.T) {
 func TestCursor_skipLimit_beyondEnd(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_skipLimit_beyondEnd",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -399,7 +399,7 @@ func TestCursor_skipLimit_beyondEnd(t *testing.T) {
 func TestCursor_skipOnly(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_skipOnly",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -419,7 +419,7 @@ func TestCursor_skipOnly(t *testing.T) {
 func TestCursor_limitOnly(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_limitOnly",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -444,7 +444,7 @@ func TestCursor_limitOnly(t *testing.T) {
 func TestCursor_aggregate_batchSize(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_aggregate_batchSize",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Aggregate().SetBatchSize(2)
@@ -463,7 +463,7 @@ func TestCursor_aggregate_batchSize(t *testing.T) {
 func TestCursor_aggregate_allowDiskUse(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_aggregate_allowDiskUse",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Aggregate().SetAllowDiskUse(true)
@@ -483,7 +483,7 @@ func TestCursor_aggregate_allowDiskUse(t *testing.T) {
 func TestCursor_aggregate_maxTimeMS(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_aggregate_maxTimeMS",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			dur := 5 * time.Second
@@ -506,7 +506,7 @@ func TestCursor_aggregate_maxTimeMS(t *testing.T) {
 func TestCursor_findOne_sort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_findOne_sort",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOne().SetSort(bson.D{{Key: "val", Value: -1}})
@@ -529,7 +529,7 @@ func TestCursor_findOne_sort(t *testing.T) {
 func TestCursor_findOne_skip(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_findOne_skip",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOne().

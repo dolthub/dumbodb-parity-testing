@@ -338,7 +338,7 @@ func TestIndex_Unique_Compound(t *testing.T) {
 func TestIndex_Sparse_CreateOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Sparse_CreateOne",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			sparse := true
 			model := mongo.IndexModel{
@@ -357,7 +357,7 @@ func TestIndex_Sparse_CreateOne(t *testing.T) {
 func TestIndex_Sparse_OmitsMissingField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Sparse_OmitsMissingField",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "s1"}, {Key: "opt", Value: "yes"}},
@@ -562,7 +562,7 @@ func TestIndex_Partial_WithExistsFilter(t *testing.T) {
 func TestIndex_Wildcard_AllFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Wildcard_AllFields",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "$**", Value: 1}}}
 			name, err := col.Indexes().CreateOne(ctx, model)
@@ -577,7 +577,7 @@ func TestIndex_Wildcard_AllFields(t *testing.T) {
 func TestIndex_Wildcard_SpecificSubPath(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Wildcard_SpecificSubPath",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "metadata.$**", Value: 1}}}
 			name, err := col.Indexes().CreateOne(ctx, model)
@@ -592,7 +592,7 @@ func TestIndex_Wildcard_SpecificSubPath(t *testing.T) {
 func TestIndex_Wildcard_QueryUnindexedField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Wildcard_QueryUnindexedField",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "$**", Value: 1}}}
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
@@ -621,7 +621,7 @@ func TestIndex_Wildcard_QueryUnindexedField(t *testing.T) {
 func TestIndex_Text_CreateOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Text_CreateOne",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "content", Value: "text"}}}
 			name, err := col.Indexes().CreateOne(ctx, model)
@@ -636,7 +636,7 @@ func TestIndex_Text_CreateOne(t *testing.T) {
 func TestIndex_Text_MultipleFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Text_MultipleFields",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			model := mongo.IndexModel{Keys: bson.D{
 				{Key: "title", Value: "text"},
@@ -654,7 +654,7 @@ func TestIndex_Text_MultipleFields(t *testing.T) {
 func TestIndex_Text_SearchQuery(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Text_SearchQuery",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "content", Value: "text"}}}
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
@@ -682,7 +682,7 @@ func TestIndex_Text_SearchQuery(t *testing.T) {
 func TestIndex_Text_WithLanguage(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Text_WithLanguage",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			model := mongo.IndexModel{
 				Keys:    bson.D{{Key: "content", Value: "text"}},
@@ -910,7 +910,7 @@ func TestIndex_CreateMany_ThreeCompound(t *testing.T) {
 func TestIndex_ListIndexes_EmptyCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_ListIndexes_EmptyCollection",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cur, err := col.Indexes().List(ctx)
 			if err != nil {
@@ -929,7 +929,7 @@ func TestIndex_ListIndexes_EmptyCollection(t *testing.T) {
 func TestIndex_ListIndexes_AfterCreate(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_ListIndexes_AfterCreate",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			models := []mongo.IndexModel{
 				{Keys: bson.D{{Key: "name", Value: 1}}},
@@ -980,7 +980,7 @@ func TestIndex_ListIndexes_AfterDrop(t *testing.T) {
 func TestIndex_ListIndexes_VerifyNames(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_ListIndexes_VerifyNames",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "field", Value: 1}}}
 			indexName, err := col.Indexes().CreateOne(ctx, model)
@@ -1015,7 +1015,7 @@ func TestIndex_ListIndexes_VerifyNames(t *testing.T) {
 func TestIndex_DropOne_NonExistent(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_DropOne_NonExistent",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Indexes().DropOne(ctx, "nonexistent_index_1")
 			if err != nil {
@@ -1029,7 +1029,7 @@ func TestIndex_DropOne_NonExistent(t *testing.T) {
 func TestIndex_DropOne_IdIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_DropOne_IdIndex",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Indexes().DropOne(ctx, "_id_")
 			if err != nil {
@@ -1068,7 +1068,7 @@ func TestIndex_DropAll_AfterCreateMany(t *testing.T) {
 func TestIndex_Hint_Find_ByName(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Hint_Find_ByName",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "score", Value: 1}}}
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
@@ -1099,7 +1099,7 @@ func TestIndex_Hint_Find_ByName(t *testing.T) {
 func TestIndex_Hint_Find_BySpec(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Hint_Find_BySpec",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "name", Value: 1}}}
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
@@ -1129,7 +1129,7 @@ func TestIndex_Hint_Find_BySpec(t *testing.T) {
 func TestIndex_Hint_IdIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Hint_IdIndex",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "h1"}, {Key: "x", Value: 1}},
@@ -1155,7 +1155,7 @@ func TestIndex_Hint_IdIndex(t *testing.T) {
 func TestIndex_Hint_NonExistentIndexError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Hint_NonExistentIndexError",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cur, err := col.Find(ctx, bson.D{},
 				options.Find().SetHint("nonexistent_idx"))
@@ -1178,7 +1178,7 @@ func TestIndex_Hint_NonExistentIndexError(t *testing.T) {
 func TestIndex_Explain_WithHint(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Explain_WithHint",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "score", Value: 1}}}
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
@@ -1412,7 +1412,7 @@ func TestIndex_CreateMany_Empty(t *testing.T) {
 func TestIndex_CreateOne_DuplicateConflictingSpec(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_CreateOne_DuplicateConflictingSpec",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Create index with name A
 			model1 := mongo.IndexModel{
@@ -1439,7 +1439,7 @@ func TestIndex_CreateOne_DuplicateConflictingSpec(t *testing.T) {
 func TestIndex_Hint_Aggregate(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Hint_Aggregate",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "score", Value: 1}}}
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
@@ -1476,7 +1476,7 @@ func TestIndex_Hint_Aggregate(t *testing.T) {
 func TestIndex_Unique_NullValues(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Unique_NullValues",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			unique := true
 			model := mongo.IndexModel{
@@ -1737,7 +1737,7 @@ func TestIndex_Collation_UniqueWithCollation(t *testing.T) {
 func TestIndex_Sparse_CreateAndQuery(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Sparse_CreateAndQuery",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			sparse := true
 			model := mongo.IndexModel{
@@ -1767,7 +1767,7 @@ func TestIndex_Sparse_CreateAndQuery(t *testing.T) {
 func TestIndex_Sparse_Drop(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Sparse_Drop",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			sparse := true
 			model := mongo.IndexModel{
@@ -1864,7 +1864,7 @@ func TestIndex_Partial_CompoundKeys(t *testing.T) {
 func TestIndex_Text_WeightedFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Text_WeightedFields",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			model := mongo.IndexModel{
 				Keys: bson.D{
@@ -1888,7 +1888,7 @@ func TestIndex_Text_WeightedFields(t *testing.T) {
 func TestIndex_Text_PhrasedSearch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Text_PhrasedSearch",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "body", Value: "text"}}}
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
@@ -1916,7 +1916,7 @@ func TestIndex_Text_PhrasedSearch(t *testing.T) {
 func TestIndex_Text_ExcludeWord(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Text_ExcludeWord",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "content", Value: "text"}}}
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
@@ -2039,7 +2039,7 @@ func TestIndex_2dsphere_GeoIntersects(t *testing.T) {
 func TestIndex_Hashed_CannotBeUnique(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Hashed_CannotBeUnique",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			unique := true
 			model := mongo.IndexModel{
@@ -2062,7 +2062,7 @@ func TestIndex_Hashed_CannotBeUnique(t *testing.T) {
 func TestIndex_Hint_FindOne_ByName(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Hint_FindOne_ByName",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "val", Value: 1}}}
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
@@ -2086,7 +2086,7 @@ func TestIndex_Hint_FindOne_ByName(t *testing.T) {
 func TestIndex_Hint_CountDocuments(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Hint_CountDocuments",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "status", Value: 1}}}
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
@@ -2119,7 +2119,7 @@ func TestIndex_Hint_CountDocuments(t *testing.T) {
 func TestIndex_ListIndexes_AfterDropAll(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_ListIndexes_AfterDropAll",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			models := []mongo.IndexModel{
 				{Keys: bson.D{{Key: "x", Value: 1}}},
@@ -2148,7 +2148,7 @@ func TestIndex_ListIndexes_AfterDropAll(t *testing.T) {
 func TestIndex_ListIndexes_CheckKeys(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_ListIndexes_CheckKeys",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "username", Value: 1}}}
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
@@ -2174,7 +2174,7 @@ func TestIndex_ListIndexes_CheckKeys(t *testing.T) {
 func TestIndex_CreateMany_MixedTypes(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_CreateMany_MixedTypes",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			sparse := true
 			unique := true
@@ -2229,7 +2229,7 @@ func TestIndex_CreateMany_WithCustomNames(t *testing.T) {
 func TestIndex_Explain_CollectionScan(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Explain_CollectionScan",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "x", Value: int32(1)}},
@@ -2256,7 +2256,7 @@ func TestIndex_Explain_CollectionScan(t *testing.T) {
 func TestIndex_Explain_UpdateWithHint(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Explain_UpdateWithHint",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "k", Value: 1}}}
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {

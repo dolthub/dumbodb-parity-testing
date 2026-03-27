@@ -1475,7 +1475,7 @@ func TestUpdateMany_upsert(t *testing.T) {
 func TestFindOneAndUpdate_returnBefore(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndUpdate_returnBefore",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndUpdate().
@@ -1495,7 +1495,7 @@ func TestFindOneAndUpdate_returnBefore(t *testing.T) {
 func TestFindOneAndUpdate_returnAfter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndUpdate_returnAfter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndUpdate().
@@ -1517,7 +1517,7 @@ func TestFindOneAndUpdate_returnAfter(t *testing.T) {
 func TestFindOneAndReplace_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndReplace_basic",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndReplace().
@@ -1537,7 +1537,7 @@ func TestFindOneAndReplace_basic(t *testing.T) {
 func TestFindOneAndReplace_returnAfter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndReplace_returnAfter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndReplace().
@@ -1557,7 +1557,7 @@ func TestFindOneAndReplace_returnAfter(t *testing.T) {
 func TestFindOneAndReplace_upsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndReplace_upsert",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndReplace().
 				SetUpsert(true).
@@ -1576,7 +1576,7 @@ func TestFindOneAndReplace_upsert(t *testing.T) {
 func TestFindOneAndReplace_no_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndReplace_no_match",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			var result bson.D
 			err := col.FindOneAndReplace(ctx,
@@ -1593,7 +1593,7 @@ func TestFindOneAndReplace_no_match(t *testing.T) {
 func TestFindOneAndDelete_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndDelete_basic",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndDelete().
@@ -1611,7 +1611,7 @@ func TestFindOneAndDelete_basic(t *testing.T) {
 func TestFindOneAndDelete_sort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndDelete_sort",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Delete the doc with the highest score
@@ -1628,7 +1628,7 @@ func TestFindOneAndDelete_sort(t *testing.T) {
 func TestFindOneAndDelete_no_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndDelete_no_match",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			var result bson.D
 			err := col.FindOneAndDelete(ctx,
@@ -1690,7 +1690,7 @@ func TestCountDocuments_empty(t *testing.T) {
 func TestCountDocuments_skip(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CountDocuments_skip",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Count().SetSkip(1)
@@ -1706,7 +1706,7 @@ func TestCountDocuments_skip(t *testing.T) {
 func TestCountDocuments_limit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CountDocuments_limit",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Count().SetLimit(2)
@@ -1748,7 +1748,7 @@ func TestCountDocuments_nested_filter(t *testing.T) {
 func TestEstimatedDocumentCount_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "EstimatedDocumentCount_basic",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.EstimatedDocumentCount(ctx)
@@ -1767,7 +1767,7 @@ func TestEstimatedDocumentCount_basic(t *testing.T) {
 func TestEstimatedDocumentCount_empty(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "EstimatedDocumentCount_empty",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.EstimatedDocumentCount(ctx)
 			if err != nil {
@@ -1783,7 +1783,7 @@ func TestEstimatedDocumentCount_empty(t *testing.T) {
 func TestDistinct_string_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Distinct_string_field",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := col.Distinct(ctx, "name", bson.D{})
@@ -1798,7 +1798,7 @@ func TestDistinct_string_field(t *testing.T) {
 func TestDistinct_nested_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Distinct_nested_field",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "d1"}, {Key: "addr", Value: bson.D{{Key: "city", Value: "NYC"}}}},
@@ -1820,7 +1820,7 @@ func TestDistinct_nested_field(t *testing.T) {
 func TestDistinct_array_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Distinct_array_field",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Distinct on an array field returns individual elements
@@ -1836,7 +1836,7 @@ func TestDistinct_array_field(t *testing.T) {
 func TestDistinct_with_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Distinct_with_filter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := col.Distinct(ctx, "name",
@@ -1853,7 +1853,7 @@ func TestDistinct_with_filter(t *testing.T) {
 func TestDistinct_no_results(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Distinct_no_results",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := col.Distinct(ctx, "name", bson.D{})
 			if err != nil {

@@ -550,7 +550,7 @@ func TestDB_RunCommand_CollStats(t *testing.T) {
 func TestDB_RunCommand_ListIndexes(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_ListIndexes",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// listIndexes returns a cursor-like response with index specs.
@@ -589,7 +589,7 @@ func TestDB_RunCommand_ListCollections(t *testing.T) {
 func TestDB_RunCommand_Create(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_Create",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// create command creates a collection.
@@ -601,7 +601,7 @@ func TestDB_RunCommand_Create(t *testing.T) {
 func TestDB_RunCommand_Drop(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_Drop",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// drop command via RunCommand.

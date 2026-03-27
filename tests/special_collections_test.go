@@ -19,7 +19,7 @@ import (
 func TestCapped_CreateCollection_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_CreateCollection_Basic",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_basic"
@@ -36,7 +36,7 @@ func TestCapped_CreateCollection_Basic(t *testing.T) {
 func TestCapped_CreateCollection_WithMax(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_CreateCollection_WithMax",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_withmax"
@@ -53,7 +53,7 @@ func TestCapped_CreateCollection_WithMax(t *testing.T) {
 func TestCapped_InsertAndEviction(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_InsertAndEviction",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_eviction"
@@ -84,7 +84,7 @@ func TestCapped_InsertAndEviction(t *testing.T) {
 func TestCapped_NaturalOrderCursor(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_NaturalOrderCursor",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_natural"
@@ -129,7 +129,7 @@ func TestCapped_NaturalOrderCursor(t *testing.T) {
 func TestCapped_NaturalOrderReverse(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_NaturalOrderReverse",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_natural_rev"
@@ -163,7 +163,7 @@ func TestCapped_NaturalOrderReverse(t *testing.T) {
 func TestCapped_TailableCursor(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_TailableCursor",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_tailable"
@@ -203,7 +203,7 @@ func TestCapped_TailableCursor(t *testing.T) {
 func TestCapped_DeleteFails(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_DeleteFails",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_delete"
@@ -230,7 +230,7 @@ func TestCapped_DeleteFails(t *testing.T) {
 func TestCapped_UpdateGrowthFails(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_UpdateGrowthFails",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_grow"
@@ -261,7 +261,7 @@ func TestCapped_UpdateGrowthFails(t *testing.T) {
 func TestCapped_InsertMany_ExceedMax(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_InsertMany_ExceedMax",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_insertmany"
@@ -292,7 +292,7 @@ func TestCapped_InsertMany_ExceedMax(t *testing.T) {
 func TestCapped_IsCapped_CollStats(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_IsCapped_CollStats",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_stats"
@@ -355,7 +355,7 @@ func TestView_CreateFromCollection_Basic(t *testing.T) {
 func TestView_CreateWithProjection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_CreateWithProjection",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "name", Value: "Alice"}, {Key: "secret", Value: "s1"}, {Key: "score", Value: int32(10)}},
@@ -391,7 +391,7 @@ func TestView_CreateWithProjection(t *testing.T) {
 func TestView_QueryIsReadOnly(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_QueryIsReadOnly",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}})
 			return err
@@ -509,7 +509,7 @@ func TestView_WithMatchPipeline(t *testing.T) {
 func TestView_ListCollections_ShowsView(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_ListCollections_ShowsView",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}})
 			return err
@@ -1237,7 +1237,7 @@ func TestCapped_SmallSize_ManyInserts(t *testing.T) {
 func TestCapped_Find_AfterEviction(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_Find_AfterEviction",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_find_evict"
@@ -1480,7 +1480,7 @@ func TestView_DropAndRecreate(t *testing.T) {
 func TestCapped_CreateIndex_Fails(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_CreateIndex_Fails",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_idx"
@@ -1543,7 +1543,7 @@ func TestTimeSeries_DistinctOnMetaField(t *testing.T) {
 func TestCapped_CountDocuments_Empty(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_CountDocuments_Empty",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_count_empty"
@@ -1566,7 +1566,7 @@ func TestCapped_CountDocuments_Empty(t *testing.T) {
 func TestCapped_FindOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_FindOne",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_findone"
@@ -1639,7 +1639,7 @@ func TestTimeSeries_FindAll(t *testing.T) {
 func TestView_Sort_OnView(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_Sort_OnView",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "val", Value: int32(3)}},
@@ -1674,7 +1674,7 @@ func TestView_Sort_OnView(t *testing.T) {
 func TestCapped_UpdateSameSize_Succeeds(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_UpdateSameSize_Succeeds",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_upd_same"
