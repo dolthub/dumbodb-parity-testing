@@ -388,6 +388,37 @@ func TestGeo_geoWithin_Box(t *testing.T) {
 
 // ─── $geoIntersects ───────────────────────────────────────────────────────────
 
+// TestGeo_GeoIntersects_LineString verifies $geoIntersects with a LineString
+// query geometry. Dongo does not implement LineString as a query geometry for
+// $geoIntersects (tracked in do-ba7n), so this is DongoXFail.
+func TestGeo_GeoIntersects_LineString(t *testing.T) {
+	// Query line crosses from west to east through the NYC bounding box.
+	queryLine := geoLineString(coord(-74.5, 40.7), coord(-73.5, 40.7))
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Geo_GeoIntersects_LineString",
+		Support: harness.DongoXFail,
+		Setup: geo2dSphereSetup("geo",
+			bson.D{{Key: "_id", Value: "poly-intersects"}, {Key: "geo", Value: geoPolygon(
+				coord(-74.3, 40.5), coord(-73.7, 40.5),
+				coord(-73.7, 40.9), coord(-74.3, 40.9),
+				coord(-74.3, 40.5),
+			)}},
+			bson.D{{Key: "_id", Value: "poly-disjoint"}, {Key: "geo", Value: geoPolygon(
+				coord(-80.0, 35.0), coord(-79.0, 35.0),
+				coord(-79.0, 36.0), coord(-80.0, 36.0),
+				coord(-80.0, 35.0),
+			)}},
+			bson.D{{Key: "_id", Value: "point-on-line"}, {Key: "geo", Value: geoPoint(-74.0, 40.7)}},
+		),
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			filter := bson.D{{Key: "geo", Value: bson.D{{Key: "$geoIntersects", Value: bson.D{
+				{Key: "$geometry", Value: queryLine},
+			}}}}}
+			return geoFindSortedIDs(ctx, col, filter)
+		},
+	})
+}
+
 func TestGeo_geoIntersects_Polygon(t *testing.T) {
 	queryPoly := geoPolygon(
 		coord(-74.3, 40.5), coord(-73.7, 40.5),

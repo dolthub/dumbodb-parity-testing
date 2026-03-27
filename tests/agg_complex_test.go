@@ -1093,3 +1093,84 @@ func TestAggComplex_setWindowFields_simple(t *testing.T) {
 		},
 	})
 }
+
+// ─── targeted divergence tests ────────────────────────────────────────────────
+
+// TestAggComplex_sortByCount_TieBreaking captures the ordering divergence when
+// multiple values share the same count. MongoDB and dongo break ties differently.
+func TestAggComplex_sortByCount_TieBreaking(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AggComplex_sortByCount_TieBreaking",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: "d1"}, {Key: "cat", Value: "x"}},
+				bson.D{{Key: "_id", Value: "d2"}, {Key: "cat", Value: "x"}},
+				bson.D{{Key: "_id", Value: "d3"}, {Key: "cat", Value: "y"}},
+				bson.D{{Key: "_id", Value: "d4"}, {Key: "cat", Value: "y"}},
+				bson.D{{Key: "_id", Value: "d5"}, {Key: "cat", Value: "z"}},
+				bson.D{{Key: "_id", Value: "d6"}, {Key: "cat", Value: "z"}},
+				bson.D{{Key: "_id", Value: "d7"}, {Key: "cat", Value: "w"}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			// x=2, y=2, z=2, w=1 — three-way tie at count=2 exposes ordering divergence.
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$sortByCount", Value: "$cat"}},
+			})
+			return docsToSlice(results), err
+		},
+	})
+}
+
+// TestAggComplex_matchUnwindGroupSort_SameTotalQty captures the sort ordering
+// divergence when grouped items have equal totalQty after unwind+group.
+func TestAggComplex_matchUnwindGroupSort_SameTotalQty(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AggComplex_matchUnwindGroupSort_SameTotalQty",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{
+					{Key: "_id", Value: "r1"},
+					{Key: "status", Value: "active"},
+					{Key: "items", Value: bson.A{
+						bson.D{{Key: "sku", Value: "P"}, {Key: "qty", Value: int32(3)}},
+						bson.D{{Key: "sku", Value: "Q"}, {Key: "qty", Value: int32(3)}},
+					}},
+				},
+				bson.D{
+					{Key: "_id", Value: "r2"},
+					{Key: "status", Value: "active"},
+					{Key: "items", Value: bson.A{
+						bson.D{{Key: "sku", Value: "P"}, {Key: "qty", Value: int32(2)}},
+						bson.D{{Key: "sku", Value: "R"}, {Key: "qty", Value: int32(5)}},
+					}},
+				},
+				bson.D{
+					{Key: "_id", Value: "r3"},
+					{Key: "status", Value: "active"},
+					{Key: "items", Value: bson.A{
+						bson.D{{Key: "sku", Value: "Q"}, {Key: "qty", Value: int32(2)}},
+						bson.D{{Key: "sku", Value: "R"}, {Key: "qty", Value: int32(0)}},
+					}},
+				},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			// After grouping: P=5, Q=5, R=5 — three-way tie after summing qty.
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "status", Value: "active"}}}},
+				{{Key: "$unwind", Value: "$items"}},
+				{{Key: "$group", Value: bson.D{
+					{Key: "_id", Value: "$items.sku"},
+					{Key: "totalQty", Value: bson.D{{Key: "$sum", Value: "$items.qty"}}},
+				}}},
+				{{Key: "$sort", Value: bson.D{{Key: "totalQty", Value: -1}}}},
+			})
+			return docsToSlice(results), err
+		},
+	})
+}
