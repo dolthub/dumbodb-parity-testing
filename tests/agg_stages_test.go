@@ -705,6 +705,10 @@ func TestAggStage_limit_LimitExceedsCollection(t *testing.T) {
 }
 
 func TestAggStage_limit_LimitZeroError(t *testing.T) {
+	// Diverge (do-l3td): $limit:0 — same error code (Location15958) but
+	// different capitalisation in the message. Mongo: "the limit must be
+	// positive"; dongo: "The limit must be positive". Keep XFail until dongo
+	// normalises the message casing.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_limit_LimitZeroError",
 		Support: harness.DongoXFail,
@@ -1555,6 +1559,9 @@ func TestAggStage_bucket_WithDefault(t *testing.T) {
 }
 
 func TestAggStage_bucket_MissingBoundariesError(t *testing.T) {
+	// Diverge (do-slq1): $bucket without a boundaries field — mongo returns
+	// error code 40198; dongo returns code 9 (FailedToParse). Fix in dongo's
+	// $bucket validation to emit the correct Location40198 error.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucket_MissingBoundariesError",
 		Support: harness.DongoXFail,
@@ -1636,6 +1643,9 @@ func TestAggStage_bucketAuto_ThreeBuckets(t *testing.T) {
 }
 
 func TestAggStage_bucketAuto_MissingBucketsError(t *testing.T) {
+	// Diverge (do-slq1): $bucketAuto without a buckets field — mongo returns
+	// error code 40246; dongo returns code 9 (FailedToParse). Fix in dongo's
+	// $bucketAuto validation to emit the correct Location40246 error.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucketAuto_MissingBucketsError",
 		Support: harness.DongoXFail,
@@ -2162,6 +2172,10 @@ func TestAggStage_unsupportedErrors_search(t *testing.T) {
 // ─── Error cases ──────────────────────────────────────────────────────────────
 
 func TestAggStage_unknownStageError(t *testing.T) {
+	// Diverge (do-gx4x): unknown aggregation stage — mongo returns error code
+	// 40324 (Location40324); dongo returns 40234 (Location40234). A separate
+	// documented variant (TestAggStage_unknown_stage_error) also captures the
+	// quote-style difference in the message text.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unknownStageError",
 		Support: harness.DongoFull,
