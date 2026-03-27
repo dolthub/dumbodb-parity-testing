@@ -1624,3 +1624,780 @@ func TestExpr_array_map_filter_size(t *testing.T) {
 		},
 	})
 }
+
+// ─── $addFields in expression context ────────────────────────────────────────
+
+func TestExpr_addFields_arithmetic(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_addFields_arithmetic",
+		Support: harness.DongoXFail,
+		Setup:   insertNumDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cursor, err := col.Aggregate(ctx, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "n1"}}}},
+				{{Key: "$addFields", Value: bson.D{
+					{Key: "sum", Value: bson.D{{Key: "$add", Value: bson.A{"$a", "$b"}}}},
+					{Key: "product", Value: bson.D{{Key: "$multiply", Value: bson.A{"$a", "$b"}}}},
+					{Key: "diff", Value: bson.D{{Key: "$subtract", Value: bson.A{"$a", "$b"}}}},
+					{Key: "quot", Value: bson.D{{Key: "$divide", Value: bson.A{"$a", "$b"}}}},
+				}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "sum", Value: 1},
+					{Key: "product", Value: 1},
+					{Key: "diff", Value: 1},
+					{Key: "quot", Value: 1},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cursor.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+func TestExpr_addFields_conditional(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_addFields_conditional",
+		Support: harness.DongoXFail,
+		Setup:   insertNumDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cursor, err := col.Aggregate(ctx, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "n1"}}}},
+				{{Key: "$addFields", Value: bson.D{
+					{Key: "label", Value: bson.D{{Key: "$cond", Value: bson.D{
+						{Key: "if", Value: bson.D{{Key: "$gt", Value: bson.A{"$a", float64(5)}}}},
+						{Key: "then", Value: "big"},
+						{Key: "else", Value: "small"},
+					}}}},
+				}}},
+				{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "label", Value: 1}}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cursor.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+func TestExpr_addFields_ifNull(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_addFields_ifNull",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{
+				{Key: "_id", Value: "ifnull1"},
+				{Key: "present", Value: "yes"},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cursor, err := col.Aggregate(ctx, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "ifnull1"}}}},
+				{{Key: "$addFields", Value: bson.D{
+					{Key: "val1", Value: bson.D{{Key: "$ifNull", Value: bson.A{"$present", "default"}}}},
+					{Key: "val2", Value: bson.D{{Key: "$ifNull", Value: bson.A{"$missing", "default"}}}},
+				}}},
+				{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "val1", Value: 1}, {Key: "val2", Value: 1}}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cursor.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+func TestExpr_addFields_string_ops(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_addFields_string_ops",
+		Support: harness.DongoXFail,
+		Setup:   insertStrDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cursor, err := col.Aggregate(ctx, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "s1"}}}},
+				{{Key: "$addFields", Value: bson.D{
+					{Key: "full", Value: bson.D{{Key: "$concat", Value: bson.A{"$first", " ", "$last"}}}},
+					{Key: "lower", Value: bson.D{{Key: "$toLower", Value: "$mixed"}}},
+					{Key: "upper", Value: bson.D{{Key: "$toUpper", Value: "$first"}}},
+				}}},
+				{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "full", Value: 1}, {Key: "lower", Value: 1}, {Key: "upper", Value: 1}}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cursor.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+func TestExpr_addFields_type_conversion(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_addFields_type_conversion",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{
+				{Key: "_id", Value: "tc1"},
+				{Key: "strNum", Value: "42"},
+				{Key: "intVal", Value: int32(7)},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cursor, err := col.Aggregate(ctx, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "tc1"}}}},
+				{{Key: "$addFields", Value: bson.D{
+					{Key: "asInt", Value: bson.D{{Key: "$toInt", Value: "$strNum"}}},
+					{Key: "asStr", Value: bson.D{{Key: "$toString", Value: "$intVal"}}},
+					{Key: "asDouble", Value: bson.D{{Key: "$toDouble", Value: "$strNum"}}},
+				}}},
+				{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "asInt", Value: 1}, {Key: "asStr", Value: 1}, {Key: "asDouble", Value: 1}}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cursor.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+func TestExpr_addFields_array_expr(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_addFields_array_expr",
+		Support: harness.DongoXFail,
+		Setup:   insertArrDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cursor, err := col.Aggregate(ctx, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "arr1"}}}},
+				{{Key: "$addFields", Value: bson.D{
+					{Key: "count", Value: bson.D{{Key: "$size", Value: "$nums"}}},
+					{Key: "first", Value: bson.D{{Key: "$arrayElemAt", Value: bson.A{"$nums", int32(0)}}}},
+					{Key: "last", Value: bson.D{{Key: "$arrayElemAt", Value: bson.A{"$nums", int32(-1)}}}},
+				}}},
+				{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "count", Value: 1}, {Key: "first", Value: 1}, {Key: "last", Value: 1}}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cursor.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+func TestExpr_addFields_nested_doc(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_addFields_nested_doc",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{
+				{Key: "_id", Value: "nd1"},
+				{Key: "scores", Value: bson.D{
+					{Key: "math", Value: int32(80)},
+					{Key: "english", Value: int32(70)},
+				}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cursor, err := col.Aggregate(ctx, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "nd1"}}}},
+				{{Key: "$addFields", Value: bson.D{
+					{Key: "avg", Value: bson.D{{Key: "$divide", Value: bson.A{
+						bson.D{{Key: "$add", Value: bson.A{"$scores.math", "$scores.english"}}},
+						2,
+					}}}},
+				}}},
+				{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "avg", Value: 1}}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cursor.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+func TestExpr_addFields_preserves_original(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_addFields_preserves_original",
+		Support: harness.DongoXFail,
+		Setup:   insertNumDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cursor, err := col.Aggregate(ctx, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "n1"}}}},
+				{{Key: "$addFields", Value: bson.D{
+					{Key: "computed", Value: bson.D{{Key: "$add", Value: bson.A{"$a", "$b"}}}},
+				}}},
+				{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "a", Value: 1}, {Key: "b", Value: 1}, {Key: "computed", Value: 1}}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cursor.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+func TestExpr_addFields_overwrite_field(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_addFields_overwrite_field",
+		Support: harness.DongoXFail,
+		Setup:   insertNumDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cursor, err := col.Aggregate(ctx, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "n1"}}}},
+				{{Key: "$addFields", Value: bson.D{
+					{Key: "a", Value: bson.D{{Key: "$multiply", Value: bson.A{"$a", 10}}}},
+				}}},
+				{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "a", Value: 1}}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cursor.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+func TestExpr_addFields_chained(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_addFields_chained",
+		Support: harness.DongoXFail,
+		Setup:   insertNumDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cursor, err := col.Aggregate(ctx, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "n1"}}}},
+				{{Key: "$addFields", Value: bson.D{
+					{Key: "step1", Value: bson.D{{Key: "$add", Value: bson.A{"$a", "$b"}}}},
+				}}},
+				{{Key: "$addFields", Value: bson.D{
+					{Key: "step2", Value: bson.D{{Key: "$multiply", Value: bson.A{"$step1", 2}}}},
+				}}},
+				{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "step1", Value: 1}, {Key: "step2", Value: 1}}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cursor.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+// ─── Additional $project expression tests ────────────────────────────────────
+
+func TestExpr_project_abs_negative(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_abs_negative",
+		Support: harness.DongoXFail,
+		Setup:   insertNumDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "n1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "absNeg", Value: bson.D{{Key: "$abs", Value: "$neg"}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_switch_cases(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_switch_cases",
+		Support: harness.DongoXFail,
+		Setup:   insertNumDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "n1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "grade", Value: bson.D{{Key: "$switch", Value: bson.D{
+					{Key: "branches", Value: bson.A{
+						bson.D{{Key: "case", Value: bson.D{{Key: "$gte", Value: bson.A{"$a", float64(90)}}}}, {Key: "then", Value: "A"}},
+						bson.D{{Key: "case", Value: bson.D{{Key: "$gte", Value: bson.A{"$a", float64(70)}}}}, {Key: "then", Value: "B"}},
+						bson.D{{Key: "case", Value: bson.D{{Key: "$gte", Value: bson.A{"$a", float64(50)}}}}, {Key: "then", Value: "C"}},
+					}},
+					{Key: "default", Value: "F"},
+				}}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_concat_null_safe(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_concat_null_safe",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{
+				{Key: "_id", Value: "cn1"},
+				{Key: "a", Value: "foo"},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "cn1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "result", Value: bson.D{{Key: "$concat", Value: bson.A{
+					bson.D{{Key: "$ifNull", Value: bson.A{"$a", ""}}},
+					"-",
+					bson.D{{Key: "$ifNull", Value: bson.A{"$b", "missing"}}},
+				}}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_arithmetic_chain(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_arithmetic_chain",
+		Support: harness.DongoXFail,
+		Setup:   insertNumDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			// (a + b) * (a - b)
+			return exprProject(ctx, col, "n1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "result", Value: bson.D{{Key: "$multiply", Value: bson.A{
+					bson.D{{Key: "$add", Value: bson.A{"$a", "$b"}}},
+					bson.D{{Key: "$subtract", Value: bson.A{"$a", "$b"}}},
+				}}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_cond_nested(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_cond_nested",
+		Support: harness.DongoXFail,
+		Setup:   insertNumDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			// nested cond: if a > 5 then (if b > 5 then "both" else "only a") else "neither"
+			return exprProject(ctx, col, "n1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "result", Value: bson.D{{Key: "$cond", Value: bson.D{
+					{Key: "if", Value: bson.D{{Key: "$gt", Value: bson.A{"$a", float64(5)}}}},
+					{Key: "then", Value: bson.D{{Key: "$cond", Value: bson.D{
+						{Key: "if", Value: bson.D{{Key: "$gt", Value: bson.A{"$b", float64(5)}}}},
+						{Key: "then", Value: "both"},
+						{Key: "else", Value: "only a"},
+					}}}},
+					{Key: "else", Value: "neither"},
+				}}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_toLong_toDouble(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_toLong_toDouble",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{
+				{Key: "_id", Value: "td1"},
+				{Key: "val", Value: "123"},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "td1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "asLong", Value: bson.D{{Key: "$toLong", Value: "$val"}}},
+				{Key: "asDouble", Value: bson.D{{Key: "$toDouble", Value: "$val"}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_strLen_substr(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_strLen_substr",
+		Support: harness.DongoXFail,
+		Setup:   insertStrDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "s1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "len", Value: bson.D{{Key: "$strLenCP", Value: "$first"}}},
+				{Key: "sub", Value: bson.D{{Key: "$substrCP", Value: bson.A{"$first", int32(0), int32(3)}}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_literal_value(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_literal_value",
+		Support: harness.DongoXFail,
+		Setup:   insertNumDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "n1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "constant", Value: bson.D{{Key: "$literal", Value: int32(42)}}},
+				{Key: "dollarField", Value: bson.D{{Key: "$literal", Value: "$a"}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_type_check(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_type_check",
+		Support: harness.DongoXFail,
+		Setup:   insertNumDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "n1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "typeOfA", Value: bson.D{{Key: "$type", Value: "$a"}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_range_expr(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_range_expr",
+		Support: harness.DongoXFail,
+		Setup:   insertNumDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "n1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "seq", Value: bson.D{{Key: "$range", Value: bson.A{int32(0), "$b", int32(1)}}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_let_vars(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_let_vars",
+		Support: harness.DongoXFail,
+		Setup:   insertNumDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "n1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "result", Value: bson.D{{Key: "$let", Value: bson.D{
+					{Key: "vars", Value: bson.D{
+						{Key: "total", Value: bson.D{{Key: "$add", Value: bson.A{"$a", "$b"}}}},
+					}},
+					{Key: "in", Value: bson.D{{Key: "$multiply", Value: bson.A{"$$total", "$$total"}}}},
+				}}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_objectToArray_back(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_objectToArray_back",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{
+				{Key: "_id", Value: "ota1"},
+				{Key: "info", Value: bson.D{{Key: "x", Value: int32(1)}, {Key: "y", Value: int32(2)}}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "ota1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "pairs", Value: bson.D{{Key: "$objectToArray", Value: "$info"}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_reduce_sum(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_reduce_sum",
+		Support: harness.DongoXFail,
+		Setup:   insertArrDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "arr1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "total", Value: bson.D{{Key: "$reduce", Value: bson.D{
+					{Key: "input", Value: "$nums"},
+					{Key: "initialValue", Value: int32(0)},
+					{Key: "in", Value: bson.D{{Key: "$add", Value: bson.A{"$$value", "$$this"}}}},
+				}}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_indexOfArray_expr(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_indexOfArray_expr",
+		Support: harness.DongoXFail,
+		Setup:   insertArrDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "arr1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "idx20", Value: bson.D{{Key: "$indexOfArray", Value: bson.A{"$nums", int32(20)}}}},
+				{Key: "idx99", Value: bson.D{{Key: "$indexOfArray", Value: bson.A{"$nums", int32(99)}}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_setUnion_inline(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_setUnion_inline",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{
+				{Key: "_id", Value: "su1"},
+				{Key: "a", Value: bson.A{int32(1), int32(2), int32(3)}},
+				{Key: "b", Value: bson.A{int32(2), int32(3), int32(4)}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "su1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "union", Value: bson.D{{Key: "$setUnion", Value: bson.A{"$a", "$b"}}}},
+				{Key: "intersect", Value: bson.D{{Key: "$setIntersection", Value: bson.A{"$a", "$b"}}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_missing_field_arithmetic(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_missing_field_arithmetic",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{
+				{Key: "_id", Value: "mf1"},
+				{Key: "x", Value: int32(5)},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "mf1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "result", Value: bson.D{{Key: "$add", Value: bson.A{"$x", "$nonexistent"}}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_and_or_short_circuit(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_and_or_short_circuit",
+		Support: harness.DongoXFail,
+		Setup:   insertNumDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "n1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "andResult", Value: bson.D{{Key: "$and", Value: bson.A{
+					bson.D{{Key: "$gt", Value: bson.A{"$a", float64(0)}}},
+					bson.D{{Key: "$gt", Value: bson.A{"$b", float64(0)}}},
+				}}}},
+				{Key: "orResult", Value: bson.D{{Key: "$or", Value: bson.A{
+					bson.D{{Key: "$gt", Value: bson.A{"$a", float64(100)}}},
+					bson.D{{Key: "$gt", Value: bson.A{"$b", float64(0)}}},
+				}}}},
+				{Key: "notResult", Value: bson.D{{Key: "$not", Value: bson.A{
+					bson.D{{Key: "$gt", Value: bson.A{"$a", float64(100)}}},
+				}}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_in_operator(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_in_operator",
+		Support: harness.DongoXFail,
+		Setup:   insertArrDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "arr1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "has10", Value: bson.D{{Key: "$in", Value: bson.A{int32(10), "$nums"}}}},
+				{Key: "has99", Value: bson.D{{Key: "$in", Value: bson.A{int32(99), "$nums"}}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_floor_ceil_round(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_floor_ceil_round",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{
+				{Key: "_id", Value: "fcr1"},
+				{Key: "val", Value: 3.7},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "fcr1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "fl", Value: bson.D{{Key: "$floor", Value: "$val"}}},
+				{Key: "ce", Value: bson.D{{Key: "$ceil", Value: "$val"}}},
+				{Key: "ro", Value: bson.D{{Key: "$round", Value: bson.A{"$val", int32(0)}}}},
+				{Key: "tr", Value: bson.D{{Key: "$trunc", Value: bson.A{"$val", int32(0)}}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_pow_sqrt(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_pow_sqrt",
+		Support: harness.DongoXFail,
+		Setup:   insertNumDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "n1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "squared", Value: bson.D{{Key: "$pow", Value: bson.A{"$x", int32(2)}}}},
+				{Key: "sqrtA", Value: bson.D{{Key: "$sqrt", Value: "$a"}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_string_split_join(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_string_split_join",
+		Support: harness.DongoXFail,
+		Setup:   insertStrDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "s1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "parts", Value: bson.D{{Key: "$split", Value: bson.A{"$csv", ","}}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_concatArrays_expr(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_concatArrays_expr",
+		Support: harness.DongoXFail,
+		Setup:   insertArrDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "arr1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "combined", Value: bson.D{{Key: "$concatArrays", Value: bson.A{"$nums", "$letters"}}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_reverseArray_expr(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_reverseArray_expr",
+		Support: harness.DongoXFail,
+		Setup:   insertArrDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "arr1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "reversed", Value: bson.D{{Key: "$reverseArray", Value: "$nums"}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_filter_array(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_filter_array",
+		Support: harness.DongoXFail,
+		Setup:   insertArrDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "arr1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "above25", Value: bson.D{{Key: "$filter", Value: bson.D{
+					{Key: "input", Value: "$nums"},
+					{Key: "as", Value: "n"},
+					{Key: "cond", Value: bson.D{{Key: "$gt", Value: bson.A{"$$n", int32(25)}}}},
+				}}}},
+			})
+		},
+	})
+}
+
+func TestExpr_project_slice_expr(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_project_slice_expr",
+		Support: harness.DongoXFail,
+		Setup:   insertArrDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "arr1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "first3", Value: bson.D{{Key: "$slice", Value: bson.A{"$nums", int32(3)}}}},
+				{Key: "last2", Value: bson.D{{Key: "$slice", Value: bson.A{"$nums", int32(-2)}}}},
+			})
+		},
+	})
+}

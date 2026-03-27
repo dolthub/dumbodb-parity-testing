@@ -1770,3 +1770,677 @@ func TestAgg_match_gt_lt_range(t *testing.T) {
 		},
 	})
 }
+
+// ─── Additional $addFields / $project expression tests ────────────────────────
+
+func TestProject_computed_add(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_computed_add",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "a1"}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "revenue", Value: bson.D{{Key: "$multiply", Value: bson.A{"$price", "$qty"}}}},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+func TestProject_conditional_cond_array_form(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_conditional_cond_array_form",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "a1"}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "priceLabel", Value: bson.D{{Key: "$cond", Value: bson.A{
+						bson.D{{Key: "$gt", Value: bson.A{"$price", float64(1)}}},
+						"expensive",
+						"cheap",
+					}}}},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+func TestProject_ifNull_default(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_ifNull_default",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "a1"}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "discount", Value: bson.D{{Key: "$ifNull", Value: bson.A{"$discount", float64(0)}}}},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+func TestProject_string_toLower_name(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_string_toLower_name",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "nameLower", Value: bson.D{{Key: "$toLower", Value: "$name"}}},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
+
+func TestProject_string_concat_category_name(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_string_concat_category_name",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "a1"}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "label", Value: bson.D{{Key: "$concat", Value: bson.A{"$category", "/", "$name"}}}},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+func TestProject_size_tags_array(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_size_tags_array",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "tagCount", Value: bson.D{{Key: "$size", Value: "$tags"}}},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
+
+func TestProject_arrayElemAt_first_tag(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_arrayElemAt_first_tag",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "firstTag", Value: bson.D{{Key: "$arrayElemAt", Value: bson.A{"$tags", int32(0)}}}},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
+
+func TestProject_switch_price_tier(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_switch_price_tier",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "tier", Value: bson.D{{Key: "$switch", Value: bson.D{
+						{Key: "branches", Value: bson.A{
+							bson.D{{Key: "case", Value: bson.D{{Key: "$gte", Value: bson.A{"$price", float64(2)}}}}, {Key: "then", Value: "premium"}},
+							bson.D{{Key: "case", Value: bson.D{{Key: "$gte", Value: bson.A{"$price", float64(1)}}}}, {Key: "then", Value: "standard"}},
+						}},
+						{Key: "default", Value: "budget"},
+					}}}},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
+
+func TestAddFields_computed_revenue(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AddFields_computed_revenue",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$addFields", Value: bson.D{
+					{Key: "revenue", Value: bson.D{{Key: "$multiply", Value: bson.A{"$price", "$qty"}}}},
+				}}},
+				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+				{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "name", Value: 1}, {Key: "revenue", Value: 1}}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
+
+func TestAddFields_category_upper(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AddFields_category_upper",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$addFields", Value: bson.D{
+					{Key: "catUpper", Value: bson.D{{Key: "$toUpper", Value: "$category"}}},
+				}}},
+				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+				{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "catUpper", Value: 1}}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
+
+func TestAddFields_is_expensive(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AddFields_is_expensive",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$addFields", Value: bson.D{
+					{Key: "expensive", Value: bson.D{{Key: "$gt", Value: bson.A{"$price", float64(1)}}}},
+				}}},
+				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+				{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "name", Value: 1}, {Key: "expensive", Value: 1}}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
+
+func TestAddFields_tag_count_and_first(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AddFields_tag_count_and_first",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$addFields", Value: bson.D{
+					{Key: "numTags", Value: bson.D{{Key: "$size", Value: "$tags"}}},
+					{Key: "primaryTag", Value: bson.D{{Key: "$arrayElemAt", Value: bson.A{"$tags", int32(0)}}}},
+				}}},
+				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+				{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "numTags", Value: 1}, {Key: "primaryTag", Value: 1}}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
+
+func TestAddFields_set_alias_expr(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AddFields_set_alias_expr",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$set", Value: bson.D{
+					{Key: "fullLabel", Value: bson.D{{Key: "$concat", Value: bson.A{"$category", ": ", "$name"}}}},
+				}}},
+				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+				{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "fullLabel", Value: 1}}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
+
+func TestAddFields_then_group(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AddFields_then_group",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$addFields", Value: bson.D{
+					{Key: "revenue", Value: bson.D{{Key: "$multiply", Value: bson.A{"$price", "$qty"}}}},
+				}}},
+				{{Key: "$group", Value: bson.D{
+					{Key: "_id", Value: "$category"},
+					{Key: "totalRevenue", Value: bson.D{{Key: "$sum", Value: "$revenue"}}},
+				}}},
+				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
+
+func TestAddFields_multiple_computed_fields(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AddFields_multiple_computed_fields",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "a1"}}}},
+				{{Key: "$addFields", Value: bson.D{
+					{Key: "revenue", Value: bson.D{{Key: "$multiply", Value: bson.A{"$price", "$qty"}}}},
+					{Key: "discounted", Value: bson.D{{Key: "$multiply", Value: bson.A{"$price", 0.9}}}},
+					{Key: "label", Value: bson.D{{Key: "$toUpper", Value: "$name"}}},
+				}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "revenue", Value: 1},
+					{Key: "discounted", Value: 1},
+					{Key: "label", Value: 1},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+func TestProject_exclude_field(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_exclude_field",
+		Support: harness.DongoFull,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "a1"}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "tags", Value: 0},
+					{Key: "qty", Value: 0},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+func TestProject_computed_boolean(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_computed_boolean",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "name", Value: 1},
+					{Key: "isFruit", Value: bson.D{{Key: "$eq", Value: bson.A{"$category", "fruit"}}}},
+					{Key: "hasMultipleTags", Value: bson.D{{Key: "$gt", Value: bson.A{
+						bson.D{{Key: "$size", Value: "$tags"}},
+						int32(1),
+					}}}},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
+
+func TestProject_toInt_price(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_toInt_price",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "priceInt", Value: bson.D{{Key: "$toInt", Value: "$price"}}},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
+
+func TestProject_toString_qty(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_toString_qty",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "a1"}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "qtyStr", Value: bson.D{{Key: "$toString", Value: "$qty"}}},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+func TestProject_in_array_check(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_in_array_check",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "name", Value: 1},
+					{Key: "isSweet", Value: bson.D{{Key: "$in", Value: bson.A{"sweet", "$tags"}}}},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
+
+func TestProject_mergeObjects_with_extra(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_mergeObjects_with_extra",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "a1"}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "info", Value: bson.D{{Key: "$mergeObjects", Value: bson.A{
+						bson.D{{Key: "name", Value: "$name"}, {Key: "category", Value: "$category"}},
+						bson.D{{Key: "source", Value: "catalog"}},
+					}}}},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+func TestProject_let_vars_expr(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_let_vars_expr",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "a1"}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "adjusted", Value: bson.D{{Key: "$let", Value: bson.D{
+						{Key: "vars", Value: bson.D{{Key: "markup", Value: 1.1}}},
+						{Key: "in", Value: bson.D{{Key: "$multiply", Value: bson.A{"$price", "$$markup"}}}},
+					}}}},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+func TestProject_filter_tags(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_filter_tags",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "name", Value: 1},
+					{Key: "longTags", Value: bson.D{{Key: "$filter", Value: bson.D{
+						{Key: "input", Value: "$tags"},
+						{Key: "as", Value: "t"},
+						{Key: "cond", Value: bson.D{{Key: "$gte", Value: bson.A{
+							bson.D{{Key: "$strLenCP", Value: "$$t"}},
+							int32(5),
+						}}}},
+					}}}},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
+
+func TestProject_map_tags_upper(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_map_tags_upper",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "upperTags", Value: bson.D{{Key: "$map", Value: bson.D{
+						{Key: "input", Value: "$tags"},
+						{Key: "as", Value: "t"},
+						{Key: "in", Value: bson.D{{Key: "$toUpper", Value: "$$t"}}},
+					}}}},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
+
+func TestProject_literal_constant(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_literal_constant",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "a1"}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "source", Value: bson.D{{Key: "$literal", Value: "catalog"}}},
+					{Key: "version", Value: bson.D{{Key: "$literal", Value: int32(1)}}},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
+
+func TestProject_and_or_in_project(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_and_or_in_project",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "name", Value: 1},
+					{Key: "affordable", Value: bson.D{{Key: "$and", Value: bson.A{
+						bson.D{{Key: "$lt", Value: bson.A{"$price", float64(2)}}},
+						bson.D{{Key: "$gt", Value: bson.A{"$qty", int32(5)}}},
+					}}}},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
+
+func TestAddFields_then_match(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AddFields_then_match",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$addFields", Value: bson.D{
+					{Key: "revenue", Value: bson.D{{Key: "$multiply", Value: bson.A{"$price", "$qty"}}}},
+				}}},
+				{{Key: "$match", Value: bson.D{{Key: "revenue", Value: bson.D{{Key: "$gt", Value: float64(20)}}}}}},
+				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+				{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "name", Value: 1}, {Key: "revenue", Value: 1}}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
+
+func TestProject_slice_tags(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Project_slice_tags",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "a1"}}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 0},
+					{Key: "oneTag", Value: bson.D{{Key: "$slice", Value: bson.A{"$tags", int32(1)}}}},
+				}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			if len(results) == 0 {
+				return nil, nil
+			}
+			return results[0], nil
+		},
+	})
+}
