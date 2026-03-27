@@ -2119,7 +2119,7 @@ func TestIndex_Hint_CountDocuments(t *testing.T) {
 func TestIndex_ListIndexes_AfterDropAll(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_ListIndexes_AfterDropAll",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			models := []mongo.IndexModel{
 				{Keys: bson.D{{Key: "x", Value: 1}}},

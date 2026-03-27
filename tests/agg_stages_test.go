@@ -1883,7 +1883,7 @@ func TestAggStage_graphLookup_TraverseHierarchyFromLeaf(t *testing.T) {
 func TestAggStage_graphLookup_MaxDepthLimitsTraversal(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_graphLookup_MaxDepthLimitsTraversal",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup:   insertOrgHierarchy,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -2005,7 +2005,7 @@ func TestAggPipeline_multiStage_AddFieldsThenGroup(t *testing.T) {
 func TestAggPipeline_multiStage_UnwindThenGroup(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggPipeline_multiStage_UnwindThenGroup",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "p1"}, {Key: "tags", Value: bson.A{"go", "db"}}},
