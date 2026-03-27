@@ -1064,7 +1064,7 @@ func insertGroupSeed(ctx context.Context, col *mongo.Collection) error {
 func TestAccum_stdDevPop(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Accum_stdDevPop",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertGroupSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{
@@ -1095,7 +1095,7 @@ func TestAccum_stdDevPop(t *testing.T) {
 func TestAccum_stdDevSamp(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Accum_stdDevSamp",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertGroupSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{
@@ -1120,7 +1120,7 @@ func TestAccum_stdDevSamp(t *testing.T) {
 func TestAccum_count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Accum_count",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertGroupSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{
@@ -1178,7 +1178,7 @@ func TestAccum_mergeObjects(t *testing.T) {
 func TestAccum_multi_accumulators(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Accum_multi_accumulators",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertGroupSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{

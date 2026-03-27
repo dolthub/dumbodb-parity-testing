@@ -1966,7 +1966,7 @@ func TestProject_switch_price_tier(t *testing.T) {
 func TestAddFields_computed_revenue(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddFields_computed_revenue",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1987,7 +1987,7 @@ func TestAddFields_computed_revenue(t *testing.T) {
 func TestAddFields_category_upper(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddFields_category_upper",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2008,7 +2008,7 @@ func TestAddFields_category_upper(t *testing.T) {
 func TestAddFields_is_expensive(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddFields_is_expensive",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2029,7 +2029,7 @@ func TestAddFields_is_expensive(t *testing.T) {
 func TestAddFields_tag_count_and_first(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddFields_tag_count_and_first",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2051,7 +2051,7 @@ func TestAddFields_tag_count_and_first(t *testing.T) {
 func TestAddFields_set_alias_expr(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddFields_set_alias_expr",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2096,7 +2096,7 @@ func TestAddFields_then_group(t *testing.T) {
 func TestAddFields_multiple_computed_fields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddFields_multiple_computed_fields",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
