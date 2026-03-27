@@ -106,7 +106,7 @@ func TestCollection_CreateExplicit(t *testing.T) {
 func TestCollection_CreateCapped(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_CreateCapped",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.CreateCollection().SetCapped(true).SetSizeInBytes(1024 * 1024)
@@ -126,7 +126,7 @@ func TestCollection_CreateCapped(t *testing.T) {
 func TestCollection_CreateCapped_SizeAndMax(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_CreateCapped_SizeAndMax",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Capped collection with both size and max document count.
@@ -149,7 +149,7 @@ func TestCollection_CreateCapped_SizeAndMax(t *testing.T) {
 func TestCollection_CreateValidator(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_CreateValidator",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Create with a jsonSchema validator that requires a 'name' field.
@@ -181,7 +181,7 @@ func TestCollection_CreateValidator(t *testing.T) {
 func TestCollection_CreateAlreadyExists(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_CreateAlreadyExists",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Creating a collection that already exists should return a NamespaceExists error.
@@ -254,7 +254,7 @@ func TestCollection_DropNonexistent(t *testing.T) {
 func TestCollection_Rename(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_Rename",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// renameCollection requires the admin database in MongoDB.
@@ -899,7 +899,7 @@ func TestCursor_CloseEarly(t *testing.T) {
 func TestCursor_MaxTime(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_MaxTime",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// maxTimeMS: Dongo may not honor or recognize this option.
@@ -923,7 +923,7 @@ func TestCursor_MaxTime(t *testing.T) {
 func TestCursor_AllowDiskUse(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_AllowDiskUse",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// allowDiskUse permits spilling to disk for large sorts.
@@ -947,7 +947,7 @@ func TestCursor_AllowDiskUse(t *testing.T) {
 func TestCursor_Hint(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_Hint",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Hint with _id index (always exists); Dongo may not support hint option.
@@ -975,7 +975,7 @@ func TestCursor_Hint(t *testing.T) {
 func TestCursor_Comment(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_Comment",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// SetComment attaches a query comment; Dongo may not support this option.
@@ -999,7 +999,7 @@ func TestCursor_Comment(t *testing.T) {
 func TestCursor_ShowRecordId(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_ShowRecordId",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// showRecordId adds $recordId to each returned document.
@@ -1331,7 +1331,7 @@ func TestCollection_Distinct_ArrayField(t *testing.T) {
 func TestCollection_Distinct_Nested(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_Distinct_Nested",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "dn1"}, {Key: "addr", Value: bson.D{{Key: "city", Value: "NYC"}}}},

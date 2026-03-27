@@ -35,7 +35,7 @@ func insertCursorSeed(ctx context.Context, col *mongo.Collection) error {
 func TestCursor_find_maxTimeMS(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_maxTimeMS",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			dur := 5 * time.Second
@@ -55,7 +55,7 @@ func TestCursor_find_maxTimeMS(t *testing.T) {
 func TestCursor_find_batchSize(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_batchSize",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// batchSize=2 forces multiple round trips; final result is identical.
@@ -73,7 +73,7 @@ func TestCursor_find_batchSize(t *testing.T) {
 func TestCursor_find_batchSize_one(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_batchSize_one",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetBatchSize(1).SetSort(bson.D{{Key: "_id", Value: 1}})
@@ -92,7 +92,7 @@ func TestCursor_find_batchSize_one(t *testing.T) {
 func TestCursor_exhaustion_noDocsAfterAll(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_exhaustion_noDocsAfterAll",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(ctx, bson.D{})
@@ -116,7 +116,7 @@ func TestCursor_exhaustion_noDocsAfterAll(t *testing.T) {
 func TestCursor_exhaustion_emptyCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_exhaustion_emptyCollection",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(ctx, bson.D{})
 			if err != nil {
@@ -137,7 +137,7 @@ func TestCursor_exhaustion_emptyCollection(t *testing.T) {
 func TestCursor_iterate_manually(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_iterate_manually",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetLimit(3)
@@ -168,7 +168,7 @@ func TestCursor_iterate_manually(t *testing.T) {
 func TestCursor_find_hint_naturalOrder(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_hint_naturalOrder",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
