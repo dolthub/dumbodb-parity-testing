@@ -85,8 +85,9 @@ func (c *Clients) TestDB(ctx context.Context, testName string) (mongoCol, dongoC
 }
 
 // sanitizeName converts a test name to a safe database name component.
+// Budget: "parity_" (7) + name + "_" (1) + UnixNano (19) must be ≤ 63, so name ≤ 36.
 func sanitizeName(s string) string {
-	const maxLen = 40
+	const maxLen = 36
 	out := make([]byte, 0, maxLen)
 	for i := 0; i < len(s) && len(out) < maxLen; i++ {
 		c := s[i]
