@@ -1038,7 +1038,7 @@ func TestCombined_SortProjectionNestedFieldLimit(t *testing.T) {
 func TestCombined_Sort_Slice_Projection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_Sort_Slice_Projection",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -1056,7 +1056,7 @@ func TestCombined_Sort_Slice_Projection(t *testing.T) {
 func TestCombined_Sort_ElemMatch_Projection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_Sort_ElemMatch_Projection",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().

@@ -2015,7 +2015,7 @@ func TestBulkWrite_all_inserts(t *testing.T) {
 func TestBulkWrite_unordered(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWrite_unordered",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.BulkWrite().SetOrdered(false)
@@ -2045,7 +2045,7 @@ func TestBulkWrite_unordered(t *testing.T) {
 func TestBulkWrite_unordered_error_handling(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWrite_unordered_error_handling",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "existing"}})
 			return err
@@ -2070,7 +2070,7 @@ func TestBulkWrite_unordered_error_handling(t *testing.T) {
 func TestBulkWrite_replace_model(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWrite_replace_model",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			models := []mongo.WriteModel{
@@ -2093,7 +2093,7 @@ func TestBulkWrite_replace_model(t *testing.T) {
 func TestBulkWrite_update_many_model(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWrite_update_many_model",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			models := []mongo.WriteModel{
@@ -2116,7 +2116,7 @@ func TestBulkWrite_update_many_model(t *testing.T) {
 func TestBulkWrite_delete_many_model(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWrite_delete_many_model",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			models := []mongo.WriteModel{
@@ -2135,7 +2135,7 @@ func TestBulkWrite_delete_many_model(t *testing.T) {
 func TestBulkWrite_upsert_model(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWrite_upsert_model",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			models := []mongo.WriteModel{
 				mongo.NewUpdateOneModel().
