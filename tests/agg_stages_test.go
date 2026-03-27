@@ -1446,6 +1446,44 @@ func TestAggStage_sortByCount_SortByCountDescending(t *testing.T) {
 	})
 }
 
+func TestAggStage_sortByCount_TieBreakingOrder(t *testing.T) {
+	// Diverge (do-ydfd): when multiple groups have the same count, $sortByCount
+	// tie-breaking order differs between MongoDB and Dongo. Per spec, $sortByCount
+	// is equivalent to {$group:{_id:"$x",count:{$sum:1}}} + {$sort:{count:-1,_id:1}},
+	// so ties should be broken by ascending _id. MongoDB returns [1, 2, 3] for
+	// integer _id values; Dongo emits [3, 1, 2] — a different internal ordering.
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AggStage_sortByCount_TieBreakingOrder",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: 1}, {Key: "score", Value: int32(3)}},
+				bson.D{{Key: "_id", Value: 2}, {Key: "score", Value: int32(1)}},
+				bson.D{{Key: "_id", Value: 3}, {Key: "score", Value: int32(2)}},
+				bson.D{{Key: "_id", Value: 4}, {Key: "score", Value: int32(3)}},
+				bson.D{{Key: "_id", Value: 5}, {Key: "score", Value: int32(1)}},
+				bson.D{{Key: "_id", Value: 6}, {Key: "score", Value: int32(2)}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			// All three score values appear exactly twice (count=2). Tie-breaking
+			// by ascending _id should yield [1, 2, 3]. Dongo returns [3, 1, 2].
+			cursor, err := col.Aggregate(ctx, bson.A{
+				bson.D{{Key: "$sortByCount", Value: "$score"}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cursor.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
+
 // ─── $facet ───────────────────────────────────────────────────────────────────
 
 func TestAggStage_facet_MultipleFacets(t *testing.T) {
