@@ -1913,3 +1913,25 @@ func TestQuery_in_mixed_types(t *testing.T) {
 		},
 	})
 }
+
+func TestQuery_jsonSchema_required_invalid(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Query_jsonSchema_required_invalid",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: int32(1)}, {Key: "name", Value: "alice"}},
+				bson.D{{Key: "_id", Value: int32(2)}, {Key: "name", Value: "bob"}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			// $jsonSchema with required as a string (not an array) must return an error.
+			// Both MongoDB and Dongo should reject this malformed schema.
+			_, err := col.Find(ctx, bson.D{{Key: "$jsonSchema", Value: bson.D{
+				{Key: "required", Value: "not-an-array"},
+			}}})
+			return nil, err
+		},
+	})
+}
