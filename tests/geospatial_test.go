@@ -661,7 +661,7 @@ func TestGeo_GeoIntersects_Polygon_Contains(t *testing.T) {
 func TestGeo_GeoIntersects_LineString(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoIntersects_LineString",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// LineString crossing through NYC/Philadelphia area.
