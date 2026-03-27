@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 
@@ -111,6 +112,22 @@ func TestExpr_mod(t *testing.T) {
 			return exprProject(ctx, col, "n1", bson.D{
 				{Key: "_id", Value: 0},
 				{Key: "result", Value: bson.D{{Key: "$mod", Value: bson.A{"$a", "$b"}}}},
+			})
+		},
+	})
+}
+
+func TestExpr_mod_nan_divisor(t *testing.T) {
+	// Diverge (do-9ni): mongo returns {result: NaN} with no error; dongo crashes
+	// with a socket EOF when the $mod divisor is NaN.
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Expr_mod_nan_divisor",
+		Support: harness.DongoXFail,
+		Setup:   insertNumDoc,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return exprProject(ctx, col, "n1", bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "result", Value: bson.D{{Key: "$mod", Value: bson.A{"$a", math.NaN()}}}},
 			})
 		},
 	})

@@ -2220,3 +2220,39 @@ func TestAggStage_collStats_Count(t *testing.T) {
 		},
 	})
 }
+
+// ─── Error-code divergence XFail tests ────────────────────────────────────────
+
+func TestAggStage_bucket_OneBoundaryError(t *testing.T) {
+	// Diverge (do-t63k): $bucket with only one boundary value — mongo returns
+	// error code Location40192; dongo returns BadValue with a different message.
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AggStage_bucket_OneBoundaryError",
+		Support: harness.DongoXFail,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			_, err := col.Aggregate(ctx, bson.A{
+				bson.D{{Key: "$bucket", Value: bson.D{
+					{Key: "groupBy", Value: "$price"},
+					{Key: "boundaries", Value: bson.A{int32(0)}},
+				}}},
+			})
+			return nil, err
+		},
+	})
+}
+
+func TestAggStage_unknown_stage_error(t *testing.T) {
+	// Diverge (do-gx4x): unknown pipeline stage — mongo returns error code
+	// Location40324 with single-quoted stage name; dongo returns Location40234
+	// with double-quoted stage name.
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AggStage_unknown_stage_error",
+		Support: harness.DongoXFail,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			_, err := col.Aggregate(ctx, bson.A{
+				bson.D{{Key: "$unknownStage", Value: bson.D{}}},
+			})
+			return nil, err
+		},
+	})
+}
