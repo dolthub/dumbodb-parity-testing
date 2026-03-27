@@ -2256,3 +2256,47 @@ func TestAggStage_unknown_stage_error(t *testing.T) {
 		},
 	})
 }
+
+// ─── Sort tie-breaking divergence XFail tests ─────────────────────────────────
+
+func TestAggPipeline_sort_TieBreakingAfterGroup(t *testing.T) {
+	// Diverge (do-socd): when $group produces multiple groups with identical sort
+	// values, dongo's tie-breaking order differs from MongoDB's. MongoDB breaks
+	// ties by the group key's natural order; dongo may use a different internal
+	// ordering (e.g. hash map iteration order).
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AggPipeline_sort_TieBreakingAfterGroup",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: "1"}, {Key: "cat", Value: "C"}},
+				bson.D{{Key: "_id", Value: "2"}, {Key: "cat", Value: "A"}},
+				bson.D{{Key: "_id", Value: "3"}, {Key: "cat", Value: "B"}},
+				bson.D{{Key: "_id", Value: "4"}, {Key: "cat", Value: "C"}},
+				bson.D{{Key: "_id", Value: "5"}, {Key: "cat", Value: "A"}},
+				bson.D{{Key: "_id", Value: "6"}, {Key: "cat", Value: "B"}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			// Group by cat → each group has count=2 (all tied).
+			// Sort by count asc — all values equal, so tie-breaking determines order.
+			// MongoDB and dongo produce different orderings of the tied groups.
+			cursor, err := col.Aggregate(ctx, bson.A{
+				bson.D{{Key: "$group", Value: bson.D{
+					{Key: "_id", Value: "$cat"},
+					{Key: "n", Value: bson.D{{Key: "$sum", Value: int32(1)}}},
+				}}},
+				bson.D{{Key: "$sort", Value: bson.D{{Key: "n", Value: int32(1)}}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cursor.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
+		},
+	})
+}
