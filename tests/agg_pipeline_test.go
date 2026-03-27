@@ -1404,7 +1404,7 @@ func TestAgg_pipeline_addFields_match(t *testing.T) {
 func TestAgg_allowDiskUse(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_allowDiskUse",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Aggregate().SetAllowDiskUse(true)
@@ -2151,7 +2151,7 @@ func TestProject_exclude_field(t *testing.T) {
 func TestProject_computed_boolean(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_computed_boolean",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{

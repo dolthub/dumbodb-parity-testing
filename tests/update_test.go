@@ -719,7 +719,7 @@ func TestCurrentDate_as_timestamp(t *testing.T) {
 func TestPush_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Push_basic",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1596,7 +1596,7 @@ func TestUpdate_empty_document_error(t *testing.T) {
 func TestFindOneAndUpdate_default_returns_before(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndUpdate_default_returns_before",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			var before bson.D
@@ -1612,7 +1612,7 @@ func TestFindOneAndUpdate_default_returns_before(t *testing.T) {
 func TestFindOneAndUpdate_return_after(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndUpdate_return_after",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
@@ -1630,7 +1630,7 @@ func TestFindOneAndUpdate_return_after(t *testing.T) {
 func TestFindOneAndUpdate_upsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndUpdate_upsert",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndUpdate().
 				SetUpsert(true).
@@ -1649,7 +1649,7 @@ func TestFindOneAndUpdate_upsert(t *testing.T) {
 func TestFindOneAndUpdate_projection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndUpdate_projection",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndUpdate().
@@ -1669,7 +1669,7 @@ func TestFindOneAndUpdate_projection(t *testing.T) {
 func TestFindOneAndUpdate_sort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndUpdate_sort",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndUpdate().
@@ -1689,7 +1689,7 @@ func TestFindOneAndUpdate_sort(t *testing.T) {
 func TestFindOneAndUpdate_no_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndUpdate_no_match",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			var result bson.D
