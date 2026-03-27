@@ -2164,7 +2164,7 @@ func TestAggStage_unsupportedErrors_search(t *testing.T) {
 func TestAggStage_unknownStageError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unknownStageError",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$definitelyNotAStage", Value: bson.D{}}},
