@@ -613,7 +613,7 @@ func TestCursor_LimitNegative(t *testing.T) {
 func TestCursor_HintByDocument(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_HintByDocument",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "score", Value: int32(10)}},
@@ -647,7 +647,7 @@ func TestCursor_HintByDocument(t *testing.T) {
 func TestCursor_HintByName(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_HintByName",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "score", Value: int32(10)}},
@@ -873,7 +873,7 @@ func TestCursor_MultiBatchAllHelper(t *testing.T) {
 func TestCursor_TailableCappedCollectionRequired(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_TailableCappedCollectionRequired",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "a"}})
 			return err
