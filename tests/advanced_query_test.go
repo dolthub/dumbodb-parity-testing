@@ -528,7 +528,7 @@ func TestAdvancedQuery_Regex_DigitCharClass(t *testing.T) {
 func TestAdvancedQuery_Mod_BasicDivisorRemainder(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Mod_BasicDivisorRemainder",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -546,7 +546,7 @@ func TestAdvancedQuery_Mod_BasicDivisorRemainder(t *testing.T) {
 func TestAdvancedQuery_Mod_RemainderNonZero(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Mod_RemainderNonZero",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -564,7 +564,7 @@ func TestAdvancedQuery_Mod_RemainderNonZero(t *testing.T) {
 func TestAdvancedQuery_Mod_Divisor2_Even(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Mod_Divisor2_Even",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -582,7 +582,7 @@ func TestAdvancedQuery_Mod_Divisor2_Even(t *testing.T) {
 func TestAdvancedQuery_Mod_Divisor2_Odd(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Mod_Divisor2_Odd",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -600,7 +600,7 @@ func TestAdvancedQuery_Mod_Divisor2_Odd(t *testing.T) {
 func TestAdvancedQuery_Mod_LargeDivisor(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Mod_LargeDivisor",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -618,7 +618,7 @@ func TestAdvancedQuery_Mod_LargeDivisor(t *testing.T) {
 func TestAdvancedQuery_Mod_NoResults(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Mod_NoResults",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// num % 7 == 6 → none in set
@@ -630,7 +630,7 @@ func TestAdvancedQuery_Mod_NoResults(t *testing.T) {
 func TestAdvancedQuery_Mod_NegativeRemainder(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Mod_NegativeRemainder",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "m1"}, {Key: "val", Value: int32(-10)}},
@@ -655,7 +655,7 @@ func TestAdvancedQuery_Mod_NegativeRemainder(t *testing.T) {
 func TestAdvancedQuery_Mod_FloatTruncation(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Mod_FloatTruncation",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "f1"}, {Key: "val", Value: int32(10)}},
@@ -681,7 +681,7 @@ func TestAdvancedQuery_Mod_FloatTruncation(t *testing.T) {
 func TestAdvancedQuery_Mod_MissingField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Mod_MissingField",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "x1"}, {Key: "num", Value: int32(10)}},
@@ -699,7 +699,7 @@ func TestAdvancedQuery_Mod_MissingField(t *testing.T) {
 func TestAdvancedQuery_Mod_WithAndOperator(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Mod_WithAndOperator",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
