@@ -594,12 +594,12 @@ func TestUpdateOne_multi_field_inc(t *testing.T) {
 	})
 }
 
-// --- Field update operators (DongoXFail) ---
+// --- Field update operators ---
 
 func TestUpdateOne_mul_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_mul_basic",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -620,7 +620,7 @@ func TestUpdateOne_mul_basic(t *testing.T) {
 func TestUpdateOne_mul_zero(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_mul_zero",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -641,7 +641,7 @@ func TestUpdateOne_mul_zero(t *testing.T) {
 func TestUpdateOne_rename_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_rename_basic",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -661,7 +661,7 @@ func TestUpdateOne_rename_basic(t *testing.T) {
 func TestUpdateOne_rename_nonexistent(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_rename_nonexistent",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateOne(ctx,
@@ -682,7 +682,7 @@ func TestUpdateOne_rename_nonexistent(t *testing.T) {
 func TestUpdateOne_min_reduces(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_min_reduces",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -703,7 +703,7 @@ func TestUpdateOne_min_reduces(t *testing.T) {
 func TestUpdateOne_min_no_change(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_min_no_change",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateOne(ctx,
@@ -725,7 +725,7 @@ func TestUpdateOne_min_no_change(t *testing.T) {
 func TestUpdateOne_max_increases(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_max_increases",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -746,7 +746,7 @@ func TestUpdateOne_max_increases(t *testing.T) {
 func TestUpdateOne_max_no_change(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_max_no_change",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateOne(ctx,
@@ -768,7 +768,7 @@ func TestUpdateOne_max_no_change(t *testing.T) {
 func TestUpdateOne_setOnInsert_on_upsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_setOnInsert_on_upsert",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Update().SetUpsert(true)
 			_, err := col.UpdateOne(ctx,
@@ -792,7 +792,7 @@ func TestUpdateOne_setOnInsert_on_upsert(t *testing.T) {
 func TestUpdateOne_setOnInsert_no_upsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_setOnInsert_no_upsert",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// When matched (not inserted), $setOnInsert should be a no-op
@@ -813,7 +813,7 @@ func TestUpdateOne_setOnInsert_no_upsert(t *testing.T) {
 	})
 }
 
-// --- Array update operators (DongoXFail) ---
+// --- Array update operators ---
 
 func TestUpdateOne_push_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -839,7 +839,7 @@ func TestUpdateOne_push_basic(t *testing.T) {
 func TestUpdateOne_push_each(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_push_each",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -864,7 +864,7 @@ func TestUpdateOne_push_each(t *testing.T) {
 func TestUpdateOne_push_each_slice(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_push_each_slice",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Keep only last 2 elements after push
@@ -891,7 +891,7 @@ func TestUpdateOne_push_each_slice(t *testing.T) {
 func TestUpdateOne_push_each_sort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_push_each_sort",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "sort-1"},
@@ -923,7 +923,7 @@ func TestUpdateOne_push_each_sort(t *testing.T) {
 func TestUpdateOne_push_each_position(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_push_each_position",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Insert at position 0 (front)
@@ -950,7 +950,7 @@ func TestUpdateOne_push_each_position(t *testing.T) {
 func TestUpdateOne_pop_last(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_pop_last",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -971,7 +971,7 @@ func TestUpdateOne_pop_last(t *testing.T) {
 func TestUpdateOne_pop_first(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_pop_first",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -992,7 +992,7 @@ func TestUpdateOne_pop_first(t *testing.T) {
 func TestUpdateOne_pull_value(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_pull_value",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1013,7 +1013,7 @@ func TestUpdateOne_pull_value(t *testing.T) {
 func TestUpdateOne_pull_with_condition(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_pull_with_condition",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "pull-cond"},
@@ -1042,7 +1042,7 @@ func TestUpdateOne_pull_with_condition(t *testing.T) {
 func TestUpdateOne_pullAll(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_pullAll",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1063,7 +1063,7 @@ func TestUpdateOne_pullAll(t *testing.T) {
 func TestUpdateOne_addToSet_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_addToSet_basic",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1084,7 +1084,7 @@ func TestUpdateOne_addToSet_basic(t *testing.T) {
 func TestUpdateOne_addToSet_no_duplicate(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_addToSet_no_duplicate",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// "go" already exists in c1.tags — should not be added again
@@ -1106,7 +1106,7 @@ func TestUpdateOne_addToSet_no_duplicate(t *testing.T) {
 func TestUpdateOne_addToSet_each(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_addToSet_each",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1128,12 +1128,12 @@ func TestUpdateOne_addToSet_each(t *testing.T) {
 	})
 }
 
-// --- Positional operators (DongoXFail) ---
+// --- Positional operators ---
 
 func TestUpdateOne_positional_first_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_positional_first_match",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "pos-1"},
@@ -1166,7 +1166,7 @@ func TestUpdateOne_positional_first_match(t *testing.T) {
 func TestUpdateMany_positional_all(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateMany_positional_all",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "all-1"},
@@ -1193,7 +1193,7 @@ func TestUpdateMany_positional_all(t *testing.T) {
 func TestUpdateOne_arrayFilters(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_arrayFilters",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "af-1"},
@@ -1222,12 +1222,12 @@ func TestUpdateOne_arrayFilters(t *testing.T) {
 	})
 }
 
-// --- Pipeline-style updates (DongoXFail) ---
+// --- Pipeline-style updates ---
 
 func TestUpdateOne_pipeline_set(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_pipeline_set",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := []bson.D{
@@ -1251,7 +1251,7 @@ func TestUpdateOne_pipeline_set(t *testing.T) {
 func TestUpdateOne_pipeline_unset(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_pipeline_unset",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := []bson.D{
@@ -1274,7 +1274,7 @@ func TestUpdateOne_pipeline_unset(t *testing.T) {
 func TestUpdateOne_pipeline_addFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_pipeline_addFields",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := []bson.D{
@@ -1298,7 +1298,7 @@ func TestUpdateOne_pipeline_addFields(t *testing.T) {
 func TestUpdateMany_pipeline(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateMany_pipeline",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := []bson.D{
@@ -1316,12 +1316,12 @@ func TestUpdateMany_pipeline(t *testing.T) {
 	})
 }
 
-// --- Bitwise operators (DongoXFail) ---
+// --- Bitwise operators ---
 
 func TestUpdateOne_bit_and(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_bit_and",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "bit-1"},
@@ -1350,7 +1350,7 @@ func TestUpdateOne_bit_and(t *testing.T) {
 func TestUpdateOne_bit_or(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_bit_or",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "bit-2"},
@@ -1379,7 +1379,7 @@ func TestUpdateOne_bit_or(t *testing.T) {
 func TestUpdateOne_bit_xor(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_bit_xor",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "bit-3"},
@@ -2152,12 +2152,12 @@ func TestBulkWrite_upsert_model(t *testing.T) {
 	})
 }
 
-// --- Error cases (DongoXFail) ---
+// --- Error cases ---
 
 func TestUpdateOne_inc_on_string_error(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_inc_on_string_error",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $inc on a string field should error
@@ -2173,7 +2173,7 @@ func TestUpdateOne_inc_on_string_error(t *testing.T) {
 func TestUpdateOne_set_on_id_error(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_set_on_id_error",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $set on _id to change its value should error
@@ -2189,7 +2189,7 @@ func TestUpdateOne_set_on_id_error(t *testing.T) {
 func TestUpdateOne_invalid_operator_error(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_invalid_operator_error",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
