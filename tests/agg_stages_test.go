@@ -1855,7 +1855,7 @@ func insertOrgHierarchy(ctx context.Context, col *mongo.Collection) error {
 func TestAggStage_graphLookup_TraverseHierarchyFromLeaf(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_graphLookup_TraverseHierarchyFromLeaf",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertOrgHierarchy,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1883,7 +1883,7 @@ func TestAggStage_graphLookup_TraverseHierarchyFromLeaf(t *testing.T) {
 func TestAggStage_graphLookup_MaxDepthLimitsTraversal(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_graphLookup_MaxDepthLimitsTraversal",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertOrgHierarchy,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -2005,7 +2005,7 @@ func TestAggPipeline_multiStage_AddFieldsThenGroup(t *testing.T) {
 func TestAggPipeline_multiStage_UnwindThenGroup(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggPipeline_multiStage_UnwindThenGroup",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			// Use distinct per-tag counts so $sortByCount output is deterministic.
 			// go=3, db=2, api=1 — no ties means a stable comparison regardless of implementation.

@@ -2072,7 +2072,7 @@ func TestAddFields_set_alias_expr(t *testing.T) {
 func TestAddFields_then_group(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddFields_then_group",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2402,7 +2402,7 @@ func TestProject_and_or_in_project(t *testing.T) {
 func TestAddFields_then_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddFields_then_match",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{

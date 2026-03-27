@@ -878,7 +878,7 @@ func TestAggComplex_redact_nestedField(t *testing.T) {
 func TestAggComplex_matchUnwindGroupSort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchUnwindGroupSort",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -899,7 +899,7 @@ func TestAggComplex_matchUnwindGroupSort(t *testing.T) {
 func TestAggComplex_projectAddFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_projectAddFields",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -922,7 +922,7 @@ func TestAggComplex_projectAddFields(t *testing.T) {
 func TestAggComplex_replaceRoot(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_replaceRoot",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -971,7 +971,7 @@ func TestAggComplex_bucket_auto(t *testing.T) {
 func TestAggComplex_sortByCount(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_sortByCount",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1004,7 +1004,7 @@ func TestAggComplex_multiGroup_then_sort_limit(t *testing.T) {
 func TestAggComplex_matchGroupHaving(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchGroupHaving",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Simulate SQL HAVING: group, then filter groups.
