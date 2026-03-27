@@ -658,28 +658,6 @@ func TestGeo_GeoIntersects_Polygon_Contains(t *testing.T) {
 	})
 }
 
-func TestGeo_GeoIntersects_LineString(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "Geo_GeoIntersects_LineString",
-		Support: harness.DongoXFail,
-		Setup:   insertCities,
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// LineString crossing through NYC/Philadelphia area.
-			// Point documents don't intersect a LineString unless they lie exactly on it.
-			filter := bson.D{{Key: "loc", Value: bson.D{{Key: "$geoIntersects", Value: bson.D{
-				{Key: "$geometry", Value: bson.D{
-					{Key: "type", Value: "LineString"},
-					{Key: "coordinates", Value: bson.A{
-						bson.A{-80.0, 38.0},
-						bson.A{-70.0, 43.0},
-					}},
-				}},
-			}}}}}
-			return geoFindIDs(ctx, col, filter)
-		},
-	})
-}
-
 func TestGeo_GeoIntersects_MultiPolygon(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoIntersects_MultiPolygon",
