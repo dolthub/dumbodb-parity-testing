@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -547,6 +548,481 @@ func TestCursor_findOne_skip(t *testing.T) {
 				}
 			}
 			return bson.D{{Key: "_id", Value: id}}, nil
+		},
+	})
+}
+
+// ─── limit=0 and negative limit ───────────────────────────────────────────────
+
+func TestCursor_LimitZero(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Cursor_LimitZero",
+		Support: harness.DongoFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			docs := make([]interface{}, 5)
+			for i := 0; i < 5; i++ {
+				docs[i] = bson.D{{Key: "_id", Value: fmt.Sprintf("doc%d", i+1)}}
+			}
+			_, err := col.InsertMany(ctx, docs)
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			opts := options.Find().SetLimit(0).SetSort(bson.D{{Key: "_id", Value: 1}})
+			cursor, err := col.Find(ctx, bson.D{}, opts)
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cursor.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
+		},
+	})
+}
+
+func TestCursor_LimitNegative(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Cursor_LimitNegative",
+		Support: harness.DongoFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			docs := make([]interface{}, 10)
+			for i := 0; i < 10; i++ {
+				docs[i] = bson.D{{Key: "_id", Value: fmt.Sprintf("doc%02d", i+1)}, {Key: "v", Value: int32(i + 1)}}
+			}
+			_, err := col.InsertMany(ctx, docs)
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			opts := options.Find().SetSort(bson.D{{Key: "v", Value: 1}}).SetLimit(-3)
+			cursor, err := col.Find(ctx, bson.D{}, opts)
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cursor.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
+		},
+	})
+}
+
+// ─── hint by document and by name ─────────────────────────────────────────────
+
+func TestCursor_HintByDocument(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Cursor_HintByDocument",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: "a"}, {Key: "score", Value: int32(10)}},
+				bson.D{{Key: "_id", Value: "b"}, {Key: "score", Value: int32(20)}},
+				bson.D{{Key: "_id", Value: "c"}, {Key: "score", Value: int32(30)}},
+			})
+			if err != nil {
+				return err
+			}
+			_, err = col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "score", Value: 1}},
+				Options: options.Index().SetName("score_1"),
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			opts := options.Find().
+				SetHint(bson.D{{Key: "score", Value: 1}}).
+				SetSort(bson.D{{Key: "_id", Value: 1}}).
+				SetProjection(bson.D{{Key: "_id", Value: 1}})
+			cursor, err := col.Find(ctx, bson.D{}, opts)
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			return results, cursor.All(ctx, &results)
+		},
+	})
+}
+
+func TestCursor_HintByName(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Cursor_HintByName",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: "a"}, {Key: "score", Value: int32(10)}},
+				bson.D{{Key: "_id", Value: "b"}, {Key: "score", Value: int32(20)}},
+			})
+			if err != nil {
+				return err
+			}
+			_, err = col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "score", Value: 1}},
+				Options: options.Index().SetName("score_1"),
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			opts := options.Find().
+				SetHint("score_1").
+				SetSort(bson.D{{Key: "_id", Value: 1}}).
+				SetProjection(bson.D{{Key: "_id", Value: 1}})
+			cursor, err := col.Find(ctx, bson.D{}, opts)
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			return results, cursor.All(ctx, &results)
+		},
+	})
+}
+
+// ─── returnKey ────────────────────────────────────────────────────────────────
+
+func TestCursor_ReturnKey(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Cursor_ReturnKey",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: "a"}, {Key: "score", Value: int32(10)}, {Key: "name", Value: "alice"}},
+				bson.D{{Key: "_id", Value: "b"}, {Key: "score", Value: int32(20)}, {Key: "name", Value: "bob"}},
+			})
+			if err != nil {
+				return err
+			}
+			_, err = col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "score", Value: 1}},
+				Options: options.Index().SetName("score_1"),
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			opts := options.Find().
+				SetHint(bson.D{{Key: "score", Value: 1}}).
+				SetReturnKey(true).
+				SetSort(bson.D{{Key: "score", Value: 1}})
+			cursor, err := col.Find(ctx, bson.D{}, opts)
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			return results, cursor.All(ctx, &results)
+		},
+	})
+}
+
+// ─── min/max index bounds ─────────────────────────────────────────────────────
+
+func TestCursor_MinMaxBounds(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Cursor_MinMaxBounds",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			docs := make([]interface{}, 10)
+			for i := 0; i < 10; i++ {
+				docs[i] = bson.D{{Key: "_id", Value: fmt.Sprintf("doc%02d", i+1)}, {Key: "score", Value: int32((i + 1) * 10)}}
+			}
+			_, err := col.InsertMany(ctx, docs)
+			if err != nil {
+				return err
+			}
+			_, err = col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "score", Value: 1}},
+				Options: options.Index().SetName("score_1"),
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			opts := options.Find().
+				SetHint(bson.D{{Key: "score", Value: 1}}).
+				SetMin(bson.D{{Key: "score", Value: int32(30)}}).
+				SetMax(bson.D{{Key: "score", Value: int32(60)}}).
+				SetSort(bson.D{{Key: "score", Value: 1}}).
+				SetProjection(bson.D{{Key: "_id", Value: 0}, {Key: "score", Value: 1}})
+			cursor, err := col.Find(ctx, bson.D{}, opts)
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			return results, cursor.All(ctx, &results)
+		},
+	})
+}
+
+// ─── collation ────────────────────────────────────────────────────────────────
+
+func TestCursor_CollationCaseInsensitive(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Cursor_CollationCaseInsensitive",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: "a"}, {Key: "name", Value: "Alice"}},
+				bson.D{{Key: "_id", Value: "b"}, {Key: "name", Value: "bob"}},
+				bson.D{{Key: "_id", Value: "c"}, {Key: "name", Value: "CHARLIE"}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			caseInsensitive := &options.Collation{Locale: "en", Strength: 2}
+			opts := options.Find().
+				SetCollation(caseInsensitive).
+				SetSort(bson.D{{Key: "_id", Value: 1}}).
+				SetProjection(bson.D{{Key: "_id", Value: 1}})
+			cursor, err := col.Find(ctx, bson.D{{Key: "name", Value: "alice"}}, opts)
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			return results, cursor.All(ctx, &results)
+		},
+	})
+}
+
+func TestCursor_CollationSort(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Cursor_CollationSort",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: "a"}, {Key: "word", Value: "banana"}},
+				bson.D{{Key: "_id", Value: "b"}, {Key: "word", Value: "Apple"}},
+				bson.D{{Key: "_id", Value: "c"}, {Key: "word", Value: "cherry"}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			enCollation := &options.Collation{Locale: "en", Strength: 1}
+			opts := options.Find().
+				SetCollation(enCollation).
+				SetSort(bson.D{{Key: "word", Value: 1}}).
+				SetProjection(bson.D{{Key: "_id", Value: 0}, {Key: "word", Value: 1}})
+			cursor, err := col.Find(ctx, bson.D{}, opts)
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			return results, cursor.All(ctx, &results)
+		},
+	})
+}
+
+// ─── multi-batch (getMore) ────────────────────────────────────────────────────
+
+func TestCursor_MultiBatch(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Cursor_MultiBatch",
+		Support: harness.DongoFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			docs := make([]interface{}, 25)
+			for i := 0; i < 25; i++ {
+				docs[i] = bson.D{{Key: "_id", Value: fmt.Sprintf("doc%02d", i+1)}, {Key: "seq", Value: int32(i + 1)}}
+			}
+			_, err := col.InsertMany(ctx, docs)
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			opts := options.Find().SetSort(bson.D{{Key: "seq", Value: 1}}).SetBatchSize(4)
+			cursor, err := col.Find(ctx, bson.D{}, opts)
+			if err != nil {
+				return nil, err
+			}
+			defer cursor.Close(ctx)
+			var count int32
+			for cursor.Next(ctx) {
+				count++
+			}
+			if err := cursor.Err(); err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "count", Value: count}}, nil
+		},
+	})
+}
+
+func TestCursor_MultiBatchAllHelper(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Cursor_MultiBatchAllHelper",
+		Support: harness.DongoFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			docs := make([]interface{}, 15)
+			for i := 0; i < 15; i++ {
+				docs[i] = bson.D{{Key: "_id", Value: fmt.Sprintf("doc%02d", i+1)}, {Key: "seq", Value: int32(i + 1)}}
+			}
+			_, err := col.InsertMany(ctx, docs)
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			opts := options.Find().SetBatchSize(3).SetSort(bson.D{{Key: "seq", Value: 1}})
+			cursor, err := col.Find(ctx, bson.D{}, opts)
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cursor.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
+		},
+	})
+}
+
+// ─── tailable cursor on non-capped collection ─────────────────────────────────
+
+func TestCursor_TailableCappedCollectionRequired(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Cursor_TailableCappedCollectionRequired",
+		Support: harness.DongoXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "a"}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			// On a regular (non-capped) collection, tailable cursors return an error.
+			_, err := col.Find(ctx, bson.D{}, options.Find().SetCursorType(options.Tailable))
+			if err != nil {
+				return bson.D{{Key: "error", Value: true}}, nil
+			}
+			return bson.D{{Key: "error", Value: false}}, nil
+		},
+	})
+}
+
+// ─── cursor.Next() iteration ─────────────────────────────────────────────────
+
+func TestCursor_NextIteration(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Cursor_NextIteration",
+		Support: harness.DongoFull,
+		Setup:   insertCursorSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
+			cursor, err := col.Find(ctx, bson.D{}, opts)
+			if err != nil {
+				return nil, err
+			}
+			defer cursor.Close(ctx)
+			var ids []interface{}
+			for cursor.Next(ctx) {
+				var doc bson.D
+				if err := cursor.Decode(&doc); err != nil {
+					return nil, err
+				}
+				for _, e := range doc {
+					if e.Key == "_id" {
+						ids = append(ids, e.Value)
+					}
+				}
+			}
+			return bson.D{{Key: "ids", Value: ids}}, cursor.Err()
+		},
+	})
+}
+
+func TestCursor_CloseReleasesResources(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Cursor_CloseReleasesResources",
+		Support: harness.DongoFull,
+		Setup:   insertCursorSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cursor, err := col.Find(ctx, bson.D{})
+			if err != nil {
+				return nil, err
+			}
+			// Read first doc then close early.
+			_ = cursor.Next(ctx)
+			closeErr := cursor.Close(ctx)
+			// After close, Next() must return false.
+			hasMore := cursor.Next(ctx)
+			return bson.D{
+				{Key: "closeErr", Value: closeErr == nil},
+				{Key: "hasMoreAfterClose", Value: hasMore},
+			}, nil
+		},
+	})
+}
+
+// ─── allowPartialResults ──────────────────────────────────────────────────────
+
+func TestCursor_AllowPartialResultsTrue(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Cursor_AllowPartialResultsTrue",
+		Support: harness.DongoFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(1)}},
+				bson.D{{Key: "_id", Value: "b"}, {Key: "v", Value: int32(2)}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			opts := options.Find().
+				SetAllowPartialResults(true).
+				SetSort(bson.D{{Key: "_id", Value: 1}}).
+				SetProjection(bson.D{{Key: "_id", Value: 1}})
+			cursor, err := col.Find(ctx, bson.D{}, opts)
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cursor.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
+		},
+	})
+}
+
+func TestCursor_AllowPartialResultsFalse(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Cursor_AllowPartialResultsFalse",
+		Support: harness.DongoFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "x"}, {Key: "v", Value: int32(42)}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			opts := options.Find().
+				SetAllowPartialResults(false).
+				SetProjection(bson.D{{Key: "_id", Value: 1}})
+			cursor, err := col.Find(ctx, bson.D{}, opts)
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			return results, cursor.All(ctx, &results)
+		},
+	})
+}
+
+// ─── sort + limit + skip combined ─────────────────────────────────────────────
+
+func TestCursor_SortLimitSkipCombined(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Cursor_SortLimitSkipCombined",
+		Support: harness.DongoFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			docs := make([]interface{}, 20)
+			for i := 0; i < 20; i++ {
+				docs[i] = bson.D{{Key: "_id", Value: fmt.Sprintf("doc%02d", i+1)}, {Key: "seq", Value: int32(i + 1)}}
+			}
+			_, err := col.InsertMany(ctx, docs)
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			// Page 2: items 6-10 when sorted ascending.
+			opts := options.Find().
+				SetSort(bson.D{{Key: "seq", Value: 1}}).
+				SetSkip(5).
+				SetLimit(5).
+				SetProjection(bson.D{{Key: "_id", Value: 0}, {Key: "seq", Value: 1}})
+			cursor, err := col.Find(ctx, bson.D{}, opts)
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			return results, cursor.All(ctx, &results)
 		},
 	})
 }
