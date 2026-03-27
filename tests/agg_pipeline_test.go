@@ -2444,3 +2444,24 @@ func TestProject_slice_tags(t *testing.T) {
 		},
 	})
 }
+
+// TestAgg_bucket_missingBoundaries documents the error code mismatch when
+// $bucket is called without a required "boundaries" field.
+// MongoDB returns error code 40198; dongo returns 9. Bug: do-to0, do-slq1.
+func TestAgg_bucket_missingBoundaries(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Agg_bucket_missingBoundaries",
+		Support: harness.DongoXFail,
+		Setup:   insertAggSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			// $bucket with no "boundaries" field — both engines must error,
+			// but MongoDB returns code 40198 while dongo returns code 9.
+			_, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$bucket", Value: bson.D{
+					{Key: "groupBy", Value: "$price"},
+				}}},
+			})
+			return nil, err
+		},
+	})
+}
