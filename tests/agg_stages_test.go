@@ -705,13 +705,9 @@ func TestAggStage_limit_LimitExceedsCollection(t *testing.T) {
 }
 
 func TestAggStage_limit_LimitZeroError(t *testing.T) {
-	// Diverge (do-l3td): $limit:0 — same error code (Location15958) but
-	// different capitalisation in the message. Mongo: "the limit must be
-	// positive"; dongo: "The limit must be positive". Keep XFail until dongo
-	// normalises the message casing.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_limit_LimitZeroError",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$limit", Value: int64(0)}},
