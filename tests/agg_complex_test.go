@@ -115,7 +115,7 @@ func insertRedactDocs(ctx context.Context, col *mongo.Collection) error {
 func TestAggComplex_matchGroupSortProject(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchGroupSortProject",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -141,7 +141,7 @@ func TestAggComplex_matchGroupSortProject(t *testing.T) {
 func TestAggComplex_matchGroupSort_regionTotals(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchGroupSort_regionTotals",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -161,7 +161,7 @@ func TestAggComplex_matchGroupSort_regionTotals(t *testing.T) {
 func TestAggComplex_matchGroupProject_minMax(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchGroupProject_minMax",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -186,7 +186,7 @@ func TestAggComplex_matchGroupProject_minMax(t *testing.T) {
 func TestAggComplex_matchGroupProject_pushArray(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchGroupProject_pushArray",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -205,7 +205,7 @@ func TestAggComplex_matchGroupProject_pushArray(t *testing.T) {
 func TestAggComplex_matchGroupProject_addToSet(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchGroupProject_addToSet",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -225,7 +225,7 @@ func TestAggComplex_matchGroupProject_addToSet(t *testing.T) {
 func TestAggComplex_unwindGroup_skuTotals(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_unwindGroup_skuTotals",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -244,7 +244,7 @@ func TestAggComplex_unwindGroup_skuTotals(t *testing.T) {
 func TestAggComplex_unwindGroup_itemRevenue(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_unwindGroup_itemRevenue",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -267,7 +267,7 @@ func TestAggComplex_unwindGroup_itemRevenue(t *testing.T) {
 func TestAggComplex_unwindGroup_customerItems(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_unwindGroup_customerItems",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -286,7 +286,7 @@ func TestAggComplex_unwindGroup_customerItems(t *testing.T) {
 func TestAggComplex_unwindWithIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_unwindWithIndex",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -351,7 +351,7 @@ func TestAggComplex_lookupUnwindGroup(t *testing.T) {
 func TestAggComplex_lookupNoMatch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_lookupNoMatch",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertComplexSeed(ctx, col); err != nil {
 				return err
@@ -432,7 +432,7 @@ func TestAggComplex_lookupPipeline(t *testing.T) {
 func TestAggComplex_facet_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_facet_basic",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -461,7 +461,7 @@ func TestAggComplex_facet_basic(t *testing.T) {
 func TestAggComplex_facet_withBucket(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_facet_withBucket",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -495,7 +495,7 @@ func TestAggComplex_facet_withBucket(t *testing.T) {
 func TestAggComplex_facet_withMatchAndCount(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_facet_withMatchAndCount",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -524,7 +524,7 @@ func TestAggComplex_facet_withMatchAndCount(t *testing.T) {
 func TestAggComplex_graphLookup_simpleTree(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_graphLookup_simpleTree",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertGraphNodes,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Find all descendants of "root".
@@ -550,7 +550,7 @@ func TestAggComplex_graphLookup_simpleTree(t *testing.T) {
 func TestAggComplex_graphLookup_ancestors(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_graphLookup_ancestors",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertGraphNodes,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Walk up from "a1" to find all ancestors.
@@ -576,7 +576,7 @@ func TestAggComplex_graphLookup_ancestors(t *testing.T) {
 func TestAggComplex_graphLookup_maxDepth(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_graphLookup_maxDepth",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertGraphNodes,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -602,7 +602,7 @@ func TestAggComplex_graphLookup_maxDepth(t *testing.T) {
 func TestAggComplex_graphLookup_depthField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_graphLookup_depthField",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertGraphNodes,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -631,7 +631,7 @@ func TestAggComplex_graphLookup_depthField(t *testing.T) {
 func TestAggComplex_graphLookup_restrictSearch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_graphLookup_restrictSearch",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertGraphNodes,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Only follow nodes whose name doesn't start with "b".
@@ -660,7 +660,7 @@ func TestAggComplex_graphLookup_restrictSearch(t *testing.T) {
 func TestAggComplex_graphLookup_withCycles(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_graphLookup_withCycles",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			// Create a graph with a cycle: X -> Y -> Z -> X
 			_, err := col.InsertMany(ctx, []interface{}{
@@ -696,7 +696,7 @@ func TestAggComplex_graphLookup_withCycles(t *testing.T) {
 func TestAggComplex_sample_count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_sample_count",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{
@@ -717,7 +717,7 @@ func TestAggComplex_sample_count(t *testing.T) {
 func TestAggComplex_sample_one(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_sample_one",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{
@@ -738,7 +738,7 @@ func TestAggComplex_sample_one(t *testing.T) {
 func TestAggComplex_sample_all(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_sample_all",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Sampling more than collection size returns all docs.
@@ -878,7 +878,7 @@ func TestAggComplex_redact_nestedField(t *testing.T) {
 func TestAggComplex_matchUnwindGroupSort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchUnwindGroupSort",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -939,7 +939,7 @@ func TestAggComplex_replaceRoot(t *testing.T) {
 func TestAggComplex_count_stage(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_count_stage",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -954,7 +954,7 @@ func TestAggComplex_count_stage(t *testing.T) {
 func TestAggComplex_bucket_auto(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_bucket_auto",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -985,7 +985,7 @@ func TestAggComplex_sortByCount(t *testing.T) {
 func TestAggComplex_multiGroup_then_sort_limit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_multiGroup_then_sort_limit",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1025,7 +1025,7 @@ func TestAggComplex_matchGroupHaving(t *testing.T) {
 func TestAggComplex_multiStage_skipLimit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_multiStage_skipLimit",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1042,7 +1042,7 @@ func TestAggComplex_multiStage_skipLimit(t *testing.T) {
 func TestAggComplex_graphLookup_emptyStartWith(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_graphLookup_emptyStartWith",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertGraphNodes,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Node with no children — result should be empty descendants array.
@@ -1068,7 +1068,7 @@ func TestAggComplex_graphLookup_emptyStartWith(t *testing.T) {
 func TestAggComplex_setWindowFields_simple(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_setWindowFields_simple",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{

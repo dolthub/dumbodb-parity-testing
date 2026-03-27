@@ -329,7 +329,7 @@ func TestAggStage_group_MaxAccumulator(t *testing.T) {
 func TestAggStage_group_MinMaxTogether(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_group_MinMaxTogether",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggGroupSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -444,7 +444,7 @@ func TestAggStage_group_LastAccumulator(t *testing.T) {
 func TestAggStage_group_FirstLastTogether(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_group_FirstLastTogether",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "x1"}, {Key: "g", Value: "X"}, {Key: "v", Value: int32(1)}},
@@ -906,7 +906,7 @@ func TestAggStage_project_ExcludeID(t *testing.T) {
 func TestAggStage_project_ComputedField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_project_ComputedField",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggProjectSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1100,7 +1100,7 @@ func TestAggStage_addFields_AddLiteralField(t *testing.T) {
 func TestAggStage_addFields_AddComputedField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_addFields_AddComputedField",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggAddFieldsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1929,7 +1929,7 @@ func insertAggMultiStageSeed(ctx context.Context, col *mongo.Collection) error {
 func TestAggPipeline_multiStage_MatchGroupSort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggPipeline_multiStage_MatchGroupSort",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggMultiStageSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -2170,7 +2170,7 @@ func TestAggStage_invalidPipelineSpec(t *testing.T) {
 func TestAggStage_collStats_StorageStats(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_collStats_StorageStats",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}},
