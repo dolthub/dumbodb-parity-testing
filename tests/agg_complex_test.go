@@ -1174,3 +1174,45 @@ func TestAggComplex_matchUnwindGroupSort_SameTotalQty(t *testing.T) {
 		},
 	})
 }
+
+// TestAggComplex_graphLookup_bfsOrder documents a dongo divergence in
+// $graphLookup result handling. Using $map to extract a field from the result
+// array, MongoDB returns the name strings while dongo returns nulls — it cannot
+// resolve sub-field references ($$d.name) over the graphLookup output array.
+// Related dongo bug: do-0gb6 ($graphLookup result order / field access).
+func TestAggComplex_graphLookup_bfsOrder(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AggComplex_graphLookup_bfsOrder",
+		Support: harness.DongoXFail,
+		Setup:   insertGraphNodes,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			// Collect all descendants of "root" and use $map to extract names.
+			// MongoDB resolves $$d.name correctly from the graphLookup array.
+			// Dongo returns [null, null, ...] — sub-field access fails (do-0gb6).
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "root"}}}},
+				{{Key: "$graphLookup", Value: bson.D{
+					{Key: "from", Value: col.Name()},
+					{Key: "startWith", Value: "$_id"},
+					{Key: "connectFromField", Value: "_id"},
+					{Key: "connectToField", Value: "parent"},
+					{Key: "as", Value: "descendants"},
+				}}},
+				{{Key: "$addFields", Value: bson.D{
+					{Key: "descendantNames", Value: bson.D{
+						{Key: "$map", Value: bson.D{
+							{Key: "input", Value: "$descendants"},
+							{Key: "as", Value: "d"},
+							{Key: "in", Value: "$$d.name"},
+						}},
+					}},
+				}}},
+				{{Key: "$project", Value: bson.D{
+					{Key: "_id", Value: 1},
+					{Key: "descendantNames", Value: 1},
+				}}},
+			})
+			return docsToSlice(results), err
+		},
+	})
+}
