@@ -43,7 +43,7 @@ func insertAdvancedQueryDocsWithTextIndex(ctx context.Context, col *mongo.Collec
 func TestAdvancedQuery_TextSearch_CreateTextIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_TextSearch_CreateTextIndex",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocsWithTextIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return col.CountDocuments(ctx, bson.D{})
@@ -54,7 +54,7 @@ func TestAdvancedQuery_TextSearch_CreateTextIndex(t *testing.T) {
 func TestAdvancedQuery_TextSearch_BasicPhrase(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_TextSearch_BasicPhrase",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocsWithTextIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -88,7 +88,7 @@ func TestAdvancedQuery_TextSearch_MultipleTerms(t *testing.T) {
 func TestAdvancedQuery_TextSearch_ExactPhrase(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_TextSearch_ExactPhrase",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocsWithTextIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -105,7 +105,7 @@ func TestAdvancedQuery_TextSearch_ExactPhrase(t *testing.T) {
 func TestAdvancedQuery_TextSearch_Negation(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_TextSearch_Negation",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocsWithTextIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -122,7 +122,7 @@ func TestAdvancedQuery_TextSearch_Negation(t *testing.T) {
 func TestAdvancedQuery_TextSearch_LanguageOption(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_TextSearch_LanguageOption",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocsWithTextIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -139,7 +139,7 @@ func TestAdvancedQuery_TextSearch_LanguageOption(t *testing.T) {
 func TestAdvancedQuery_TextSearch_CaseSensitive(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_TextSearch_CaseSensitive",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocsWithTextIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -193,7 +193,7 @@ func TestAdvancedQuery_TextSearch_MetaTextScore_Projection(t *testing.T) {
 func TestAdvancedQuery_TextSearch_Count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_TextSearch_Count",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocsWithTextIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return col.CountDocuments(ctx, bson.D{{Key: "$text", Value: bson.D{{Key: "$search", Value: "fox"}}}})
@@ -204,7 +204,7 @@ func TestAdvancedQuery_TextSearch_Count(t *testing.T) {
 func TestAdvancedQuery_TextSearch_NoResults(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_TextSearch_NoResults",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocsWithTextIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return col.CountDocuments(ctx, bson.D{{Key: "$text", Value: bson.D{{Key: "$search", Value: "xyznotfound"}}}})
@@ -215,7 +215,7 @@ func TestAdvancedQuery_TextSearch_NoResults(t *testing.T) {
 func TestAdvancedQuery_TextSearch_WithAdditionalFilter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_TextSearch_WithAdditionalFilter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocsWithTextIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
