@@ -175,7 +175,7 @@ func TestBSON_int32_vs_int64_equality(t *testing.T) {
 func TestBSON_int32_type_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_int32_type_filter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "t32"}, {Key: "v", Value: int32(1)}},
@@ -198,7 +198,7 @@ func TestBSON_int32_type_filter(t *testing.T) {
 func TestBSON_int64_type_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_int64_type_filter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "t32"}, {Key: "v", Value: int32(1)}},
@@ -257,7 +257,7 @@ func TestBSON_double_nan(t *testing.T) {
 func TestBSON_double_infinity(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_double_infinity",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "inf+"}, {Key: "v", Value: math.Inf(1)}},
@@ -278,7 +278,7 @@ func TestBSON_double_infinity(t *testing.T) {
 func TestBSON_double_type_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_double_type_filter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "d1"}, {Key: "v", Value: 1.5}},
@@ -301,7 +301,7 @@ func TestBSON_double_type_filter(t *testing.T) {
 func TestBSON_decimal128_roundtrip(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_decimal128_roundtrip",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			d, err := primitive.ParseDecimal128("9999999999999999999.99")
 			if err != nil {
@@ -346,7 +346,7 @@ func TestBSON_decimal128_type_filter(t *testing.T) {
 func TestBSON_decimal128_high_precision(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_decimal128_high_precision",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Decimal128 preserves precision beyond float64
 			d, err := primitive.ParseDecimal128("0.1")
@@ -424,7 +424,7 @@ func TestBSON_bool_query_true(t *testing.T) {
 func TestBSON_bool_type_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_bool_type_filter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "bt"}, {Key: "v", Value: true}},
@@ -523,7 +523,7 @@ func TestBSON_date_comparison(t *testing.T) {
 func TestBSON_date_type_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_date_type_filter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			ts := primitive.NewDateTimeFromTime(time.Now().UTC())
 			_, err := col.InsertMany(ctx, []interface{}{
@@ -593,7 +593,7 @@ func TestBSON_null_vs_missing_exists(t *testing.T) {
 func TestBSON_null_type_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_null_type_filter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "null1"}, {Key: "v", Value: nil}},
@@ -692,7 +692,7 @@ func TestBSON_array_mixed_types(t *testing.T) {
 func TestBSON_array_type_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_array_type_filter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "arr"}, {Key: "v", Value: bson.A{1, 2}}},
@@ -713,7 +713,7 @@ func TestBSON_array_type_filter(t *testing.T) {
 func TestBSON_array_sort_mixed_types(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_array_sort_mixed_types",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "s1"}, {Key: "v", Value: "string"}},
@@ -816,7 +816,7 @@ func TestBSON_embedded_doc_deep_nesting(t *testing.T) {
 func TestBSON_embedded_doc_type_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_embedded_doc_type_filter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "obj"}, {Key: "v", Value: bson.D{{Key: "x", Value: 1}}}},
@@ -839,7 +839,7 @@ func TestBSON_embedded_doc_type_filter(t *testing.T) {
 func TestBSON_binary_insert_query(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_binary_insert_query",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			bin := primitive.Binary{Subtype: 0x00, Data: []byte{0x01, 0x02, 0x03, 0xAB, 0xCD}}
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "bin1"}, {Key: "data", Value: bin}})
@@ -864,7 +864,7 @@ func TestBSON_binary_insert_query(t *testing.T) {
 func TestBSON_binary_type_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_binary_type_filter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			bin := primitive.Binary{Subtype: 0x00, Data: []byte{0xFF}}
 			_, err := col.InsertMany(ctx, []interface{}{
@@ -888,7 +888,7 @@ func TestBSON_binary_type_filter(t *testing.T) {
 func TestBSON_uuid_binary_subtype4(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_uuid_binary_subtype4",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// UUID stored as Binary subtype 4 (16 bytes)
 			uuidBytes := []byte{0x55, 0x0e, 0x84, 0x00, 0xe2, 0x9b, 0x41, 0xd4,
@@ -918,7 +918,7 @@ func TestBSON_uuid_binary_subtype4(t *testing.T) {
 func TestBSON_regex_insert_query(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_regex_insert_query",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			re := primitive.Regex{Pattern: "^hello", Options: "i"}
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "re1"}, {Key: "pattern", Value: re}})
@@ -965,7 +965,7 @@ func TestBSON_regex_query_match(t *testing.T) {
 func TestBSON_regex_type_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_regex_type_filter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			re := primitive.Regex{Pattern: "foo", Options: ""}
 			_, err := col.InsertMany(ctx, []interface{}{
@@ -989,7 +989,7 @@ func TestBSON_regex_type_filter(t *testing.T) {
 func TestBSON_timestamp_insert_roundtrip(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_timestamp_insert_roundtrip",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			ts := primitive.Timestamp{T: 1700000000, I: 1}
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "ts1"}, {Key: "ts", Value: ts}})
@@ -1014,7 +1014,7 @@ func TestBSON_timestamp_insert_roundtrip(t *testing.T) {
 func TestBSON_timestamp_type_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_timestamp_type_filter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			ts := primitive.Timestamp{T: 1700000000, I: 1}
 			dt := primitive.NewDateTimeFromTime(time.Now())
@@ -1112,7 +1112,7 @@ func TestBSON_minkey_type_filter(t *testing.T) {
 func TestBSON_string_type_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_string_type_filter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "s1"}, {Key: "v", Value: "hello"}},
@@ -1135,7 +1135,7 @@ func TestBSON_string_type_filter(t *testing.T) {
 func TestBSON_type_numeric_code_double(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_type_numeric_code_double",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "d"}, {Key: "v", Value: 1.5}},
@@ -1157,7 +1157,7 @@ func TestBSON_type_numeric_code_double(t *testing.T) {
 func TestBSON_type_numeric_code_string(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_type_numeric_code_string",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "s"}, {Key: "v", Value: "hello"}},
@@ -1209,7 +1209,7 @@ func TestBSON_type_number_alias(t *testing.T) {
 func TestBSON_objectid_type_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_objectid_type_filter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			oid := primitive.NewObjectID()
 			_, err := col.InsertMany(ctx, []interface{}{
@@ -1255,7 +1255,7 @@ func TestBSON_no_coercion_string_number(t *testing.T) {
 func TestBSON_type_ordering_in_sort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_type_ordering_in_sort",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Numbers sort before strings in BSON type order
 			_, err := col.InsertMany(ctx, []interface{}{
@@ -1286,7 +1286,7 @@ func TestBSON_type_ordering_in_sort(t *testing.T) {
 func TestBSON_type_multi_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_type_multi_filter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "s"}, {Key: "v", Value: "hello"}},
@@ -1625,7 +1625,7 @@ func TestBSON_doc_field_order_preserved(t *testing.T) {
 func TestBSON_array_projection_slice(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_array_projection_slice",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "ps1"},
@@ -1698,7 +1698,7 @@ func TestBSON_nin_query(t *testing.T) {
 func TestBSON_type_oid_numeric_code(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_type_oid_numeric_code",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			oid := primitive.NewObjectID()
 			_, err := col.InsertMany(ctx, []interface{}{
@@ -1721,7 +1721,7 @@ func TestBSON_type_oid_numeric_code(t *testing.T) {
 func TestBSON_type_bool_numeric_code(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_type_bool_numeric_code",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "bt"}, {Key: "v", Value: true}},
@@ -1744,7 +1744,7 @@ func TestBSON_type_bool_numeric_code(t *testing.T) {
 func TestBSON_type_date_numeric_code(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_type_date_numeric_code",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			ts := primitive.NewDateTimeFromTime(time.Now().UTC())
 			_, err := col.InsertMany(ctx, []interface{}{
@@ -1767,7 +1767,7 @@ func TestBSON_type_date_numeric_code(t *testing.T) {
 func TestBSON_type_int32_numeric_code(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_type_int32_numeric_code",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "i32"}, {Key: "v", Value: int32(42)}},
@@ -1789,7 +1789,7 @@ func TestBSON_type_int32_numeric_code(t *testing.T) {
 func TestBSON_type_int64_numeric_code(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_type_int64_numeric_code",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "i32"}, {Key: "v", Value: int32(42)}},
@@ -1834,7 +1834,7 @@ func TestBSON_null_field_update_set(t *testing.T) {
 func TestBSON_double_zero_negative_zero(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_double_zero_negative_zero",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "pos0"}, {Key: "v", Value: 0.0}},
