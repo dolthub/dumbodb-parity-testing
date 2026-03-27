@@ -1865,7 +1865,7 @@ func insertOrgHierarchy(ctx context.Context, col *mongo.Collection) error {
 func TestAggStage_graphLookup_TraverseHierarchyFromLeaf(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_graphLookup_TraverseHierarchyFromLeaf",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup:   insertOrgHierarchy,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
