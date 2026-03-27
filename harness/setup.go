@@ -68,7 +68,17 @@ func GetClients(ctx context.Context) (*Clients, error) {
 
 // TestDB creates a uniquely-named database for a single test on both servers.
 // The returned cleanup function drops both databases; callers should defer it.
+// If Dongo is unreachable (e.g. crashed mid-suite), TestDB returns an error
+// immediately rather than blocking for the 30-second server-selection timeout.
 func (c *Clients) TestDB(ctx context.Context, testName string) (mongoCol, dongoCol *mongo.Collection, cleanup func(), err error) {
+	// Fast health check: if Dongo crashed after the initial connection, detect it
+	// quickly (2s) rather than letting every subsequent test hang for 30s.
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer pingCancel()
+	if err := c.Dongo.Ping(pingCtx, nil); err != nil {
+		return nil, nil, func() {}, fmt.Errorf("dongo unreachable (crashed?): %w", err)
+	}
+
 	dbName := fmt.Sprintf("parity_%s_%d", sanitizeName(testName), time.Now().UnixNano())
 	const colName = "col"
 

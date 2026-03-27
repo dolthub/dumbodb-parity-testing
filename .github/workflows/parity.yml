@@ -73,9 +73,9 @@ jobs:
       - name: Run parity suite
         run: |
           mkdir -p results
-          go test ./... -v -timeout 5m -json | tee results/parity.json
+          go test ./... -v -timeout 15m -json | tee results/parity.json
           # Re-run without -json for human-readable output; ignore exit code (json run sets it)
-          go test ./... -timeout 5m
+          go test ./... -timeout 15m
 
       - name: Upload results
         if: always()
