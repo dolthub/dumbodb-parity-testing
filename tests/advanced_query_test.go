@@ -739,7 +739,7 @@ func insertJsonSchemaDocs(ctx context.Context, col *mongo.Collection) error {
 func TestAdvancedQuery_JsonSchema_RequiredFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_RequiredFields",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertJsonSchemaDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -759,7 +759,7 @@ func TestAdvancedQuery_JsonSchema_RequiredFields(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_BsonType_String(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_BsonType_String",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertJsonSchemaDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -783,7 +783,7 @@ func TestAdvancedQuery_JsonSchema_BsonType_String(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_BsonType_Int(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_BsonType_Int",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertJsonSchemaDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -807,7 +807,7 @@ func TestAdvancedQuery_JsonSchema_BsonType_Int(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_Minimum_Maximum(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_Minimum_Maximum",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertJsonSchemaDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -835,7 +835,7 @@ func TestAdvancedQuery_JsonSchema_Minimum_Maximum(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_Enum(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_Enum",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertJsonSchemaDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -859,7 +859,7 @@ func TestAdvancedQuery_JsonSchema_Enum(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_NestedProperties(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_NestedProperties",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "n1"}, {Key: "address", Value: bson.D{{Key: "city", Value: "NYC"}, {Key: "zip", Value: "10001"}}}},
@@ -896,7 +896,7 @@ func TestAdvancedQuery_JsonSchema_NestedProperties(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_PartialMatch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_PartialMatch",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertJsonSchemaDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Only docs with valid email (string type) and valid age (int, >= 0, <= 100)
@@ -926,7 +926,7 @@ func TestAdvancedQuery_JsonSchema_PartialMatch(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_Count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_Count",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertJsonSchemaDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			schema := bson.D{{Key: "$jsonSchema", Value: bson.D{
