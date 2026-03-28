@@ -311,7 +311,7 @@ func TestAggComplex_unwindWithIndex(t *testing.T) {
 func TestAggComplex_lookupUnwindGroup(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_lookupUnwindGroup",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertComplexSeed(ctx, col); err != nil {
 				return err
@@ -386,7 +386,7 @@ func TestAggComplex_lookupNoMatch(t *testing.T) {
 func TestAggComplex_lookupPipeline(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_lookupPipeline",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertComplexSeed(ctx, col); err != nil {
 				return err

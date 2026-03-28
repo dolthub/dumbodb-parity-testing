@@ -1181,7 +1181,7 @@ func TestBSON_type_numeric_code_string(t *testing.T) {
 func TestBSON_type_number_alias(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_type_number_alias",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			d128, _ := primitive.ParseDecimal128("1.5")
 			_, err := col.InsertMany(ctx, []interface{}{
@@ -1522,7 +1522,7 @@ func TestBSON_int64_max_min(t *testing.T) {
 func TestBSON_objectid_timestamp(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_objectid_timestamp",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			oid := primitive.NewObjectID()
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: oid}})
