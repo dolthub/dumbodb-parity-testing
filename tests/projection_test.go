@@ -361,13 +361,13 @@ func TestProjection_FindOne_NestedField(t *testing.T) {
 }
 
 // ============================================================
-// Projection — $slice operator (DongoXFail)
+// Projection — $slice operator
 // ============================================================
 
 func TestProjection_Slice_FirstN(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_Slice_FirstN",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -381,7 +381,7 @@ func TestProjection_Slice_FirstN(t *testing.T) {
 func TestProjection_Slice_LastN(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_Slice_LastN",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -395,7 +395,7 @@ func TestProjection_Slice_LastN(t *testing.T) {
 func TestProjection_Slice_SkipLimit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_Slice_SkipLimit",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -412,7 +412,7 @@ func TestProjection_Slice_SkipLimit(t *testing.T) {
 func TestProjection_Slice_AllElements(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_Slice_AllElements",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -440,7 +440,7 @@ func TestProjection_Slice_Tags_FirstOne(t *testing.T) {
 func TestProjection_Slice_NegativeSkip(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_Slice_NegativeSkip",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
