@@ -1593,12 +1593,9 @@ func TestAggStage_bucket_WithDefault(t *testing.T) {
 }
 
 func TestAggStage_bucket_MissingBoundariesError(t *testing.T) {
-	// Diverge (do-slq1): $bucket without a boundaries field — mongo returns
-	// error code 40198; dongo returns code 9 (FailedToParse). Fix in dongo's
-	// $bucket validation to emit the correct Location40198 error.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucket_MissingBoundariesError",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$bucket", Value: bson.D{
@@ -1677,12 +1674,9 @@ func TestAggStage_bucketAuto_ThreeBuckets(t *testing.T) {
 }
 
 func TestAggStage_bucketAuto_MissingBucketsError(t *testing.T) {
-	// Diverge (do-slq1): $bucketAuto without a buckets field — mongo returns
-	// error code 40246; dongo returns code 9 (FailedToParse). Fix in dongo's
-	// $bucketAuto validation to emit the correct Location40246 error.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucketAuto_MissingBucketsError",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$bucketAuto", Value: bson.D{
@@ -2321,11 +2315,9 @@ func TestAggStage_collStats_Count(t *testing.T) {
 // ─── Error-code divergence XFail tests ────────────────────────────────────────
 
 func TestAggStage_bucket_OneBoundaryError(t *testing.T) {
-	// Diverge (do-t63k): $bucket with only one boundary value — mongo returns
-	// error code Location40192; dongo returns BadValue with a different message.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucket_OneBoundaryError",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$bucket", Value: bson.D{
@@ -2339,12 +2331,9 @@ func TestAggStage_bucket_OneBoundaryError(t *testing.T) {
 }
 
 func TestAggStage_unknown_stage_error(t *testing.T) {
-	// Diverge (do-gx4x): unknown pipeline stage — mongo returns error code
-	// Location40324 with single-quoted stage name; dongo returns Location40234
-	// with double-quoted stage name.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unknown_stage_error",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$unknownStage", Value: bson.D{}}},
