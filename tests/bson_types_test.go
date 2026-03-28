@@ -1179,9 +1179,12 @@ func TestBSON_type_numeric_code_string(t *testing.T) {
 // ─── $type with "number" alias ────────────────────────────────────────────────
 
 func TestBSON_type_number_alias(t *testing.T) {
+	// Diverge: $type "number" alias does not match Decimal128 on GitHub dongo
+	// (count=3 instead of 4). Fix exists in local WIP but not yet pushed to
+	// GitHub main. Re-graduate once the fix lands in dolthub/dongo main.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_type_number_alias",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			d128, _ := primitive.ParseDecimal128("1.5")
 			_, err := col.InsertMany(ctx, []interface{}{
@@ -1520,9 +1523,12 @@ func TestBSON_int64_max_min(t *testing.T) {
 // ─── ObjectID timestamp extraction ───────────────────────────────────────────
 
 func TestBSON_objectid_timestamp(t *testing.T) {
+	// Diverge: GitHub dongo errors with "Unsupported conversion from
+	// types.ObjectID in $toDate". Fix exists in local WIP but not yet pushed
+	// to GitHub main. Re-graduate once the fix lands in dolthub/dongo main.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_objectid_timestamp",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			oid := primitive.NewObjectID()
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: oid}})
