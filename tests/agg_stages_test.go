@@ -2354,13 +2354,13 @@ func TestAggStage_unknown_stage_error(t *testing.T) {
 // ─── Sort tie-breaking divergence XFail tests ─────────────────────────────────
 
 func TestAggPipeline_sort_TieBreakingAfterGroup(t *testing.T) {
-	// Diverge (do-socd): when $group produces multiple groups with identical sort
-	// values, dongo's tie-breaking order differs from MongoDB's. MongoDB breaks
-	// ties by the group key's natural order; dongo may use a different internal
-	// ordering (e.g. hash map iteration order).
+	// Diverge: bare $group+$sort with all-tied sort keys. The stable-sort fix
+	// (do-socd) preserves prior-pipeline order, but $group output order is
+	// still non-deterministic (hash map iteration), so tie-breaking still
+	// diverges from MongoDB. Remains XFail until $group output ordering matches.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggPipeline_sort_TieBreakingAfterGroup",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "1"}, {Key: "cat", Value: "C"}},
