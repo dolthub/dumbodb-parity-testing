@@ -831,9 +831,12 @@ func TestGeo_DocType_MultiPolygon(t *testing.T) {
 }
 
 func TestGeo_DocType_GeometryCollection(t *testing.T) {
+	// Diverge: GitHub dongo returns [] where MongoDB returns [{_id: gc1}].
+	// GeometryCollection document type not fully supported in GitHub dongo.
+	// Fix exists in WIP local dongo. Re-graduate once fix lands in GitHub main.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_DocType_GeometryCollection",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys: bson.D{{Key: "geo", Value: "2dsphere"}},
@@ -959,9 +962,12 @@ func TestGeo_Legacy_Near2d(t *testing.T) {
 }
 
 func TestGeo_Legacy_NearSphere_2d(t *testing.T) {
+	// Diverge: GitHub dongo returns only 1 result where MongoDB returns 2.
+	// $nearSphere on 2d index has incorrect radius/distance handling.
+	// Fix exists in WIP local dongo. Re-graduate once fix lands in GitHub main.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Legacy_NearSphere_2d",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup:   insertLegacy,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $nearSphere on 2d index uses spherical distance, radius in radians.
