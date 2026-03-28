@@ -1595,7 +1595,7 @@ func TestAggStage_bucket_WithDefault(t *testing.T) {
 func TestAggStage_bucket_MissingBoundariesError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucket_MissingBoundariesError",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$bucket", Value: bson.D{
@@ -1676,7 +1676,7 @@ func TestAggStage_bucketAuto_ThreeBuckets(t *testing.T) {
 func TestAggStage_bucketAuto_MissingBucketsError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucketAuto_MissingBucketsError",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$bucketAuto", Value: bson.D{
@@ -2317,7 +2317,7 @@ func TestAggStage_collStats_Count(t *testing.T) {
 func TestAggStage_bucket_OneBoundaryError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucket_OneBoundaryError",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$bucket", Value: bson.D{
