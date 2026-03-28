@@ -2339,12 +2339,9 @@ func TestAggStage_bucket_OneBoundaryError(t *testing.T) {
 }
 
 func TestAggStage_unknown_stage_error(t *testing.T) {
-	// Diverge (do-gx4x): unknown pipeline stage — mongo returns error code
-	// Location40324 with single-quoted stage name; dongo returns Location40234
-	// with double-quoted stage name.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unknown_stage_error",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$unknownStage", Value: bson.D{}}},
