@@ -387,7 +387,7 @@ func TestIndex_Sparse_OmitsMissingField(t *testing.T) {
 func TestIndex_Sparse_UniqueWithMissingField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Sparse_UniqueWithMissingField",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			sparse := true
 			unique := true
@@ -419,7 +419,7 @@ func TestIndex_Sparse_UniqueWithMissingField(t *testing.T) {
 func TestIndex_TTL_CreateOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_TTL_CreateOne",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			expireAfter := int32(3600)
 			model := mongo.IndexModel{
@@ -438,7 +438,7 @@ func TestIndex_TTL_CreateOne(t *testing.T) {
 func TestIndex_TTL_ZeroSeconds(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_TTL_ZeroSeconds",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			expireAfter := int32(0)
 			model := mongo.IndexModel{
@@ -457,7 +457,7 @@ func TestIndex_TTL_ZeroSeconds(t *testing.T) {
 func TestIndex_TTL_InsertAndVerifyNotExpiredYet(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_TTL_InsertAndVerifyNotExpiredYet",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			expireAfter := int32(3600)
 			model := mongo.IndexModel{
@@ -490,7 +490,7 @@ func TestIndex_TTL_InsertAndVerifyNotExpiredYet(t *testing.T) {
 func TestIndex_Partial_CreateOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Partial_CreateOne",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			filter := bson.D{{Key: "score", Value: bson.D{{Key: "$gt", Value: int32(10)}}}}
 			model := mongo.IndexModel{
@@ -509,7 +509,7 @@ func TestIndex_Partial_CreateOne(t *testing.T) {
 func TestIndex_Partial_OnlyIndexesMatchingDocs(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Partial_OnlyIndexesMatchingDocs",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "p1"}, {Key: "score", Value: int32(5)}},
@@ -539,7 +539,7 @@ func TestIndex_Partial_OnlyIndexesMatchingDocs(t *testing.T) {
 func TestIndex_Partial_WithExistsFilter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Partial_WithExistsFilter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			filter := bson.D{{Key: "email", Value: bson.D{{Key: "$exists", Value: true}}}}
 			model := mongo.IndexModel{
@@ -803,7 +803,7 @@ func TestIndex_2dsphere_GeoWithinQuery(t *testing.T) {
 func TestIndex_Hashed_CreateOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Hashed_CreateOne",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "user_id", Value: "hashed"}}}
 			name, err := col.Indexes().CreateOne(ctx, model)
@@ -818,7 +818,7 @@ func TestIndex_Hashed_CreateOne(t *testing.T) {
 func TestIndex_Hashed_EqualityQuery(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Hashed_EqualityQuery",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "uid", Value: "hashed"}}}
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
@@ -954,7 +954,7 @@ func TestIndex_ListIndexes_AfterCreate(t *testing.T) {
 func TestIndex_ListIndexes_AfterDrop(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_ListIndexes_AfterDrop",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "x", Value: 1}}}
 			name, err := col.Indexes().CreateOne(ctx, model)
@@ -1214,7 +1214,7 @@ func TestIndex_Explain_WithHint(t *testing.T) {
 func TestIndex_IndexStats_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_IndexStats_Basic",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "score", Value: 1}}}
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
@@ -1692,7 +1692,7 @@ func TestIndex_Sort_DescendingWithIndex(t *testing.T) {
 func TestIndex_Collation_CaseInsensitive(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Collation_CaseInsensitive",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			collation := options.Collation{Locale: "en", Strength: 2}
 			model := mongo.IndexModel{
@@ -1711,7 +1711,7 @@ func TestIndex_Collation_CaseInsensitive(t *testing.T) {
 func TestIndex_Collation_UniqueWithCollation(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Collation_UniqueWithCollation",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			unique := true
 			collation := options.Collation{Locale: "en", Strength: 2}
@@ -1793,7 +1793,7 @@ func TestIndex_Sparse_Drop(t *testing.T) {
 func TestIndex_TTL_OnNestedDateField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_TTL_OnNestedDateField",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			expireAfter := int32(86400)
 			model := mongo.IndexModel{
@@ -1816,7 +1816,7 @@ func TestIndex_TTL_OnNestedDateField(t *testing.T) {
 func TestIndex_Partial_UniquePartial(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Partial_UniquePartial",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			filter := bson.D{{Key: "active", Value: true}}
 			unique := true
@@ -1838,7 +1838,7 @@ func TestIndex_Partial_UniquePartial(t *testing.T) {
 func TestIndex_Partial_CompoundKeys(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Partial_CompoundKeys",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			filter := bson.D{{Key: "status", Value: "active"}}
 			model := mongo.IndexModel{
@@ -1948,7 +1948,7 @@ func TestIndex_Text_ExcludeWord(t *testing.T) {
 func TestIndex_Wildcard_WithWildcardProjection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Wildcard_WithWildcardProjection",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			model := mongo.IndexModel{
 				Keys: bson.D{{Key: "$**", Value: 1}},
@@ -2119,7 +2119,7 @@ func TestIndex_Hint_CountDocuments(t *testing.T) {
 func TestIndex_ListIndexes_AfterDropAll(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_ListIndexes_AfterDropAll",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			models := []mongo.IndexModel{
 				{Keys: bson.D{{Key: "x", Value: 1}}},
@@ -2339,7 +2339,7 @@ func TestIndex_NestedField_Query(t *testing.T) {
 func TestIndex_IndexStats_AfterInsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_IndexStats_AfterInsert",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "hits", Value: 1}}}
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
