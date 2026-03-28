@@ -321,7 +321,7 @@ func TestBSON_decimal128_roundtrip(t *testing.T) {
 func TestBSON_decimal128_type_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_decimal128_type_filter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			d, err := primitive.ParseDecimal128("1.23")
 			if err != nil {

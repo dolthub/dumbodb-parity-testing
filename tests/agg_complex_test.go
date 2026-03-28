@@ -205,7 +205,7 @@ func TestAggComplex_matchGroupProject_pushArray(t *testing.T) {
 func TestAggComplex_matchGroupProject_addToSet(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchGroupProject_addToSet",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{

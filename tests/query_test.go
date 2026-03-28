@@ -1630,7 +1630,7 @@ func TestQuery_type_double(t *testing.T) {
 func TestQuery_type_decimal(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_type_decimal",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertTypedDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// "decimal" alias matches BSON Decimal128.

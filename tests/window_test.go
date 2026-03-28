@@ -495,7 +495,7 @@ func TestWindow_range_currentToCurrent(t *testing.T) {
 func TestWindow_range_minusN_to_current(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_range_minusN_to_current",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Sum salary within 10000 below current salary to current.
@@ -1343,7 +1343,7 @@ func TestWindow_locf(t *testing.T) {
 func TestWindow_top(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_top",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "score", Value: int32(10)}, {Key: "name", Value: "alice"}},
@@ -1377,7 +1377,7 @@ func TestWindow_top(t *testing.T) {
 func TestWindow_bottom(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_bottom",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "score", Value: int32(10)}, {Key: "name", Value: "alice"}},

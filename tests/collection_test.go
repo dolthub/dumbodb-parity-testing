@@ -386,7 +386,7 @@ func TestCollection_DropAndRecreate(t *testing.T) {
 func TestCollection_CreateTimeSeries(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_CreateTimeSeries",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Time series collections require timeField option.
