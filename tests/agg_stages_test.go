@@ -1598,7 +1598,7 @@ func TestAggStage_bucket_MissingBoundariesError(t *testing.T) {
 	// $bucket validation to emit the correct Location40198 error.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucket_MissingBoundariesError",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$bucket", Value: bson.D{
@@ -1682,7 +1682,7 @@ func TestAggStage_bucketAuto_MissingBucketsError(t *testing.T) {
 	// $bucketAuto validation to emit the correct Location40246 error.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucketAuto_MissingBucketsError",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$bucketAuto", Value: bson.D{
@@ -1927,7 +1927,7 @@ func TestAggStage_graphLookup_TraverseHierarchyFromLeaf(t *testing.T) {
 func TestAggStage_graphLookup_MaxDepthLimitsTraversal(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_graphLookup_MaxDepthLimitsTraversal",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertOrgHierarchy,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -2151,7 +2151,7 @@ func TestAggPipeline_multiStage_ProjectThenSort(t *testing.T) {
 func TestAggStage_unsupportedErrors_changeStream(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unsupportedErrors_changeStream",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{bson.D{{Key: "$changeStream", Value: bson.D{}}}})
 			return nil, err
@@ -2162,7 +2162,7 @@ func TestAggStage_unsupportedErrors_changeStream(t *testing.T) {
 func TestAggStage_unsupportedErrors_densify(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unsupportedErrors_densify",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{bson.D{{Key: "$densify", Value: bson.D{}}}})
 			return nil, err
@@ -2173,7 +2173,7 @@ func TestAggStage_unsupportedErrors_densify(t *testing.T) {
 func TestAggStage_unsupportedErrors_fill(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unsupportedErrors_fill",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{bson.D{{Key: "$fill", Value: bson.D{}}}})
 			return nil, err
@@ -2184,7 +2184,7 @@ func TestAggStage_unsupportedErrors_fill(t *testing.T) {
 func TestAggStage_unsupportedErrors_indexStats(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unsupportedErrors_indexStats",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{bson.D{{Key: "$indexStats", Value: bson.D{}}}})
 			return nil, err
@@ -2195,7 +2195,7 @@ func TestAggStage_unsupportedErrors_indexStats(t *testing.T) {
 func TestAggStage_unsupportedErrors_search(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unsupportedErrors_search",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{bson.D{{Key: "$search", Value: bson.D{}}}})
 			return nil, err
@@ -2325,7 +2325,7 @@ func TestAggStage_bucket_OneBoundaryError(t *testing.T) {
 	// error code Location40192; dongo returns BadValue with a different message.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucket_OneBoundaryError",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$bucket", Value: bson.D{
