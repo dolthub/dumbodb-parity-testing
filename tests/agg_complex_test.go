@@ -762,7 +762,7 @@ func TestAggComplex_sample_all(t *testing.T) {
 func TestAggComplex_redact_prune(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_redact_prune",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertRedactDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -783,7 +783,7 @@ func TestAggComplex_redact_prune(t *testing.T) {
 func TestAggComplex_redact_keep(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_redact_keep",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertRedactDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -804,7 +804,7 @@ func TestAggComplex_redact_keep(t *testing.T) {
 func TestAggComplex_redact_descend(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_redact_descend",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertRedactDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Always DESCEND — returns all documents unchanged.
@@ -820,7 +820,7 @@ func TestAggComplex_redact_descend(t *testing.T) {
 func TestAggComplex_redact_pruneAll(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_redact_pruneAll",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertRedactDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Always PRUNE — no documents returned.
@@ -842,7 +842,7 @@ func TestAggComplex_redact_pruneAll(t *testing.T) {
 func TestAggComplex_redact_nestedField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_redact_nestedField",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{
