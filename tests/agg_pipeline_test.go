@@ -1257,7 +1257,7 @@ func TestAgg_sample_exceeds_size(t *testing.T) {
 func TestAgg_redact_prune(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_redact_prune",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{
@@ -1289,7 +1289,7 @@ func TestAgg_redact_prune(t *testing.T) {
 func TestAgg_redact_keep(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_redact_keep",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1306,7 +1306,7 @@ func TestAgg_redact_keep(t *testing.T) {
 func TestAgg_redact_prune_all(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_redact_prune_all",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2244,7 +2244,7 @@ func TestProject_in_array_check(t *testing.T) {
 func TestProject_mergeObjects_with_extra(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_mergeObjects_with_extra",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2271,7 +2271,7 @@ func TestProject_mergeObjects_with_extra(t *testing.T) {
 func TestProject_let_vars_expr(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_let_vars_expr",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2352,7 +2352,7 @@ func TestProject_map_tags_upper(t *testing.T) {
 func TestProject_literal_constant(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_literal_constant",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2377,7 +2377,7 @@ func TestProject_literal_constant(t *testing.T) {
 func TestProject_and_or_in_project(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_and_or_in_project",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2445,17 +2445,14 @@ func TestProject_slice_tags(t *testing.T) {
 	})
 }
 
-// TestAgg_bucket_missingBoundaries documents the error code mismatch when
-// $bucket is called without a required "boundaries" field.
-// MongoDB returns error code 40198; dongo returns 9. Bug: do-to0, do-slq1.
+// TestAgg_bucket_missingBoundaries verifies that $bucket without a required
+// "boundaries" field returns error code 40198, matching MongoDB.
 func TestAgg_bucket_missingBoundaries(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_bucket_missingBoundaries",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// $bucket with no "boundaries" field — both engines must error,
-			// but MongoDB returns code 40198 while dongo returns code 9.
 			_, err := runPipeline(ctx, col, []bson.D{
 				{{Key: "$bucket", Value: bson.D{
 					{Key: "groupBy", Value: "$price"},
