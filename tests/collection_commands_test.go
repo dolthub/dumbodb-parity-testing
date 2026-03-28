@@ -606,7 +606,7 @@ func TestCount_Deprecated_NoFilter(t *testing.T) {
 func TestCount_Deprecated_NonExistentCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Count_Deprecated_NonExistentCollection",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// count on a non-existent collection returns n:0 (not an error).
@@ -620,7 +620,7 @@ func TestCount_Deprecated_NonExistentCollection(t *testing.T) {
 func TestDistinct_NonExistentCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Distinct_NonExistentCollection",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// distinct on a non-existent collection returns an empty values array.
@@ -635,7 +635,7 @@ func TestDistinct_NonExistentCollection(t *testing.T) {
 func TestDistinct_WithQuery(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Distinct_WithQuery",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// distinct via RunCommand with a query filter.

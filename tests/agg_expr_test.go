@@ -1521,7 +1521,7 @@ func TestExpr_missing_field_in_cond(t *testing.T) {
 func TestExpr_mergeObjects_project(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_mergeObjects_project",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "mo1"},
