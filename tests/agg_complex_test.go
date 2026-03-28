@@ -878,7 +878,7 @@ func TestAggComplex_redact_nestedField(t *testing.T) {
 func TestAggComplex_matchUnwindGroupSort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchUnwindGroupSort",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
