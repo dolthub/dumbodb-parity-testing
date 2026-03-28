@@ -613,7 +613,7 @@ func TestExpr_in_array(t *testing.T) {
 func TestExpr_arrayToObject(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_arrayToObject",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "ato1"},
@@ -719,7 +719,7 @@ func TestExpr_dateToString(t *testing.T) {
 func TestExpr_dateTrunc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_dateTrunc",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertDateDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "d1", bson.D{
@@ -754,7 +754,7 @@ func TestExpr_dateAdd(t *testing.T) {
 func TestExpr_dateDiff(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_dateDiff",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertDateDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			end := primitive.NewDateTimeFromTime(time.Date(2024, 7, 15, 0, 0, 0, 0, time.UTC))
@@ -1212,7 +1212,7 @@ func TestAccum_multi_accumulators(t *testing.T) {
 func TestExpr_and_or_not(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_and_or_not",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "bool1"},
@@ -2270,7 +2270,7 @@ func TestExpr_project_missing_field_arithmetic(t *testing.T) {
 func TestExpr_project_and_or_short_circuit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_and_or_short_circuit",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
