@@ -67,7 +67,7 @@ func TestW3S_Insert_InsertOne(t *testing.T) {
 		Name:    "W3S_Insert_InsertOne",
 		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			res, err := col.InsertOne(ctx, bson.D{
+			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "title", Value: "Post Title 1"},
 				{Key: "body", Value: "Body of post."},
 				{Key: "category", Value: "News"},
@@ -78,8 +78,12 @@ func TestW3S_Insert_InsertOne(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			// InsertedID is a non-deterministic ObjectID; signal success structurally.
-			return bson.D{{Key: "acknowledged", Value: res.Acknowledged}}, nil
+			// Verify the document was inserted.
+			count, err := col.CountDocuments(ctx, bson.D{{Key: "title", Value: "Post Title 1"}})
+			if err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "inserted", Value: count}}, nil
 		},
 	})
 }
