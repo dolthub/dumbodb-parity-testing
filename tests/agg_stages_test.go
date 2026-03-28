@@ -7,6 +7,7 @@ package tests
 
 import (
 	"context"
+	"sort"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -14,6 +15,29 @@ import (
 
 	"github.com/dolthub/dongo-parity-testing/harness"
 )
+
+// sortBsonAByID sorts a bson.A of bson.D documents by their "_id" string field.
+// Used to normalize unordered $graphLookup result arrays for deterministic comparison.
+func sortBsonAByID(a bson.A) {
+	sort.Slice(a, func(i, j int) bool {
+		di, _ := a[i].(bson.D)
+		dj, _ := a[j].(bson.D)
+		var si, sj string
+		for _, e := range di {
+			if e.Key == "_id" {
+				si, _ = e.Value.(string)
+				break
+			}
+		}
+		for _, e := range dj {
+			if e.Key == "_id" {
+				sj, _ = e.Value.(string)
+				break
+			}
+		}
+		return si < sj
+	})
+}
 
 // ─── $match ───────────────────────────────────────────────────────────────────
 
@@ -1947,6 +1971,18 @@ func TestAggStage_graphLookup_MaxDepthLimitsTraversal(t *testing.T) {
 			var results []bson.D
 			if err := cursor.All(ctx, &results); err != nil {
 				return nil, err
+			}
+			// $graphLookup does not guarantee ordering of the result array.
+			// Sort by _id for deterministic comparison.
+			for _, doc := range results {
+				for i, elem := range doc {
+					if elem.Key == "chain" {
+						if chain, ok := elem.Value.(bson.A); ok {
+							sortBsonAByID(chain)
+							doc[i].Value = chain
+						}
+					}
+				}
 			}
 			return docsToSlice(results), nil
 		},
