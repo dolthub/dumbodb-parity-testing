@@ -322,7 +322,7 @@ func TestCapped_IsCapped_CollStats(t *testing.T) {
 func TestView_CreateFromCollection_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_CreateFromCollection_Basic",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "name", Value: "Alice"}, {Key: "age", Value: int32(30)}},
@@ -419,7 +419,7 @@ func TestView_QueryIsReadOnly(t *testing.T) {
 func TestView_WriteUpdateFails(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_WriteUpdateFails",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}})
 			return err
@@ -449,7 +449,7 @@ func TestView_WriteUpdateFails(t *testing.T) {
 func TestView_WriteDeleteFails(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_WriteDeleteFails",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}})
 			return err
@@ -476,7 +476,7 @@ func TestView_WriteDeleteFails(t *testing.T) {
 func TestView_WithMatchPipeline(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_WithMatchPipeline",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "status", Value: "active"}, {Key: "val", Value: int32(1)}},
@@ -595,7 +595,7 @@ func TestView_WithLookupPipeline(t *testing.T) {
 func TestView_QueryWithFilter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_QueryWithFilter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "score", Value: int32(10)}, {Key: "category", Value: "A"}},
@@ -629,7 +629,7 @@ func TestView_QueryWithFilter(t *testing.T) {
 func TestView_Empty_Pipeline(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_Empty_Pipeline",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "x", Value: int32(1)}},
@@ -663,7 +663,7 @@ func TestView_Empty_Pipeline(t *testing.T) {
 func TestTimeSeries_CreateCollection_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_CreateCollection_Basic",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_basic"
@@ -682,7 +682,7 @@ func TestTimeSeries_CreateCollection_Basic(t *testing.T) {
 func TestTimeSeries_CreateCollection_WithMetaField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_CreateCollection_WithMetaField",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_meta"
@@ -701,7 +701,7 @@ func TestTimeSeries_CreateCollection_WithMetaField(t *testing.T) {
 func TestTimeSeries_CreateCollection_WithGranularity(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_CreateCollection_WithGranularity",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_granularity"
@@ -720,7 +720,7 @@ func TestTimeSeries_CreateCollection_WithGranularity(t *testing.T) {
 func TestTimeSeries_InsertDocuments(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_InsertDocuments",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_insert"
@@ -751,7 +751,7 @@ func TestTimeSeries_InsertDocuments(t *testing.T) {
 func TestTimeSeries_QueryByTimeRange(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_QueryByTimeRange",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_timerange"
@@ -794,7 +794,7 @@ func TestTimeSeries_QueryByTimeRange(t *testing.T) {
 func TestTimeSeries_QueryBySensorID(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_QueryBySensorID",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_bysensor"
@@ -829,7 +829,7 @@ func TestTimeSeries_QueryBySensorID(t *testing.T) {
 func TestTimeSeries_GroupAggregation(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_GroupAggregation",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_groupagg"
@@ -876,7 +876,7 @@ func TestTimeSeries_GroupAggregation(t *testing.T) {
 func TestTimeSeries_CollStats(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_CollStats",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_collstats"
@@ -902,7 +902,7 @@ func TestTimeSeries_CollStats(t *testing.T) {
 func TestTimeSeries_ListCollections_ShowsTimeSeries(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_ListCollections_ShowsTimeSeries",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_listcols"
@@ -937,7 +937,7 @@ func TestTimeSeries_ListCollections_ShowsTimeSeries(t *testing.T) {
 func TestTimeSeries_AggregateMatch_TimeRange(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_AggregateMatch_TimeRange",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_aggmatch"
@@ -989,7 +989,7 @@ func TestTimeSeries_AggregateMatch_TimeRange(t *testing.T) {
 func TestTimeSeries_InsertOne_MissingTimeField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_InsertOne_MissingTimeField",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_missing_ts"
@@ -1015,7 +1015,7 @@ func TestTimeSeries_InsertOne_MissingTimeField(t *testing.T) {
 func TestTimeSeries_InsertOne_NonDateTimeField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_InsertOne_NonDateTimeField",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_nondate_ts"
@@ -1041,7 +1041,7 @@ func TestTimeSeries_InsertOne_NonDateTimeField(t *testing.T) {
 func TestTimeSeries_Granularity_Seconds(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_Granularity_Seconds",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_gran_sec"
@@ -1073,7 +1073,7 @@ func TestTimeSeries_Granularity_Seconds(t *testing.T) {
 func TestTimeSeries_Granularity_Minutes(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_Granularity_Minutes",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_gran_min"
@@ -1105,7 +1105,7 @@ func TestTimeSeries_Granularity_Minutes(t *testing.T) {
 func TestTimeSeries_MaxTimeField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_MaxTimeField",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_maxtime"
@@ -1154,7 +1154,7 @@ func TestTimeSeries_MaxTimeField(t *testing.T) {
 func TestTimeSeries_SumAggregation(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_SumAggregation",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_sumagg"
@@ -1275,7 +1275,7 @@ func TestCapped_Find_AfterEviction(t *testing.T) {
 func TestView_OnCappedCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_OnCappedCollection",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_for_view"
@@ -1317,7 +1317,7 @@ func TestView_OnCappedCollection(t *testing.T) {
 func TestTimeSeries_WithExpireAfterSeconds(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_WithExpireAfterSeconds",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_expire"
@@ -1350,7 +1350,7 @@ func TestTimeSeries_WithExpireAfterSeconds(t *testing.T) {
 func TestTimeSeries_AggregateAvg(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_AggregateAvg",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_avgagg"
@@ -1394,7 +1394,7 @@ func TestTimeSeries_AggregateAvg(t *testing.T) {
 func TestTimeSeries_MultipleMetaValues(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_MultipleMetaValues",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_multimeta"
@@ -1427,7 +1427,7 @@ func TestTimeSeries_MultipleMetaValues(t *testing.T) {
 func TestView_DropAndRecreate(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_DropAndRecreate",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "x", Value: int32(1)}},
@@ -1508,7 +1508,7 @@ func TestCapped_CreateIndex_Fails(t *testing.T) {
 func TestTimeSeries_DistinctOnMetaField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_DistinctOnMetaField",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_distinct"
@@ -1597,7 +1597,7 @@ func TestCapped_FindOne(t *testing.T) {
 func TestTimeSeries_FindAll(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_FindAll",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_findall"
@@ -1705,7 +1705,7 @@ func TestCapped_UpdateSameSize_Succeeds(t *testing.T) {
 func TestTimeSeries_Empty_Collection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_Empty_Collection",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_empty"
@@ -1730,7 +1730,7 @@ func TestTimeSeries_Empty_Collection(t *testing.T) {
 func TestView_Aggregate_OnView(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_Aggregate_OnView",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "cat", Value: "A"}, {Key: "score", Value: int32(10)}},
@@ -1775,7 +1775,7 @@ func TestView_Aggregate_OnView(t *testing.T) {
 func TestTimeSeries_MinAggregation(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TimeSeries_MinAggregation",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_minagg"
