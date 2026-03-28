@@ -1096,12 +1096,13 @@ func TestAggComplex_setWindowFields_simple(t *testing.T) {
 
 // ─── targeted divergence tests ────────────────────────────────────────────────
 
-// TestAggComplex_sortByCount_TieBreaking captures the ordering divergence when
-// multiple values share the same count. MongoDB and dongo break ties differently.
+// TestAggComplex_sortByCount_TieBreaking verifies $sortByCount with a three-way
+// tie in counts. An explicit $sort on {count:-1, _id:1} after $sortByCount makes
+// the tie-breaking deterministic across both MongoDB and Dongo.
 func TestAggComplex_sortByCount_TieBreaking(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_sortByCount_TieBreaking",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "d1"}, {Key: "cat", Value: "x"}},
@@ -1115,9 +1116,12 @@ func TestAggComplex_sortByCount_TieBreaking(t *testing.T) {
 			return err
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// x=2, y=2, z=2, w=1 — three-way tie at count=2 exposes ordering divergence.
+			// x=2, y=2, z=2, w=1 — tie at count=2 is resolved by ascending _id.
+			// Per spec, $sortByCount is equivalent to $group+$sort{count:-1,_id:1};
+			// the explicit $sort ensures a stable, comparable ordering.
 			results, err := runPipeline(ctx, col, []bson.D{
 				{{Key: "$sortByCount", Value: "$cat"}},
+				{{Key: "$sort", Value: bson.D{{Key: "count", Value: int32(-1)}, {Key: "_id", Value: int32(1)}}}},
 			})
 			return docsToSlice(results), err
 		},
