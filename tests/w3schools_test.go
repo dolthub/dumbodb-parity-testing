@@ -978,7 +978,7 @@ func TestW3S_AggAddFields_ComputedAvg(t *testing.T) {
 	// ])
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggAddFields_ComputedAvg",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   w3sRestaurantsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
