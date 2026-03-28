@@ -2271,7 +2271,7 @@ func TestProject_mergeObjects_with_extra(t *testing.T) {
 func TestProject_let_vars_expr(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_let_vars_expr",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2352,7 +2352,7 @@ func TestProject_map_tags_upper(t *testing.T) {
 func TestProject_literal_constant(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_literal_constant",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
