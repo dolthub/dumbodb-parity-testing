@@ -704,7 +704,7 @@ func TestIndex_Text_WithLanguage(t *testing.T) {
 func TestIndex_2dsphere_CreateOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_2dsphere_CreateOne",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "location", Value: "2dsphere"}}}
 			name, err := col.Indexes().CreateOne(ctx, model)
@@ -760,7 +760,7 @@ func TestIndex_2dsphere_NearQuery(t *testing.T) {
 func TestIndex_2dsphere_GeoWithinQuery(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_2dsphere_GeoWithinQuery",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "loc", Value: "2dsphere"}}}
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
@@ -1973,7 +1973,7 @@ func TestIndex_Wildcard_WithWildcardProjection(t *testing.T) {
 func TestIndex_2dsphere_Compound(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_2dsphere_Compound",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			model := mongo.IndexModel{Keys: bson.D{
 				{Key: "location", Value: "2dsphere"},
@@ -1991,7 +1991,7 @@ func TestIndex_2dsphere_Compound(t *testing.T) {
 func TestIndex_2dsphere_GeoIntersects(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_2dsphere_GeoIntersects",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "geo", Value: "2dsphere"}}}
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {

@@ -1,6 +1,7 @@
 package tests
 
-// ALL tests in this file are DongoXFail — Dongo does not implement geospatial operators.
+// Most tests in this file are now DongoFull — Dongo implements geospatial operators.
+// A few $geoNear and edge-case tests remain DongoXFail.
 
 import (
 	"context"
@@ -140,7 +141,7 @@ func geoPoint(lng, lat float64) bson.D {
 func TestGeo_Index_2dsphere_Create(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Index_2dsphere_Create",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "p1"},
@@ -163,7 +164,7 @@ func TestGeo_Index_2dsphere_Create(t *testing.T) {
 func TestGeo_Index_2d_Create(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Index_2d_Create",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "p1"},
@@ -190,7 +191,7 @@ func TestGeo_Index_2d_Create(t *testing.T) {
 func TestGeo_Near_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Near_Basic",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Find cities within 300km of New York.
@@ -206,7 +207,7 @@ func TestGeo_Near_Basic(t *testing.T) {
 func TestGeo_Near_SmallRadius(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Near_SmallRadius",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// 50km radius around NYC — should return just NYC and Philadelphia.
@@ -222,7 +223,7 @@ func TestGeo_Near_SmallRadius(t *testing.T) {
 func TestGeo_Near_LargeRadius(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Near_LargeRadius",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// 3000km radius around Chicago — covers most of the continental US.
@@ -238,7 +239,7 @@ func TestGeo_Near_LargeRadius(t *testing.T) {
 func TestGeo_Near_MinDistance(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Near_MinDistance",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Exclude cities closer than 200km to NYC (skips NYC itself and Philadelphia).
@@ -255,7 +256,7 @@ func TestGeo_Near_MinDistance(t *testing.T) {
 func TestGeo_Near_MinMax(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Near_MinMax",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Annular region: 500km–1500km from Los Angeles.
@@ -272,7 +273,7 @@ func TestGeo_Near_MinMax(t *testing.T) {
 func TestGeo_Near_NoConstraints(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Near_NoConstraints",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// No distance constraints — returns all cities ordered by distance from Chicago.
@@ -287,7 +288,7 @@ func TestGeo_Near_NoConstraints(t *testing.T) {
 func TestGeo_Near_WithQueryFilter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Near_WithQueryFilter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys: bson.D{{Key: "loc", Value: "2dsphere"}},
@@ -327,7 +328,7 @@ func TestGeo_Near_WithQueryFilter(t *testing.T) {
 func TestGeo_NearSphere_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_NearSphere_Basic",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Cities within 500km of London.
@@ -343,7 +344,7 @@ func TestGeo_NearSphere_Basic(t *testing.T) {
 func TestGeo_NearSphere_MaxDistance(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_NearSphere_MaxDistance",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Cities within 350km of Paris (London + Paris itself).
@@ -359,7 +360,7 @@ func TestGeo_NearSphere_MaxDistance(t *testing.T) {
 func TestGeo_NearSphere_MinDistance(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_NearSphere_MinDistance",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Cities more than 300km from Paris but within 2000km.
@@ -393,7 +394,7 @@ func TestGeo_NearSphere_MinMax(t *testing.T) {
 func TestGeo_NearSphere_NoConstraints(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_NearSphere_NoConstraints",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// No max/min — all cities sorted by spherical distance from Tokyo.
@@ -412,7 +413,7 @@ func TestGeo_NearSphere_NoConstraints(t *testing.T) {
 func TestGeo_GeoWithin_CenterSphere_Tiny(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoWithin_CenterSphere_Tiny",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// ~55km radius (55/6371 radians) around NYC — should return only NYC.
@@ -427,7 +428,7 @@ func TestGeo_GeoWithin_CenterSphere_Tiny(t *testing.T) {
 func TestGeo_GeoWithin_CenterSphere_Medium(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoWithin_CenterSphere_Medium",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// ~1200km radius around NYC — northeast US cities.
@@ -442,7 +443,7 @@ func TestGeo_GeoWithin_CenterSphere_Medium(t *testing.T) {
 func TestGeo_GeoWithin_CenterSphere_Large(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoWithin_CenterSphere_Large",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// ~4000km radius around Dallas — covers most of continental US.
@@ -457,7 +458,7 @@ func TestGeo_GeoWithin_CenterSphere_Large(t *testing.T) {
 func TestGeo_GeoWithin_CenterSphere_Europe(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoWithin_CenterSphere_Europe",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// ~600km radius around Paris — covers London and Paris.
@@ -476,7 +477,7 @@ func TestGeo_GeoWithin_CenterSphere_Europe(t *testing.T) {
 func TestGeo_GeoWithin_Polygon_EastUS(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoWithin_Polygon_EastUS",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Polygon covering eastern US. Should match NYC, Philadelphia.
@@ -500,7 +501,7 @@ func TestGeo_GeoWithin_Polygon_EastUS(t *testing.T) {
 func TestGeo_GeoWithin_Polygon_California(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoWithin_Polygon_California",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Rough bounding box for California. Should match LA, San Diego, San Jose.
@@ -548,7 +549,7 @@ func TestGeo_GeoWithin_Polygon_NoMatch(t *testing.T) {
 func TestGeo_GeoWithin_Polygon_Europe(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoWithin_Polygon_Europe",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Rough Western Europe polygon. Should match London and Paris.
@@ -572,7 +573,7 @@ func TestGeo_GeoWithin_Polygon_Europe(t *testing.T) {
 func TestGeo_GeoWithin_MultiPolygon(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoWithin_MultiPolygon",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// MultiPolygon covering East US and Western Europe simultaneously.
@@ -607,7 +608,7 @@ func TestGeo_GeoWithin_MultiPolygon(t *testing.T) {
 func TestGeo_GeoIntersects_Point_Exact(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoIntersects_Point_Exact",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $geoIntersects with a Point that matches exactly one document.
@@ -637,7 +638,7 @@ func TestGeo_GeoIntersects_Point_NoMatch(t *testing.T) {
 func TestGeo_GeoIntersects_Polygon_Contains(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoIntersects_Polygon_Contains",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Polygon containing Chicago and Dallas. Point docs that fall inside it intersect.
@@ -661,7 +662,7 @@ func TestGeo_GeoIntersects_Polygon_Contains(t *testing.T) {
 func TestGeo_GeoIntersects_MultiPolygon(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoIntersects_MultiPolygon",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// MultiPolygon covering western US and Japan.
@@ -696,7 +697,7 @@ func TestGeo_GeoIntersects_MultiPolygon(t *testing.T) {
 func TestGeo_DocType_PolygonDocs(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_DocType_PolygonDocs",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys: bson.D{{Key: "area", Value: "2dsphere"}},
@@ -747,7 +748,7 @@ func TestGeo_DocType_PolygonDocs(t *testing.T) {
 func TestGeo_DocType_LineStringDocs(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_DocType_LineStringDocs",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys: bson.D{{Key: "route", Value: "2dsphere"}},
@@ -792,7 +793,7 @@ func TestGeo_DocType_LineStringDocs(t *testing.T) {
 func TestGeo_DocType_MultiPolygon(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_DocType_MultiPolygon",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys: bson.D{{Key: "territory", Value: "2dsphere"}},
@@ -832,7 +833,7 @@ func TestGeo_DocType_MultiPolygon(t *testing.T) {
 func TestGeo_DocType_GeometryCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_DocType_GeometryCollection",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys: bson.D{{Key: "geo", Value: "2dsphere"}},
@@ -875,7 +876,7 @@ func TestGeo_DocType_GeometryCollection(t *testing.T) {
 func TestGeo_Legacy_Box(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Legacy_Box",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertLegacy,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $box on 2d index: covers eastern US. Matches New York.
@@ -893,7 +894,7 @@ func TestGeo_Legacy_Box(t *testing.T) {
 func TestGeo_Legacy_Polygon(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Legacy_Polygon",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertLegacy,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $polygon on 2d index: covers Western Europe.
@@ -913,7 +914,7 @@ func TestGeo_Legacy_Polygon(t *testing.T) {
 func TestGeo_Legacy_Center(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Legacy_Center",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertLegacy,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $center on 2d index: 3-degree radius around NYC (covers NYC only in practice).
@@ -928,7 +929,7 @@ func TestGeo_Legacy_Center(t *testing.T) {
 func TestGeo_Legacy_CenterSphere_On2d(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Legacy_CenterSphere_On2d",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertLegacy,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $centerSphere works on 2d indexes too; radius in radians.
@@ -943,7 +944,7 @@ func TestGeo_Legacy_CenterSphere_On2d(t *testing.T) {
 func TestGeo_Legacy_Near2d(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Legacy_Near2d",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertLegacy,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $near on 2d index uses flat-earth distance, radius in degrees.
@@ -960,7 +961,7 @@ func TestGeo_Legacy_Near2d(t *testing.T) {
 func TestGeo_Legacy_NearSphere_2d(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Legacy_NearSphere_2d",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertLegacy,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $nearSphere on 2d index uses spherical distance, radius in radians.
@@ -981,7 +982,7 @@ func TestGeo_Legacy_NearSphere_2d(t *testing.T) {
 func TestGeo_GeoNear_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoNear_Basic",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $geoNear: cities nearest to Chicago.
@@ -1177,7 +1178,7 @@ func TestGeo_GeoNear_DistanceMultiplier(t *testing.T) {
 func TestGeo_Edge_NullLocation(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Edge_NullLocation",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys: bson.D{{Key: "loc", Value: "2dsphere"}},

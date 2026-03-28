@@ -1,5 +1,5 @@
 // Parity tests migrated from dolthub/dongo/tests/geo_test.go.
-// ALL tests are DongoXFail — geospatial support is not yet implemented in Dongo.
+// All geo tests have been graduated to DongoFull — geospatial support is implemented in Dongo.
 package tests
 
 import (
@@ -100,7 +100,7 @@ func geoFindSortedIDs(ctx context.Context, col *mongo.Collection, filter interfa
 func TestGeo_2dsphere_PointInsertAndFind(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_2dsphere_PointInsertAndFind",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("loc",
 			bson.D{{Key: "_id", Value: "nyc"}, {Key: "loc", Value: geoPoint(-74.0060, 40.7128)}},
 			bson.D{{Key: "_id", Value: "la"}, {Key: "loc", Value: geoPoint(-118.2437, 34.0522)}},
@@ -118,7 +118,7 @@ func TestGeo_2dsphere_LineStringInsert(t *testing.T) {
 	ls := geoLineString(coord(-74.0, 40.7), coord(-73.9, 40.8), coord(-73.8, 40.9))
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_2dsphere_LineStringInsert",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("path",
 			bson.D{{Key: "_id", Value: "route1"}, {Key: "path", Value: ls}},
 		),
@@ -139,7 +139,7 @@ func TestGeo_2dsphere_PolygonInsert(t *testing.T) {
 	poly := geoPolygon(ring...)
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_2dsphere_PolygonInsert",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("boundary",
 			bson.D{{Key: "_id", Value: "zone1"}, {Key: "boundary", Value: poly}},
 		),
@@ -160,7 +160,7 @@ func TestGeo_2dsphere_MultiPointInsert(t *testing.T) {
 	}
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_2dsphere_MultiPointInsert",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("stops",
 			bson.D{{Key: "_id", Value: "stations"}, {Key: "stops", Value: mp}},
 		),
@@ -182,7 +182,7 @@ func TestGeo_2dsphere_MultiLineStringInsert(t *testing.T) {
 	}
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_2dsphere_MultiLineStringInsert",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("routes",
 			bson.D{{Key: "_id", Value: "roads"}, {Key: "routes", Value: mls}},
 		),
@@ -204,7 +204,7 @@ func TestGeo_2dsphere_MultiPolygonInsert(t *testing.T) {
 	}
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_2dsphere_MultiPolygonInsert",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("territory",
 			bson.D{{Key: "_id", Value: "districts"}, {Key: "territory", Value: mp}},
 		),
@@ -226,7 +226,7 @@ func TestGeo_2dsphere_GeometryCollectionInsert(t *testing.T) {
 	}
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_2dsphere_GeometryCollectionInsert",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("shapes",
 			bson.D{{Key: "_id", Value: "mixed"}, {Key: "shapes", Value: gc}},
 		),
@@ -243,7 +243,7 @@ func TestGeo_2dsphere_GeometryCollectionInsert(t *testing.T) {
 func TestGeo_2d_ArrayCoordInsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_2d_ArrayCoordInsert",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSetup("coords",
 			bson.D{{Key: "_id", Value: "nyc"}, {Key: "coords", Value: bson.A{-74.0060, 40.7128}}},
 			bson.D{{Key: "_id", Value: "la"}, {Key: "coords", Value: bson.A{-118.2437, 34.0522}}},
@@ -258,7 +258,7 @@ func TestGeo_2d_ArrayCoordInsert(t *testing.T) {
 func TestGeo_2d_EmbeddedDocCoord(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_2d_EmbeddedDocCoord",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSetup("pos",
 			bson.D{{Key: "_id", Value: "a"}, {Key: "pos", Value: bson.D{{Key: "x", Value: -74.0}, {Key: "y", Value: 40.7}}}},
 			bson.D{{Key: "_id", Value: "b"}, {Key: "pos", Value: bson.D{{Key: "x", Value: -73.9}, {Key: "y", Value: 40.8}}}},
@@ -272,7 +272,7 @@ func TestGeo_2d_EmbeddedDocCoord(t *testing.T) {
 func TestGeo_2d_NearQuery(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_2d_NearQuery",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSetup("coords",
 			bson.D{{Key: "_id", Value: "nyc"}, {Key: "coords", Value: bson.A{-74.0060, 40.7128}}},
 			bson.D{{Key: "_id", Value: "la"}, {Key: "coords", Value: bson.A{-118.2437, 34.0522}}},
@@ -296,7 +296,7 @@ func TestGeo_2d_NearQuery(t *testing.T) {
 func TestGeo_2d_NearWithMaxDistance(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_2d_NearWithMaxDistance",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSetup("coords",
 			bson.D{{Key: "_id", Value: "close"}, {Key: "coords", Value: bson.A{-74.0, 40.7}}},
 			bson.D{{Key: "_id", Value: "far"}, {Key: "coords", Value: bson.A{-118.2, 34.0}}},
@@ -321,7 +321,7 @@ func TestGeo_geoWithin_Polygon(t *testing.T) {
 	)
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_geoWithin_Polygon",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("loc",
 			bson.D{{Key: "_id", Value: "nyc"}, {Key: "loc", Value: geoPoint(-74.0060, 40.7128)}},
 			bson.D{{Key: "_id", Value: "brooklyn"}, {Key: "loc", Value: geoPoint(-73.9496, 40.6501)}},
@@ -337,7 +337,7 @@ func TestGeo_geoWithin_Polygon(t *testing.T) {
 func TestGeo_geoWithin_CenterSphere(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_geoWithin_CenterSphere",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("loc",
 			bson.D{{Key: "_id", Value: "nyc"}, {Key: "loc", Value: geoPoint(-74.0060, 40.7128)}},
 			bson.D{{Key: "_id", Value: "la"}, {Key: "loc", Value: geoPoint(-118.2437, 34.0522)}},
@@ -355,7 +355,7 @@ func TestGeo_geoWithin_CenterSphere(t *testing.T) {
 func TestGeo_geoWithin_Center(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_geoWithin_Center",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSetup("coords",
 			bson.D{{Key: "_id", Value: "close"}, {Key: "coords", Value: bson.A{-74.0, 40.7}}},
 			bson.D{{Key: "_id", Value: "far"}, {Key: "coords", Value: bson.A{-118.2, 34.0}}},
@@ -372,7 +372,7 @@ func TestGeo_geoWithin_Center(t *testing.T) {
 func TestGeo_geoWithin_Box(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_geoWithin_Box",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSetup("coords",
 			bson.D{{Key: "_id", Value: "inside"}, {Key: "coords", Value: bson.A{-74.0, 40.7}}},
 			bson.D{{Key: "_id", Value: "outside"}, {Key: "coords", Value: bson.A{-118.2, 34.0}}},
@@ -389,14 +389,13 @@ func TestGeo_geoWithin_Box(t *testing.T) {
 // ─── $geoIntersects ───────────────────────────────────────────────────────────
 
 // TestGeo_GeoIntersects_LineString verifies $geoIntersects with a LineString
-// query geometry. Dongo does not implement LineString as a query geometry for
-// $geoIntersects (tracked in do-ba7n), so this is DongoXFail.
+// query geometry. Now passing in Dongo.
 func TestGeo_GeoIntersects_LineString(t *testing.T) {
 	// Query line crosses from west to east through the NYC bounding box.
 	queryLine := geoLineString(coord(-74.5, 40.7), coord(-73.5, 40.7))
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoIntersects_LineString",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("geo",
 			bson.D{{Key: "_id", Value: "poly-intersects"}, {Key: "geo", Value: geoPolygon(
 				coord(-74.3, 40.5), coord(-73.7, 40.5),
@@ -427,7 +426,7 @@ func TestGeo_geoIntersects_Polygon(t *testing.T) {
 	)
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_geoIntersects_Polygon",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys: bson.D{{Key: "geo", Value: "2dsphere"}},
@@ -456,7 +455,7 @@ func TestGeo_geoIntersects_Point(t *testing.T) {
 	)
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_geoIntersects_Point",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("loc",
 			bson.D{{Key: "_id", Value: "inside"}, {Key: "loc", Value: geoPoint(-74.0, 40.7)}},
 			bson.D{{Key: "_id", Value: "outside"}, {Key: "loc", Value: geoPoint(-118.2, 34.0)}},
@@ -473,7 +472,7 @@ func TestGeo_geoIntersects_Point(t *testing.T) {
 func TestGeo_near_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_near_Basic",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("loc",
 			bson.D{{Key: "_id", Value: "nyc"}, {Key: "loc", Value: geoPoint(-74.0060, 40.7128)}},
 			bson.D{{Key: "_id", Value: "la"}, {Key: "loc", Value: geoPoint(-118.2437, 34.0522)}},
@@ -498,7 +497,7 @@ func TestGeo_near_Basic(t *testing.T) {
 func TestGeo_near_MaxDistance(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_near_MaxDistance",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("loc",
 			bson.D{{Key: "_id", Value: "nyc"}, {Key: "loc", Value: geoPoint(-74.0060, 40.7128)}},
 			bson.D{{Key: "_id", Value: "la"}, {Key: "loc", Value: geoPoint(-118.2437, 34.0522)}},
@@ -516,7 +515,7 @@ func TestGeo_near_MaxDistance(t *testing.T) {
 func TestGeo_near_MinDistance(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_near_MinDistance",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("loc",
 			bson.D{{Key: "_id", Value: "nyc"}, {Key: "loc", Value: geoPoint(-74.0060, 40.7128)}},
 			bson.D{{Key: "_id", Value: "la"}, {Key: "loc", Value: geoPoint(-118.2437, 34.0522)}},
@@ -534,7 +533,7 @@ func TestGeo_near_MinDistance(t *testing.T) {
 func TestGeo_near_MinAndMaxDistance(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_near_MinAndMaxDistance",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("loc",
 			bson.D{{Key: "_id", Value: "exact"}, {Key: "loc", Value: geoPoint(-74.0060, 40.7128)}},
 			bson.D{{Key: "_id", Value: "medium"}, {Key: "loc", Value: geoPoint(-73.9496, 40.6501)}},
@@ -556,7 +555,7 @@ func TestGeo_near_MinAndMaxDistance(t *testing.T) {
 func TestGeo_nearSphere_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_nearSphere_Basic",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("loc",
 			bson.D{{Key: "_id", Value: "nyc"}, {Key: "loc", Value: geoPoint(-74.0060, 40.7128)}},
 			bson.D{{Key: "_id", Value: "la"}, {Key: "loc", Value: geoPoint(-118.2437, 34.0522)}},
@@ -580,7 +579,7 @@ func TestGeo_nearSphere_Basic(t *testing.T) {
 func TestGeo_nearSphere_MaxDistance(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_nearSphere_MaxDistance",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("loc",
 			bson.D{{Key: "_id", Value: "nyc"}, {Key: "loc", Value: geoPoint(-74.0060, 40.7128)}},
 			bson.D{{Key: "_id", Value: "la"}, {Key: "loc", Value: geoPoint(-118.2437, 34.0522)}},
@@ -598,7 +597,7 @@ func TestGeo_nearSphere_MaxDistance(t *testing.T) {
 func TestGeo_nearSphere_MinDistance(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_nearSphere_MinDistance",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("loc",
 			bson.D{{Key: "_id", Value: "nyc"}, {Key: "loc", Value: geoPoint(-74.0060, 40.7128)}},
 			bson.D{{Key: "_id", Value: "la"}, {Key: "loc", Value: geoPoint(-118.2437, 34.0522)}},
@@ -618,7 +617,7 @@ func TestGeo_nearSphere_MinDistance(t *testing.T) {
 func TestGeo_geoNear_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_geoNear_Basic",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("loc",
 			bson.D{{Key: "_id", Value: "nyc"}, {Key: "loc", Value: geoPoint(-74.0060, 40.7128)}},
 			bson.D{{Key: "_id", Value: "la"}, {Key: "loc", Value: geoPoint(-118.2437, 34.0522)}},
@@ -650,7 +649,7 @@ func TestGeo_geoNear_Basic(t *testing.T) {
 func TestGeo_geoNear_MaxDistance(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_geoNear_MaxDistance",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("loc",
 			bson.D{{Key: "_id", Value: "nyc"}, {Key: "loc", Value: geoPoint(-74.0060, 40.7128)}},
 			bson.D{{Key: "_id", Value: "la"}, {Key: "loc", Value: geoPoint(-118.2437, 34.0522)}},
@@ -678,7 +677,7 @@ func TestGeo_geoNear_MaxDistance(t *testing.T) {
 func TestGeo_geoNear_MinDistance(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_geoNear_MinDistance",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("loc",
 			bson.D{{Key: "_id", Value: "nyc"}, {Key: "loc", Value: geoPoint(-74.0060, 40.7128)}},
 			bson.D{{Key: "_id", Value: "la"}, {Key: "loc", Value: geoPoint(-118.2437, 34.0522)}},
@@ -706,7 +705,7 @@ func TestGeo_geoNear_MinDistance(t *testing.T) {
 func TestGeo_geoNear_Query(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_geoNear_Query",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("loc",
 			bson.D{{Key: "_id", Value: "nyc"}, {Key: "loc", Value: geoPoint(-74.0060, 40.7128)}, {Key: "type", Value: "city"}},
 			bson.D{{Key: "_id", Value: "hoboken"}, {Key: "loc", Value: geoPoint(-74.0323, 40.7440)}, {Key: "type", Value: "town"}},
@@ -735,7 +734,7 @@ func TestGeo_geoNear_Query(t *testing.T) {
 func TestGeo_geoNear_NonSpherical(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_geoNear_NonSpherical",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSetup("coords",
 			bson.D{{Key: "_id", Value: "close"}, {Key: "coords", Value: bson.A{-74.0, 40.7}}},
 			bson.D{{Key: "_id", Value: "far"}, {Key: "coords", Value: bson.A{-118.2, 34.0}}},
@@ -764,7 +763,7 @@ func TestGeo_geoNear_NonSpherical(t *testing.T) {
 func TestGeo_near_InvalidPointLongitude(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_near_InvalidPointLongitude",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   geo2dSphereSetup("loc"),
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			filter := bson.D{{Key: "loc", Value: bson.D{{Key: "$near", Value: bson.D{
@@ -779,7 +778,7 @@ func TestGeo_near_InvalidPointLongitude(t *testing.T) {
 func TestGeo_near_InvalidPointLatitude(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_near_InvalidPointLatitude",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   geo2dSphereSetup("loc"),
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			filter := bson.D{{Key: "loc", Value: bson.D{{Key: "$near", Value: bson.D{
@@ -794,7 +793,7 @@ func TestGeo_near_InvalidPointLatitude(t *testing.T) {
 func TestGeo_nearSphere_InvalidPoint(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_nearSphere_InvalidPoint",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   geo2dSphereSetup("loc"),
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			filter := bson.D{{Key: "loc", Value: bson.D{{Key: "$nearSphere", Value: bson.D{
@@ -809,7 +808,7 @@ func TestGeo_nearSphere_InvalidPoint(t *testing.T) {
 func TestGeo_geoNear_InvalidPoint(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_geoNear_InvalidPoint",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   geo2dSphereSetup("loc"),
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := bson.A{bson.D{{Key: "$geoNear", Value: bson.D{
@@ -833,7 +832,7 @@ func TestGeo_geoNear_InvalidPoint(t *testing.T) {
 func TestGeo_2dsphere_Compound(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_2dsphere_Compound",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys: bson.D{{Key: "category", Value: 1}, {Key: "loc", Value: "2dsphere"}},
@@ -863,7 +862,7 @@ func TestGeo_2dsphere_Compound(t *testing.T) {
 func TestGeo_2dsphere_MultipleIndexedFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_2dsphere_MultipleIndexedFields",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys: bson.D{{Key: "origin", Value: "2dsphere"}},
@@ -893,7 +892,7 @@ func TestGeo_2dsphere_MultipleIndexedFields(t *testing.T) {
 func TestGeo_geoNear_IncludeLocs(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_geoNear_IncludeLocs",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("loc",
 			bson.D{{Key: "_id", Value: "nyc"}, {Key: "loc", Value: geoPoint(-74.0060, 40.7128)}},
 		),
@@ -920,7 +919,7 @@ func TestGeo_geoNear_IncludeLocs(t *testing.T) {
 func TestGeo_geoNear_DistanceMultiplier(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_geoNear_DistanceMultiplier",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("loc",
 			bson.D{{Key: "_id", Value: "nyc"}, {Key: "loc", Value: geoPoint(-74.0060, 40.7128)}},
 		),
@@ -947,7 +946,7 @@ func TestGeo_geoNear_DistanceMultiplier(t *testing.T) {
 func TestGeo_2dsphere_SparseIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_2dsphere_SparseIndex",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys:    bson.D{{Key: "loc", Value: "2dsphere"}},
@@ -979,7 +978,7 @@ func TestGeo_geoWithin_MultiPolygon(t *testing.T) {
 	}
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_geoWithin_MultiPolygon",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("loc",
 			bson.D{{Key: "_id", Value: "nyc"}, {Key: "loc", Value: geoPoint(-74.0060, 40.7128)}},
 			bson.D{{Key: "_id", Value: "la"}, {Key: "loc", Value: geoPoint(-118.2437, 34.0522)}},
@@ -995,7 +994,7 @@ func TestGeo_geoWithin_MultiPolygon(t *testing.T) {
 func TestGeo_2dsphere_IndexVersion(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_2dsphere_IndexVersion",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: geo2dSphereSetup("loc",
 			bson.D{{Key: "_id", Value: "p1"}, {Key: "loc", Value: geoPoint(-74.0, 40.7)}},
 		),

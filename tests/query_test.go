@@ -1027,13 +1027,13 @@ func TestQuery_bitsAnySet_positions(t *testing.T) {
 }
 
 // ============================================================
-// Geospatial operators (all DongoXFail)
+// Geospatial operators
 // ============================================================
 
 func TestQuery_geo_within_box(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_geo_within_box",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertGeoDocsWithIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Box covering eastern US: lon [-80,-65], lat [35,45]. Matches New York.
@@ -1051,7 +1051,7 @@ func TestQuery_geo_within_box(t *testing.T) {
 func TestQuery_geo_within_polygon(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_geo_within_polygon",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertGeoDocsWithIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Rough bounding box around UK. Matches London.
@@ -1071,7 +1071,7 @@ func TestQuery_geo_within_polygon(t *testing.T) {
 func TestQuery_geo_within_centerSphere(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_geo_within_centerSphere",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertGeoDocsWithIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// 1000km radius around Chicago. Radius in radians = 1000/6371.
@@ -1087,7 +1087,7 @@ func TestQuery_geo_within_centerSphere(t *testing.T) {
 func TestQuery_geo_near(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_geo_near",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertGeoDocsWithIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $near from New York, max 500km (500000m). Matches New York itself.
@@ -1106,7 +1106,7 @@ func TestQuery_geo_near(t *testing.T) {
 func TestQuery_geo_nearSphere(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_geo_nearSphere",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertGeoDocsWithIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $nearSphere from Chicago, max 800km.
@@ -1125,7 +1125,7 @@ func TestQuery_geo_nearSphere(t *testing.T) {
 func TestQuery_geo_intersects_point(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_geo_intersects_point",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertGeoDocsWithIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $geoIntersects with a Point: finds documents whose coordinates match exactly.
@@ -1143,7 +1143,7 @@ func TestQuery_geo_intersects_point(t *testing.T) {
 func TestQuery_geo_intersects_polygon(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_geo_intersects_polygon",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertGeoDocsWithIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Polygon covering western US. Should intersect Los Angeles.
