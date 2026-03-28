@@ -1138,7 +1138,7 @@ func TestWindow_stdDevSamp(t *testing.T) {
 func TestWindow_covariancePop(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_covariancePop",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "x", Value: int32(1)}, {Key: "y", Value: int32(2)}},
@@ -1209,7 +1209,7 @@ func TestWindow_expMovingAvg(t *testing.T) {
 func TestWindow_derivative(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_derivative",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "pos", Value: int32(0)}, {Key: "t", Value: int32(0)}},
@@ -1244,7 +1244,7 @@ func TestWindow_derivative(t *testing.T) {
 func TestWindow_integral(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_integral",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(1)}, {Key: "t", Value: int32(0)}},
@@ -1281,7 +1281,7 @@ func TestWindow_integral(t *testing.T) {
 func TestWindow_linearFill(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_linearFill",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(10)}},
