@@ -240,7 +240,7 @@ func TestProbeModNonNumericField(t *testing.T) {
 func TestProbeModNaNDivisor(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ProbeModNaNDivisor",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: int32(1)}, {Key: "v", Value: 9}},

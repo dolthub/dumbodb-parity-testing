@@ -2360,7 +2360,7 @@ func TestAggPipeline_sort_TieBreakingAfterGroup(t *testing.T) {
 	// ordering (e.g. hash map iteration order).
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggPipeline_sort_TieBreakingAfterGroup",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "1"}, {Key: "cat", Value: "C"}},

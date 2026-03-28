@@ -1171,7 +1171,7 @@ func TestQuery_geo_intersects_polygon(t *testing.T) {
 func TestQuery_elemMatch_embedded_docs(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_elemMatch_embedded_docs",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertNestedDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Find docs with a grade where subject="math" AND score >= 90.
@@ -1187,7 +1187,7 @@ func TestQuery_elemMatch_embedded_docs(t *testing.T) {
 func TestQuery_elemMatch_embedded_multi_cond(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_elemMatch_embedded_multi_cond",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertNestedDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Find docs with any grade scoring between 85 and 92 inclusive.
@@ -1390,7 +1390,7 @@ func TestQuery_proj_exclude_id(t *testing.T) {
 func TestQuery_proj_slice_first_n(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_proj_slice_first_n",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $slice: return only the first 2 tags.
@@ -1404,7 +1404,7 @@ func TestQuery_proj_slice_first_n(t *testing.T) {
 func TestQuery_proj_slice_last_n(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_proj_slice_last_n",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $slice: negative value returns last N elements.

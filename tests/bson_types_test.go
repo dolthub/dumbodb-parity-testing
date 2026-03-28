@@ -237,7 +237,7 @@ func TestBSON_double_insert_query(t *testing.T) {
 func TestBSON_double_nan(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_double_nan",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "nan"}, {Key: "v", Value: math.NaN()}})
 			if err != nil {

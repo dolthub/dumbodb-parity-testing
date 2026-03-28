@@ -2021,7 +2021,7 @@ func TestW3S_Indexing_AtlasSearch(t *testing.T) {
 	// Atlas Search requires a running Atlas cluster — not available in standard Dongo.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Indexing_AtlasSearch",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   w3sMoviesSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
