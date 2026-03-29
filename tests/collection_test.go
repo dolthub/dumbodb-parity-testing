@@ -198,7 +198,7 @@ func TestCollection_CreateAlreadyExists(t *testing.T) {
 func TestCollection_CreateCollation(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_CreateCollation",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Collection with a default collation (case-insensitive English).
@@ -1032,7 +1032,7 @@ func TestCursor_ShowRecordId(t *testing.T) {
 func TestCursor_NoCursorTimeout(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_NoCursorTimeout",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// noCursorTimeout prevents idle cursor expiry; Dongo may not support.
