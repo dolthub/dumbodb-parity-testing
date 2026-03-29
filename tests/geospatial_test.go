@@ -1,7 +1,7 @@
 package tests
 
 // Most tests in this file are now DongoFull — Dongo implements geospatial operators.
-// A few $geoNear and edge-case tests remain DongoXFail.
+// A few edge-case tests remain DongoXFail.
 
 import (
 	"context"
@@ -1023,7 +1023,7 @@ func TestGeo_GeoNear_Basic(t *testing.T) {
 func TestGeo_GeoNear_MaxDistance(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoNear_MaxDistance",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $geoNear with maxDistance: only cities within 1000km of NYC.
@@ -1057,7 +1057,7 @@ func TestGeo_GeoNear_MaxDistance(t *testing.T) {
 func TestGeo_GeoNear_MinDistance(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoNear_MinDistance",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $geoNear with minDistance: exclude cities too close to NYC.
@@ -1092,7 +1092,7 @@ func TestGeo_GeoNear_MinDistance(t *testing.T) {
 func TestGeo_GeoNear_Query(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoNear_Query",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys: bson.D{{Key: "loc", Value: "2dsphere"}},
@@ -1143,7 +1143,7 @@ func TestGeo_GeoNear_Query(t *testing.T) {
 func TestGeo_GeoNear_DistanceMultiplier(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoNear_DistanceMultiplier",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertCities,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// distanceMultiplier converts meters to km (multiply by 0.001).
@@ -1212,7 +1212,7 @@ func TestGeo_Edge_NullLocation(t *testing.T) {
 func TestGeo_Edge_MissingLocation(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Edge_MissingLocation",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys: bson.D{{Key: "loc", Value: "2dsphere"}},
@@ -1254,7 +1254,7 @@ func TestGeo_Edge_EmptyResult(t *testing.T) {
 func TestGeo_Edge_MultipleGeoFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Edge_MultipleGeoFields",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			// Index on one geo field; query the other.
 			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{

@@ -971,7 +971,7 @@ func TestAggComplex_bucket_auto(t *testing.T) {
 func TestAggComplex_sortByCount(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_sortByCount",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1133,7 +1133,7 @@ func TestAggComplex_sortByCount_TieBreaking(t *testing.T) {
 func TestAggComplex_matchUnwindGroupSort_SameTotalQty(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchUnwindGroupSort_SameTotalQty",
-		Support: harness.DongoXFail, // tied sort ordering differs between Dongo and Mongo (in-2o6)
+		Support: harness.DongoXFail, // tied sort ordering non-deterministic (in-2o6)
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{

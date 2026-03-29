@@ -1923,7 +1923,7 @@ func insertOrgHierarchy(ctx context.Context, col *mongo.Collection) error {
 func TestAggStage_graphLookup_TraverseHierarchyFromLeaf(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_graphLookup_TraverseHierarchyFromLeaf",
-		Support: harness.DongoXFail,
+		Support: harness.DongoXFail, // $graphLookup result array order non-deterministic
 		Setup:   insertOrgHierarchy,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -2114,24 +2114,9 @@ func TestAggPipeline_multiStage_UnwindThenGroup(t *testing.T) {
 }
 
 func TestAggPipeline_multiStage_UnwindThenGroup_tiebreakOrder(t *testing.T) {
-	// Diverge (do-u7ta): $unwind + $sortByCount with all-equal counts — dongo
-	// applies a different (non-spec) tiebreak order than MongoDB.
-	//
-	// Each tag appears exactly twice. Per spec, $sortByCount is equivalent to
-	// {$group: {_id: "$x", count: {$sum:1}}} + {$sort: {count:-1, _id:1}}, so
-	// the secondary ascending sort on _id should produce [api(2), db(2), go(2)].
-	//
-	// In practice MongoDB does not guarantee this order either (it is
-	// non-deterministic when counts are equal), but dongo consistently emits
-	// [go(2), db(2), api(2)] — a fixed internal ordering that neither matches
-	// the spec nor MongoDB's observed output.
-	//
-	// This test was promoted to DongoFull and failed on CI runs 23670354194 and
-	// 23670455337 before being reverted. Keep as DongoXFail until the secondary
-	// sort in dongo's $sortByCount is made spec-compliant.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggPipeline_multiStage_UnwindThenGroup_tiebreakOrder",
-		Support: harness.DongoXFail,
+		Support: harness.DongoXFail, // $group output order non-deterministic, tiebreak still diverges
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "p1"}, {Key: "tags", Value: bson.A{"go", "db"}}},
@@ -2390,10 +2375,8 @@ func TestAggStage_unknown_stage_error(t *testing.T) {
 // ─── Sort tie-breaking divergence XFail tests ─────────────────────────────────
 
 func TestAggPipeline_sort_TieBreakingAfterGroup(t *testing.T) {
-	// Diverge: bare $group+$sort with all-tied sort keys. The stable-sort fix
-	// (do-socd) preserves prior-pipeline order, but $group output order is
-	// still non-deterministic (hash map iteration), so tie-breaking still
-	// diverges from MongoDB. Remains XFail until $group output ordering matches.
+	// $group output order is non-deterministic (hash map iteration), so
+	// tie-breaking still diverges from MongoDB.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggPipeline_sort_TieBreakingAfterGroup",
 		Support: harness.DongoXFail,
