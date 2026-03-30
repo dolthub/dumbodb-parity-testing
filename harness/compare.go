@@ -136,6 +136,14 @@ func normalize(v interface{}) interface{} {
 		return normalizeSlice(val)
 	case primitive.ObjectID:
 		return objectIDSentinel
+	case primitive.Binary:
+		// UUID binaries (subtype 3 or 4) are server-generated and will differ
+		// between MongoDB and Dongo instances. Normalize them to a sentinel so
+		// the comparison focuses on structural equality rather than the raw bytes.
+		if val.Subtype == 3 || val.Subtype == 4 {
+			return "<UUID>"
+		}
+		return val
 	case primitive.DateTime:
 		return "<DateTime>"
 	case primitive.Timestamp:

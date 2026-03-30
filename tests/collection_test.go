@@ -341,7 +341,7 @@ func TestCollection_ListCollectionNamesFilter(t *testing.T) {
 func TestCollection_ListCollectionsIdIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_ListCollectionsIdIndex",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// ListCollections result includes idIndex field with index spec.

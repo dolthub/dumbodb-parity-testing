@@ -755,7 +755,7 @@ func TestCursor_MinMaxBounds(t *testing.T) {
 func TestCursor_CollationCaseInsensitive(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_CollationCaseInsensitive",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "name", Value: "Alice"}},
@@ -783,7 +783,7 @@ func TestCursor_CollationCaseInsensitive(t *testing.T) {
 func TestCursor_CollationSort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_CollationSort",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "word", Value: "banana"}},
