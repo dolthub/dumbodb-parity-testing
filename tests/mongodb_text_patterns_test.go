@@ -175,7 +175,7 @@ func textPatternsCreateArticlesIndex(ctx context.Context, col *mongo.Collection)
 func TestTextPatterns_Aggregation_MatchText(t *testing.T) {
 	// "$match stage with $text finds documents containing 'coffee'."
 	// db.articles.aggregate([ { $match: { $text: { $search: "coffee" } } } ])
-	// Expected: documents 1, 2, 7, 8 (all subjects containing "coffee").
+	// Expected: documents 1, 2, 7 (subjects with "coffee"; "Cafe Latte" does NOT match).
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TextPatterns_Aggregation_MatchText",
 		Support: harness.DongoXFail,
@@ -205,7 +205,7 @@ func TestTextPatterns_Aggregation_MatchText(t *testing.T) {
 					}
 				}
 			}
-			expected := []interface{}{int32(1), int32(2), int32(7), int32(8)}
+			expected := []interface{}{int32(1), int32(2), int32(7)}
 			tutorialCheck(t, "Aggregation_MatchText_ids", ids, expected)
 			return int32(len(results)), nil
 		},
@@ -218,7 +218,7 @@ func TestTextPatterns_Aggregation_GroupTotalViews(t *testing.T) {
 	//   { $match: { $text: { $search: "coffee" } } },
 	//   { $group: { _id: null, views: { $sum: "$views" } } }
 	// ])
-	// Expected: { _id: null, views: 95 }  (50 + 5 + 10 + 30)
+	// Expected: { _id: null, views: 65 }  (50 + 5 + 10; "Cafe Latte" does not match)
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TextPatterns_Aggregation_GroupTotalViews",
 		Support: harness.DongoXFail,
@@ -250,8 +250,8 @@ func TestTextPatterns_Aggregation_GroupTotalViews(t *testing.T) {
 					views = e.Value
 				}
 			}
-			// Total views: 50 + 5 + 10 + 30 = 95
-			tutorialCheck(t, "Aggregation_GroupTotalViews", views, int32(95))
+			// Total views: 50 + 5 + 10 = 65 (docs 1, 2, 7)
+			tutorialCheck(t, "Aggregation_GroupTotalViews", views, int32(65))
 			return views, nil
 		},
 	})
@@ -291,9 +291,9 @@ func TestTextPatterns_Aggregation_SortByScore(t *testing.T) {
 			if err := cursor.All(ctx, &results); err != nil {
 				return nil, err
 			}
-			// The tutorial shows 4 matching documents sorted by relevance.
+			// 3 matching documents sorted by relevance (docs 1, 2, 7).
 			count := int32(len(results))
-			tutorialCheck(t, "Aggregation_SortByScore_count", count, int32(4))
+			tutorialCheck(t, "Aggregation_SortByScore_count", count, int32(3))
 			return count, nil
 		},
 	})
