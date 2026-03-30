@@ -308,7 +308,7 @@ func TestConvertToCapped_MissingSize(t *testing.T) {
 func TestDataSize_BasicCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DataSize_BasicCollection",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// dataSize returns the size of data in a collection or key range.
@@ -338,7 +338,7 @@ func TestDataSize_EmptyCollection(t *testing.T) {
 func TestDataSize_WithKeyRange(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DataSize_WithKeyRange",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// dataSize with min/max key range (typically for sharding ranges).
@@ -433,7 +433,7 @@ func TestValidate_Repair(t *testing.T) {
 func TestRenameCollection_NonExistentSource(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "RenameCollection_NonExistentSource",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Renaming a non-existent collection should return NamespaceNotFound.
