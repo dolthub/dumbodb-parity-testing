@@ -2375,11 +2375,9 @@ func TestAggStage_unknown_stage_error(t *testing.T) {
 // ─── Sort tie-breaking divergence XFail tests ─────────────────────────────────
 
 func TestAggPipeline_sort_TieBreakingAfterGroup(t *testing.T) {
-	// $group output order is non-deterministic (hash map iteration), so
-	// tie-breaking still diverges from MongoDB.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggPipeline_sort_TieBreakingAfterGroup",
-		Support: harness.DongoXFail, // confirmed flaky — mayor skiplist candidate (in-9a3)
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "1"}, {Key: "cat", Value: "C"}},
