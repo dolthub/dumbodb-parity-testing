@@ -237,7 +237,7 @@ func TestConvertToCapped_Basic(t *testing.T) {
 func TestConvertToCapped_VerifyCapped(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ConvertToCapped_VerifyCapped",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Convert and then verify via listCollections that options.capped is set.
@@ -418,7 +418,7 @@ func TestValidate_Full(t *testing.T) {
 func TestValidate_Repair(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Validate_Repair",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// validate with repair:true attempts to fix inconsistencies (requires standalone).

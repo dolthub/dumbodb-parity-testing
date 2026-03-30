@@ -547,7 +547,7 @@ func TestView_ListCollections_ShowsView(t *testing.T) {
 func TestView_WithLookupPipeline(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_WithLookupPipeline",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "dept_id", Value: int32(1)}, {Key: "name", Value: "Alice"}},

@@ -1282,12 +1282,9 @@ func TestPipelineUpdate_addFields(t *testing.T) {
 }
 
 func TestPipelineUpdate_replaceWith(t *testing.T) {
-	// Diverge: GitHub dongo errors with "Unrecognized pipeline stage name:
-	// '$replaceWith'" in update pipelines. Fix exists in local WIP but not
-	// yet pushed to GitHub main. Re-graduate once the fix lands.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "PipelineUpdate_replaceWith",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := mongo.Pipeline{

@@ -208,7 +208,7 @@ func TestDevPatterns_AutoIncrement_GetNextSequence(t *testing.T) {
 	// Call getNextSequence twice and verify seq increments: 1, then 2.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DevPatterns_AutoIncrement_GetNextSequence",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "userid"},
@@ -275,7 +275,7 @@ func TestDevPatterns_AutoIncrement_InsertWithSequenceID(t *testing.T) {
 	// Insert two users with auto-incremented _id values (1 and 2).
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DevPatterns_AutoIncrement_InsertWithSequenceID",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			// The counters collection is a separate collection; we seed it here
 			// in a sibling collection named col.Name()+"_counters".

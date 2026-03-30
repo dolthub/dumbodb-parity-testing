@@ -562,7 +562,7 @@ func TestDB_RunCommand_ListIndexes(t *testing.T) {
 func TestDB_RunCommand_Validate(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_Validate",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// validate reports on collection integrity; details differ by engine.
@@ -574,7 +574,7 @@ func TestDB_RunCommand_Validate(t *testing.T) {
 func TestDB_RunCommand_ListCollections(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_ListCollections",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// listCollections via RunCommand returns a cursor response document.

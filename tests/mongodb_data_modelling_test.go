@@ -190,7 +190,7 @@ func TestDataModelling_ReferencedOneToMany_LookupPublisher(t *testing.T) {
 	// "$lookup to join books with publisher in a single aggregation."
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DataModelling_ReferencedOneToMany_LookupPublisher",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			db := col.Database()
 			publishers := db.Collection(col.Name() + "_pub2")

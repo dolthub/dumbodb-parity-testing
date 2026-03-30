@@ -51,7 +51,7 @@ func TestTextPatterns_BasicSearch_SingleWord(t *testing.T) {
 	// Expected: documents 1 (Java Hut) and 3 (Coffee Shop) — both contain "coffee".
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TextPatterns_BasicSearch_SingleWord",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   textPatternsCreateStoresIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(
@@ -80,7 +80,7 @@ func TestTextPatterns_BasicSearch_ExcludeTerm(t *testing.T) {
 	// Expected: document 5 only (Java Shopping Center) — "java" matches but "coffee" excludes doc 1.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TextPatterns_BasicSearch_ExcludeTerm",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   textPatternsCreateStoresIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(
@@ -119,7 +119,7 @@ func TestTextPatterns_BasicSearch_ExactPhrase(t *testing.T) {
 	// Expected: document 3 only (Coffee Shop exact name match).
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TextPatterns_BasicSearch_ExactPhrase",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   textPatternsCreateStoresIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(
@@ -178,7 +178,7 @@ func TestTextPatterns_Aggregation_MatchText(t *testing.T) {
 	// Expected: documents 1, 2, 7 (subjects with "coffee"; "Cafe Latte" does NOT match).
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TextPatterns_Aggregation_MatchText",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   textPatternsCreateArticlesIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := bson.A{
@@ -221,7 +221,7 @@ func TestTextPatterns_Aggregation_GroupTotalViews(t *testing.T) {
 	// Expected: { _id: null, views: 65 }  (50 + 5 + 10; "Cafe Latte" does not match)
 	harness.PairTest(t, harness.TestCase{
 		Name:    "TextPatterns_Aggregation_GroupTotalViews",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   textPatternsCreateArticlesIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := bson.A{
