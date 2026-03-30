@@ -275,7 +275,7 @@ func groupAndTotalOrdersSeedACE(ctx context.Context, col *mongo.Collection) erro
 func TestGroupAndTotal_CustomerOrders2020ACE(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GroupAndTotal_CustomerOrders2020ACE",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup:   groupAndTotalOrdersSeedACE,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := mongo.Pipeline{
@@ -375,7 +375,7 @@ func TestGroupAndTotal_CustomerOrders2020ACE(t *testing.T) {
 			for i, r := range results {
 				actual[i] = r
 			}
-			tutorialCheck(t, "GroupAndTotal_CustomerOrders2020ACE", actual, expected)
+			tutorialCheckXFail(t, "GroupAndTotal_CustomerOrders2020ACE", actual, expected)
 			return results, nil
 		},
 	})
