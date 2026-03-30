@@ -1133,7 +1133,7 @@ func TestAggComplex_sortByCount_TieBreaking(t *testing.T) {
 func TestAggComplex_matchUnwindGroupSort_SameTotalQty(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchUnwindGroupSort_SameTotalQty",
-		Support: harness.DongoXFail, // confirmed flaky — mayor skiplist candidate (in-9a3)
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{

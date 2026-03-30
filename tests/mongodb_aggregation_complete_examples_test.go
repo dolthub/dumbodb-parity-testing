@@ -144,7 +144,7 @@ func filteredSubsetPersonsSeed(ctx context.Context, col *mongo.Collection) error
 func TestFilteredSubset_ThreeYoungestEngineers(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FilteredSubset_ThreeYoungestEngineers",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   filteredSubsetPersonsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := mongo.Pipeline{
@@ -196,7 +196,7 @@ func TestFilteredSubset_ThreeYoungestEngineers(t *testing.T) {
 			for i, r := range results {
 				actual[i] = r
 			}
-			tutorialCheckXFail(t, "FilteredSubset_ThreeYoungestEngineers", actual, expected)
+			tutorialCheck(t, "FilteredSubset_ThreeYoungestEngineers", actual, expected)
 			return results, nil
 		},
 	})
@@ -793,7 +793,7 @@ func multiFieldJoinSeed(ctx context.Context, col *mongo.Collection) error {
 func TestMultiFieldJoin_ProductsWithOrders2020(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "MultiFieldJoin_ProductsWithOrders2020",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   multiFieldJoinSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Embedded pipeline used inside the $lookup.
@@ -883,7 +883,7 @@ func TestMultiFieldJoin_ProductsWithOrders2020(t *testing.T) {
 			for i, r := range results {
 				actual[i] = r
 			}
-			tutorialCheckXFail(t, "MultiFieldJoin_ProductsWithOrders2020", actual, expected)
+			tutorialCheck(t, "MultiFieldJoin_ProductsWithOrders2020", actual, expected)
 			return results, nil
 		},
 	})
