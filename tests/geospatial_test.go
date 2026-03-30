@@ -836,7 +836,7 @@ func TestGeo_DocType_GeometryCollection(t *testing.T) {
 	// Fix exists in WIP local dongo. Re-graduate once fix lands in GitHub main.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_DocType_GeometryCollection",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys: bson.D{{Key: "geo", Value: "2dsphere"}},

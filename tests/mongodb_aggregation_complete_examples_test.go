@@ -9,7 +9,7 @@
 //   5. Multi-Field Join (multi-field-join) — products + orders, $lookup with embedded pipeline
 //
 // tutorialCheck() is defined in mongodb_dev_patterns_test.go (same package).
-// All tests use harness.DongoXFail (pessimistic — Dongo parity not yet verified).
+// Tests start as DongoXFail and graduate to DongoFull as Dongo parity is verified.
 //
 // tutorialCheckXFail is used instead of tutorialCheck for DongoXFail tests.
 // It logs divergence rather than failing the test, so that XFail tests that
@@ -275,7 +275,7 @@ func groupAndTotalOrdersSeedACE(ctx context.Context, col *mongo.Collection) erro
 func TestGroupAndTotal_CustomerOrders2020ACE(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GroupAndTotal_CustomerOrders2020ACE",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   groupAndTotalOrdersSeedACE,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := mongo.Pipeline{
@@ -375,7 +375,7 @@ func TestGroupAndTotal_CustomerOrders2020ACE(t *testing.T) {
 			for i, r := range results {
 				actual[i] = r
 			}
-			tutorialCheckXFail(t, "GroupAndTotal_CustomerOrders2020ACE", actual, expected)
+			tutorialCheck(t, "GroupAndTotal_CustomerOrders2020ACE", actual, expected)
 			return results, nil
 		},
 	})
