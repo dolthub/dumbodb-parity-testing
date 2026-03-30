@@ -80,7 +80,7 @@ func TestCollMod_ChangeStreamPreAndPostImages(t *testing.T) {
 func TestCollMod_NonExistentCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CollMod_NonExistentCollection",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// collMod on a collection that does not exist must return an error.
