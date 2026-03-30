@@ -1039,7 +1039,7 @@ func TestBSON_timestamp_type_filter(t *testing.T) {
 func TestBSON_minkey_maxkey_insert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_minkey_maxkey_insert",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "mk-min"}, {Key: "v", Value: primitive.MinKey{}}},
@@ -1056,7 +1056,7 @@ func TestBSON_minkey_maxkey_insert(t *testing.T) {
 func TestBSON_minkey_sort_order(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_minkey_sort_order",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "mk-min"}, {Key: "v", Value: primitive.MinKey{}}},
@@ -1084,7 +1084,7 @@ func TestBSON_minkey_sort_order(t *testing.T) {
 func TestBSON_minkey_type_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_minkey_type_filter",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "min"}, {Key: "v", Value: primitive.MinKey{}}},

@@ -682,7 +682,7 @@ func TestCursor_HintByName(t *testing.T) {
 func TestCursor_ReturnKey(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_ReturnKey",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "score", Value: int32(10)}, {Key: "name", Value: "alice"}},
@@ -717,7 +717,7 @@ func TestCursor_ReturnKey(t *testing.T) {
 func TestCursor_MinMaxBounds(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_MinMaxBounds",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			docs := make([]interface{}, 10)
 			for i := 0; i < 10; i++ {
