@@ -79,6 +79,21 @@ func pickFields(doc bson.D, keys ...string) bson.D {
 	return result
 }
 
+// omitFields returns a new bson.D with the named keys removed, preserving order.
+func omitFields(doc bson.D, keys ...string) bson.D {
+	drop := make(map[string]bool, len(keys))
+	for _, k := range keys {
+		drop[k] = true
+	}
+	result := make(bson.D, 0, len(doc))
+	for _, elem := range doc {
+		if !drop[elem.Key] {
+			result = append(result, elem)
+		}
+	}
+	return result
+}
+
 // ============================================================
 // Collection management
 // ============================================================
@@ -493,11 +508,15 @@ func TestDB_RunCommand_Ping(t *testing.T) {
 func TestDB_RunCommand_Hello(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_Hello",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// hello returns topology info; structure/values may differ in Dongo.
-			return runCommandDoc(ctx, col, bson.D{{Key: "hello", Value: 1}})
+			// connectionId is server-assigned and differs between instances; omit it.
+			doc, err := runCommandDoc(ctx, col, bson.D{{Key: "hello", Value: 1}})
+			if err != nil {
+				return nil, err
+			}
+			return omitFields(doc.(bson.D), "connectionId"), nil
 		},
 	})
 }
@@ -505,11 +524,15 @@ func TestDB_RunCommand_Hello(t *testing.T) {
 func TestDB_RunCommand_IsMaster(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_IsMaster",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// Legacy isMaster command; topology fields may differ in Dongo.
-			return runCommandDoc(ctx, col, bson.D{{Key: "isMaster", Value: 1}})
+			// connectionId is server-assigned and differs between instances; omit it.
+			doc, err := runCommandDoc(ctx, col, bson.D{{Key: "isMaster", Value: 1}})
+			if err != nil {
+				return nil, err
+			}
+			return omitFields(doc.(bson.D), "connectionId"), nil
 		},
 	})
 }
@@ -517,11 +540,19 @@ func TestDB_RunCommand_IsMaster(t *testing.T) {
 func TestDB_RunCommand_BuildInfo(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_BuildInfo",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// buildInfo includes version strings that differ between MongoDB and Dongo.
-			return runCommandDoc(ctx, col, bson.D{{Key: "buildInfo", Value: 1}})
+			// Omit MongoDB-internal fields: allocator, javascriptEngine, openssl,
+			// storageEngines — these are not applicable to Dongo.
+			doc, err := runCommandDoc(ctx, col, bson.D{{Key: "buildInfo", Value: 1}})
+			if err != nil {
+				return nil, err
+			}
+			return pickFields(doc.(bson.D),
+				"version", "sysInfo", "bits", "debug",
+				"maxBsonObjectSize", "ok",
+			), nil
 		},
 	})
 }
@@ -549,11 +580,17 @@ func TestDB_RunCommand_ServerStatus(t *testing.T) {
 func TestDB_RunCommand_DbStats(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_DbStats",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// dbStats includes storage sizes that differ between engines.
-			return runCommandDoc(ctx, col, bson.D{{Key: "dbStats", Value: 1}})
+			// Omit engine-specific storage metrics: storageSize, freeStorageSize,
+			// fsUsedSize, fsTotalSize, dataSize, indexSize, avgObjSize — these
+			// differ between WiredTiger and Dolt's prolly tree storage.
+			doc, err := runCommandDoc(ctx, col, bson.D{{Key: "dbStats", Value: 1}})
+			if err != nil {
+				return nil, err
+			}
+			return pickFields(doc.(bson.D), "db", "collections", "views", "objects", "ok"), nil
 		},
 	})
 }
