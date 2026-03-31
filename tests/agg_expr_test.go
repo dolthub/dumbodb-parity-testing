@@ -118,11 +118,11 @@ func TestExpr_mod(t *testing.T) {
 }
 
 func TestExpr_mod_nan_divisor(t *testing.T) {
-	// Diverge (do-9ni): mongo returns {result: NaN} with no error; dongo crashes
-	// with a socket EOF when the $mod divisor is NaN.
+	// Fixed (do-sl4f): dongo now correctly returns NaN (not an error) when $mod
+	// divisor is NaN, matching MongoDB's IEEE 754 behavior.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_mod_nan_divisor",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{

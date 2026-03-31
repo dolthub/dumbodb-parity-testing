@@ -153,8 +153,15 @@ func normalize(v interface{}) interface{} {
 	case int64:
 		return float64(val)
 	case float32:
-		return float64(val)
+		f := float64(val)
+		if math.IsNaN(f) {
+			return "<NaN>"
+		}
+		return f
 	case float64:
+		if math.IsNaN(val) {
+			return "<NaN>"
+		}
 		return val
 	case bool, string:
 		return val
