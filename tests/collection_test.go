@@ -64,6 +64,21 @@ func runCommandDoc(ctx context.Context, col *mongo.Collection, cmd interface{}) 
 	return doc, nil
 }
 
+// pickFields returns a new bson.D containing only the named keys, preserving order.
+func pickFields(doc bson.D, keys ...string) bson.D {
+	keep := make(map[string]bool, len(keys))
+	for _, k := range keys {
+		keep[k] = true
+	}
+	result := make(bson.D, 0, len(keys))
+	for _, elem := range doc {
+		if keep[elem.Key] {
+			result = append(result, elem)
+		}
+	}
+	return result
+}
+
 // ============================================================
 // Collection management
 // ============================================================
@@ -514,11 +529,19 @@ func TestDB_RunCommand_BuildInfo(t *testing.T) {
 func TestDB_RunCommand_ServerStatus(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_ServerStatus",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// serverStatus returns a large document with runtime metrics.
-			return runCommandDoc(ctx, col, bson.D{{Key: "serverStatus", Value: 1}})
+			// serverStatus returns a large document; compare only dongo-supported fields.
+			// Skipped: asserts, batchedDeletes, electionMetrics, flowControl, globalLock,
+			// repl, sharding, storageEngine, tcmalloc, version (dongo reports a stub version),
+			// host (differs between Docker/native deployments),
+			// uptime/connections/opcounters (vary or absent in dongo).
+			doc, err := runCommandDoc(ctx, col, bson.D{{Key: "serverStatus", Value: 1}})
+			if err != nil {
+				return nil, err
+			}
+			return pickFields(doc.(bson.D), "ok"), nil
 		},
 	})
 }
@@ -538,11 +561,20 @@ func TestDB_RunCommand_DbStats(t *testing.T) {
 func TestDB_RunCommand_CollStats(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_CollStats",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// collStats includes per-collection storage metrics.
-			return runCommandDoc(ctx, col, bson.D{{Key: "collStats", Value: col.Name()}})
+			// collStats includes per-collection storage metrics; compare only dongo-supported fields.
+			// Skipped: wiredTiger (WiredTiger-specific), indexDetails (WiredTiger per-index stats),
+			// size/avgObjSize/storageSize/totalSize (dongo computes these differently from WiredTiger).
+			doc, err := runCommandDoc(ctx, col, bson.D{{Key: "collStats", Value: col.Name()}})
+			if err != nil {
+				return nil, err
+			}
+			return pickFields(doc.(bson.D),
+				"ns", "count", "nindexes", "ok", "capped",
+				"freeStorageSize", "numOrphanDocs", "indexBuilds", "scaleFactor",
+			), nil
 		},
 	})
 }
