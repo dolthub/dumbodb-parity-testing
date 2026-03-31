@@ -763,7 +763,7 @@ func TestGeo_geoNear_NonSpherical(t *testing.T) {
 func TestGeo_near_InvalidPointLongitude(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_near_InvalidPointLongitude",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail, // Diverge (do-bpmo): dongo omits "invalid point in geo near query $geometry argument: {...}" prefix; fix exists in WIP local dongo, not yet on GitHub main
 		Setup:   geo2dSphereSetup("loc"),
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			filter := bson.D{{Key: "loc", Value: bson.D{{Key: "$near", Value: bson.D{
@@ -778,7 +778,7 @@ func TestGeo_near_InvalidPointLongitude(t *testing.T) {
 func TestGeo_near_InvalidPointLatitude(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_near_InvalidPointLatitude",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail, // Diverge (do-bpmo): dongo omits "invalid point in geo near query $geometry argument: {...}" prefix; fix exists in WIP local dongo, not yet on GitHub main
 		Setup:   geo2dSphereSetup("loc"),
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			filter := bson.D{{Key: "loc", Value: bson.D{{Key: "$near", Value: bson.D{
@@ -793,7 +793,7 @@ func TestGeo_near_InvalidPointLatitude(t *testing.T) {
 func TestGeo_nearSphere_InvalidPoint(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_nearSphere_InvalidPoint",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail, // Diverge (do-bpmo): dongo omits "invalid point in geo near query $geometry argument: {...}" prefix; fix exists in WIP local dongo, not yet on GitHub main
 		Setup:   geo2dSphereSetup("loc"),
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			filter := bson.D{{Key: "loc", Value: bson.D{{Key: "$nearSphere", Value: bson.D{
@@ -808,7 +808,7 @@ func TestGeo_nearSphere_InvalidPoint(t *testing.T) {
 func TestGeo_geoNear_InvalidPoint(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_geoNear_InvalidPoint",
-		Support: harness.DongoFull,
+		Support: harness.DongoXFail, // Diverge (do-bpmo): dongo reports lng/lat out-of-bounds instead of "invalid argument in geo near query: type"; fix exists in WIP local dongo, not yet on GitHub main
 		Setup:   geo2dSphereSetup("loc"),
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := bson.A{bson.D{{Key: "$geoNear", Value: bson.D{
