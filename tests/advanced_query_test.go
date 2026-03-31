@@ -1741,7 +1741,7 @@ func TestAdvancedQuery_Mod_Divisor1_AllMatch(t *testing.T) {
 func TestAdvancedQuery_Regex_LookaheadUnsupported(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Regex_LookaheadUnsupported",
-		Support: harness.DongoXFail,
+		Support: harness.DongoFull,
 		Setup:   insertAdvancedQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Lookaheads are PCRE-only — may error or produce different results
