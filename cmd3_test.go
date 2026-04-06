@@ -15,11 +15,11 @@ func TestServerStatusCompare(t *testing.T) {
 	mongoClient, _ := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
 	defer mongoClient.Disconnect(ctx)
 	
-	docudoltClient, _ := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27026"))
-	defer docudoltClient.Disconnect(ctx)
+	docuDoltClient, _ := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27026"))
+	defer docuDoltClient.Disconnect(ctx)
 	
 	testdb1 := mongoClient.Database("test_srv")
-	testdb2 := docudoltClient.Database("test_srv")
+	testdb2 := docuDoltClient.Database("test_srv")
 	
 	cmd := bson.D{
 		{Key: "serverStatus", Value: int32(1)},
@@ -38,7 +38,7 @@ func TestServerStatusCompare(t *testing.T) {
 	
 	var docudolt_res bson.D
 	_ = testdb2.RunCommand(ctx, cmd).Decode(&docudolt_res)
-	fmt.Printf("Docudolt serverStatus repl keys: ")
+	fmt.Printf("DocuDolt serverStatus repl keys: ")
 	for _, e := range docudolt_res {
 		fmt.Printf("%s ", e.Key)
 	}
@@ -58,21 +58,21 @@ func TestServerStatusCompare(t *testing.T) {
 	}
 	for _, e := range docudolt_res {
 		if e.Key == "repl" {
-			fmt.Printf("Docudolt repl: %v\n", e.Value)
+			fmt.Printf("DocuDolt repl: %v\n", e.Value)
 		}
 	}
 	
 	// Test compact empty vs non-existent
-	docudoltCol := docudoltClient.Database("test_compact_x").Collection("col")
+	docuDoltCol := docuDoltClient.Database("test_compact_x").Collection("col")
 	var r1 bson.D
-	e1 := docudoltCol.Database().RunCommand(ctx, bson.D{{Key: "compact", Value: "col"}}).Decode(&r1)
-	fmt.Printf("Docudolt compact col (never created): err=%v\n", e1)
+	e1 := docuDoltCol.Database().RunCommand(ctx, bson.D{{Key: "compact", Value: "col"}}).Decode(&r1)
+	fmt.Printf("DocuDolt compact col (never created): err=%v\n", e1)
 	
 	var r2 bson.D
-	e2 := docudoltCol.Database().RunCommand(ctx, bson.D{{Key: "compact", Value: "no_such_xyz"}}).Decode(&r2)
-	fmt.Printf("Docudolt compact no_such_xyz: err=%v\n", e2)
+	e2 := docuDoltCol.Database().RunCommand(ctx, bson.D{{Key: "compact", Value: "no_such_xyz"}}).Decode(&r2)
+	fmt.Printf("DocuDolt compact no_such_xyz: err=%v\n", e2)
 	
 	mongoClient.Database("test_srv").Drop(ctx)
-	docudoltClient.Database("test_srv").Drop(ctx)
-	docudoltClient.Database("test_compact_x").Drop(ctx)
+	docuDoltClient.Database("test_srv").Drop(ctx)
+	docuDoltClient.Database("test_compact_x").Drop(ctx)
 }

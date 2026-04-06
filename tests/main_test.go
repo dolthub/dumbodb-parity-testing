@@ -23,12 +23,12 @@ import (
 //  4. If neither server can be reached after the above, all tests are skipped
 //     with a helpful message rather than failing with "connection refused".
 func TestMain(m *testing.M) {
-	var docudoltCmd *exec.Cmd
+	var docuDoltCmd *exec.Cmd
 
 	// Auto-start docudolt only when DOCUDOLT_URI is not explicitly set (i.e. we
 	// are using the default :27018).
 	if os.Getenv("DOCUDOLT_URI") == "" && !portOpen("127.0.0.1:27018") {
-		docudoltCmd = tryStartDocudolt()
+		docuDoltCmd = tryStartDocuDolt()
 	}
 
 	// Verify connectivity; skip gracefully if either server is absent.
@@ -38,33 +38,33 @@ func TestMain(m *testing.M) {
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr,
-			"\nSKIP: parity tests require MongoDB on :27017 and Docudolt on :27018\n"+
+			"\nSKIP: parity tests require MongoDB on :27017 and DocuDolt on :27018\n"+
 				"  Error: %v\n\n"+
 				"  Quick setup:\n"+
 				"    docker run -d -p 27017:27017 mongo:8.0\n"+
 				"    DOCUDOLT_BIN=/path/to/docudolt go test ./...\n\n",
 			err,
 		)
-		if docudoltCmd != nil {
-			_ = docudoltCmd.Process.Kill()
+		if docuDoltCmd != nil {
+			_ = docuDoltCmd.Process.Kill()
 		}
 		os.Exit(0) // exit 0 — skipping is not a failure
 	}
 
 	code := m.Run()
 
-	if docudoltCmd != nil {
-		_ = docudoltCmd.Process.Kill()
-		_ = docudoltCmd.Wait()
+	if docuDoltCmd != nil {
+		_ = docuDoltCmd.Process.Kill()
+		_ = docuDoltCmd.Wait()
 	}
 
 	os.Exit(code)
 }
 
-// tryStartDocudolt locates a docudolt binary and starts it on :27018 in a temp
+// tryStartDocuDolt locates a docudolt binary and starts it on :27018 in a temp
 // directory. Returns the running *exec.Cmd, or nil if startup fails.
-func tryStartDocudolt() *exec.Cmd {
-	bin := findDocudoltBin()
+func tryStartDocuDolt() *exec.Cmd {
+	bin := findDocuDoltBin()
 	if bin == "" {
 		return nil
 	}
@@ -99,11 +99,11 @@ func tryStartDocudolt() *exec.Cmd {
 	return nil
 }
 
-// findDocudoltBin returns the path to a docudolt binary, checking (in order):
+// findDocuDoltBin returns the path to a docudolt binary, checking (in order):
 //  1. DOCUDOLT_BIN environment variable
 //  2. /tmp/docudolt-bin   (conventional location used by AGENT.md setup)
 //  3. docudolt on PATH
-func findDocudoltBin() string {
+func findDocuDoltBin() string {
 	if v := os.Getenv("DOCUDOLT_BIN"); v != "" {
 		return v
 	}

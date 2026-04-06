@@ -51,7 +51,7 @@ func docsToSlice(docs []bson.D) []interface{} {
 func TestInsertOne_acknowledged(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "InsertOne_acknowledged",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "name", Value: "Dave"},
@@ -69,7 +69,7 @@ func TestInsertOne_acknowledged(t *testing.T) {
 func TestInsertOne_explicit_id(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "InsertOne_explicit_id",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "explicit-1"},
@@ -89,7 +89,7 @@ func TestInsertOne_explicit_id(t *testing.T) {
 func TestInsertOne_duplicate_key_error(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "InsertOne_duplicate_key_error",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "dup-1"}})
 			return err
@@ -104,7 +104,7 @@ func TestInsertOne_duplicate_key_error(t *testing.T) {
 func TestInsertOne_nested_doc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "InsertOne_nested_doc",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "nested-1"},
@@ -126,7 +126,7 @@ func TestInsertOne_nested_doc(t *testing.T) {
 func TestInsertOne_array_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "InsertOne_array_field",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "arr-1"},
@@ -147,7 +147,7 @@ func TestInsertOne_array_field(t *testing.T) {
 func TestInsertMany_ordered(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "InsertMany_ordered",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			docs := []interface{}{
 				bson.D{{Key: "_id", Value: "m1"}, {Key: "v", Value: int32(1)}},
@@ -166,7 +166,7 @@ func TestInsertMany_ordered(t *testing.T) {
 func TestInsertMany_unordered_partial_failure(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "InsertMany_unordered_partial_failure",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "dup"}})
 			return err
@@ -190,7 +190,7 @@ func TestInsertMany_unordered_partial_failure(t *testing.T) {
 func TestFindOne_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOne_match",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			var result bson.D
@@ -203,7 +203,7 @@ func TestFindOne_match(t *testing.T) {
 func TestFindOne_no_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOne_no_match",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			var result bson.D
@@ -217,7 +217,7 @@ func TestFindOne_no_match(t *testing.T) {
 func TestFindOne_projection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOne_projection",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOne().SetProjection(bson.D{
@@ -234,7 +234,7 @@ func TestFindOne_projection(t *testing.T) {
 func TestFindOne_sort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOne_sort",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOne().
@@ -252,7 +252,7 @@ func TestFindOne_sort(t *testing.T) {
 func TestFind_all_sorted(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Find_all_sorted",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}})
@@ -272,7 +272,7 @@ func TestFind_all_sorted(t *testing.T) {
 func TestFind_filter_and_projection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Find_filter_and_projection",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -299,7 +299,7 @@ func TestFind_filter_and_projection(t *testing.T) {
 func TestFind_limit_skip(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Find_limit_skip",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -326,7 +326,7 @@ func TestFind_limit_skip(t *testing.T) {
 func TestFind_count_via_cursor(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Find_count_via_cursor",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(ctx, bson.D{})
@@ -347,7 +347,7 @@ func TestFind_count_via_cursor(t *testing.T) {
 func TestUpdateOne_set(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_set",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateOne(ctx,
@@ -368,7 +368,7 @@ func TestUpdateOne_set(t *testing.T) {
 func TestUpdateOne_set_new_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_set_new_field",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -389,7 +389,7 @@ func TestUpdateOne_set_new_field(t *testing.T) {
 func TestUpdateOne_set_nested(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_set_nested",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "nested-upd"},
@@ -415,7 +415,7 @@ func TestUpdateOne_set_nested(t *testing.T) {
 func TestUpdateOne_upsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_upsert",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Update().SetUpsert(true)
 			res, err := col.UpdateOne(ctx,
@@ -438,7 +438,7 @@ func TestUpdateOne_upsert(t *testing.T) {
 func TestUpdateOne_no_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_no_match",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateOne(ctx,
 				bson.D{{Key: "_id", Value: "nonexistent"}},
@@ -458,7 +458,7 @@ func TestUpdateOne_no_match(t *testing.T) {
 func TestUpdateOne_inc_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_inc_basic",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -479,7 +479,7 @@ func TestUpdateOne_inc_basic(t *testing.T) {
 func TestUpdateOne_inc_negative(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_inc_negative",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -500,7 +500,7 @@ func TestUpdateOne_inc_negative(t *testing.T) {
 func TestUpdateOne_inc_and_set(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_inc_and_set",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -524,7 +524,7 @@ func TestUpdateOne_inc_and_set(t *testing.T) {
 func TestUpdateOne_unset(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_unset",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -545,7 +545,7 @@ func TestUpdateOne_unset(t *testing.T) {
 func TestUpdateOne_unset_nonexistent_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_unset_nonexistent_field",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateOne(ctx,
@@ -566,7 +566,7 @@ func TestUpdateOne_unset_nonexistent_field(t *testing.T) {
 func TestUpdateOne_multi_field_inc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_multi_field_inc",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "mf-1"},
@@ -599,7 +599,7 @@ func TestUpdateOne_multi_field_inc(t *testing.T) {
 func TestUpdateOne_mul_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_mul_basic",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -620,7 +620,7 @@ func TestUpdateOne_mul_basic(t *testing.T) {
 func TestUpdateOne_mul_zero(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_mul_zero",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -641,7 +641,7 @@ func TestUpdateOne_mul_zero(t *testing.T) {
 func TestUpdateOne_rename_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_rename_basic",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -661,7 +661,7 @@ func TestUpdateOne_rename_basic(t *testing.T) {
 func TestUpdateOne_rename_nonexistent(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_rename_nonexistent",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateOne(ctx,
@@ -682,7 +682,7 @@ func TestUpdateOne_rename_nonexistent(t *testing.T) {
 func TestUpdateOne_min_reduces(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_min_reduces",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -703,7 +703,7 @@ func TestUpdateOne_min_reduces(t *testing.T) {
 func TestUpdateOne_min_no_change(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_min_no_change",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateOne(ctx,
@@ -725,7 +725,7 @@ func TestUpdateOne_min_no_change(t *testing.T) {
 func TestUpdateOne_max_increases(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_max_increases",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -746,7 +746,7 @@ func TestUpdateOne_max_increases(t *testing.T) {
 func TestUpdateOne_max_no_change(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_max_no_change",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateOne(ctx,
@@ -768,7 +768,7 @@ func TestUpdateOne_max_no_change(t *testing.T) {
 func TestUpdateOne_setOnInsert_on_upsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_setOnInsert_on_upsert",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Update().SetUpsert(true)
 			_, err := col.UpdateOne(ctx,
@@ -792,7 +792,7 @@ func TestUpdateOne_setOnInsert_on_upsert(t *testing.T) {
 func TestUpdateOne_setOnInsert_no_upsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_setOnInsert_no_upsert",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// When matched (not inserted), $setOnInsert should be a no-op
@@ -818,7 +818,7 @@ func TestUpdateOne_setOnInsert_no_upsert(t *testing.T) {
 func TestUpdateOne_push_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_push_basic",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -839,7 +839,7 @@ func TestUpdateOne_push_basic(t *testing.T) {
 func TestUpdateOne_push_each(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_push_each",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -864,7 +864,7 @@ func TestUpdateOne_push_each(t *testing.T) {
 func TestUpdateOne_push_each_slice(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_push_each_slice",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Keep only last 2 elements after push
@@ -891,7 +891,7 @@ func TestUpdateOne_push_each_slice(t *testing.T) {
 func TestUpdateOne_push_each_sort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_push_each_sort",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "sort-1"},
@@ -923,7 +923,7 @@ func TestUpdateOne_push_each_sort(t *testing.T) {
 func TestUpdateOne_push_each_position(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_push_each_position",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Insert at position 0 (front)
@@ -950,7 +950,7 @@ func TestUpdateOne_push_each_position(t *testing.T) {
 func TestUpdateOne_pop_last(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_pop_last",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -971,7 +971,7 @@ func TestUpdateOne_pop_last(t *testing.T) {
 func TestUpdateOne_pop_first(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_pop_first",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -992,7 +992,7 @@ func TestUpdateOne_pop_first(t *testing.T) {
 func TestUpdateOne_pull_value(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_pull_value",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1013,7 +1013,7 @@ func TestUpdateOne_pull_value(t *testing.T) {
 func TestUpdateOne_pull_with_condition(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_pull_with_condition",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "pull-cond"},
@@ -1042,7 +1042,7 @@ func TestUpdateOne_pull_with_condition(t *testing.T) {
 func TestUpdateOne_pullAll(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_pullAll",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1063,7 +1063,7 @@ func TestUpdateOne_pullAll(t *testing.T) {
 func TestUpdateOne_addToSet_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_addToSet_basic",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1084,7 +1084,7 @@ func TestUpdateOne_addToSet_basic(t *testing.T) {
 func TestUpdateOne_addToSet_no_duplicate(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_addToSet_no_duplicate",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// "go" already exists in c1.tags — should not be added again
@@ -1106,7 +1106,7 @@ func TestUpdateOne_addToSet_no_duplicate(t *testing.T) {
 func TestUpdateOne_addToSet_each(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_addToSet_each",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1133,7 +1133,7 @@ func TestUpdateOne_addToSet_each(t *testing.T) {
 func TestUpdateOne_positional_first_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_positional_first_match",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "pos-1"},
@@ -1166,7 +1166,7 @@ func TestUpdateOne_positional_first_match(t *testing.T) {
 func TestUpdateMany_positional_all(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateMany_positional_all",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "all-1"},
@@ -1193,7 +1193,7 @@ func TestUpdateMany_positional_all(t *testing.T) {
 func TestUpdateOne_arrayFilters(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_arrayFilters",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "af-1"},
@@ -1227,7 +1227,7 @@ func TestUpdateOne_arrayFilters(t *testing.T) {
 func TestUpdateOne_pipeline_set(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_pipeline_set",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := []bson.D{
@@ -1251,7 +1251,7 @@ func TestUpdateOne_pipeline_set(t *testing.T) {
 func TestUpdateOne_pipeline_unset(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_pipeline_unset",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := []bson.D{
@@ -1274,7 +1274,7 @@ func TestUpdateOne_pipeline_unset(t *testing.T) {
 func TestUpdateOne_pipeline_addFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_pipeline_addFields",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := []bson.D{
@@ -1298,7 +1298,7 @@ func TestUpdateOne_pipeline_addFields(t *testing.T) {
 func TestUpdateMany_pipeline(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateMany_pipeline",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := []bson.D{
@@ -1321,7 +1321,7 @@ func TestUpdateMany_pipeline(t *testing.T) {
 func TestUpdateOne_bit_and(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_bit_and",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "bit-1"},
@@ -1350,7 +1350,7 @@ func TestUpdateOne_bit_and(t *testing.T) {
 func TestUpdateOne_bit_or(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_bit_or",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "bit-2"},
@@ -1379,7 +1379,7 @@ func TestUpdateOne_bit_or(t *testing.T) {
 func TestUpdateOne_bit_xor(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_bit_xor",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "bit-3"},
@@ -1410,7 +1410,7 @@ func TestUpdateOne_bit_xor(t *testing.T) {
 func TestUpdateMany(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateMany",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateMany(ctx,
@@ -1431,7 +1431,7 @@ func TestUpdateMany(t *testing.T) {
 func TestUpdateMany_unset(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateMany_unset",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateMany(ctx,
@@ -1452,7 +1452,7 @@ func TestUpdateMany_unset(t *testing.T) {
 func TestUpdateMany_upsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateMany_upsert",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Update().SetUpsert(true)
 			res, err := col.UpdateMany(ctx,
@@ -1470,12 +1470,12 @@ func TestUpdateMany_upsert(t *testing.T) {
 	})
 }
 
-// --- FindOneAndUpdate (DocudoltXFail) ---
+// --- FindOneAndUpdate (DocuDoltXFail) ---
 
 func TestFindOneAndUpdate_returnBefore(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndUpdate_returnBefore",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndUpdate().
@@ -1495,7 +1495,7 @@ func TestFindOneAndUpdate_returnBefore(t *testing.T) {
 func TestFindOneAndUpdate_returnAfter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndUpdate_returnAfter",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndUpdate().
@@ -1512,12 +1512,12 @@ func TestFindOneAndUpdate_returnAfter(t *testing.T) {
 	})
 }
 
-// --- FindOneAndReplace (DocudoltXFail) ---
+// --- FindOneAndReplace (DocuDoltXFail) ---
 
 func TestFindOneAndReplace_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndReplace_basic",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndReplace().
@@ -1537,7 +1537,7 @@ func TestFindOneAndReplace_basic(t *testing.T) {
 func TestFindOneAndReplace_returnAfter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndReplace_returnAfter",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndReplace().
@@ -1557,7 +1557,7 @@ func TestFindOneAndReplace_returnAfter(t *testing.T) {
 func TestFindOneAndReplace_upsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndReplace_upsert",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndReplace().
 				SetUpsert(true).
@@ -1576,7 +1576,7 @@ func TestFindOneAndReplace_upsert(t *testing.T) {
 func TestFindOneAndReplace_no_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndReplace_no_match",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			var result bson.D
 			err := col.FindOneAndReplace(ctx,
@@ -1588,12 +1588,12 @@ func TestFindOneAndReplace_no_match(t *testing.T) {
 	})
 }
 
-// --- FindOneAndDelete (DocudoltXFail) ---
+// --- FindOneAndDelete (DocuDoltXFail) ---
 
 func TestFindOneAndDelete_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndDelete_basic",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndDelete().
@@ -1611,7 +1611,7 @@ func TestFindOneAndDelete_basic(t *testing.T) {
 func TestFindOneAndDelete_sort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndDelete_sort",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Delete the doc with the highest score
@@ -1628,7 +1628,7 @@ func TestFindOneAndDelete_sort(t *testing.T) {
 func TestFindOneAndDelete_no_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndDelete_no_match",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			var result bson.D
 			err := col.FindOneAndDelete(ctx,
@@ -1644,7 +1644,7 @@ func TestFindOneAndDelete_no_match(t *testing.T) {
 func TestCountDocuments_all(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CountDocuments_all",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx, bson.D{})
@@ -1659,7 +1659,7 @@ func TestCountDocuments_all(t *testing.T) {
 func TestCountDocuments_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CountDocuments_filter",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx,
@@ -1676,7 +1676,7 @@ func TestCountDocuments_filter(t *testing.T) {
 func TestCountDocuments_empty(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CountDocuments_empty",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx, bson.D{})
 			if err != nil {
@@ -1690,7 +1690,7 @@ func TestCountDocuments_empty(t *testing.T) {
 func TestCountDocuments_skip(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CountDocuments_skip",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Count().SetSkip(1)
@@ -1706,7 +1706,7 @@ func TestCountDocuments_skip(t *testing.T) {
 func TestCountDocuments_limit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CountDocuments_limit",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Count().SetLimit(2)
@@ -1722,7 +1722,7 @@ func TestCountDocuments_limit(t *testing.T) {
 func TestCountDocuments_nested_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CountDocuments_nested_filter",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "nf-1"}, {Key: "info", Value: bson.D{{Key: "active", Value: true}}}},
@@ -1743,12 +1743,12 @@ func TestCountDocuments_nested_filter(t *testing.T) {
 	})
 }
 
-// --- EstimatedDocumentCount (DocudoltXFail) ---
+// --- EstimatedDocumentCount (DocuDoltXFail) ---
 
 func TestEstimatedDocumentCount_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "EstimatedDocumentCount_basic",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.EstimatedDocumentCount(ctx)
@@ -1767,7 +1767,7 @@ func TestEstimatedDocumentCount_basic(t *testing.T) {
 func TestEstimatedDocumentCount_empty(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "EstimatedDocumentCount_empty",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.EstimatedDocumentCount(ctx)
 			if err != nil {
@@ -1778,12 +1778,12 @@ func TestEstimatedDocumentCount_empty(t *testing.T) {
 	})
 }
 
-// --- Distinct (DocudoltXFail) ---
+// --- Distinct (DocuDoltXFail) ---
 
 func TestDistinct_string_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Distinct_string_field",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := col.Distinct(ctx, "name", bson.D{})
@@ -1798,7 +1798,7 @@ func TestDistinct_string_field(t *testing.T) {
 func TestDistinct_nested_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Distinct_nested_field",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "d1"}, {Key: "addr", Value: bson.D{{Key: "city", Value: "NYC"}}}},
@@ -1820,7 +1820,7 @@ func TestDistinct_nested_field(t *testing.T) {
 func TestDistinct_array_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Distinct_array_field",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Distinct on an array field returns individual elements
@@ -1836,7 +1836,7 @@ func TestDistinct_array_field(t *testing.T) {
 func TestDistinct_with_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Distinct_with_filter",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := col.Distinct(ctx, "name",
@@ -1853,7 +1853,7 @@ func TestDistinct_with_filter(t *testing.T) {
 func TestDistinct_no_results(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Distinct_no_results",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := col.Distinct(ctx, "name", bson.D{})
 			if err != nil {
@@ -1869,7 +1869,7 @@ func TestDistinct_no_results(t *testing.T) {
 func TestDeleteOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DeleteOne",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.DeleteOne(ctx, bson.D{{Key: "_id", Value: "c1"}})
@@ -1884,7 +1884,7 @@ func TestDeleteOne(t *testing.T) {
 func TestDeleteOne_no_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DeleteOne_no_match",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.DeleteOne(ctx, bson.D{{Key: "_id", Value: "ghost"}})
 			if err != nil {
@@ -1900,7 +1900,7 @@ func TestDeleteOne_no_match(t *testing.T) {
 func TestDeleteMany(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DeleteMany",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			filter := bson.D{{Key: "score", Value: bson.D{{Key: "$lte", Value: int32(20)}}}}
@@ -1916,7 +1916,7 @@ func TestDeleteMany(t *testing.T) {
 func TestDeleteMany_all(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DeleteMany_all",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.DeleteMany(ctx, bson.D{})
@@ -1933,7 +1933,7 @@ func TestDeleteMany_all(t *testing.T) {
 func TestReplaceOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ReplaceOne",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.ReplaceOne(ctx,
@@ -1960,7 +1960,7 @@ func TestReplaceOne(t *testing.T) {
 func TestBulkWrite_mixed_ops(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWrite_mixed_ops",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "bw1"}, {Key: "x", Value: int32(1)}},
@@ -1996,7 +1996,7 @@ func TestBulkWrite_mixed_ops(t *testing.T) {
 func TestBulkWrite_all_inserts(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWrite_all_inserts",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			models := []mongo.WriteModel{
 				mongo.NewInsertOneModel().SetDocument(bson.D{{Key: "_id", Value: "ai-1"}, {Key: "v", Value: int32(1)}}),
@@ -2015,7 +2015,7 @@ func TestBulkWrite_all_inserts(t *testing.T) {
 func TestBulkWrite_unordered(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWrite_unordered",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.BulkWrite().SetOrdered(false)
@@ -2045,7 +2045,7 @@ func TestBulkWrite_unordered(t *testing.T) {
 func TestBulkWrite_unordered_error_handling(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWrite_unordered_error_handling",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "existing"}})
 			return err
@@ -2070,7 +2070,7 @@ func TestBulkWrite_unordered_error_handling(t *testing.T) {
 func TestBulkWrite_replace_model(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWrite_replace_model",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			models := []mongo.WriteModel{
@@ -2093,7 +2093,7 @@ func TestBulkWrite_replace_model(t *testing.T) {
 func TestBulkWrite_update_many_model(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWrite_update_many_model",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			models := []mongo.WriteModel{
@@ -2116,7 +2116,7 @@ func TestBulkWrite_update_many_model(t *testing.T) {
 func TestBulkWrite_delete_many_model(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWrite_delete_many_model",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			models := []mongo.WriteModel{
@@ -2135,7 +2135,7 @@ func TestBulkWrite_delete_many_model(t *testing.T) {
 func TestBulkWrite_upsert_model(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWrite_upsert_model",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			models := []mongo.WriteModel{
 				mongo.NewUpdateOneModel().
@@ -2157,7 +2157,7 @@ func TestBulkWrite_upsert_model(t *testing.T) {
 func TestUpdateOne_inc_on_string_error(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_inc_on_string_error",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $inc on a string field should error
@@ -2173,7 +2173,7 @@ func TestUpdateOne_inc_on_string_error(t *testing.T) {
 func TestUpdateOne_set_on_id_error(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_set_on_id_error",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $set on _id to change its value should error
@@ -2189,7 +2189,7 @@ func TestUpdateOne_set_on_id_error(t *testing.T) {
 func TestUpdateOne_invalid_operator_error(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_invalid_operator_error",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,

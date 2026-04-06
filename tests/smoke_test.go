@@ -11,16 +11,16 @@ import (
 
 // TestTransactionSmoke verifies the harness support-level contract.
 //
-// MongoDB 8 supports multi-document transactions. Docudolt does not yet.
-// This test is intentionally marked DocudoltFull so CI fails red — proving
+// MongoDB 8 supports multi-document transactions. DocuDolt does not yet.
+// This test is intentionally marked DocuDoltFull so CI fails red — proving
 // the harness correctly surfaces a real divergence.
 //
-// To verify the other direction: change DocudoltFull → DocudoltXFail and CI
+// To verify the other direction: change DocuDoltFull → DocuDoltXFail and CI
 // should go green (divergence recorded but not fatal).
 func TestTransactionSmoke(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "transaction-smoke",
-		Support: harness.DocudoltXFail, // DocudoltFull confirmed red; XFail = divergence recorded, CI green
+		Support: harness.DocuDoltXFail, // DocuDoltFull confirmed red; XFail = divergence recorded, CI green
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			session, err := col.Database().Client().StartSession()
 			if err != nil {

@@ -92,7 +92,7 @@ func groupAndTotalOrdersSeed(ctx context.Context, col *mongo.Collection) error {
 func TestGroupAndTotal_CustomerOrders2020(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GroupAndTotal_CustomerOrders2020",
-		Support: harness.DocudoltXFail,
+		Support: harness.DocuDoltXFail,
 		Setup:   groupAndTotalOrdersSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := mongo.Pipeline{

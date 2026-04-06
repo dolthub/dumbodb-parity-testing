@@ -101,7 +101,7 @@ func omitFields(doc bson.D, keys ...string) bson.D {
 func TestCollection_ImplicitCreate(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_ImplicitCreate",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Verify the collection exists after implicit creation via insert.
@@ -117,7 +117,7 @@ func TestCollection_ImplicitCreate(t *testing.T) {
 func TestCollection_CreateExplicit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_CreateExplicit",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Explicitly create a second collection and verify both appear in the listing.
@@ -136,7 +136,7 @@ func TestCollection_CreateExplicit(t *testing.T) {
 func TestCollection_CreateCapped(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_CreateCapped",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.CreateCollection().SetCapped(true).SetSizeInBytes(1024 * 1024)
@@ -156,7 +156,7 @@ func TestCollection_CreateCapped(t *testing.T) {
 func TestCollection_CreateCapped_SizeAndMax(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_CreateCapped_SizeAndMax",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Capped collection with both size and max document count.
@@ -179,7 +179,7 @@ func TestCollection_CreateCapped_SizeAndMax(t *testing.T) {
 func TestCollection_CreateValidator(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_CreateValidator",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Create with a jsonSchema validator that requires a 'name' field.
@@ -211,7 +211,7 @@ func TestCollection_CreateValidator(t *testing.T) {
 func TestCollection_CreateAlreadyExists(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_CreateAlreadyExists",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Creating a collection that already exists should return a NamespaceExists error.
@@ -228,7 +228,7 @@ func TestCollection_CreateAlreadyExists(t *testing.T) {
 func TestCollection_CreateCollation(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_CreateCollation",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Collection with a default collation (case-insensitive English).
@@ -249,7 +249,7 @@ func TestCollection_CreateCollation(t *testing.T) {
 func TestCollection_Drop(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_Drop",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Drop the collection and verify it no longer appears.
@@ -268,7 +268,7 @@ func TestCollection_Drop(t *testing.T) {
 func TestCollection_DropNonexistent(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_DropNonexistent",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Dropping a nonexistent collection should not return an error.
@@ -284,7 +284,7 @@ func TestCollection_DropNonexistent(t *testing.T) {
 func TestCollection_Rename(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_Rename",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// renameCollection requires the admin database in MongoDB.
@@ -311,7 +311,7 @@ func TestCollection_Rename(t *testing.T) {
 func TestCollection_ListCollections(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_ListCollections",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// List collections filtered by name — should return just the test collection.
@@ -340,7 +340,7 @@ func TestCollection_ListCollections(t *testing.T) {
 func TestCollection_ListCollectionNames(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_ListCollectionNames",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			names, err := col.Database().ListCollectionNames(ctx, bson.D{})
@@ -355,7 +355,7 @@ func TestCollection_ListCollectionNames(t *testing.T) {
 func TestCollection_ListCollectionNamesFilter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_ListCollectionNamesFilter",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Filter to only the known collection name.
@@ -371,7 +371,7 @@ func TestCollection_ListCollectionNamesFilter(t *testing.T) {
 func TestCollection_ListCollectionsIdIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_ListCollectionsIdIndex",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// ListCollections result includes idIndex field with index spec.
@@ -394,7 +394,7 @@ func TestCollection_ListCollectionsIdIndex(t *testing.T) {
 func TestCollection_DropAndRecreate(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_DropAndRecreate",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Drop, then reinsert — collection should exist again with new docs.
@@ -416,7 +416,7 @@ func TestCollection_DropAndRecreate(t *testing.T) {
 func TestCollection_CreateTimeSeries(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_CreateTimeSeries",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Time series collections require timeField option.
@@ -442,7 +442,7 @@ func TestCollection_CreateTimeSeries(t *testing.T) {
 func TestDB_ListDatabaseNames(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_ListDatabaseNames",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Filter to just the current test DB name for a deterministic result.
@@ -459,7 +459,7 @@ func TestDB_ListDatabaseNames(t *testing.T) {
 func TestDB_ListDatabases(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_ListDatabases",
-		Support: harness.DocudoltXFail,
+		Support: harness.DocuDoltXFail,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// List all databases — result structure and system DBs may differ.
@@ -475,7 +475,7 @@ func TestDB_ListDatabases(t *testing.T) {
 func TestDB_DropDatabase(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_DropDatabase",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			dbName := col.Database().Name()
@@ -496,10 +496,10 @@ func TestDB_DropDatabase(t *testing.T) {
 func TestDB_RunCommand_Ping(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_Ping",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// ping returns {ok: 1} on both MongoDB and Docudolt.
+			// ping returns {ok: 1} on both MongoDB and DocuDolt.
 			return runCommandDoc(ctx, col, bson.D{{Key: "ping", Value: 1}})
 		},
 	})
@@ -508,7 +508,7 @@ func TestDB_RunCommand_Ping(t *testing.T) {
 func TestDB_RunCommand_Hello(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_Hello",
-		Support: harness.DocudoltXFail, // maxWireVersion mismatch: mongo=25, docudolt=21
+		Support: harness.DocuDoltXFail, // maxWireVersion mismatch: mongo=25, docudolt=21
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// connectionId is server-assigned and differs between instances; omit it.
@@ -524,7 +524,7 @@ func TestDB_RunCommand_Hello(t *testing.T) {
 func TestDB_RunCommand_IsMaster(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_IsMaster",
-		Support: harness.DocudoltXFail, // maxWireVersion mismatch: mongo=25, docudolt=21
+		Support: harness.DocuDoltXFail, // maxWireVersion mismatch: mongo=25, docudolt=21
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// connectionId is server-assigned and differs between instances; omit it.
@@ -540,11 +540,11 @@ func TestDB_RunCommand_IsMaster(t *testing.T) {
 func TestDB_RunCommand_BuildInfo(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_BuildInfo",
-		Support: harness.DocudoltXFail, // version string diverges: mongo=8.0.20, docudolt=7.0.21
+		Support: harness.DocuDoltXFail, // version string diverges: mongo=8.0.20, docudolt=7.0.21
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Omit MongoDB-internal fields: allocator, javascriptEngine, openssl,
-			// storageEngines — these are not applicable to Docudolt.
+			// storageEngines — these are not applicable to DocuDolt.
 			doc, err := runCommandDoc(ctx, col, bson.D{{Key: "buildInfo", Value: 1}})
 			if err != nil {
 				return nil, err
@@ -560,7 +560,7 @@ func TestDB_RunCommand_BuildInfo(t *testing.T) {
 func TestDB_RunCommand_ServerStatus(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_ServerStatus",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// serverStatus returns a large document; compare only docudolt-supported fields.
@@ -580,7 +580,7 @@ func TestDB_RunCommand_ServerStatus(t *testing.T) {
 func TestDB_RunCommand_DbStats(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_DbStats",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Omit engine-specific storage metrics: storageSize, freeStorageSize,
@@ -598,7 +598,7 @@ func TestDB_RunCommand_DbStats(t *testing.T) {
 func TestDB_RunCommand_CollStats(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_CollStats",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// collStats includes per-collection storage metrics; compare only docudolt-supported fields.
@@ -619,7 +619,7 @@ func TestDB_RunCommand_CollStats(t *testing.T) {
 func TestDB_RunCommand_ListIndexes(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_ListIndexes",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// listIndexes returns a cursor-like response with index specs.
@@ -631,7 +631,7 @@ func TestDB_RunCommand_ListIndexes(t *testing.T) {
 func TestDB_RunCommand_Validate(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_Validate",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// validate reports on collection integrity; details differ by engine.
@@ -643,7 +643,7 @@ func TestDB_RunCommand_Validate(t *testing.T) {
 func TestDB_RunCommand_ListCollections(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_ListCollections",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// listCollections via RunCommand returns a cursor response document.
@@ -658,7 +658,7 @@ func TestDB_RunCommand_ListCollections(t *testing.T) {
 func TestDB_RunCommand_Create(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_Create",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// create command creates a collection.
@@ -670,7 +670,7 @@ func TestDB_RunCommand_Create(t *testing.T) {
 func TestDB_RunCommand_Drop(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_Drop",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// drop command via RunCommand.
@@ -686,7 +686,7 @@ func TestDB_RunCommand_Drop(t *testing.T) {
 func TestCursor_AllDocs(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_AllDocs",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}})
@@ -710,7 +710,7 @@ func TestCursor_AllDocs(t *testing.T) {
 func TestCursor_BatchSize(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_BatchSize",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// BatchSize controls network batching but the final result is the same.
@@ -738,7 +738,7 @@ func TestCursor_BatchSize(t *testing.T) {
 func TestCursor_Limit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_Limit",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -765,7 +765,7 @@ func TestCursor_Limit(t *testing.T) {
 func TestCursor_Skip(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_Skip",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -792,7 +792,7 @@ func TestCursor_Skip(t *testing.T) {
 func TestCursor_SkipLimit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_SkipLimit",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -820,7 +820,7 @@ func TestCursor_SkipLimit(t *testing.T) {
 func TestCursor_Exhaustion(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_Exhaustion",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// After consuming all documents, cursor.Next should return false.
@@ -847,7 +847,7 @@ func TestCursor_Exhaustion(t *testing.T) {
 func TestCursor_LargeDataset(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_LargeDataset",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// 20 docs with batchSize=3 requires multiple GetMore calls.
@@ -873,7 +873,7 @@ func TestCursor_LargeDataset(t *testing.T) {
 func TestCursor_EmptyCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_EmptyCollection",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Find on empty collection returns empty result.
@@ -893,7 +893,7 @@ func TestCursor_EmptyCollection(t *testing.T) {
 func TestCursor_EmptyFilter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_EmptyFilter",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Empty filter matches all documents.
@@ -919,7 +919,7 @@ func TestCursor_EmptyFilter(t *testing.T) {
 func TestCursor_Sort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_Sort",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -945,7 +945,7 @@ func TestCursor_Sort(t *testing.T) {
 func TestCursor_CloseEarly(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_CloseEarly",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Close cursor after reading just 3 docs; no error expected.
@@ -968,10 +968,10 @@ func TestCursor_CloseEarly(t *testing.T) {
 func TestCursor_MaxTime(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_MaxTime",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// maxTimeMS: Docudolt may not honor or recognize this option.
+			// maxTimeMS: DocuDolt may not honor or recognize this option.
 			opts := options.Find().
 				SetMaxTime(5000 * 1000000). // 5 seconds in nanoseconds
 				SetSort(bson.D{{Key: "_id", Value: 1}}).
@@ -992,7 +992,7 @@ func TestCursor_MaxTime(t *testing.T) {
 func TestCursor_AllowDiskUse(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_AllowDiskUse",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// allowDiskUse permits spilling to disk for large sorts.
@@ -1016,10 +1016,10 @@ func TestCursor_AllowDiskUse(t *testing.T) {
 func TestCursor_Hint(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_Hint",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// Hint with _id index (always exists); Docudolt may not support hint option.
+			// Hint with _id index (always exists); DocuDolt may not support hint option.
 			opts := options.Find().
 				SetHint(bson.D{{Key: "_id", Value: 1}}).
 				SetSort(bson.D{{Key: "_id", Value: 1}}).
@@ -1044,10 +1044,10 @@ func TestCursor_Hint(t *testing.T) {
 func TestCursor_Comment(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_Comment",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// SetComment attaches a query comment; Docudolt may not support this option.
+			// SetComment attaches a query comment; DocuDolt may not support this option.
 			opts := options.Find().
 				SetComment("parity test query").
 				SetSort(bson.D{{Key: "_id", Value: 1}}).
@@ -1068,7 +1068,7 @@ func TestCursor_Comment(t *testing.T) {
 func TestCursor_ShowRecordId(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_ShowRecordId",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// showRecordId adds $recordId to each returned document.
@@ -1101,10 +1101,10 @@ func TestCursor_ShowRecordId(t *testing.T) {
 func TestCursor_NoCursorTimeout(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_NoCursorTimeout",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// noCursorTimeout prevents idle cursor expiry; Docudolt may not support.
+			// noCursorTimeout prevents idle cursor expiry; DocuDolt may not support.
 			opts := options.Find().
 				SetNoCursorTimeout(true).
 				SetSort(bson.D{{Key: "_id", Value: 1}}).
@@ -1130,7 +1130,7 @@ func TestCursor_NoCursorTimeout(t *testing.T) {
 func TestExplain_Find_QueryPlanner(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Find_QueryPlanner",
-		Support: harness.DocudoltXFail,
+		Support: harness.DocuDoltXFail,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1148,7 +1148,7 @@ func TestExplain_Find_QueryPlanner(t *testing.T) {
 func TestExplain_Find_ExecutionStats(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Find_ExecutionStats",
-		Support: harness.DocudoltXFail,
+		Support: harness.DocuDoltXFail,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1166,7 +1166,7 @@ func TestExplain_Find_ExecutionStats(t *testing.T) {
 func TestExplain_Find_AllPlansExecution(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Find_AllPlansExecution",
-		Support: harness.DocudoltXFail,
+		Support: harness.DocuDoltXFail,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1184,7 +1184,7 @@ func TestExplain_Find_AllPlansExecution(t *testing.T) {
 func TestExplain_Aggregate(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Aggregate",
-		Support: harness.DocudoltXFail,
+		Support: harness.DocuDoltXFail,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1205,7 +1205,7 @@ func TestExplain_Aggregate(t *testing.T) {
 func TestExplain_Count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Count",
-		Support: harness.DocudoltXFail,
+		Support: harness.DocuDoltXFail,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1223,7 +1223,7 @@ func TestExplain_Count(t *testing.T) {
 func TestExplain_Update(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Update",
-		Support: harness.DocudoltXFail,
+		Support: harness.DocuDoltXFail,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1244,7 +1244,7 @@ func TestExplain_Update(t *testing.T) {
 func TestExplain_Delete(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Delete",
-		Support: harness.DocudoltXFail,
+		Support: harness.DocuDoltXFail,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1265,7 +1265,7 @@ func TestExplain_Delete(t *testing.T) {
 func TestExplain_Distinct(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Distinct",
-		Support: harness.DocudoltXFail,
+		Support: harness.DocuDoltXFail,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1287,7 +1287,7 @@ func TestExplain_Distinct(t *testing.T) {
 func TestCollection_CountDocuments_NoFilter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_CountDocuments_NoFilter",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx, bson.D{})
@@ -1302,7 +1302,7 @@ func TestCollection_CountDocuments_NoFilter(t *testing.T) {
 func TestCollection_CountDocuments_WithFilter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_CountDocuments_WithFilter",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx, bson.D{{Key: "val", Value: bson.D{{Key: "$gte", Value: int32(3)}}}})
@@ -1317,7 +1317,7 @@ func TestCollection_CountDocuments_WithFilter(t *testing.T) {
 func TestCollection_EstimatedCount(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_EstimatedCount",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.EstimatedDocumentCount(ctx)
@@ -1332,7 +1332,7 @@ func TestCollection_EstimatedCount(t *testing.T) {
 func TestCollection_Distinct_Simple(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_Distinct_Simple",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			values, err := col.Distinct(ctx, "val", bson.D{})
@@ -1353,7 +1353,7 @@ func TestCollection_Distinct_Simple(t *testing.T) {
 func TestCollection_Distinct_Filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_Distinct_Filter",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			values, err := col.Distinct(ctx, "name", bson.D{{Key: "val", Value: bson.D{{Key: "$lte", Value: int32(3)}}}})
@@ -1373,7 +1373,7 @@ func TestCollection_Distinct_Filter(t *testing.T) {
 func TestCollection_Distinct_ArrayField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_Distinct_ArrayField",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "da1"}, {Key: "tags", Value: bson.A{"go", "db"}}},
@@ -1400,7 +1400,7 @@ func TestCollection_Distinct_ArrayField(t *testing.T) {
 func TestCollection_Distinct_Nested(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_Distinct_Nested",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "dn1"}, {Key: "addr", Value: bson.D{{Key: "city", Value: "NYC"}}}},
@@ -1428,7 +1428,7 @@ func TestCollection_Distinct_Nested(t *testing.T) {
 func TestCollection_Find_EmptyResult(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_Find_EmptyResult",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Filter that matches no documents.

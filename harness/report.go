@@ -6,16 +6,16 @@ import (
 	"os"
 )
 
-// DocudoltSupport indicates how Docudolt handles the feature under test.
-type DocudoltSupport int
+// DocuDoltSupport indicates how DocuDolt handles the feature under test.
+type DocuDoltSupport int
 
 const (
-	// DocudoltFull: run both MongoDB and Docudolt, compare — divergence fails CI.
-	DocudoltFull DocudoltSupport = iota
-	// DocudoltMongoOnly: run MongoDB only, skip Docudolt — for deprecated/unsupported features.
-	DocudoltMongoOnly
-	// DocudoltXFail: run both, record Docudolt failure but do not fail CI.
-	DocudoltXFail
+	// DocuDoltFull: run both MongoDB and DocuDolt, compare — divergence fails CI.
+	DocuDoltFull DocuDoltSupport = iota
+	// DocuDoltMongoOnly: run MongoDB only, skip DocuDolt — for deprecated/unsupported features.
+	DocuDoltMongoOnly
+	// DocuDoltXFail: run both, record DocuDolt failure but do not fail CI.
+	DocuDoltXFail
 )
 
 // TestStatus is the outcome of a single test run.

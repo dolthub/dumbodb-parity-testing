@@ -58,7 +58,7 @@ func insertAggMatchSeed(ctx context.Context, col *mongo.Collection) error {
 func TestAggStage_match_EqualityFilter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_match_EqualityFilter",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggMatchSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -79,7 +79,7 @@ func TestAggStage_match_EqualityFilter(t *testing.T) {
 func TestAggStage_match_ComparisonOperator(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_match_ComparisonOperator",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggMatchSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -100,7 +100,7 @@ func TestAggStage_match_ComparisonOperator(t *testing.T) {
 func TestAggStage_match_NoMatchReturnsEmpty(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_match_NoMatchReturnsEmpty",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggMatchSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -121,7 +121,7 @@ func TestAggStage_match_NoMatchReturnsEmpty(t *testing.T) {
 func TestAggStage_match_MatchAllWithExists(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_match_MatchAllWithExists",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggMatchSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -142,7 +142,7 @@ func TestAggStage_match_MatchAllWithExists(t *testing.T) {
 func TestAggStage_match_AndCondition(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_match_AndCondition",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggMatchSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -166,7 +166,7 @@ func TestAggStage_match_AndCondition(t *testing.T) {
 func TestAggStage_match_InOperator(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_match_InOperator",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggMatchSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -204,7 +204,7 @@ func insertAggGroupSeed(ctx context.Context, col *mongo.Collection) error {
 func TestAggStage_group_CountAll(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_group_CountAll",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggGroupSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -228,7 +228,7 @@ func TestAggStage_group_CountAll(t *testing.T) {
 func TestAggStage_group_GroupByField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_group_GroupByField",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggGroupSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -253,7 +253,7 @@ func TestAggStage_group_GroupByField(t *testing.T) {
 func TestAggStage_group_SumAccumulator(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_group_SumAccumulator",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggGroupSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -278,7 +278,7 @@ func TestAggStage_group_SumAccumulator(t *testing.T) {
 func TestAggStage_group_AvgAccumulator(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_group_AvgAccumulator",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggGroupSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -303,7 +303,7 @@ func TestAggStage_group_AvgAccumulator(t *testing.T) {
 func TestAggStage_group_MinAccumulator(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_group_MinAccumulator",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggGroupSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -328,7 +328,7 @@ func TestAggStage_group_MinAccumulator(t *testing.T) {
 func TestAggStage_group_MaxAccumulator(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_group_MaxAccumulator",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggGroupSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -353,7 +353,7 @@ func TestAggStage_group_MaxAccumulator(t *testing.T) {
 func TestAggStage_group_MinMaxTogether(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_group_MinMaxTogether",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggGroupSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -379,7 +379,7 @@ func TestAggStage_group_MinMaxTogether(t *testing.T) {
 func TestAggStage_group_PushAccumulator(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_group_PushAccumulator",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggGroupSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -404,7 +404,7 @@ func TestAggStage_group_PushAccumulator(t *testing.T) {
 func TestAggStage_group_FirstAccumulator(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_group_FirstAccumulator",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "x1"}, {Key: "g", Value: "X"}, {Key: "v", Value: int32(1)}},
@@ -436,7 +436,7 @@ func TestAggStage_group_FirstAccumulator(t *testing.T) {
 func TestAggStage_group_LastAccumulator(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_group_LastAccumulator",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "x1"}, {Key: "g", Value: "X"}, {Key: "v", Value: int32(1)}},
@@ -468,7 +468,7 @@ func TestAggStage_group_LastAccumulator(t *testing.T) {
 func TestAggStage_group_FirstLastTogether(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_group_FirstLastTogether",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "x1"}, {Key: "g", Value: "X"}, {Key: "v", Value: int32(1)}},
@@ -501,7 +501,7 @@ func TestAggStage_group_FirstLastTogether(t *testing.T) {
 func TestAggStage_group_NullIdGroupsAll(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_group_NullIdGroupsAll",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggGroupSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -525,7 +525,7 @@ func TestAggStage_group_NullIdGroupsAll(t *testing.T) {
 func TestAggStage_groupErrors_MissingIDField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_groupErrors_MissingIDField",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$group", Value: bson.D{{Key: "x", Value: bson.D{{Key: "$sum", Value: int32(1)}}}}}},
@@ -538,7 +538,7 @@ func TestAggStage_groupErrors_MissingIDField(t *testing.T) {
 func TestAggStage_groupErrors_NonDocumentSpec(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_groupErrors_NonDocumentSpec",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$group", Value: "not-a-doc"}},
@@ -566,7 +566,7 @@ func insertAggSortSeed(ctx context.Context, col *mongo.Collection) error {
 func TestAggStage_sort_Ascending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_sort_Ascending",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggSortSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -587,7 +587,7 @@ func TestAggStage_sort_Ascending(t *testing.T) {
 func TestAggStage_sort_Descending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_sort_Descending",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggSortSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -608,7 +608,7 @@ func TestAggStage_sort_Descending(t *testing.T) {
 func TestAggStage_sort_ByID(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_sort_ByID",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggSortSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -629,7 +629,7 @@ func TestAggStage_sort_ByID(t *testing.T) {
 func TestAggStage_sort_EmptyCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_sort_EmptyCollection",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$sort", Value: bson.D{{Key: "v", Value: int32(1)}}}},
@@ -666,7 +666,7 @@ func insertAggLimitSeed(ctx context.Context, col *mongo.Collection) error {
 func TestAggStage_limit_LimitOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_limit_LimitOne",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggLimitSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -688,7 +688,7 @@ func TestAggStage_limit_LimitOne(t *testing.T) {
 func TestAggStage_limit_LimitThree(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_limit_LimitThree",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggLimitSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -710,7 +710,7 @@ func TestAggStage_limit_LimitThree(t *testing.T) {
 func TestAggStage_limit_LimitExceedsCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_limit_LimitExceedsCollection",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggLimitSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -731,7 +731,7 @@ func TestAggStage_limit_LimitExceedsCollection(t *testing.T) {
 func TestAggStage_limit_LimitZeroError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_limit_LimitZeroError",
-		Support: harness.DocudoltXFail, // error code mismatch: mongo=15958, docudolt=5107201
+		Support: harness.DocuDoltXFail, // error code mismatch: mongo=15958, docudolt=5107201
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$limit", Value: int64(0)}},
@@ -744,7 +744,7 @@ func TestAggStage_limit_LimitZeroError(t *testing.T) {
 func TestAggStage_limit_LimitNegativeError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_limit_LimitNegativeError",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$limit", Value: int64(-1)}},
@@ -773,7 +773,7 @@ func insertAggSkipSeed(ctx context.Context, col *mongo.Collection) error {
 func TestAggStage_skip_SkipOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_skip_SkipOne",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggSkipSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -795,7 +795,7 @@ func TestAggStage_skip_SkipOne(t *testing.T) {
 func TestAggStage_skip_SkipAll(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_skip_SkipAll",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggSkipSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -816,7 +816,7 @@ func TestAggStage_skip_SkipAll(t *testing.T) {
 func TestAggStage_skip_SkipZero(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_skip_SkipZero",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggSkipSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -837,7 +837,7 @@ func TestAggStage_skip_SkipZero(t *testing.T) {
 func TestAggStage_skip_SkipNegativeError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_skip_SkipNegativeError",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$skip", Value: int64(-1)}},
@@ -864,7 +864,7 @@ func insertAggProjectSeed(ctx context.Context, col *mongo.Collection) error {
 func TestAggStage_project_IncludeFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_project_IncludeFields",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggProjectSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -886,7 +886,7 @@ func TestAggStage_project_IncludeFields(t *testing.T) {
 func TestAggStage_project_ExcludeFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_project_ExcludeFields",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggProjectSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -908,7 +908,7 @@ func TestAggStage_project_ExcludeFields(t *testing.T) {
 func TestAggStage_project_ExcludeID(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_project_ExcludeID",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggProjectSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -930,7 +930,7 @@ func TestAggStage_project_ExcludeID(t *testing.T) {
 func TestAggStage_project_ComputedField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_project_ComputedField",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggProjectSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -971,7 +971,7 @@ func insertAggUnwindSeed(ctx context.Context, col *mongo.Collection) error {
 func TestAggStage_unwind_BasicUnwind(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unwind_BasicUnwind",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggUnwindSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -993,7 +993,7 @@ func TestAggStage_unwind_BasicUnwind(t *testing.T) {
 func TestAggStage_unwind_EmptyArraySkipped(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unwind_EmptyArraySkipped",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggUnwindSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1015,7 +1015,7 @@ func TestAggStage_unwind_EmptyArraySkipped(t *testing.T) {
 func TestAggStage_unwind_MissingFieldSkipped(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unwind_MissingFieldSkipped",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggUnwindSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1037,7 +1037,7 @@ func TestAggStage_unwind_MissingFieldSkipped(t *testing.T) {
 func TestAggStage_unwind_PreserveNullAndEmptyArrays(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unwind_PreserveNullAndEmptyArrays",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggUnwindSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1062,7 +1062,7 @@ func TestAggStage_unwind_PreserveNullAndEmptyArrays(t *testing.T) {
 func TestAggStage_unwind_IncludeArrayIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unwind_IncludeArrayIndex",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggUnwindSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1102,7 +1102,7 @@ func insertAggAddFieldsSeed(ctx context.Context, col *mongo.Collection) error {
 func TestAggStage_addFields_AddLiteralField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_addFields_AddLiteralField",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggAddFieldsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1124,7 +1124,7 @@ func TestAggStage_addFields_AddLiteralField(t *testing.T) {
 func TestAggStage_addFields_AddComputedField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_addFields_AddComputedField",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggAddFieldsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1146,7 +1146,7 @@ func TestAggStage_addFields_AddComputedField(t *testing.T) {
 func TestAggStage_addFields_OriginalFieldsPreserved(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_addFields_OriginalFieldsPreserved",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggAddFieldsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1170,7 +1170,7 @@ func TestAggStage_addFields_OriginalFieldsPreserved(t *testing.T) {
 func TestAggStage_set_SetNewField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_set_SetNewField",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(1)}},
@@ -1196,7 +1196,7 @@ func TestAggStage_set_SetNewField(t *testing.T) {
 func TestAggStage_set_SetOverwritesField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_set_SetOverwritesField",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(1)}},
@@ -1224,7 +1224,7 @@ func TestAggStage_set_SetOverwritesField(t *testing.T) {
 func TestAggStage_unset_UnsetSingleField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unset_UnsetSingleField",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "x", Value: int32(1)}, {Key: "y", Value: int32(2)}, {Key: "z", Value: int32(3)}},
@@ -1250,7 +1250,7 @@ func TestAggStage_unset_UnsetSingleField(t *testing.T) {
 func TestAggStage_unset_UnsetMultipleFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unset_UnsetMultipleFields",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "x", Value: int32(1)}, {Key: "y", Value: int32(2)}, {Key: "z", Value: int32(3)}},
@@ -1291,7 +1291,7 @@ func insertAggCountSeed(ctx context.Context, col *mongo.Collection) error {
 func TestAggStage_count_CountAll(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_count_CountAll",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggCountSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1312,7 +1312,7 @@ func TestAggStage_count_CountAll(t *testing.T) {
 func TestAggStage_count_CountAfterMatch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_count_CountAfterMatch",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggCountSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1334,7 +1334,7 @@ func TestAggStage_count_CountAfterMatch(t *testing.T) {
 func TestAggStage_count_CountEmptyCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_count_CountEmptyCollection",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$count", Value: "n"}},
@@ -1354,7 +1354,7 @@ func TestAggStage_count_CountEmptyCollection(t *testing.T) {
 func TestAggStage_countErrors_EmptyFieldName(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_countErrors_EmptyFieldName",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$count", Value: ""}},
@@ -1367,7 +1367,7 @@ func TestAggStage_countErrors_EmptyFieldName(t *testing.T) {
 func TestAggStage_countErrors_FieldNameWithDot(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_countErrors_FieldNameWithDot",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$count", Value: "a.b"}},
@@ -1382,7 +1382,7 @@ func TestAggStage_countErrors_FieldNameWithDot(t *testing.T) {
 func TestAggStage_replaceRoot_ReplaceWithNestedDoc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_replaceRoot_ReplaceWithNestedDoc",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "nested", Value: bson.D{{Key: "x", Value: int32(1)}, {Key: "y", Value: int32(2)}}}},
@@ -1410,7 +1410,7 @@ func TestAggStage_replaceRoot_ReplaceWithNestedDoc(t *testing.T) {
 func TestAggStage_replaceWith_ReplaceWithNestedDoc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_replaceWith_ReplaceWithNestedDoc",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "info", Value: bson.D{{Key: "v", Value: int32(42)}}}},
@@ -1438,7 +1438,7 @@ func TestAggStage_replaceWith_ReplaceWithNestedDoc(t *testing.T) {
 func TestAggStage_sortByCount_SortByCountDescending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_sortByCount_SortByCountDescending",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "1"}, {Key: "tag", Value: "go"}},
@@ -1469,7 +1469,7 @@ func TestAggStage_sortByCount_SortByCountDescending(t *testing.T) {
 func TestAggStage_sortByCount_TieBreakingOrder(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_sortByCount_TieBreakingOrder",
-		Support: harness.DocudoltXFail, // $sortByCount tiebreaking order diverges from MongoDB
+		Support: harness.DocuDoltXFail, // $sortByCount tiebreaking order diverges from MongoDB
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: 1}, {Key: "score", Value: int32(3)}},
@@ -1483,7 +1483,7 @@ func TestAggStage_sortByCount_TieBreakingOrder(t *testing.T) {
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// All three score values appear exactly twice (count=2). Tie-breaking
-			// by ascending _id should yield [1, 2, 3]. Docudolt returns [3, 1, 2].
+			// by ascending _id should yield [1, 2, 3]. DocuDolt returns [3, 1, 2].
 			cursor, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$sortByCount", Value: "$score"}},
 			})
@@ -1504,7 +1504,7 @@ func TestAggStage_sortByCount_TieBreakingOrder(t *testing.T) {
 func TestAggStage_facet_MultipleFacets(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_facet_MultipleFacets",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "price", Value: int32(10)}, {Key: "cat", Value: "food"}},
@@ -1558,7 +1558,7 @@ func insertAggBucketSeed(ctx context.Context, col *mongo.Collection) error {
 func TestAggStage_bucket_BasicBuckets(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucket_BasicBuckets",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggBucketSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1582,7 +1582,7 @@ func TestAggStage_bucket_BasicBuckets(t *testing.T) {
 func TestAggStage_bucket_WithDefault(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucket_WithDefault",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "x"}, {Key: "price", Value: int32(5)}},
@@ -1617,7 +1617,7 @@ func TestAggStage_bucket_MissingBoundariesError(t *testing.T) {
 	// $bucket validation to emit the correct Location40198 error.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucket_MissingBoundariesError",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$bucket", Value: bson.D{
@@ -1650,7 +1650,7 @@ func insertAggBucketAutoSeed(ctx context.Context, col *mongo.Collection) error {
 func TestAggStage_bucketAuto_TwoBuckets(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucketAuto_TwoBuckets",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggBucketAutoSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1674,7 +1674,7 @@ func TestAggStage_bucketAuto_TwoBuckets(t *testing.T) {
 func TestAggStage_bucketAuto_ThreeBuckets(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucketAuto_ThreeBuckets",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggBucketAutoSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1701,7 +1701,7 @@ func TestAggStage_bucketAuto_MissingBucketsError(t *testing.T) {
 	// $bucketAuto validation to emit the correct Location40246 error.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucketAuto_MissingBucketsError",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$bucketAuto", Value: bson.D{
@@ -1718,7 +1718,7 @@ func TestAggStage_bucketAuto_MissingBucketsError(t *testing.T) {
 func TestAggStage_lookup_SimpleEqualityJoin(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_lookup_SimpleEqualityJoin",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			// col = orders collection
 			if _, err := col.InsertMany(ctx, []interface{}{
@@ -1760,7 +1760,7 @@ func TestAggStage_lookup_SimpleEqualityJoin(t *testing.T) {
 func TestAggStage_lookup_NoMatchProducesEmptyArray(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_lookup_NoMatchProducesEmptyArray",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "s1"}, {Key: "item", Value: "unknown-item"}},
@@ -1799,7 +1799,7 @@ func TestAggStage_lookup_NoMatchProducesEmptyArray(t *testing.T) {
 func TestAggStage_out_OutToNewCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_out_OutToNewCollection",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(1)}},
@@ -1837,7 +1837,7 @@ func TestAggStage_out_OutToNewCollection(t *testing.T) {
 func TestAggStage_merge_MergeIntoNewCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_merge_MergeIntoNewCollection",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(10)}},
@@ -1873,7 +1873,7 @@ func TestAggStage_merge_MergeIntoNewCollection(t *testing.T) {
 func TestAggStage_merge_MergeStringForm(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_merge_MergeStringForm",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(10)}},
@@ -1918,7 +1918,7 @@ func insertOrgHierarchy(ctx context.Context, col *mongo.Collection) error {
 func TestAggStage_graphLookup_TraverseHierarchyFromLeaf(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_graphLookup_TraverseHierarchyFromLeaf",
-		Support: harness.DocudoltXFail, // $graphLookup result array order non-deterministic
+		Support: harness.DocuDoltXFail, // $graphLookup result array order non-deterministic
 		Setup:   insertOrgHierarchy,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1946,7 +1946,7 @@ func TestAggStage_graphLookup_TraverseHierarchyFromLeaf(t *testing.T) {
 func TestAggStage_graphLookup_MaxDepthLimitsTraversal(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_graphLookup_MaxDepthLimitsTraversal",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertOrgHierarchy,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -2004,7 +2004,7 @@ func insertAggMultiStageSeed(ctx context.Context, col *mongo.Collection) error {
 func TestAggPipeline_multiStage_MatchGroupSort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggPipeline_multiStage_MatchGroupSort",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggMultiStageSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -2031,7 +2031,7 @@ func TestAggPipeline_multiStage_MatchGroupSort(t *testing.T) {
 func TestAggPipeline_multiStage_SortLimitSkip(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggPipeline_multiStage_SortLimitSkip",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggMultiStageSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -2054,7 +2054,7 @@ func TestAggPipeline_multiStage_SortLimitSkip(t *testing.T) {
 func TestAggPipeline_multiStage_AddFieldsThenGroup(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggPipeline_multiStage_AddFieldsThenGroup",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggMultiStageSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -2080,7 +2080,7 @@ func TestAggPipeline_multiStage_AddFieldsThenGroup(t *testing.T) {
 func TestAggPipeline_multiStage_UnwindThenGroup(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggPipeline_multiStage_UnwindThenGroup",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			// Use distinct per-tag counts so $sortByCount output is deterministic.
 			// go=3, db=2, api=1 — no ties means a stable comparison regardless of implementation.
@@ -2111,7 +2111,7 @@ func TestAggPipeline_multiStage_UnwindThenGroup(t *testing.T) {
 func TestAggPipeline_multiStage_UnwindThenGroup_tiebreakOrder(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggPipeline_multiStage_UnwindThenGroup_tiebreakOrder",
-		Support: harness.DocudoltXFail, // $sortByCount tiebreaking order diverges from MongoDB
+		Support: harness.DocuDoltXFail, // $sortByCount tiebreaking order diverges from MongoDB
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "p1"}, {Key: "tags", Value: bson.A{"go", "db"}}},
@@ -2123,7 +2123,7 @@ func TestAggPipeline_multiStage_UnwindThenGroup_tiebreakOrder(t *testing.T) {
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Unwind tags, then count occurrences. All three tags appear exactly
 			// twice (count=2), so sort order is determined entirely by the
-			// secondary _id tiebreaker. Docudolt ignores that tiebreaker.
+			// secondary _id tiebreaker. DocuDolt ignores that tiebreaker.
 			cursor, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$unwind", Value: "$tags"}},
 				bson.D{{Key: "$sortByCount", Value: "$tags"}},
@@ -2143,7 +2143,7 @@ func TestAggPipeline_multiStage_UnwindThenGroup_tiebreakOrder(t *testing.T) {
 func TestAggPipeline_multiStage_ProjectThenSort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggPipeline_multiStage_ProjectThenSort",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertAggMultiStageSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -2167,7 +2167,7 @@ func TestAggPipeline_multiStage_ProjectThenSort(t *testing.T) {
 func TestAggStage_unsupportedErrors_changeStream(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unsupportedErrors_changeStream",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{bson.D{{Key: "$changeStream", Value: bson.D{}}}})
 			return nil, err
@@ -2178,7 +2178,7 @@ func TestAggStage_unsupportedErrors_changeStream(t *testing.T) {
 func TestAggStage_unsupportedErrors_densify(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unsupportedErrors_densify",
-		Support: harness.DocudoltXFail, // error code diverges: mongo=IDLFailedToParse, docudolt=Location40414
+		Support: harness.DocuDoltXFail, // error code diverges: mongo=IDLFailedToParse, docudolt=Location40414
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{bson.D{{Key: "$densify", Value: bson.D{}}}})
 			return nil, err
@@ -2189,7 +2189,7 @@ func TestAggStage_unsupportedErrors_densify(t *testing.T) {
 func TestAggStage_unsupportedErrors_fill(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unsupportedErrors_fill",
-		Support: harness.DocudoltXFail, // error code diverges: mongo=IDLFailedToParse, docudolt=Location40414
+		Support: harness.DocuDoltXFail, // error code diverges: mongo=IDLFailedToParse, docudolt=Location40414
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{bson.D{{Key: "$fill", Value: bson.D{}}}})
 			return nil, err
@@ -2200,7 +2200,7 @@ func TestAggStage_unsupportedErrors_fill(t *testing.T) {
 func TestAggStage_unsupportedErrors_indexStats(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unsupportedErrors_indexStats",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{bson.D{{Key: "$indexStats", Value: bson.D{}}}})
 			return nil, err
@@ -2211,7 +2211,7 @@ func TestAggStage_unsupportedErrors_indexStats(t *testing.T) {
 func TestAggStage_unsupportedErrors_search(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unsupportedErrors_search",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{bson.D{{Key: "$search", Value: bson.D{}}}})
 			return nil, err
@@ -2228,7 +2228,7 @@ func TestAggStage_unknownStageError(t *testing.T) {
 	// quote-style difference in the message text.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unknownStageError",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$definitelyNotAStage", Value: bson.D{}}},
@@ -2241,7 +2241,7 @@ func TestAggStage_unknownStageError(t *testing.T) {
 func TestAggStage_emptyPipeline(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_emptyPipeline",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}},
@@ -2267,7 +2267,7 @@ func TestAggStage_emptyPipeline(t *testing.T) {
 func TestAggStage_invalidPipelineSpec(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_invalidPipelineSpec",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Two fields in one stage document is invalid.
 			_, err := col.Aggregate(ctx, bson.A{
@@ -2283,7 +2283,7 @@ func TestAggStage_invalidPipelineSpec(t *testing.T) {
 func TestAggStage_collStats_StorageStats(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_collStats_StorageStats",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}},
@@ -2310,7 +2310,7 @@ func TestAggStage_collStats_StorageStats(t *testing.T) {
 func TestAggStage_collStats_Count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_collStats_Count",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}},
@@ -2341,7 +2341,7 @@ func TestAggStage_bucket_OneBoundaryError(t *testing.T) {
 	// error code Location40192; docudolt returns BadValue with a different message.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_bucket_OneBoundaryError",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$bucket", Value: bson.D{
@@ -2357,7 +2357,7 @@ func TestAggStage_bucket_OneBoundaryError(t *testing.T) {
 func TestAggStage_unknown_stage_error(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unknown_stage_error",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$unknownStage", Value: bson.D{}}},
@@ -2372,7 +2372,7 @@ func TestAggStage_unknown_stage_error(t *testing.T) {
 func TestAggPipeline_sort_TieBreakingAfterGroup(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggPipeline_sort_TieBreakingAfterGroup",
-		Support: harness.DocudoltXFail, // $sortByCount tiebreaking order diverges from MongoDB
+		Support: harness.DocuDoltXFail, // $sortByCount tiebreaking order diverges from MongoDB
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "1"}, {Key: "cat", Value: "C"}},

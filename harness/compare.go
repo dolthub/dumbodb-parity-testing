@@ -37,27 +37,27 @@ var defaultIgnoredFields = map[string]bool{
 	"insertedIds":   true,
 }
 
-// CompareResponses compares a MongoDB response against a Docudolt response,
+// CompareResponses compares a MongoDB response against a DocuDolt response,
 // handling both result values and errors.
-func CompareResponses(mongoResult interface{}, mongoErr error, docudoltResult interface{}, docudoltErr error) Comparison {
-	if mongoErr != nil || docudoltErr != nil {
-		return compareErrors(mongoErr, docudoltErr)
+func CompareResponses(mongoResult interface{}, mongoErr error, docuDoltResult interface{}, docuDoltErr error) Comparison {
+	if mongoErr != nil || docuDoltErr != nil {
+		return compareErrors(mongoErr, docuDoltErr)
 	}
-	return compareValues(normalize(mongoResult), normalize(docudoltResult))
+	return compareValues(normalize(mongoResult), normalize(docuDoltResult))
 }
 
-func compareErrors(mongoErr, docudoltErr error) Comparison {
-	if mongoErr == nil && docudoltErr == nil {
+func compareErrors(mongoErr, docuDoltErr error) Comparison {
+	if mongoErr == nil && docuDoltErr == nil {
 		return Comparison{Result: Match}
 	}
-	if mongoErr == nil || docudoltErr == nil {
+	if mongoErr == nil || docuDoltErr == nil {
 		return Comparison{
 			Result: Diverge,
-			Diff:   fmt.Sprintf("mongo err=%v, docudolt err=%v", mongoErr, docudoltErr),
+			Diff:   fmt.Sprintf("mongo err=%v, docudolt err=%v", mongoErr, docuDoltErr),
 		}
 	}
 	mCode := errorCode(mongoErr)
-	dCode := errorCode(docudoltErr)
+	dCode := errorCode(docuDoltErr)
 	if mCode != dCode {
 		return Comparison{
 			Result: Diverge,
@@ -65,7 +65,7 @@ func compareErrors(mongoErr, docudoltErr error) Comparison {
 		}
 	}
 	mMsg := mongoErr.Error()
-	dMsg := docudoltErr.Error()
+	dMsg := docuDoltErr.Error()
 	if mMsg != dMsg {
 		return Comparison{
 			Result: Diverge,
@@ -138,7 +138,7 @@ func normalize(v interface{}) interface{} {
 		return objectIDSentinel
 	case primitive.Binary:
 		// UUID binaries (subtype 3 or 4) are server-generated and will differ
-		// between MongoDB and Docudolt instances. Normalize them to a sentinel so
+		// between MongoDB and DocuDolt instances. Normalize them to a sentinel so
 		// the comparison focuses on structural equality rather than the raw bytes.
 		if val.Subtype == 3 || val.Subtype == 4 {
 			return "<UUID>"

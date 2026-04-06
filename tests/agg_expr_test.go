@@ -50,7 +50,7 @@ func insertNumDoc(ctx context.Context, col *mongo.Collection) error {
 func TestExpr_add(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_add",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -64,7 +64,7 @@ func TestExpr_add(t *testing.T) {
 func TestExpr_subtract(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_subtract",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -78,7 +78,7 @@ func TestExpr_subtract(t *testing.T) {
 func TestExpr_multiply(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_multiply",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -92,7 +92,7 @@ func TestExpr_multiply(t *testing.T) {
 func TestExpr_divide(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_divide",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -106,7 +106,7 @@ func TestExpr_divide(t *testing.T) {
 func TestExpr_mod(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_mod",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -122,7 +122,7 @@ func TestExpr_mod_nan_divisor(t *testing.T) {
 	// divisor is NaN, matching MongoDB's IEEE 754 behavior.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_mod_nan_divisor",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -136,7 +136,7 @@ func TestExpr_mod_nan_divisor(t *testing.T) {
 func TestExpr_abs(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_abs",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -150,7 +150,7 @@ func TestExpr_abs(t *testing.T) {
 func TestExpr_ceil(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_ceil",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "c1"}, {Key: "v", Value: 4.3}})
 			return err
@@ -167,7 +167,7 @@ func TestExpr_ceil(t *testing.T) {
 func TestExpr_floor(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_floor",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "f1"}, {Key: "v", Value: 4.9}})
 			return err
@@ -184,7 +184,7 @@ func TestExpr_floor(t *testing.T) {
 func TestExpr_round(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_round",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "r1"}, {Key: "v", Value: 3.456}})
 			return err
@@ -201,7 +201,7 @@ func TestExpr_round(t *testing.T) {
 func TestExpr_pow(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_pow",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -215,7 +215,7 @@ func TestExpr_pow(t *testing.T) {
 func TestExpr_sqrt(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_sqrt",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "sq1"}, {Key: "v", Value: 16.0}})
 			return err
@@ -232,7 +232,7 @@ func TestExpr_sqrt(t *testing.T) {
 func TestExpr_log10(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_log10",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "log1"}, {Key: "v", Value: 100.0}})
 			return err
@@ -249,7 +249,7 @@ func TestExpr_log10(t *testing.T) {
 func TestExpr_exp_ln(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_exp_ln",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "el1"}, {Key: "v", Value: 1.0}})
 			return err
@@ -267,7 +267,7 @@ func TestExpr_exp_ln(t *testing.T) {
 func TestExpr_log_base(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_log_base",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "lb1"}, {Key: "v", Value: 8.0}})
 			return err
@@ -298,7 +298,7 @@ func insertStrDoc(ctx context.Context, col *mongo.Collection) error {
 func TestExpr_concat(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_concat",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertStrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "s1", bson.D{
@@ -312,7 +312,7 @@ func TestExpr_concat(t *testing.T) {
 func TestExpr_toLower_toUpper(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_toLower_toUpper",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertStrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "s1", bson.D{
@@ -327,7 +327,7 @@ func TestExpr_toLower_toUpper(t *testing.T) {
 func TestExpr_trim(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_trim",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertStrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "s1", bson.D{
@@ -343,7 +343,7 @@ func TestExpr_trim(t *testing.T) {
 func TestExpr_split(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_split",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertStrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "s1", bson.D{
@@ -357,7 +357,7 @@ func TestExpr_split(t *testing.T) {
 func TestExpr_strcasecmp(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_strcasecmp",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertStrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "s1", bson.D{
@@ -371,7 +371,7 @@ func TestExpr_strcasecmp(t *testing.T) {
 func TestExpr_strLen(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_strLen",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertStrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "s1", bson.D{
@@ -386,7 +386,7 @@ func TestExpr_strLen(t *testing.T) {
 func TestExpr_substr(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_substr",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertStrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "s1", bson.D{
@@ -400,7 +400,7 @@ func TestExpr_substr(t *testing.T) {
 func TestExpr_indexOfBytes(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_indexOfBytes",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertStrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "s1", bson.D{
@@ -426,7 +426,7 @@ func insertArrDoc(ctx context.Context, col *mongo.Collection) error {
 func TestExpr_arrayElemAt(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_arrayElemAt",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "arr1", bson.D{
@@ -441,7 +441,7 @@ func TestExpr_arrayElemAt(t *testing.T) {
 func TestExpr_size(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_size",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "arr1", bson.D{
@@ -455,7 +455,7 @@ func TestExpr_size(t *testing.T) {
 func TestExpr_concatArrays(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_concatArrays",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "arr1", bson.D{
@@ -469,7 +469,7 @@ func TestExpr_concatArrays(t *testing.T) {
 func TestExpr_slice(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_slice",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "arr1", bson.D{
@@ -483,7 +483,7 @@ func TestExpr_slice(t *testing.T) {
 func TestExpr_reverseArray(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_reverseArray",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "arr1", bson.D{
@@ -497,7 +497,7 @@ func TestExpr_reverseArray(t *testing.T) {
 func TestExpr_isArray(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_isArray",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "arr1", bson.D{
@@ -512,7 +512,7 @@ func TestExpr_isArray(t *testing.T) {
 func TestExpr_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_filter",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "arr1", bson.D{
@@ -530,7 +530,7 @@ func TestExpr_filter(t *testing.T) {
 func TestExpr_map(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_map",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "arr1", bson.D{
@@ -548,7 +548,7 @@ func TestExpr_map(t *testing.T) {
 func TestExpr_reduce(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_reduce",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "arr1", bson.D{
@@ -566,7 +566,7 @@ func TestExpr_reduce(t *testing.T) {
 func TestExpr_range(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_range",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "rng1"}})
 			return err
@@ -583,7 +583,7 @@ func TestExpr_range(t *testing.T) {
 func TestExpr_indexOfArray(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_indexOfArray",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "arr1", bson.D{
@@ -598,7 +598,7 @@ func TestExpr_indexOfArray(t *testing.T) {
 func TestExpr_in_array(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_in_array",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "arr1", bson.D{
@@ -613,7 +613,7 @@ func TestExpr_in_array(t *testing.T) {
 func TestExpr_arrayToObject(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_arrayToObject",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "ato1"},
@@ -636,7 +636,7 @@ func TestExpr_arrayToObject(t *testing.T) {
 func TestExpr_zip(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_zip",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "zip1"},
@@ -670,7 +670,7 @@ func insertDateDoc(ctx context.Context, col *mongo.Collection) error {
 func TestExpr_year_month_day(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_year_month_day",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertDateDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "d1", bson.D{
@@ -686,7 +686,7 @@ func TestExpr_year_month_day(t *testing.T) {
 func TestExpr_hour_minute_second(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_hour_minute_second",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertDateDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "d1", bson.D{
@@ -702,7 +702,7 @@ func TestExpr_hour_minute_second(t *testing.T) {
 func TestExpr_dateToString(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_dateToString",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertDateDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "d1", bson.D{
@@ -719,7 +719,7 @@ func TestExpr_dateToString(t *testing.T) {
 func TestExpr_dateTrunc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_dateTrunc",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertDateDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "d1", bson.D{
@@ -736,7 +736,7 @@ func TestExpr_dateTrunc(t *testing.T) {
 func TestExpr_dateAdd(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_dateAdd",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertDateDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "d1", bson.D{
@@ -754,7 +754,7 @@ func TestExpr_dateAdd(t *testing.T) {
 func TestExpr_dateDiff(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_dateDiff",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertDateDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			end := primitive.NewDateTimeFromTime(time.Date(2024, 7, 15, 0, 0, 0, 0, time.UTC))
@@ -775,7 +775,7 @@ func TestExpr_dateDiff(t *testing.T) {
 func TestExpr_cond_true(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_cond_true",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "cond1"}, {Key: "score", Value: int32(85)}})
 			return err
@@ -796,7 +796,7 @@ func TestExpr_cond_true(t *testing.T) {
 func TestExpr_cond_false(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_cond_false",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "cond2"}, {Key: "score", Value: int32(50)}})
 			return err
@@ -817,7 +817,7 @@ func TestExpr_cond_false(t *testing.T) {
 func TestExpr_ifNull_field_present(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_ifNull_field_present",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "ifn1"}, {Key: "val", Value: "exists"}})
 			return err
@@ -834,7 +834,7 @@ func TestExpr_ifNull_field_present(t *testing.T) {
 func TestExpr_ifNull_field_missing(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_ifNull_field_missing",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "ifn2"}})
 			return err
@@ -851,7 +851,7 @@ func TestExpr_ifNull_field_missing(t *testing.T) {
 func TestExpr_switch_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_switch_basic",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "sw1"}, {Key: "score", Value: int32(90)}},
@@ -908,7 +908,7 @@ func insertTypeDoc(ctx context.Context, col *mongo.Collection) error {
 func TestExpr_toInt(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_toInt",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertTypeDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "t1", bson.D{
@@ -922,7 +922,7 @@ func TestExpr_toInt(t *testing.T) {
 func TestExpr_toDouble(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_toDouble",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertTypeDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "t1", bson.D{
@@ -936,7 +936,7 @@ func TestExpr_toDouble(t *testing.T) {
 func TestExpr_toString(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_toString",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertTypeDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "t1", bson.D{
@@ -950,7 +950,7 @@ func TestExpr_toString(t *testing.T) {
 func TestExpr_toBool(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_toBool",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertTypeDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "t1", bson.D{
@@ -964,7 +964,7 @@ func TestExpr_toBool(t *testing.T) {
 func TestExpr_convert_int_to_string(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_convert_int_to_string",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertTypeDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "t1", bson.D{
@@ -981,7 +981,7 @@ func TestExpr_convert_int_to_string(t *testing.T) {
 func TestExpr_convert_with_onError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_convert_with_onError",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "conv1"}, {Key: "v", Value: "notanumber"}})
 			return err
@@ -1004,7 +1004,7 @@ func TestExpr_convert_with_onError(t *testing.T) {
 func TestExpr_cmp_operators(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_cmp_operators",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "cmp1"},
@@ -1029,7 +1029,7 @@ func TestExpr_cmp_operators(t *testing.T) {
 func TestExpr_gte_lte(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_gte_lte",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "gl1"},
@@ -1064,7 +1064,7 @@ func insertGroupSeed(ctx context.Context, col *mongo.Collection) error {
 func TestAccum_stdDevPop(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Accum_stdDevPop",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertGroupSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{
@@ -1095,7 +1095,7 @@ func TestAccum_stdDevPop(t *testing.T) {
 func TestAccum_stdDevSamp(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Accum_stdDevSamp",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertGroupSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{
@@ -1120,7 +1120,7 @@ func TestAccum_stdDevSamp(t *testing.T) {
 func TestAccum_count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Accum_count",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertGroupSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{
@@ -1145,7 +1145,7 @@ func TestAccum_count(t *testing.T) {
 func TestAccum_mergeObjects(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Accum_mergeObjects",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "mo1"}, {Key: "grp", Value: "a"}, {Key: "data", Value: bson.D{{Key: "x", Value: int32(1)}}}},
@@ -1178,7 +1178,7 @@ func TestAccum_mergeObjects(t *testing.T) {
 func TestAccum_multi_accumulators(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Accum_multi_accumulators",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertGroupSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{
@@ -1212,7 +1212,7 @@ func TestAccum_multi_accumulators(t *testing.T) {
 func TestExpr_and_or_not(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_and_or_not",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "bool1"},
@@ -1237,7 +1237,7 @@ func TestExpr_and_or_not(t *testing.T) {
 func TestExpr_trunc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_trunc",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "tr1"}, {Key: "v", Value: 7.89}})
 			return err
@@ -1256,7 +1256,7 @@ func TestExpr_trunc(t *testing.T) {
 func TestExpr_toLong(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_toLong",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertTypeDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "t1", bson.D{
@@ -1270,7 +1270,7 @@ func TestExpr_toLong(t *testing.T) {
 func TestExpr_toDate(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_toDate",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "td1"}, {Key: "ms", Value: int64(1718438400000)}})
 			return err
@@ -1289,7 +1289,7 @@ func TestExpr_toDate(t *testing.T) {
 func TestExpr_objectToArray(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_objectToArray",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "ota1"},
@@ -1323,7 +1323,7 @@ func insertSetDocs(ctx context.Context, col *mongo.Collection) error {
 func TestExpr_setUnion(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_setUnion",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSetDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := exprProject(ctx, col, "set1", bson.D{
@@ -1347,7 +1347,7 @@ func TestExpr_setUnion(t *testing.T) {
 func TestExpr_setIntersection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_setIntersection",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSetDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := exprProject(ctx, col, "set1", bson.D{
@@ -1370,7 +1370,7 @@ func TestExpr_setIntersection(t *testing.T) {
 func TestExpr_setDifference(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_setDifference",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertSetDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := exprProject(ctx, col, "set1", bson.D{
@@ -1393,7 +1393,7 @@ func TestExpr_setDifference(t *testing.T) {
 func TestExpr_setIsSubset(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_setIsSubset",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "sub1"},
@@ -1417,7 +1417,7 @@ func TestExpr_setIsSubset(t *testing.T) {
 func TestExpr_literal(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_literal",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "lit1"}, {Key: "x", Value: int32(5)}})
 			return err
@@ -1437,7 +1437,7 @@ func TestExpr_literal(t *testing.T) {
 func TestExpr_let(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_let",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -1458,7 +1458,7 @@ func TestExpr_let(t *testing.T) {
 func TestExpr_type(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_type",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "typ1"},
@@ -1484,7 +1484,7 @@ func TestExpr_type(t *testing.T) {
 func TestExpr_null_field_in_arithmetic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_null_field_in_arithmetic",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "null1"}, {Key: "x", Value: nil}})
 			return err
@@ -1502,7 +1502,7 @@ func TestExpr_null_field_in_arithmetic(t *testing.T) {
 func TestExpr_missing_field_in_cond(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_missing_field_in_cond",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "miss1"}})
 			return err
@@ -1521,7 +1521,7 @@ func TestExpr_missing_field_in_cond(t *testing.T) {
 func TestExpr_mergeObjects_project(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_mergeObjects_project",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "mo1"},
@@ -1544,7 +1544,7 @@ func TestExpr_mergeObjects_project(t *testing.T) {
 func TestExpr_expr_in_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_expr_in_match",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertGroupSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{
@@ -1572,7 +1572,7 @@ func TestExpr_expr_in_match(t *testing.T) {
 func TestExpr_nested_arithmetic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_nested_arithmetic",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// ((a + b) * 2) - abs(neg)
@@ -1593,7 +1593,7 @@ func TestExpr_nested_arithmetic(t *testing.T) {
 func TestExpr_string_pipeline(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_string_pipeline",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertStrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// concat, then toLower, then check length
@@ -1608,7 +1608,7 @@ func TestExpr_string_pipeline(t *testing.T) {
 func TestExpr_multiply_three_args(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_multiply_three_args",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -1622,7 +1622,7 @@ func TestExpr_multiply_three_args(t *testing.T) {
 func TestExpr_array_map_filter_size(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_array_map_filter_size",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Double all elements, filter > 40, return size
@@ -1647,7 +1647,7 @@ func TestExpr_array_map_filter_size(t *testing.T) {
 func TestExpr_addFields_arithmetic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_addFields_arithmetic",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{
@@ -1684,7 +1684,7 @@ func TestExpr_addFields_arithmetic(t *testing.T) {
 func TestExpr_addFields_conditional(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_addFields_conditional",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{
@@ -1716,7 +1716,7 @@ func TestExpr_addFields_conditional(t *testing.T) {
 func TestExpr_addFields_ifNull(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_addFields_ifNull",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "ifnull1"},
@@ -1751,7 +1751,7 @@ func TestExpr_addFields_ifNull(t *testing.T) {
 func TestExpr_addFields_string_ops(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_addFields_string_ops",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertStrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{
@@ -1781,7 +1781,7 @@ func TestExpr_addFields_string_ops(t *testing.T) {
 func TestExpr_addFields_type_conversion(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_addFields_type_conversion",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "tc1"},
@@ -1818,7 +1818,7 @@ func TestExpr_addFields_type_conversion(t *testing.T) {
 func TestExpr_addFields_array_expr(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_addFields_array_expr",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{
@@ -1848,7 +1848,7 @@ func TestExpr_addFields_array_expr(t *testing.T) {
 func TestExpr_addFields_nested_doc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_addFields_nested_doc",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "nd1"},
@@ -1888,7 +1888,7 @@ func TestExpr_addFields_nested_doc(t *testing.T) {
 func TestExpr_addFields_preserves_original(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_addFields_preserves_original",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{
@@ -1916,7 +1916,7 @@ func TestExpr_addFields_preserves_original(t *testing.T) {
 func TestExpr_addFields_overwrite_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_addFields_overwrite_field",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{
@@ -1944,7 +1944,7 @@ func TestExpr_addFields_overwrite_field(t *testing.T) {
 func TestExpr_addFields_chained(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_addFields_chained",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{
@@ -1977,7 +1977,7 @@ func TestExpr_addFields_chained(t *testing.T) {
 func TestExpr_project_abs_negative(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_abs_negative",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -1991,7 +1991,7 @@ func TestExpr_project_abs_negative(t *testing.T) {
 func TestExpr_project_switch_cases(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_switch_cases",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -2012,7 +2012,7 @@ func TestExpr_project_switch_cases(t *testing.T) {
 func TestExpr_project_concat_null_safe(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_concat_null_safe",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "cn1"},
@@ -2036,7 +2036,7 @@ func TestExpr_project_concat_null_safe(t *testing.T) {
 func TestExpr_project_arithmetic_chain(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_arithmetic_chain",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// (a + b) * (a - b)
@@ -2054,7 +2054,7 @@ func TestExpr_project_arithmetic_chain(t *testing.T) {
 func TestExpr_project_cond_nested(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_cond_nested",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// nested cond: if a > 5 then (if b > 5 then "both" else "only a") else "neither"
@@ -2077,7 +2077,7 @@ func TestExpr_project_cond_nested(t *testing.T) {
 func TestExpr_project_toLong_toDouble(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_toLong_toDouble",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "td1"},
@@ -2098,7 +2098,7 @@ func TestExpr_project_toLong_toDouble(t *testing.T) {
 func TestExpr_project_strLen_substr(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_strLen_substr",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertStrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "s1", bson.D{
@@ -2113,7 +2113,7 @@ func TestExpr_project_strLen_substr(t *testing.T) {
 func TestExpr_project_literal_value(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_literal_value",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -2128,7 +2128,7 @@ func TestExpr_project_literal_value(t *testing.T) {
 func TestExpr_project_type_check(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_type_check",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -2142,7 +2142,7 @@ func TestExpr_project_type_check(t *testing.T) {
 func TestExpr_project_range_expr(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_range_expr",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -2156,7 +2156,7 @@ func TestExpr_project_range_expr(t *testing.T) {
 func TestExpr_project_let_vars(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_let_vars",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -2175,7 +2175,7 @@ func TestExpr_project_let_vars(t *testing.T) {
 func TestExpr_project_objectToArray_back(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_objectToArray_back",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "ota1"},
@@ -2195,7 +2195,7 @@ func TestExpr_project_objectToArray_back(t *testing.T) {
 func TestExpr_project_reduce_sum(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_reduce_sum",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "arr1", bson.D{
@@ -2213,7 +2213,7 @@ func TestExpr_project_reduce_sum(t *testing.T) {
 func TestExpr_project_indexOfArray_expr(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_indexOfArray_expr",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "arr1", bson.D{
@@ -2228,7 +2228,7 @@ func TestExpr_project_indexOfArray_expr(t *testing.T) {
 func TestExpr_project_setUnion_inline(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_setUnion_inline",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "su1"},
@@ -2250,7 +2250,7 @@ func TestExpr_project_setUnion_inline(t *testing.T) {
 func TestExpr_project_missing_field_arithmetic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_missing_field_arithmetic",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "mf1"},
@@ -2270,7 +2270,7 @@ func TestExpr_project_missing_field_arithmetic(t *testing.T) {
 func TestExpr_project_and_or_short_circuit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_and_or_short_circuit",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -2294,7 +2294,7 @@ func TestExpr_project_and_or_short_circuit(t *testing.T) {
 func TestExpr_project_in_operator(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_in_operator",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "arr1", bson.D{
@@ -2309,7 +2309,7 @@ func TestExpr_project_in_operator(t *testing.T) {
 func TestExpr_project_floor_ceil_round(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_floor_ceil_round",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "fcr1"},
@@ -2332,7 +2332,7 @@ func TestExpr_project_floor_ceil_round(t *testing.T) {
 func TestExpr_project_pow_sqrt(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_pow_sqrt",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertNumDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "n1", bson.D{
@@ -2347,7 +2347,7 @@ func TestExpr_project_pow_sqrt(t *testing.T) {
 func TestExpr_project_string_split_join(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_string_split_join",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertStrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "s1", bson.D{
@@ -2361,7 +2361,7 @@ func TestExpr_project_string_split_join(t *testing.T) {
 func TestExpr_project_concatArrays_expr(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_concatArrays_expr",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "arr1", bson.D{
@@ -2375,7 +2375,7 @@ func TestExpr_project_concatArrays_expr(t *testing.T) {
 func TestExpr_project_reverseArray_expr(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_reverseArray_expr",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "arr1", bson.D{
@@ -2389,7 +2389,7 @@ func TestExpr_project_reverseArray_expr(t *testing.T) {
 func TestExpr_project_filter_array(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_filter_array",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "arr1", bson.D{
@@ -2407,7 +2407,7 @@ func TestExpr_project_filter_array(t *testing.T) {
 func TestExpr_project_slice_expr(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_project_slice_expr",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertArrDoc,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return exprProject(ctx, col, "arr1", bson.D{

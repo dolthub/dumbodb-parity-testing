@@ -36,7 +36,7 @@ func insertCursorSeed(ctx context.Context, col *mongo.Collection) error {
 func TestCursor_find_maxTimeMS(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_maxTimeMS",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			dur := 5 * time.Second
@@ -56,7 +56,7 @@ func TestCursor_find_maxTimeMS(t *testing.T) {
 func TestCursor_find_batchSize(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_batchSize",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// batchSize=2 forces multiple round trips; final result is identical.
@@ -74,7 +74,7 @@ func TestCursor_find_batchSize(t *testing.T) {
 func TestCursor_find_batchSize_one(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_batchSize_one",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetBatchSize(1).SetSort(bson.D{{Key: "_id", Value: 1}})
@@ -93,7 +93,7 @@ func TestCursor_find_batchSize_one(t *testing.T) {
 func TestCursor_exhaustion_noDocsAfterAll(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_exhaustion_noDocsAfterAll",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(ctx, bson.D{})
@@ -117,7 +117,7 @@ func TestCursor_exhaustion_noDocsAfterAll(t *testing.T) {
 func TestCursor_exhaustion_emptyCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_exhaustion_emptyCollection",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(ctx, bson.D{})
 			if err != nil {
@@ -138,7 +138,7 @@ func TestCursor_exhaustion_emptyCollection(t *testing.T) {
 func TestCursor_iterate_manually(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_iterate_manually",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetLimit(3)
@@ -169,7 +169,7 @@ func TestCursor_iterate_manually(t *testing.T) {
 func TestCursor_find_hint_naturalOrder(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_hint_naturalOrder",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -189,7 +189,7 @@ func TestCursor_find_hint_naturalOrder(t *testing.T) {
 func TestCursor_find_hint_idIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_hint_idIndex",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -211,7 +211,7 @@ func TestCursor_find_hint_idIndex(t *testing.T) {
 func TestCursor_find_comment(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_comment",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -233,7 +233,7 @@ func TestCursor_find_comment(t *testing.T) {
 func TestCursor_find_allowDiskUse(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_allowDiskUse",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -255,7 +255,7 @@ func TestCursor_find_allowDiskUse(t *testing.T) {
 func TestCursor_find_readPreference_primary(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_readPreference_primary",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -275,7 +275,7 @@ func TestCursor_find_readPreference_primary(t *testing.T) {
 func TestCursor_find_readPreference_primaryPreferred(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_readPreference_primaryPreferred",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -297,7 +297,7 @@ func TestCursor_find_readPreference_primaryPreferred(t *testing.T) {
 func TestCursor_sort_multiField_groupThenVal(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_sort_multiField_groupThenVal",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -316,7 +316,7 @@ func TestCursor_sort_multiField_groupThenVal(t *testing.T) {
 func TestCursor_sort_multiField_valThenId(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_sort_multiField_valThenId",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -337,7 +337,7 @@ func TestCursor_sort_multiField_valThenId(t *testing.T) {
 func TestCursor_skipLimit_page1(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_skipLimit_page1",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -357,7 +357,7 @@ func TestCursor_skipLimit_page1(t *testing.T) {
 func TestCursor_skipLimit_page2(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_skipLimit_page2",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -377,7 +377,7 @@ func TestCursor_skipLimit_page2(t *testing.T) {
 func TestCursor_skipLimit_beyondEnd(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_skipLimit_beyondEnd",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -400,7 +400,7 @@ func TestCursor_skipLimit_beyondEnd(t *testing.T) {
 func TestCursor_skipOnly(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_skipOnly",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -420,7 +420,7 @@ func TestCursor_skipOnly(t *testing.T) {
 func TestCursor_limitOnly(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_limitOnly",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -445,7 +445,7 @@ func TestCursor_limitOnly(t *testing.T) {
 func TestCursor_aggregate_batchSize(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_aggregate_batchSize",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Aggregate().SetBatchSize(2)
@@ -464,7 +464,7 @@ func TestCursor_aggregate_batchSize(t *testing.T) {
 func TestCursor_aggregate_allowDiskUse(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_aggregate_allowDiskUse",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Aggregate().SetAllowDiskUse(true)
@@ -484,7 +484,7 @@ func TestCursor_aggregate_allowDiskUse(t *testing.T) {
 func TestCursor_aggregate_maxTimeMS(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_aggregate_maxTimeMS",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			dur := 5 * time.Second
@@ -507,7 +507,7 @@ func TestCursor_aggregate_maxTimeMS(t *testing.T) {
 func TestCursor_findOne_sort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_findOne_sort",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOne().SetSort(bson.D{{Key: "val", Value: -1}})
@@ -530,7 +530,7 @@ func TestCursor_findOne_sort(t *testing.T) {
 func TestCursor_findOne_skip(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_findOne_skip",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOne().
@@ -557,7 +557,7 @@ func TestCursor_findOne_skip(t *testing.T) {
 func TestCursor_LimitZero(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_LimitZero",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			docs := make([]interface{}, 5)
 			for i := 0; i < 5; i++ {
@@ -584,7 +584,7 @@ func TestCursor_LimitZero(t *testing.T) {
 func TestCursor_LimitNegative(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_LimitNegative",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			docs := make([]interface{}, 10)
 			for i := 0; i < 10; i++ {
@@ -613,7 +613,7 @@ func TestCursor_LimitNegative(t *testing.T) {
 func TestCursor_HintByDocument(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_HintByDocument",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "score", Value: int32(10)}},
@@ -647,7 +647,7 @@ func TestCursor_HintByDocument(t *testing.T) {
 func TestCursor_HintByName(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_HintByName",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "score", Value: int32(10)}},
@@ -682,7 +682,7 @@ func TestCursor_HintByName(t *testing.T) {
 func TestCursor_ReturnKey(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_ReturnKey",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "score", Value: int32(10)}, {Key: "name", Value: "alice"}},
@@ -717,7 +717,7 @@ func TestCursor_ReturnKey(t *testing.T) {
 func TestCursor_MinMaxBounds(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_MinMaxBounds",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			docs := make([]interface{}, 10)
 			for i := 0; i < 10; i++ {
@@ -755,7 +755,7 @@ func TestCursor_MinMaxBounds(t *testing.T) {
 func TestCursor_CollationCaseInsensitive(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_CollationCaseInsensitive",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "name", Value: "Alice"}},
@@ -783,7 +783,7 @@ func TestCursor_CollationCaseInsensitive(t *testing.T) {
 func TestCursor_CollationSort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_CollationSort",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "word", Value: "banana"}},
@@ -813,7 +813,7 @@ func TestCursor_CollationSort(t *testing.T) {
 func TestCursor_MultiBatch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_MultiBatch",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			docs := make([]interface{}, 25)
 			for i := 0; i < 25; i++ {
@@ -844,7 +844,7 @@ func TestCursor_MultiBatch(t *testing.T) {
 func TestCursor_MultiBatchAllHelper(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_MultiBatchAllHelper",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			docs := make([]interface{}, 15)
 			for i := 0; i < 15; i++ {
@@ -873,7 +873,7 @@ func TestCursor_MultiBatchAllHelper(t *testing.T) {
 func TestCursor_TailableCappedCollectionRequired(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_TailableCappedCollectionRequired",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "a"}})
 			return err
@@ -894,7 +894,7 @@ func TestCursor_TailableCappedCollectionRequired(t *testing.T) {
 func TestCursor_NextIteration(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_NextIteration",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
@@ -923,7 +923,7 @@ func TestCursor_NextIteration(t *testing.T) {
 func TestCursor_CloseReleasesResources(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_CloseReleasesResources",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup:   insertCursorSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(ctx, bson.D{})
@@ -948,7 +948,7 @@ func TestCursor_CloseReleasesResources(t *testing.T) {
 func TestCursor_AllowPartialResultsTrue(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_AllowPartialResultsTrue",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(1)}},
@@ -977,7 +977,7 @@ func TestCursor_AllowPartialResultsTrue(t *testing.T) {
 func TestCursor_AllowPartialResultsFalse(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_AllowPartialResultsFalse",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "x"}, {Key: "v", Value: int32(42)}})
 			return err
@@ -1001,7 +1001,7 @@ func TestCursor_AllowPartialResultsFalse(t *testing.T) {
 func TestCursor_SortLimitSkipCombined(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_SortLimitSkipCombined",
-		Support: harness.DocudoltFull,
+		Support: harness.DocuDoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			docs := make([]interface{}, 20)
 			for i := 0; i < 20; i++ {
