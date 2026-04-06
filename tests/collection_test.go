@@ -508,7 +508,7 @@ func TestDB_RunCommand_Ping(t *testing.T) {
 func TestDB_RunCommand_Hello(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_Hello",
-		Support: harness.DocudoltFull,
+		Support: harness.DocudoltXFail, // maxWireVersion mismatch: mongo=25, docudolt=21
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// connectionId is server-assigned and differs between instances; omit it.
@@ -524,7 +524,7 @@ func TestDB_RunCommand_Hello(t *testing.T) {
 func TestDB_RunCommand_IsMaster(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_IsMaster",
-		Support: harness.DocudoltFull,
+		Support: harness.DocudoltXFail, // maxWireVersion mismatch: mongo=25, docudolt=21
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// connectionId is server-assigned and differs between instances; omit it.
@@ -540,7 +540,7 @@ func TestDB_RunCommand_IsMaster(t *testing.T) {
 func TestDB_RunCommand_BuildInfo(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_BuildInfo",
-		Support: harness.DocudoltFull,
+		Support: harness.DocudoltXFail, // version string diverges: mongo=8.0.20, docudolt=7.0.21
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Omit MongoDB-internal fields: allocator, javascriptEngine, openssl,

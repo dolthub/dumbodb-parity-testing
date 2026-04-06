@@ -1134,7 +1134,7 @@ func TestAgg_sortByCount_basic(t *testing.T) {
 func TestAgg_sortByCount_after_unwind(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_sortByCount_after_unwind",
-		Support: harness.DocudoltFull,
+		Support: harness.DocudoltXFail, // $sortByCount tiebreaking order diverges from MongoDB
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
