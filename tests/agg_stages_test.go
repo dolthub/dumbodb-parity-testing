@@ -1467,14 +1467,11 @@ func TestAggStage_sortByCount_SortByCountDescending(t *testing.T) {
 }
 
 func TestAggStage_sortByCount_TieBreakingOrder(t *testing.T) {
-	// Diverge (do-ydfd): when multiple groups have the same count, $sortByCount
-	// tie-breaking order differs between MongoDB and Docudolt. Per spec, $sortByCount
-	// is equivalent to {$group:{_id:"$x",count:{$sum:1}}} + {$sort:{count:-1,_id:1}},
-	// so ties should be broken by ascending _id. MongoDB returns [1, 2, 3] for
-	// integer _id values; Docudolt emits [3, 1, 2] — a different internal ordering.
+	// Fixed: $sortByCount now applies ascending _id tiebreaker per spec:
+	// $sortByCount ≡ $group + $sort{count:-1, _id:1}.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_sortByCount_TieBreakingOrder",
-		Support: harness.DocudoltXFail,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: 1}, {Key: "score", Value: int32(3)}},
@@ -2116,7 +2113,7 @@ func TestAggPipeline_multiStage_UnwindThenGroup(t *testing.T) {
 func TestAggPipeline_multiStage_UnwindThenGroup_tiebreakOrder(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggPipeline_multiStage_UnwindThenGroup_tiebreakOrder",
-		Support: harness.DocudoltXFail, // $group output order non-deterministic, tiebreak still diverges
+		Support: harness.DocudoltFull, // Fixed: $sortByCount now uses ascending _id tiebreaker per spec
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "p1"}, {Key: "tags", Value: bson.A{"go", "db"}}},
