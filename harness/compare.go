@@ -37,39 +37,39 @@ var defaultIgnoredFields = map[string]bool{
 	"insertedIds":   true,
 }
 
-// CompareResponses compares a MongoDB response against a Dongo response,
+// CompareResponses compares a MongoDB response against a Docudolt response,
 // handling both result values and errors.
-func CompareResponses(mongoResult interface{}, mongoErr error, dongoResult interface{}, dongoErr error) Comparison {
-	if mongoErr != nil || dongoErr != nil {
-		return compareErrors(mongoErr, dongoErr)
+func CompareResponses(mongoResult interface{}, mongoErr error, docudoltResult interface{}, docudoltErr error) Comparison {
+	if mongoErr != nil || docudoltErr != nil {
+		return compareErrors(mongoErr, docudoltErr)
 	}
-	return compareValues(normalize(mongoResult), normalize(dongoResult))
+	return compareValues(normalize(mongoResult), normalize(docudoltResult))
 }
 
-func compareErrors(mongoErr, dongoErr error) Comparison {
-	if mongoErr == nil && dongoErr == nil {
+func compareErrors(mongoErr, docudoltErr error) Comparison {
+	if mongoErr == nil && docudoltErr == nil {
 		return Comparison{Result: Match}
 	}
-	if mongoErr == nil || dongoErr == nil {
+	if mongoErr == nil || docudoltErr == nil {
 		return Comparison{
 			Result: Diverge,
-			Diff:   fmt.Sprintf("mongo err=%v, dongo err=%v", mongoErr, dongoErr),
+			Diff:   fmt.Sprintf("mongo err=%v, docudolt err=%v", mongoErr, docudoltErr),
 		}
 	}
 	mCode := errorCode(mongoErr)
-	dCode := errorCode(dongoErr)
+	dCode := errorCode(docudoltErr)
 	if mCode != dCode {
 		return Comparison{
 			Result: Diverge,
-			Diff:   fmt.Sprintf("error code mismatch: mongo=%d dongo=%d", mCode, dCode),
+			Diff:   fmt.Sprintf("error code mismatch: mongo=%d docudolt=%d", mCode, dCode),
 		}
 	}
 	mMsg := mongoErr.Error()
-	dMsg := dongoErr.Error()
+	dMsg := docudoltErr.Error()
 	if mMsg != dMsg {
 		return Comparison{
 			Result: Diverge,
-			Diff:   fmt.Sprintf("error message mismatch:\n  mongo: %s\n  dongo: %s", mMsg, dMsg),
+			Diff:   fmt.Sprintf("error message mismatch:\n  mongo: %s\n  docudolt: %s", mMsg, dMsg),
 		}
 	}
 	return Comparison{Result: Match}
@@ -138,7 +138,7 @@ func normalize(v interface{}) interface{} {
 		return objectIDSentinel
 	case primitive.Binary:
 		// UUID binaries (subtype 3 or 4) are server-generated and will differ
-		// between MongoDB and Dongo instances. Normalize them to a sentinel so
+		// between MongoDB and Docudolt instances. Normalize them to a sentinel so
 		// the comparison focuses on structural equality rather than the raw bytes.
 		if val.Subtype == 3 || val.Subtype == 4 {
 			return "<UUID>"
@@ -242,9 +242,9 @@ func formatDiff(a, b interface{}) string {
 	aStr := formatValue(a)
 	bStr := formatValue(b)
 	if aStr == bStr {
-		return fmt.Sprintf("values differ in type: mongo=%T dongo=%T", a, b)
+		return fmt.Sprintf("values differ in type: mongo=%T docudolt=%T", a, b)
 	}
-	return fmt.Sprintf("mongo:  %s\ndongo:  %s", aStr, bStr)
+	return fmt.Sprintf("mongo:  %s\ndocudolt:  %s", aStr, bStr)
 }
 
 func formatValue(v interface{}) string {

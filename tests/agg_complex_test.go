@@ -7,7 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/dolthub/dongo-parity-testing/harness"
+	"github.com/dolthub/docudolt-parity-testing/harness"
 )
 
 // ─── Seed data ────────────────────────────────────────────────────────────────
@@ -115,7 +115,7 @@ func insertRedactDocs(ctx context.Context, col *mongo.Collection) error {
 func TestAggComplex_matchGroupSortProject(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchGroupSortProject",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -141,7 +141,7 @@ func TestAggComplex_matchGroupSortProject(t *testing.T) {
 func TestAggComplex_matchGroupSort_regionTotals(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchGroupSort_regionTotals",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -161,7 +161,7 @@ func TestAggComplex_matchGroupSort_regionTotals(t *testing.T) {
 func TestAggComplex_matchGroupProject_minMax(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchGroupProject_minMax",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -186,7 +186,7 @@ func TestAggComplex_matchGroupProject_minMax(t *testing.T) {
 func TestAggComplex_matchGroupProject_pushArray(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchGroupProject_pushArray",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -205,7 +205,7 @@ func TestAggComplex_matchGroupProject_pushArray(t *testing.T) {
 func TestAggComplex_matchGroupProject_addToSet(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchGroupProject_addToSet",
-		Support: harness.DongoXFail, // $addToSet element ordering is non-deterministic; dongo ordering diverges from MongoDB
+		Support: harness.DocudoltXFail, // $addToSet element ordering is non-deterministic; docudolt ordering diverges from MongoDB
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -225,7 +225,7 @@ func TestAggComplex_matchGroupProject_addToSet(t *testing.T) {
 func TestAggComplex_unwindGroup_skuTotals(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_unwindGroup_skuTotals",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -244,7 +244,7 @@ func TestAggComplex_unwindGroup_skuTotals(t *testing.T) {
 func TestAggComplex_unwindGroup_itemRevenue(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_unwindGroup_itemRevenue",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -267,7 +267,7 @@ func TestAggComplex_unwindGroup_itemRevenue(t *testing.T) {
 func TestAggComplex_unwindGroup_customerItems(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_unwindGroup_customerItems",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -286,7 +286,7 @@ func TestAggComplex_unwindGroup_customerItems(t *testing.T) {
 func TestAggComplex_unwindWithIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_unwindWithIndex",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -311,7 +311,7 @@ func TestAggComplex_unwindWithIndex(t *testing.T) {
 func TestAggComplex_lookupUnwindGroup(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_lookupUnwindGroup",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertComplexSeed(ctx, col); err != nil {
 				return err
@@ -351,7 +351,7 @@ func TestAggComplex_lookupUnwindGroup(t *testing.T) {
 func TestAggComplex_lookupNoMatch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_lookupNoMatch",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertComplexSeed(ctx, col); err != nil {
 				return err
@@ -386,7 +386,7 @@ func TestAggComplex_lookupNoMatch(t *testing.T) {
 func TestAggComplex_lookupPipeline(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_lookupPipeline",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertComplexSeed(ctx, col); err != nil {
 				return err
@@ -432,7 +432,7 @@ func TestAggComplex_lookupPipeline(t *testing.T) {
 func TestAggComplex_facet_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_facet_basic",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -461,7 +461,7 @@ func TestAggComplex_facet_basic(t *testing.T) {
 func TestAggComplex_facet_withBucket(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_facet_withBucket",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -495,7 +495,7 @@ func TestAggComplex_facet_withBucket(t *testing.T) {
 func TestAggComplex_facet_withMatchAndCount(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_facet_withMatchAndCount",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -524,7 +524,7 @@ func TestAggComplex_facet_withMatchAndCount(t *testing.T) {
 func TestAggComplex_graphLookup_simpleTree(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_graphLookup_simpleTree",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertGraphNodes,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Find all descendants of "root".
@@ -550,7 +550,7 @@ func TestAggComplex_graphLookup_simpleTree(t *testing.T) {
 func TestAggComplex_graphLookup_ancestors(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_graphLookup_ancestors",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertGraphNodes,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Walk up from "a1" to find all ancestors.
@@ -576,7 +576,7 @@ func TestAggComplex_graphLookup_ancestors(t *testing.T) {
 func TestAggComplex_graphLookup_maxDepth(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_graphLookup_maxDepth",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertGraphNodes,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -602,7 +602,7 @@ func TestAggComplex_graphLookup_maxDepth(t *testing.T) {
 func TestAggComplex_graphLookup_depthField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_graphLookup_depthField",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertGraphNodes,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -631,7 +631,7 @@ func TestAggComplex_graphLookup_depthField(t *testing.T) {
 func TestAggComplex_graphLookup_restrictSearch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_graphLookup_restrictSearch",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertGraphNodes,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Only follow nodes whose name doesn't start with "b".
@@ -660,7 +660,7 @@ func TestAggComplex_graphLookup_restrictSearch(t *testing.T) {
 func TestAggComplex_graphLookup_withCycles(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_graphLookup_withCycles",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			// Create a graph with a cycle: X -> Y -> Z -> X
 			_, err := col.InsertMany(ctx, []interface{}{
@@ -696,7 +696,7 @@ func TestAggComplex_graphLookup_withCycles(t *testing.T) {
 func TestAggComplex_sample_count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_sample_count",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{
@@ -717,7 +717,7 @@ func TestAggComplex_sample_count(t *testing.T) {
 func TestAggComplex_sample_one(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_sample_one",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, []bson.D{
@@ -738,7 +738,7 @@ func TestAggComplex_sample_one(t *testing.T) {
 func TestAggComplex_sample_all(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_sample_all",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Sampling more than collection size returns all docs.
@@ -762,7 +762,7 @@ func TestAggComplex_sample_all(t *testing.T) {
 func TestAggComplex_redact_prune(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_redact_prune",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertRedactDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -783,7 +783,7 @@ func TestAggComplex_redact_prune(t *testing.T) {
 func TestAggComplex_redact_keep(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_redact_keep",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertRedactDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -804,7 +804,7 @@ func TestAggComplex_redact_keep(t *testing.T) {
 func TestAggComplex_redact_descend(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_redact_descend",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertRedactDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Always DESCEND — returns all documents unchanged.
@@ -820,7 +820,7 @@ func TestAggComplex_redact_descend(t *testing.T) {
 func TestAggComplex_redact_pruneAll(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_redact_pruneAll",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertRedactDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Always PRUNE — no documents returned.
@@ -842,7 +842,7 @@ func TestAggComplex_redact_pruneAll(t *testing.T) {
 func TestAggComplex_redact_nestedField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_redact_nestedField",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{
@@ -878,7 +878,7 @@ func TestAggComplex_redact_nestedField(t *testing.T) {
 func TestAggComplex_matchUnwindGroupSort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchUnwindGroupSort",
-		Support: harness.DongoXFail, // sort tie-breaking with equal totalQty diverges: dongo orders ties ascending by _id, MongoDB descending
+		Support: harness.DocudoltXFail, // sort tie-breaking with equal totalQty diverges: docudolt orders ties ascending by _id, MongoDB descending
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -899,7 +899,7 @@ func TestAggComplex_matchUnwindGroupSort(t *testing.T) {
 func TestAggComplex_projectAddFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_projectAddFields",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -922,7 +922,7 @@ func TestAggComplex_projectAddFields(t *testing.T) {
 func TestAggComplex_replaceRoot(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_replaceRoot",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -939,7 +939,7 @@ func TestAggComplex_replaceRoot(t *testing.T) {
 func TestAggComplex_count_stage(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_count_stage",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -954,7 +954,7 @@ func TestAggComplex_count_stage(t *testing.T) {
 func TestAggComplex_bucket_auto(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_bucket_auto",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -971,7 +971,7 @@ func TestAggComplex_bucket_auto(t *testing.T) {
 func TestAggComplex_sortByCount(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_sortByCount",
-		Support: harness.DongoXFail, // sort tie-breaking on equal count differs: mongo [shipped,cancelled,pending], dongo [shipped,pending,cancelled]
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -985,7 +985,7 @@ func TestAggComplex_sortByCount(t *testing.T) {
 func TestAggComplex_multiGroup_then_sort_limit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_multiGroup_then_sort_limit",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1004,7 +1004,7 @@ func TestAggComplex_multiGroup_then_sort_limit(t *testing.T) {
 func TestAggComplex_matchGroupHaving(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchGroupHaving",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Simulate SQL HAVING: group, then filter groups.
@@ -1025,7 +1025,7 @@ func TestAggComplex_matchGroupHaving(t *testing.T) {
 func TestAggComplex_multiStage_skipLimit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_multiStage_skipLimit",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1042,7 +1042,7 @@ func TestAggComplex_multiStage_skipLimit(t *testing.T) {
 func TestAggComplex_graphLookup_emptyStartWith(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_graphLookup_emptyStartWith",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertGraphNodes,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Node with no children — result should be empty descendants array.
@@ -1068,7 +1068,7 @@ func TestAggComplex_graphLookup_emptyStartWith(t *testing.T) {
 func TestAggComplex_setWindowFields_simple(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_setWindowFields_simple",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1098,11 +1098,11 @@ func TestAggComplex_setWindowFields_simple(t *testing.T) {
 
 // TestAggComplex_sortByCount_TieBreaking verifies $sortByCount with a three-way
 // tie in counts. An explicit $sort on {count:-1, _id:1} after $sortByCount makes
-// the tie-breaking deterministic across both MongoDB and Dongo.
+// the tie-breaking deterministic across both MongoDB and Docudolt.
 func TestAggComplex_sortByCount_TieBreaking(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_sortByCount_TieBreaking",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "d1"}, {Key: "cat", Value: "x"}},
@@ -1133,7 +1133,7 @@ func TestAggComplex_sortByCount_TieBreaking(t *testing.T) {
 func TestAggComplex_matchUnwindGroupSort_SameTotalQty(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchUnwindGroupSort_SameTotalQty",
-		Support: harness.DongoXFail, // sort tie-breaking with equal totalQty diverges: dongo orders ties ascending by _id, MongoDB has different implicit ordering
+		Support: harness.DocudoltXFail, // sort tie-breaking with equal totalQty diverges: docudolt orders ties ascending by _id, MongoDB has different implicit ordering
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{
@@ -1179,20 +1179,20 @@ func TestAggComplex_matchUnwindGroupSort_SameTotalQty(t *testing.T) {
 	})
 }
 
-// TestAggComplex_graphLookup_bfsOrder documents a dongo divergence in
+// TestAggComplex_graphLookup_bfsOrder documents a docudolt divergence in
 // $graphLookup result handling. Using $map to extract a field from the result
-// array, MongoDB returns the name strings while dongo returns nulls — it cannot
+// array, MongoDB returns the name strings while docudolt returns nulls — it cannot
 // resolve sub-field references ($$d.name) over the graphLookup output array.
-// Related dongo bug: do-0gb6 ($graphLookup result order / field access).
+// Related docudolt bug: do-0gb6 ($graphLookup result order / field access).
 func TestAggComplex_graphLookup_bfsOrder(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_graphLookup_bfsOrder",
-		Support: harness.DongoXFail,
+		Support: harness.DocudoltXFail,
 		Setup:   insertGraphNodes,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Collect all descendants of "root" and use $map to extract names.
 			// MongoDB resolves $$d.name correctly from the graphLookup array.
-			// Dongo returns [null, null, ...] — sub-field access fails (do-0gb6).
+			// Docudolt returns [null, null, ...] — sub-field access fails (do-0gb6).
 			results, err := runPipeline(ctx, col, []bson.D{
 				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "root"}}}},
 				{{Key: "$graphLookup", Value: bson.D{

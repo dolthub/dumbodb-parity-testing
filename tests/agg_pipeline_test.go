@@ -8,7 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/dolthub/dongo-parity-testing/harness"
+	"github.com/dolthub/docudolt-parity-testing/harness"
 )
 
 // aggSeedDocs are shared seed documents for aggregation pipeline tests.
@@ -74,7 +74,7 @@ func runPipeline(ctx context.Context, col *mongo.Collection, pipeline []bson.D) 
 func TestAgg_match_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_match_basic",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -89,7 +89,7 @@ func TestAgg_match_basic(t *testing.T) {
 func TestAgg_match_comparison(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_match_comparison",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -105,7 +105,7 @@ func TestAgg_match_comparison(t *testing.T) {
 func TestAgg_match_no_results(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_match_no_results",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -122,7 +122,7 @@ func TestAgg_match_no_results(t *testing.T) {
 func TestAgg_match_empty_collection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_match_empty_collection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
 				{{Key: "$match", Value: bson.D{{Key: "x", Value: 1}}}},
@@ -138,7 +138,7 @@ func TestAgg_match_empty_collection(t *testing.T) {
 func TestAgg_match_and(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_match_and",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -159,7 +159,7 @@ func TestAgg_match_and(t *testing.T) {
 func TestAgg_project_include(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_project_include",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -178,7 +178,7 @@ func TestAgg_project_include(t *testing.T) {
 func TestAgg_project_exclude(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_project_exclude",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -196,7 +196,7 @@ func TestAgg_project_exclude(t *testing.T) {
 func TestAgg_project_computed_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_project_computed_field",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -214,7 +214,7 @@ func TestAgg_project_computed_field(t *testing.T) {
 func TestAgg_project_rename_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_project_rename_field",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -235,7 +235,7 @@ func TestAgg_project_rename_field(t *testing.T) {
 func TestAgg_sort_ascending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_sort_ascending",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -250,7 +250,7 @@ func TestAgg_sort_ascending(t *testing.T) {
 func TestAgg_sort_descending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_sort_descending",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -265,7 +265,7 @@ func TestAgg_sort_descending(t *testing.T) {
 func TestAgg_sort_multi_key(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_sort_multi_key",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -285,7 +285,7 @@ func TestAgg_sort_multi_key(t *testing.T) {
 func TestAgg_limit_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_limit_basic",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -301,7 +301,7 @@ func TestAgg_limit_basic(t *testing.T) {
 func TestAgg_skip_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_skip_basic",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -317,7 +317,7 @@ func TestAgg_skip_basic(t *testing.T) {
 func TestAgg_skip_and_limit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_skip_and_limit",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -334,7 +334,7 @@ func TestAgg_skip_and_limit(t *testing.T) {
 func TestAgg_limit_exceeds_count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_limit_exceeds_count",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -353,7 +353,7 @@ func TestAgg_limit_exceeds_count(t *testing.T) {
 func TestAgg_count_all(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_count_all",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -367,7 +367,7 @@ func TestAgg_count_all(t *testing.T) {
 func TestAgg_count_after_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_count_after_match",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -382,7 +382,7 @@ func TestAgg_count_after_match(t *testing.T) {
 func TestAgg_count_empty_collection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_count_empty_collection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
 				{{Key: "$count", Value: "total"}},
@@ -400,7 +400,7 @@ func TestAgg_count_empty_collection(t *testing.T) {
 func TestAgg_group_sum(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_group_sum",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -418,7 +418,7 @@ func TestAgg_group_sum(t *testing.T) {
 func TestAgg_group_count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_group_count",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -436,7 +436,7 @@ func TestAgg_group_count(t *testing.T) {
 func TestAgg_group_avg(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_group_avg",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -454,7 +454,7 @@ func TestAgg_group_avg(t *testing.T) {
 func TestAgg_group_min_max(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_group_min_max",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -473,7 +473,7 @@ func TestAgg_group_min_max(t *testing.T) {
 func TestAgg_group_first_last(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_group_first_last",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -493,7 +493,7 @@ func TestAgg_group_first_last(t *testing.T) {
 func TestAgg_group_push(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_group_push",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -512,7 +512,7 @@ func TestAgg_group_push(t *testing.T) {
 func TestAgg_group_addToSet(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_group_addToSet",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -537,7 +537,7 @@ func TestAgg_group_addToSet(t *testing.T) {
 func TestAgg_group_null_id(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_group_null_id",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -554,7 +554,7 @@ func TestAgg_group_null_id(t *testing.T) {
 func TestAgg_group_empty_collection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_group_empty_collection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
 				{{Key: "$group", Value: bson.D{
@@ -575,7 +575,7 @@ func TestAgg_group_empty_collection(t *testing.T) {
 func TestAgg_unwind_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_unwind_basic",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -591,7 +591,7 @@ func TestAgg_unwind_basic(t *testing.T) {
 func TestAgg_unwind_preserveNullAndEmpty(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_unwind_preserveNullAndEmpty",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "uw1"}, {Key: "tags", Value: bson.A{"x"}}},
@@ -620,7 +620,7 @@ func TestAgg_unwind_preserveNullAndEmpty(t *testing.T) {
 func TestAgg_unwind_includeArrayIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_unwind_includeArrayIndex",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -643,7 +643,7 @@ func TestAgg_unwind_includeArrayIndex(t *testing.T) {
 func TestAgg_unwind_empty_array(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_unwind_empty_array",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "empty-arr"},
@@ -668,7 +668,7 @@ func TestAgg_unwind_empty_array(t *testing.T) {
 func TestAgg_lookup_equality(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_lookup_equality",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "ord-1"}, {Key: "item", Value: "apple"}},
@@ -699,7 +699,7 @@ func TestAgg_lookup_equality(t *testing.T) {
 func TestAgg_lookup_pipeline_form(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_lookup_pipeline_form",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "lp-1"}, {Key: "dept", Value: "eng"}},
@@ -736,7 +736,7 @@ func TestAgg_lookup_pipeline_form(t *testing.T) {
 func TestAgg_addFields_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_addFields_basic",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -759,7 +759,7 @@ func TestAgg_addFields_basic(t *testing.T) {
 func TestAgg_addFields_multiple_docs(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_addFields_multiple_docs",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -778,7 +778,7 @@ func TestAgg_addFields_multiple_docs(t *testing.T) {
 func TestAgg_set_alias(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_set_alias",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -794,7 +794,7 @@ func TestAgg_set_alias(t *testing.T) {
 func TestAgg_unset_stage_array(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_unset_stage_array",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -809,7 +809,7 @@ func TestAgg_unset_stage_array(t *testing.T) {
 func TestAgg_unset_stage_single(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_unset_stage_single",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -826,7 +826,7 @@ func TestAgg_unset_stage_single(t *testing.T) {
 func TestAgg_replaceRoot_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_replaceRoot_basic",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "rr-1"}, {Key: "meta", Value: bson.D{{Key: "x", Value: int32(1)}, {Key: "y", Value: int32(2)}}}},
@@ -847,7 +847,7 @@ func TestAgg_replaceRoot_basic(t *testing.T) {
 func TestAgg_replaceWith_alias(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_replaceWith_alias",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "rw-1"}, {Key: "inner", Value: bson.D{{Key: "val", Value: int32(10)}}}},
@@ -868,7 +868,7 @@ func TestAgg_replaceWith_alias(t *testing.T) {
 func TestAgg_replaceRoot_mergeObjects(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_replaceRoot_mergeObjects",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -891,7 +891,7 @@ func TestAgg_replaceRoot_mergeObjects(t *testing.T) {
 func TestAgg_out_to_collection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_out_to_collection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			outColName := "out_" + col.Name()
@@ -917,7 +917,7 @@ func TestAgg_out_to_collection(t *testing.T) {
 func TestAgg_merge_insert_new(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_merge_insert_new",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			mergeColName := "merge_" + col.Name()
@@ -944,7 +944,7 @@ func TestAgg_merge_insert_new(t *testing.T) {
 func TestAgg_merge_whenMatched_merge(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_merge_whenMatched_merge",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "m1"}, {Key: "val", Value: int32(1)}},
@@ -981,7 +981,7 @@ func TestAgg_merge_whenMatched_merge(t *testing.T) {
 func TestAgg_facet_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_facet_basic",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1010,7 +1010,7 @@ func TestAgg_facet_basic(t *testing.T) {
 func TestAgg_facet_with_count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_facet_with_count",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1034,7 +1034,7 @@ func TestAgg_facet_with_count(t *testing.T) {
 func TestAgg_bucket_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_bucket_basic",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1056,7 +1056,7 @@ func TestAgg_bucket_basic(t *testing.T) {
 func TestAgg_bucket_default(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_bucket_default",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1074,7 +1074,7 @@ func TestAgg_bucket_default(t *testing.T) {
 func TestAgg_bucketAuto_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_bucketAuto_basic",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1094,7 +1094,7 @@ func TestAgg_bucketAuto_basic(t *testing.T) {
 func TestAgg_bucketAuto_with_output(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_bucketAuto_with_output",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1120,7 +1120,7 @@ func TestAgg_bucketAuto_with_output(t *testing.T) {
 func TestAgg_sortByCount_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_sortByCount_basic",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1134,7 +1134,7 @@ func TestAgg_sortByCount_basic(t *testing.T) {
 func TestAgg_sortByCount_after_unwind(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_sortByCount_after_unwind",
-		Support: harness.DongoXFail,
+		Support: harness.DocudoltXFail,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1151,7 +1151,7 @@ func TestAgg_sortByCount_after_unwind(t *testing.T) {
 func TestAgg_graphLookup_hierarchy(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_graphLookup_hierarchy",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "ceo"}, {Key: "name", Value: "Alice"}, {Key: "reportsTo", Value: nil}},
@@ -1185,7 +1185,7 @@ func TestAgg_graphLookup_hierarchy(t *testing.T) {
 func TestAgg_graphLookup_maxDepth(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_graphLookup_maxDepth",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "root"}, {Key: "parent", Value: nil}},
@@ -1221,7 +1221,7 @@ func TestAgg_graphLookup_maxDepth(t *testing.T) {
 func TestAgg_sample_count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_sample_count",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1238,7 +1238,7 @@ func TestAgg_sample_count(t *testing.T) {
 func TestAgg_sample_exceeds_size(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_sample_exceeds_size",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1257,7 +1257,7 @@ func TestAgg_sample_exceeds_size(t *testing.T) {
 func TestAgg_redact_prune(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_redact_prune",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{
@@ -1289,7 +1289,7 @@ func TestAgg_redact_prune(t *testing.T) {
 func TestAgg_redact_keep(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_redact_keep",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1306,7 +1306,7 @@ func TestAgg_redact_keep(t *testing.T) {
 func TestAgg_redact_prune_all(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_redact_prune_all",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1325,7 +1325,7 @@ func TestAgg_redact_prune_all(t *testing.T) {
 func TestAgg_pipeline_match_group_sort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_pipeline_match_group_sort",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1344,7 +1344,7 @@ func TestAgg_pipeline_match_group_sort(t *testing.T) {
 func TestAgg_pipeline_project_sort_limit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_pipeline_project_sort_limit",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1364,7 +1364,7 @@ func TestAgg_pipeline_project_sort_limit(t *testing.T) {
 func TestAgg_pipeline_unwind_group(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_pipeline_unwind_group",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1383,7 +1383,7 @@ func TestAgg_pipeline_unwind_group(t *testing.T) {
 func TestAgg_pipeline_addFields_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_pipeline_addFields_match",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1404,7 +1404,7 @@ func TestAgg_pipeline_addFields_match(t *testing.T) {
 func TestAgg_allowDiskUse(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_allowDiskUse",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Aggregate().SetAllowDiskUse(true)
@@ -1430,7 +1430,7 @@ func TestAgg_allowDiskUse(t *testing.T) {
 func TestAgg_empty_pipeline(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_empty_pipeline",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{})
@@ -1445,7 +1445,7 @@ func TestAgg_empty_pipeline(t *testing.T) {
 func TestAgg_group_multiply_price_qty(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_group_multiply_price_qty",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1470,7 +1470,7 @@ func TestAgg_group_multiply_price_qty(t *testing.T) {
 func TestAgg_match_in_operator(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_match_in_operator",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1491,7 +1491,7 @@ func TestAgg_match_in_operator(t *testing.T) {
 func TestAgg_project_conditional_cond(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_project_conditional_cond",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1519,7 +1519,7 @@ func TestAgg_project_conditional_cond(t *testing.T) {
 func TestAgg_sort_by_multiple_fields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_sort_by_multiple_fields",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1545,7 +1545,7 @@ func TestAgg_sort_by_multiple_fields(t *testing.T) {
 func TestAgg_group_by_category_min_max(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_group_by_category_min_max",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1567,7 +1567,7 @@ func TestAgg_group_by_category_min_max(t *testing.T) {
 func TestAgg_unwind_then_group_count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_unwind_then_group_count",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1590,7 +1590,7 @@ func TestAgg_unwind_then_group_count(t *testing.T) {
 func TestAgg_addFields_computed_total(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_addFields_computed_total",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1617,7 +1617,7 @@ func TestAgg_addFields_computed_total(t *testing.T) {
 func TestAgg_match_exists(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_match_exists",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1638,7 +1638,7 @@ func TestAgg_match_exists(t *testing.T) {
 func TestAgg_project_string_concat(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_project_string_concat",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1662,7 +1662,7 @@ func TestAgg_project_string_concat(t *testing.T) {
 func TestAgg_group_avg_price(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_group_avg_price",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1685,7 +1685,7 @@ func TestAgg_group_avg_price(t *testing.T) {
 func TestAgg_skip_and_limit_page(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_skip_and_limit_page",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Page 2 with page size 2
@@ -1705,7 +1705,7 @@ func TestAgg_skip_and_limit_page(t *testing.T) {
 func TestAgg_match_regex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_match_regex",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1726,7 +1726,7 @@ func TestAgg_match_regex(t *testing.T) {
 func TestAgg_project_array_size(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_project_array_size",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1750,7 +1750,7 @@ func TestAgg_project_array_size(t *testing.T) {
 func TestAgg_match_gt_lt_range(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_match_gt_lt_range",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1776,7 +1776,7 @@ func TestAgg_match_gt_lt_range(t *testing.T) {
 func TestProject_computed_add(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_computed_add",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1800,7 +1800,7 @@ func TestProject_computed_add(t *testing.T) {
 func TestProject_conditional_cond_array_form(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_conditional_cond_array_form",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1828,7 +1828,7 @@ func TestProject_conditional_cond_array_form(t *testing.T) {
 func TestProject_ifNull_default(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_ifNull_default",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1852,7 +1852,7 @@ func TestProject_ifNull_default(t *testing.T) {
 func TestProject_string_toLower_name(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_string_toLower_name",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1873,7 +1873,7 @@ func TestProject_string_toLower_name(t *testing.T) {
 func TestProject_string_concat_category_name(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_string_concat_category_name",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1897,7 +1897,7 @@ func TestProject_string_concat_category_name(t *testing.T) {
 func TestProject_size_tags_array(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_size_tags_array",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1918,7 +1918,7 @@ func TestProject_size_tags_array(t *testing.T) {
 func TestProject_arrayElemAt_first_tag(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_arrayElemAt_first_tag",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1939,7 +1939,7 @@ func TestProject_arrayElemAt_first_tag(t *testing.T) {
 func TestProject_switch_price_tier(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_switch_price_tier",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1966,7 +1966,7 @@ func TestProject_switch_price_tier(t *testing.T) {
 func TestAddFields_computed_revenue(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddFields_computed_revenue",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -1987,7 +1987,7 @@ func TestAddFields_computed_revenue(t *testing.T) {
 func TestAddFields_category_upper(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddFields_category_upper",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2008,7 +2008,7 @@ func TestAddFields_category_upper(t *testing.T) {
 func TestAddFields_is_expensive(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddFields_is_expensive",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2029,7 +2029,7 @@ func TestAddFields_is_expensive(t *testing.T) {
 func TestAddFields_tag_count_and_first(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddFields_tag_count_and_first",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2051,7 +2051,7 @@ func TestAddFields_tag_count_and_first(t *testing.T) {
 func TestAddFields_set_alias_expr(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddFields_set_alias_expr",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2072,7 +2072,7 @@ func TestAddFields_set_alias_expr(t *testing.T) {
 func TestAddFields_then_group(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddFields_then_group",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2096,7 +2096,7 @@ func TestAddFields_then_group(t *testing.T) {
 func TestAddFields_multiple_computed_fields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddFields_multiple_computed_fields",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2127,7 +2127,7 @@ func TestAddFields_multiple_computed_fields(t *testing.T) {
 func TestProject_exclude_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_exclude_field",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2151,7 +2151,7 @@ func TestProject_exclude_field(t *testing.T) {
 func TestProject_computed_boolean(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_computed_boolean",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2177,7 +2177,7 @@ func TestProject_computed_boolean(t *testing.T) {
 func TestProject_toInt_price(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_toInt_price",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2198,7 +2198,7 @@ func TestProject_toInt_price(t *testing.T) {
 func TestProject_toString_qty(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_toString_qty",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2222,7 +2222,7 @@ func TestProject_toString_qty(t *testing.T) {
 func TestProject_in_array_check(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_in_array_check",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2244,7 +2244,7 @@ func TestProject_in_array_check(t *testing.T) {
 func TestProject_mergeObjects_with_extra(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_mergeObjects_with_extra",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2271,7 +2271,7 @@ func TestProject_mergeObjects_with_extra(t *testing.T) {
 func TestProject_let_vars_expr(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_let_vars_expr",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2298,7 +2298,7 @@ func TestProject_let_vars_expr(t *testing.T) {
 func TestProject_filter_tags(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_filter_tags",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2327,7 +2327,7 @@ func TestProject_filter_tags(t *testing.T) {
 func TestProject_map_tags_upper(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_map_tags_upper",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2352,7 +2352,7 @@ func TestProject_map_tags_upper(t *testing.T) {
 func TestProject_literal_constant(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_literal_constant",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2377,7 +2377,7 @@ func TestProject_literal_constant(t *testing.T) {
 func TestProject_and_or_in_project(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_and_or_in_project",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2402,7 +2402,7 @@ func TestProject_and_or_in_project(t *testing.T) {
 func TestAddFields_then_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddFields_then_match",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2424,7 +2424,7 @@ func TestAddFields_then_match(t *testing.T) {
 func TestProject_slice_tags(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Project_slice_tags",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -2447,15 +2447,15 @@ func TestProject_slice_tags(t *testing.T) {
 
 // TestAgg_bucket_missingBoundaries documents the error code mismatch when
 // $bucket is called without a required "boundaries" field.
-// MongoDB returns error code 40198; dongo returns 9. Bug: do-to0, do-slq1.
+// MongoDB returns error code 40198; docudolt returns 9. Bug: do-to0, do-slq1.
 func TestAgg_bucket_missingBoundaries(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_bucket_missingBoundaries",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $bucket with no "boundaries" field — both engines must error,
-			// but MongoDB returns code 40198 while dongo returns code 9.
+			// but MongoDB returns code 40198 while docudolt returns code 9.
 			_, err := runPipeline(ctx, col, []bson.D{
 				{{Key: "$bucket", Value: bson.D{
 					{Key: "groupBy", Value: "$price"},

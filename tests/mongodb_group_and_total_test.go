@@ -17,7 +17,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/dolthub/dongo-parity-testing/harness"
+	"github.com/dolthub/docudolt-parity-testing/harness"
 )
 
 // groupAndTotalOrdersSeed inserts the 9 orders from the tutorial.
@@ -92,7 +92,7 @@ func groupAndTotalOrdersSeed(ctx context.Context, col *mongo.Collection) error {
 func TestGroupAndTotal_CustomerOrders2020(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GroupAndTotal_CustomerOrders2020",
-		Support: harness.DongoXFail,
+		Support: harness.DocudoltXFail,
 		Setup:   groupAndTotalOrdersSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := mongo.Pipeline{

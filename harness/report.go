@@ -6,16 +6,16 @@ import (
 	"os"
 )
 
-// DongoSupport indicates how Dongo handles the feature under test.
-type DongoSupport int
+// DocudoltSupport indicates how Docudolt handles the feature under test.
+type DocudoltSupport int
 
 const (
-	// DongoFull: run both MongoDB and Dongo, compare — divergence fails CI.
-	DongoFull DongoSupport = iota
-	// DongoMongoOnly: run MongoDB only, skip Dongo — for deprecated/unsupported features.
-	DongoMongoOnly
-	// DongoXFail: run both, record Dongo failure but do not fail CI.
-	DongoXFail
+	// DocudoltFull: run both MongoDB and Docudolt, compare — divergence fails CI.
+	DocudoltFull DocudoltSupport = iota
+	// DocudoltMongoOnly: run MongoDB only, skip Docudolt — for deprecated/unsupported features.
+	DocudoltMongoOnly
+	// DocudoltXFail: run both, record Docudolt failure but do not fail CI.
+	DocudoltXFail
 )
 
 // TestStatus is the outcome of a single test run.

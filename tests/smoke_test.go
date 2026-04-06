@@ -4,23 +4,23 @@ import (
 	"context"
 	"testing"
 
-	"github.com/dolthub/dongo-parity-testing/harness"
+	"github.com/dolthub/docudolt-parity-testing/harness"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // TestTransactionSmoke verifies the harness support-level contract.
 //
-// MongoDB 8 supports multi-document transactions. Dongo does not yet.
-// This test is intentionally marked DongoFull so CI fails red — proving
+// MongoDB 8 supports multi-document transactions. Docudolt does not yet.
+// This test is intentionally marked DocudoltFull so CI fails red — proving
 // the harness correctly surfaces a real divergence.
 //
-// To verify the other direction: change DongoFull → DongoXFail and CI
+// To verify the other direction: change DocudoltFull → DocudoltXFail and CI
 // should go green (divergence recorded but not fatal).
 func TestTransactionSmoke(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "transaction-smoke",
-		Support: harness.DongoXFail, // DongoFull confirmed red; XFail = divergence recorded, CI green
+		Support: harness.DocudoltXFail, // DocudoltFull confirmed red; XFail = divergence recorded, CI green
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			session, err := col.Database().Client().StartSession()
 			if err != nil {

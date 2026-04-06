@@ -17,10 +17,10 @@ var (
 	clientsErr    error
 )
 
-// Clients holds connections to MongoDB and Dongo.
+// Clients holds connections to MongoDB and Docudolt.
 type Clients struct {
 	Mongo *mongo.Client
-	Dongo *mongo.Client
+	Docudolt *mongo.Client
 }
 
 func mongoURI() string {
@@ -30,14 +30,14 @@ func mongoURI() string {
 	return "mongodb://localhost:27017"
 }
 
-func dongoURI() string {
-	if v := os.Getenv("DONGO_URI"); v != "" {
+func docudoltURI() string {
+	if v := os.Getenv("DOCUDOLT_URI"); v != "" {
 		return v
 	}
 	return "mongodb://localhost:27018"
 }
 
-// GetClients returns the shared Mongo+Dongo client pair, connecting on first call.
+// GetClients returns the shared Mongo+Docudolt client pair, connecting on first call.
 func GetClients(ctx context.Context) (*Clients, error) {
 	clientsOnce.Do(func() {
 		mc, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURI()))
@@ -50,48 +50,48 @@ func GetClients(ctx context.Context) (*Clients, error) {
 			return
 		}
 
-		dc, err := mongo.Connect(ctx, options.Client().ApplyURI(dongoURI()))
+		dc, err := mongo.Connect(ctx, options.Client().ApplyURI(docudoltURI()))
 		if err != nil {
 			_ = mc.Disconnect(ctx)
-			clientsErr = fmt.Errorf("connect dongo: %w", err)
+			clientsErr = fmt.Errorf("connect docudolt: %w", err)
 			return
 		}
 		if err := dc.Ping(ctx, nil); err != nil {
-			clientsErr = fmt.Errorf("ping dongo: %w", err)
+			clientsErr = fmt.Errorf("ping docudolt: %w", err)
 			return
 		}
 
-		globalClients = &Clients{Mongo: mc, Dongo: dc}
+		globalClients = &Clients{Mongo: mc, Docudolt: dc}
 	})
 	return globalClients, clientsErr
 }
 
 // TestDB creates a uniquely-named database for a single test on both servers.
 // The returned cleanup function drops both databases; callers should defer it.
-// If Dongo is unreachable (e.g. crashed mid-suite), TestDB returns an error
+// If Docudolt is unreachable (e.g. crashed mid-suite), TestDB returns an error
 // immediately rather than blocking for the 30-second server-selection timeout.
-func (c *Clients) TestDB(ctx context.Context, testName string) (mongoCol, dongoCol *mongo.Collection, cleanup func(), err error) {
-	// Fast health check: if Dongo crashed after the initial connection, detect it
+func (c *Clients) TestDB(ctx context.Context, testName string) (mongoCol, docudoltCol *mongo.Collection, cleanup func(), err error) {
+	// Fast health check: if Docudolt crashed after the initial connection, detect it
 	// quickly (2s) rather than letting every subsequent test hang for 30s.
 	pingCtx, pingCancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer pingCancel()
-	if err := c.Dongo.Ping(pingCtx, nil); err != nil {
-		return nil, nil, func() {}, fmt.Errorf("dongo unreachable (crashed?): %w", err)
+	if err := c.Docudolt.Ping(pingCtx, nil); err != nil {
+		return nil, nil, func() {}, fmt.Errorf("docudolt unreachable (crashed?): %w", err)
 	}
 
 	dbName := fmt.Sprintf("parity_%s_%d", sanitizeName(testName), time.Now().UnixNano())
 	const colName = "col"
 
 	mongoCol = c.Mongo.Database(dbName).Collection(colName)
-	dongoCol = c.Dongo.Database(dbName).Collection(colName)
+	docudoltCol = c.Docudolt.Database(dbName).Collection(colName)
 
 	cleanup = func() {
 		dropCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		_ = c.Mongo.Database(dbName).Drop(dropCtx)
-		_ = c.Dongo.Database(dbName).Drop(dropCtx)
+		_ = c.Docudolt.Database(dbName).Drop(dropCtx)
 	}
-	return mongoCol, dongoCol, cleanup, nil
+	return mongoCol, docudoltCol, cleanup, nil
 }
 
 // sanitizeName converts a test name to a safe database name component.

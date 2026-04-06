@@ -8,7 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/dolthub/dongo-parity-testing/harness"
+	"github.com/dolthub/docudolt-parity-testing/harness"
 )
 
 // projDocs are the shared seed docs for projection and sort tests.
@@ -115,7 +115,7 @@ func runFindAll(ctx context.Context, col *mongo.Collection, filter interface{}, 
 func TestProjection_IncludeFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_IncludeFields",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -129,7 +129,7 @@ func TestProjection_IncludeFields(t *testing.T) {
 func TestProjection_ExcludeID(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_ExcludeID",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -143,7 +143,7 @@ func TestProjection_ExcludeID(t *testing.T) {
 func TestProjection_ExcludeField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_ExcludeField",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -157,7 +157,7 @@ func TestProjection_ExcludeField(t *testing.T) {
 func TestProjection_ExcludeIDAndAddr(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_ExcludeIDAndAddr",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -171,7 +171,7 @@ func TestProjection_ExcludeIDAndAddr(t *testing.T) {
 func TestProjection_OnlyID(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_OnlyID",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -185,7 +185,7 @@ func TestProjection_OnlyID(t *testing.T) {
 func TestProjection_EmptyProjection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_EmptyProjection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -199,7 +199,7 @@ func TestProjection_EmptyProjection(t *testing.T) {
 func TestProjection_NonexistentField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_NonexistentField",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -213,7 +213,7 @@ func TestProjection_NonexistentField(t *testing.T) {
 func TestProjection_ArrayField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_ArrayField",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -227,7 +227,7 @@ func TestProjection_ArrayField(t *testing.T) {
 func TestProjection_MultipleInclusions(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_MultipleInclusions",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -250,7 +250,7 @@ func TestProjection_MultipleInclusions(t *testing.T) {
 func TestProjection_NestedField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_NestedField",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -264,7 +264,7 @@ func TestProjection_NestedField(t *testing.T) {
 func TestProjection_NestedFieldExclude(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_NestedFieldExclude",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -278,7 +278,7 @@ func TestProjection_NestedFieldExclude(t *testing.T) {
 func TestProjection_MultipleNestedFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_MultipleNestedFields",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -296,7 +296,7 @@ func TestProjection_MultipleNestedFields(t *testing.T) {
 func TestProjection_NestedAndTopLevel(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_NestedAndTopLevel",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -318,7 +318,7 @@ func TestProjection_NestedAndTopLevel(t *testing.T) {
 func TestProjection_FindOne_IncludeFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_FindOne_IncludeFields",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOne().
@@ -333,7 +333,7 @@ func TestProjection_FindOne_IncludeFields(t *testing.T) {
 func TestProjection_FindOne_ExcludeField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_FindOne_ExcludeField",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOne().
@@ -348,7 +348,7 @@ func TestProjection_FindOne_ExcludeField(t *testing.T) {
 func TestProjection_FindOne_NestedField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_FindOne_NestedField",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOne().
@@ -367,7 +367,7 @@ func TestProjection_FindOne_NestedField(t *testing.T) {
 func TestProjection_Slice_FirstN(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_Slice_FirstN",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -381,7 +381,7 @@ func TestProjection_Slice_FirstN(t *testing.T) {
 func TestProjection_Slice_LastN(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_Slice_LastN",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -395,7 +395,7 @@ func TestProjection_Slice_LastN(t *testing.T) {
 func TestProjection_Slice_SkipLimit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_Slice_SkipLimit",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -412,7 +412,7 @@ func TestProjection_Slice_SkipLimit(t *testing.T) {
 func TestProjection_Slice_AllElements(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_Slice_AllElements",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -426,7 +426,7 @@ func TestProjection_Slice_AllElements(t *testing.T) {
 func TestProjection_Slice_Tags_FirstOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_Slice_Tags_FirstOne",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -440,7 +440,7 @@ func TestProjection_Slice_Tags_FirstOne(t *testing.T) {
 func TestProjection_Slice_NegativeSkip(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_Slice_NegativeSkip",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -455,13 +455,13 @@ func TestProjection_Slice_NegativeSkip(t *testing.T) {
 }
 
 // ============================================================
-// Projection — $elemMatch in projection (DongoXFail)
+// Projection — $elemMatch in projection (DocudoltXFail)
 // ============================================================
 
 func TestProjection_ElemMatch_ScoresGte80(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_ElemMatch_ScoresGte80",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -478,7 +478,7 @@ func TestProjection_ElemMatch_ScoresGte80(t *testing.T) {
 func TestProjection_ElemMatch_ScoresLt70(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_ElemMatch_ScoresLt70",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -495,7 +495,7 @@ func TestProjection_ElemMatch_ScoresLt70(t *testing.T) {
 func TestProjection_ElemMatch_TagsValue(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_ElemMatch_TagsValue",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -512,7 +512,7 @@ func TestProjection_ElemMatch_TagsValue(t *testing.T) {
 func TestProjection_ElemMatch_NoMatchInDoc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_ElemMatch_NoMatchInDoc",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -528,13 +528,13 @@ func TestProjection_ElemMatch_NoMatchInDoc(t *testing.T) {
 }
 
 // ============================================================
-// Projection — positional $ operator (DongoXFail)
+// Projection — positional $ operator (DocudoltXFail)
 // ============================================================
 
 func TestProjection_Positional_ScoresGte80(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_Positional_ScoresGte80",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -548,7 +548,7 @@ func TestProjection_Positional_ScoresGte80(t *testing.T) {
 func TestProjection_Positional_TagsGo(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_Positional_TagsGo",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -566,7 +566,7 @@ func TestProjection_Positional_TagsGo(t *testing.T) {
 func TestSort_Ascending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_Ascending",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -580,7 +580,7 @@ func TestSort_Ascending(t *testing.T) {
 func TestSort_Descending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_Descending",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -594,7 +594,7 @@ func TestSort_Descending(t *testing.T) {
 func TestSort_StringAscending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_StringAscending",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -608,7 +608,7 @@ func TestSort_StringAscending(t *testing.T) {
 func TestSort_StringDescending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_StringDescending",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -626,7 +626,7 @@ func TestSort_StringDescending(t *testing.T) {
 func TestSort_NestedField_Asc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_NestedField_Asc",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -640,7 +640,7 @@ func TestSort_NestedField_Asc(t *testing.T) {
 func TestSort_NestedField_Desc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_NestedField_Desc",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -658,7 +658,7 @@ func TestSort_NestedField_Desc(t *testing.T) {
 func TestSort_NullValues_Ascending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_NullValues_Ascending",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// p3 has dept=null, p4 has no dept field — both sort before non-null values asc
@@ -673,7 +673,7 @@ func TestSort_NullValues_Ascending(t *testing.T) {
 func TestSort_NullValues_Descending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_NullValues_Descending",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -687,7 +687,7 @@ func TestSort_NullValues_Descending(t *testing.T) {
 func TestSort_MissingField_Ascending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_MissingField_Ascending",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -705,7 +705,7 @@ func TestSort_MissingField_Ascending(t *testing.T) {
 func TestSort_TwoFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_TwoFields",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -719,7 +719,7 @@ func TestSort_TwoFields(t *testing.T) {
 func TestSort_ThreeFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_ThreeFields",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -737,7 +737,7 @@ func TestSort_ThreeFields(t *testing.T) {
 func TestSort_FourFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_FourFields",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -754,13 +754,13 @@ func TestSort_FourFields(t *testing.T) {
 }
 
 // ============================================================
-// Sort — array field (uses minimum element; DongoXFail)
+// Sort — array field (uses minimum element; DocudoltXFail)
 // ============================================================
 
 func TestSort_ArrayField_Ascending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_ArrayField_Ascending",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -774,7 +774,7 @@ func TestSort_ArrayField_Ascending(t *testing.T) {
 func TestSort_ArrayField_Descending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_ArrayField_Descending",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -792,7 +792,7 @@ func TestSort_ArrayField_Descending(t *testing.T) {
 func TestSort_Natural_Ascending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_Natural_Ascending",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -806,7 +806,7 @@ func TestSort_Natural_Ascending(t *testing.T) {
 func TestSort_Natural_Descending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_Natural_Descending",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -818,13 +818,13 @@ func TestSort_Natural_Descending(t *testing.T) {
 }
 
 // ============================================================
-// Sort — $meta textScore (DongoXFail — requires text index)
+// Sort — $meta textScore (DocudoltXFail — requires text index)
 // ============================================================
 
 func TestSort_MetaTextScore(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_MetaTextScore",
-		Support: harness.DongoXFail,
+		Support: harness.DocudoltXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			// Create a text index required for $meta textScore sort.
 			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
@@ -854,7 +854,7 @@ func TestSort_MetaTextScore(t *testing.T) {
 func TestCombined_SortProjection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_SortProjection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -868,7 +868,7 @@ func TestCombined_SortProjection(t *testing.T) {
 func TestCombined_SortProjectionLimit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_SortProjectionLimit",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -883,7 +883,7 @@ func TestCombined_SortProjectionLimit(t *testing.T) {
 func TestCombined_SortProjectionSkip(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_SortProjectionSkip",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -898,7 +898,7 @@ func TestCombined_SortProjectionSkip(t *testing.T) {
 func TestCombined_SortProjectionLimitSkip(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_SortProjectionLimitSkip",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -914,7 +914,7 @@ func TestCombined_SortProjectionLimitSkip(t *testing.T) {
 func TestCombined_FilterSortProjection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_FilterSortProjection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -928,7 +928,7 @@ func TestCombined_FilterSortProjection(t *testing.T) {
 func TestCombined_FilterSortLimitSkip(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_FilterSortLimitSkip",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -944,7 +944,7 @@ func TestCombined_FilterSortLimitSkip(t *testing.T) {
 func TestCombined_SkipPastEnd(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_SkipPastEnd",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -959,7 +959,7 @@ func TestCombined_SkipPastEnd(t *testing.T) {
 func TestCombined_LimitZero(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_LimitZero",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// limit=0 means no limit in MongoDB
@@ -975,7 +975,7 @@ func TestCombined_LimitZero(t *testing.T) {
 func TestCombined_FindOne_SortDesc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_FindOne_SortDesc",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOne().
@@ -991,7 +991,7 @@ func TestCombined_FindOne_SortDesc(t *testing.T) {
 func TestCombined_FindOne_SortAsc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_FindOne_SortAsc",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOne().
@@ -1007,7 +1007,7 @@ func TestCombined_FindOne_SortAsc(t *testing.T) {
 func TestCombined_FindOne_FilterSortProjection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_FindOne_FilterSortProjection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOne().
@@ -1023,7 +1023,7 @@ func TestCombined_FindOne_FilterSortProjection(t *testing.T) {
 func TestCombined_SortProjectionNestedFieldLimit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_SortProjectionNestedFieldLimit",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -1038,7 +1038,7 @@ func TestCombined_SortProjectionNestedFieldLimit(t *testing.T) {
 func TestCombined_Sort_Slice_Projection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_Sort_Slice_Projection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -1056,7 +1056,7 @@ func TestCombined_Sort_Slice_Projection(t *testing.T) {
 func TestCombined_Sort_ElemMatch_Projection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_Sort_ElemMatch_Projection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -1077,7 +1077,7 @@ func TestCombined_Sort_ElemMatch_Projection(t *testing.T) {
 func TestCombined_FindOne_SkipViaFind(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_FindOne_SkipViaFind",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Use Find+Limit(1)+Skip to simulate FindOne-with-skip
@@ -1098,7 +1098,7 @@ func TestCombined_FindOne_SkipViaFind(t *testing.T) {
 func TestProjection_NullFieldIncluded(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_NullFieldIncluded",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -1112,7 +1112,7 @@ func TestProjection_NullFieldIncluded(t *testing.T) {
 func TestProjection_NullFieldExcluded(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_NullFieldExcluded",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -1130,7 +1130,7 @@ func TestProjection_NullFieldExcluded(t *testing.T) {
 func TestSort_BooleanField_Asc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_BooleanField_Asc",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -1144,7 +1144,7 @@ func TestSort_BooleanField_Asc(t *testing.T) {
 func TestSort_BooleanField_Desc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_BooleanField_Desc",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -1162,7 +1162,7 @@ func TestSort_BooleanField_Desc(t *testing.T) {
 func TestCombined_LargeLimit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_LargeLimit",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -1181,7 +1181,7 @@ func TestCombined_LargeLimit(t *testing.T) {
 func TestCombined_ProjectAndSortSameField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_ProjectAndSortSameField",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -1195,7 +1195,7 @@ func TestCombined_ProjectAndSortSameField(t *testing.T) {
 func TestCombined_SortOnExcludedField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_SortOnExcludedField",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Sort on "rank" but exclude "rank" from projection

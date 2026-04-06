@@ -11,7 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/dolthub/dongo-parity-testing/harness"
+	"github.com/dolthub/docudolt-parity-testing/harness"
 )
 
 // w3sPostDate is a fixed date used in place of the tutorial's Date() call.
@@ -65,7 +65,7 @@ func TestW3S_Insert_InsertOne(t *testing.T) {
 	//   category: "News", likes: 1, tags: ["news","events"], date: Date() })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Insert_InsertOne",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "title", Value: "Post Title 1"},
@@ -93,7 +93,7 @@ func TestW3S_Insert_InsertMany(t *testing.T) {
 	// db.posts.insertMany([{...}, {...}, {...}])
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Insert_InsertMany",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.InsertMany(ctx, []interface{}{
 				bson.D{
@@ -137,7 +137,7 @@ func TestW3S_Find_FindAll(t *testing.T) {
 	// db.posts.find()
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Find_FindAll",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx, bson.D{})
@@ -151,7 +151,7 @@ func TestW3S_Find_FindOne(t *testing.T) {
 	// db.posts.findOne()
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Find_FindOne",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			var result bson.D
@@ -175,7 +175,7 @@ func TestW3S_Find_QueryByField(t *testing.T) {
 	// db.posts.find( {category: "News"} )
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Find_QueryByField",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(ctx, bson.D{{Key: "category", Value: "News"}})
@@ -192,11 +192,11 @@ func TestW3S_Find_QueryByField(t *testing.T) {
 }
 
 func TestW3S_Find_ProjectInclude(t *testing.T) {
-	// "Both MongoDB and Dongo return only the projected fields (plus _id by default)."
+	// "Both MongoDB and Docudolt return only the projected fields (plus _id by default)."
 	// db.posts.find({}, {title: 1, date: 1})
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Find_ProjectInclude",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(ctx,
@@ -227,7 +227,7 @@ func TestW3S_Find_ProjectExcludeId(t *testing.T) {
 	// db.posts.find({}, {_id: 0, title: 1, date: 1})
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Find_ProjectExcludeId",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(ctx,
@@ -255,7 +255,7 @@ func TestW3S_Find_ProjectExcludeField(t *testing.T) {
 	// db.posts.find({}, {category: 0})
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Find_ProjectExcludeField",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(ctx,
@@ -293,7 +293,7 @@ func TestW3S_QueryOperators_Gt(t *testing.T) {
 	// db.posts.find({ likes: { $gt: 2 } })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_QueryOperators_Gt",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx, bson.D{{Key: "likes", Value: bson.D{{Key: "$gt", Value: int32(2)}}}})
@@ -307,7 +307,7 @@ func TestW3S_QueryOperators_In(t *testing.T) {
 	// db.posts.find({ category: { $in: ["News", "Technology"] } })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_QueryOperators_In",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx, bson.D{{Key: "category", Value: bson.D{{Key: "$in", Value: bson.A{"News", "Technology"}}}}})
@@ -321,7 +321,7 @@ func TestW3S_QueryOperators_And(t *testing.T) {
 	// db.posts.find({ $and: [ {category: "Event"}, {likes: {$gte: 3}} ] })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_QueryOperators_And",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx, bson.D{{Key: "$and", Value: bson.A{
@@ -338,7 +338,7 @@ func TestW3S_QueryOperators_Or(t *testing.T) {
 	// db.posts.find({ $or: [ {category: "News"}, {category: "Technology"} ] })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_QueryOperators_Or",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx, bson.D{{Key: "$or", Value: bson.A{
@@ -358,7 +358,7 @@ func TestW3S_Update_UpdateOne(t *testing.T) {
 	// db.posts.updateOne( { title: "Post Title 1" }, { $set: { likes: 2 } } )
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Update_UpdateOne",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateOne(ctx,
@@ -381,7 +381,7 @@ func TestW3S_Update_Upsert(t *testing.T) {
 	// db.posts.updateOne( { title: "Post Title 5" }, { $set: {...} }, { upsert: true } )
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Update_Upsert",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateOne(ctx,
@@ -412,7 +412,7 @@ func TestW3S_Update_UpdateMany(t *testing.T) {
 	// db.posts.updateMany({}, { $inc: { likes: 1 } })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Update_UpdateMany",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateMany(ctx,
@@ -435,7 +435,7 @@ func TestW3S_UpdateOperators_Set(t *testing.T) {
 	// "$set — sets the value of a field"
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_UpdateOperators_Set",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -455,7 +455,7 @@ func TestW3S_UpdateOperators_Inc(t *testing.T) {
 	// "$inc — increments the value of a field"
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_UpdateOperators_Inc",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -484,7 +484,7 @@ func TestW3S_UpdateOperators_Unset(t *testing.T) {
 	// "$unset — removes a field from a document"
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_UpdateOperators_Unset",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -504,7 +504,7 @@ func TestW3S_UpdateOperators_Rename(t *testing.T) {
 	// "$rename — renames a field"
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_UpdateOperators_Rename",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -524,7 +524,7 @@ func TestW3S_UpdateOperators_Push(t *testing.T) {
 	// "$push — adds an item to an array field"
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_UpdateOperators_Push",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -544,7 +544,7 @@ func TestW3S_UpdateOperators_AddToSet(t *testing.T) {
 	// "$addToSet — adds an item to an array only if it does not already exist"
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_UpdateOperators_AddToSet",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Add "events" (already present) — should be a no-op.
@@ -571,7 +571,7 @@ func TestW3S_Delete_DeleteOne(t *testing.T) {
 	// db.posts.deleteOne({ title: "Post Title 5" })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Delete_DeleteOne",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.DeleteOne(ctx, bson.D{{Key: "title", Value: "Post Title 1"}})
@@ -595,7 +595,7 @@ func TestW3S_Delete_DeleteMany(t *testing.T) {
 	// db.posts.deleteMany({ category: "Technology" })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Delete_DeleteMany",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.DeleteMany(ctx, bson.D{{Key: "category", Value: "Technology"}})
@@ -627,7 +627,7 @@ func TestW3S_AggGroup_DistinctPropertyType(t *testing.T) {
 	// db.listingsAndReviews.aggregate([ { $group: { _id: "$property_type" } } ])
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggGroup_DistinctPropertyType",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sListingsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -650,7 +650,7 @@ func TestW3S_AggGroup_CountPerGroup(t *testing.T) {
 	// "Use $group with $sum to count documents per property type."
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggGroup_CountPerGroup",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sListingsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -680,7 +680,7 @@ func TestW3S_AggLimit_LimitOne(t *testing.T) {
 	// db.movies.aggregate([ { $limit: 1 } ])
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggLimit_LimitOne",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sListingsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -703,7 +703,7 @@ func TestW3S_AggLimit_LimitThree(t *testing.T) {
 	// "Limit to 3 results from a larger collection."
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggLimit_LimitThree",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sListingsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -790,7 +790,7 @@ func TestW3S_AggProject_SelectFields(t *testing.T) {
 	// ])
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggProject_SelectFields",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sRestaurantsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -818,7 +818,7 @@ func TestW3S_AggProject_ExcludeId(t *testing.T) {
 	// "Exclude _id from the projected output."
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggProject_ExcludeId",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sRestaurantsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -854,7 +854,7 @@ func TestW3S_AggSort_SortDescending(t *testing.T) {
 	// ])
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggSort_SortDescending",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sListingsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -882,7 +882,7 @@ func TestW3S_AggSort_SortAscending(t *testing.T) {
 	// "Use $sort: 1 for ascending order."
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggSort_SortAscending",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sListingsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -917,7 +917,7 @@ func TestW3S_AggMatch_FilterByPropertyType(t *testing.T) {
 	// ])
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggMatch_FilterByPropertyType",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sListingsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -947,7 +947,7 @@ func TestW3S_AggMatch_CountAfterFilter(t *testing.T) {
 	// "Count the documents after applying $match."
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggMatch_CountAfterFilter",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sListingsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -978,7 +978,7 @@ func TestW3S_AggAddFields_ComputedAvg(t *testing.T) {
 	// ])
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggAddFields_ComputedAvg",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sRestaurantsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1009,7 +1009,7 @@ func TestW3S_AggAddFields_StaticField(t *testing.T) {
 	// "Use $addFields to add a static computed field to every document."
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggAddFields_StaticField",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sRestaurantsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1044,7 +1044,7 @@ func TestW3S_AggCount_CountFiltered(t *testing.T) {
 	// ])
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggCount_CountFiltered",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sRestaurantsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1067,7 +1067,7 @@ func TestW3S_AggCount_CountAll(t *testing.T) {
 	// "Count all documents in the collection."
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggCount_CountAll",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sRestaurantsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1097,7 +1097,7 @@ func TestW3S_AggLookup_JoinCollections(t *testing.T) {
 	// ])
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggLookup_JoinCollections",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			// col = comments collection
 			if _, err := col.InsertMany(ctx, []interface{}{
@@ -1140,7 +1140,7 @@ func TestW3S_AggLookup_NoMatchEmptyArray(t *testing.T) {
 	// "When $lookup finds no matching foreign documents, it produces an empty array."
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggLookup_NoMatchEmptyArray",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "c1"}, {Key: "movie_id", Value: "no-such-movie"}, {Key: "text", Value: "Orphan comment"}},
@@ -1184,7 +1184,7 @@ func TestW3S_AggGroup_SumField(t *testing.T) {
 	// ])
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggGroup_SumField",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sListingsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1213,7 +1213,7 @@ func TestW3S_AggGroup_Avg(t *testing.T) {
 	// ])
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggGroup_Avg",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sListingsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1239,7 +1239,7 @@ func TestW3S_AggGroup_MinMax(t *testing.T) {
 	// "Use $group with $min and $max to find the cheapest and most expensive listing per type."
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggGroup_MinMax",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sListingsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1269,7 +1269,7 @@ func TestW3S_AggGroup_Push(t *testing.T) {
 	// ])
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggGroup_Push",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sListingsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1304,7 +1304,7 @@ func TestW3S_AggOut_GroupAndWrite(t *testing.T) {
 	// ])
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggOut_GroupAndWrite",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sListingsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1345,7 +1345,7 @@ func TestW3S_QueryOperators_Lt(t *testing.T) {
 	// db.posts.find({ likes: { $lt: 3 } })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_QueryOperators_Lt",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx, bson.D{{Key: "likes", Value: bson.D{{Key: "$lt", Value: int32(3)}}}})
@@ -1359,7 +1359,7 @@ func TestW3S_QueryOperators_Lte(t *testing.T) {
 	// db.posts.find({ likes: { $lte: 2 } })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_QueryOperators_Lte",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx, bson.D{{Key: "likes", Value: bson.D{{Key: "$lte", Value: int32(2)}}}})
@@ -1373,7 +1373,7 @@ func TestW3S_QueryOperators_Gte(t *testing.T) {
 	// db.posts.find({ likes: { $gte: 3 } })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_QueryOperators_Gte",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx, bson.D{{Key: "likes", Value: bson.D{{Key: "$gte", Value: int32(3)}}}})
@@ -1387,7 +1387,7 @@ func TestW3S_QueryOperators_Ne(t *testing.T) {
 	// db.posts.find({ category: { $ne: "News" } })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_QueryOperators_Ne",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx, bson.D{{Key: "category", Value: bson.D{{Key: "$ne", Value: "News"}}}})
@@ -1401,7 +1401,7 @@ func TestW3S_QueryOperators_Nin(t *testing.T) {
 	// db.posts.find({ category: { $nin: ["News", "Technology"] } })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_QueryOperators_Nin",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx, bson.D{{Key: "category", Value: bson.D{{Key: "$nin", Value: bson.A{"News", "Technology"}}}}})
@@ -1415,7 +1415,7 @@ func TestW3S_QueryOperators_Nor(t *testing.T) {
 	// db.posts.find({ $nor: [ {category: "News"}, {category: "Technology"} ] })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_QueryOperators_Nor",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx, bson.D{{Key: "$nor", Value: bson.A{
@@ -1432,7 +1432,7 @@ func TestW3S_QueryOperators_Not(t *testing.T) {
 	// db.posts.find({ likes: { $not: { $gt: 2 } } })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_QueryOperators_Not",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx, bson.D{{Key: "likes", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$gt", Value: int32(2)}}}}}})
@@ -1446,7 +1446,7 @@ func TestW3S_QueryOperators_Exists(t *testing.T) {
 	// db.posts.find({ category: { $exists: true } })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_QueryOperators_Exists",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx, bson.D{{Key: "category", Value: bson.D{{Key: "$exists", Value: true}}}})
@@ -1460,7 +1460,7 @@ func TestW3S_QueryOperators_Type(t *testing.T) {
 	// db.posts.find({ likes: { $type: "int" } })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_QueryOperators_Type",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx, bson.D{{Key: "likes", Value: bson.D{{Key: "$type", Value: "int"}}}})
@@ -1474,7 +1474,7 @@ func TestW3S_QueryOperators_Regex(t *testing.T) {
 	// db.posts.find({ title: { $regex: /Post/ } })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_QueryOperators_Regex",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			count, err := col.CountDocuments(ctx, bson.D{{Key: "title", Value: bson.D{{Key: "$regex", Value: "Post"}}}})
@@ -1491,7 +1491,7 @@ func TestW3S_UpdateOperators_Mul(t *testing.T) {
 	// db.posts.updateOne({ title: "Post Title 1" }, { $mul: { likes: 3 } })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_UpdateOperators_Mul",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1520,7 +1520,7 @@ func TestW3S_UpdateOperators_Min(t *testing.T) {
 	// db.posts.updateOne({ title: "Post Title 4" }, { $min: { likes: 2 } })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_UpdateOperators_Min",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Post Title 4 has likes=4; $min with 2 should update to 2.
@@ -1550,7 +1550,7 @@ func TestW3S_UpdateOperators_Max(t *testing.T) {
 	// db.posts.updateOne({ title: "Post Title 1" }, { $max: { likes: 10 } })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_UpdateOperators_Max",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Post Title 1 has likes=1; $max with 10 should update to 10.
@@ -1580,7 +1580,7 @@ func TestW3S_UpdateOperators_Pop(t *testing.T) {
 	// db.posts.updateOne({ title: "Post Title 1" }, { $pop: { tags: 1 } })  // 1=last, -1=first
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_UpdateOperators_Pop",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1610,7 +1610,7 @@ func TestW3S_UpdateOperators_Pull(t *testing.T) {
 	// db.posts.updateOne({ title: "Post Title 1" }, { $pull: { tags: "news" } })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_UpdateOperators_Pull",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sInsertPostsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1645,7 +1645,7 @@ func TestW3S_AggProject_ComputedField(t *testing.T) {
 	// ])
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggProject_ComputedField",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sListingsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1676,7 +1676,7 @@ func TestW3S_AggSort_MultiField(t *testing.T) {
 	// "Sort by multiple fields: property_type ascending, then price descending."
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggSort_MultiField",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sListingsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1714,7 +1714,7 @@ func TestW3S_AggMatch_ComparisonFilter(t *testing.T) {
 	// ])
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggMatch_ComparisonFilter",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sListingsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1746,7 +1746,7 @@ func TestW3S_AggMatch_MatchThenGroup(t *testing.T) {
 	// ])
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggMatch_MatchThenGroup",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sListingsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1780,7 +1780,7 @@ func TestW3S_AggAddFields_ArithmeticExpr(t *testing.T) {
 	// ])
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggAddFields_ArithmeticExpr",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sListingsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1819,7 +1819,7 @@ func TestW3S_AggCount_AfterMultipleStages(t *testing.T) {
 	// ])
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggCount_AfterMultipleStages",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sListingsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1846,7 +1846,7 @@ func TestW3S_AggLookup_AllRows(t *testing.T) {
 	// "Use $lookup to join all comments with movie details."
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_AggLookup_AllRows",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "c1"}, {Key: "movie_id", Value: "m1"}, {Key: "text", Value: "Excellent!"}},
@@ -1903,7 +1903,7 @@ func TestW3S_Indexing_CreateSingleFieldIndex(t *testing.T) {
 	// db.movies.createIndex({ title: 1 })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Indexing_CreateSingleFieldIndex",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sMoviesSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			name, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
@@ -1922,7 +1922,7 @@ func TestW3S_Indexing_CreateCompoundIndex(t *testing.T) {
 	// db.movies.createIndex({ title: 1, year: -1 })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Indexing_CreateCompoundIndex",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sMoviesSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			name, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
@@ -1944,7 +1944,7 @@ func TestW3S_Indexing_CreateTextIndex(t *testing.T) {
 	// db.movies.createIndex({ title: "text" })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Indexing_CreateTextIndex",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sMoviesSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			name, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
@@ -1963,7 +1963,7 @@ func TestW3S_Indexing_TextSearch(t *testing.T) {
 	// db.movies.find({ $text: { $search: "star" } })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Indexing_TextSearch",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := w3sMoviesSeed(ctx, col); err != nil {
 				return err
@@ -1995,7 +1995,7 @@ func TestW3S_Indexing_DropIndex(t *testing.T) {
 	// db.movies.dropIndex("title_1")
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Indexing_DropIndex",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sMoviesSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			name, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
@@ -2018,10 +2018,10 @@ func TestW3S_Indexing_AtlasSearch(t *testing.T) {
 	//   { $search: { index: "default", text: { query: "star wars", path: "title" } } },
 	//   { $project: { title: 1, year: 1 } }
 	// ])
-	// Atlas Search requires a running Atlas cluster — not available in standard Dongo.
+	// Atlas Search requires a running Atlas cluster — not available in standard Docudolt.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Indexing_AtlasSearch",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   w3sMoviesSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -2073,7 +2073,7 @@ func TestW3S_Validation_CreateCollectionWithValidator(t *testing.T) {
 	// })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Validation_CreateCollectionWithValidator",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			validator := bson.D{{Key: "$jsonSchema", Value: bson.D{
 				{Key: "bsonType", Value: "object"},
@@ -2118,7 +2118,7 @@ func TestW3S_Validation_ValidDocumentPasses(t *testing.T) {
 	// "A document satisfying the schema is accepted."
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Validation_ValidDocumentPasses",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			validator := bson.D{{Key: "$jsonSchema", Value: bson.D{
 				{Key: "bsonType", Value: "object"},
@@ -2150,7 +2150,7 @@ func TestW3S_Validation_InvalidDocumentRejected(t *testing.T) {
 	// "A document missing required fields is rejected by the validator."
 	harness.PairTest(t, harness.TestCase{
 		Name:    "W3S_Validation_InvalidDocumentRejected",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			validator := bson.D{{Key: "$jsonSchema", Value: bson.D{
 				{Key: "bsonType", Value: "object"},

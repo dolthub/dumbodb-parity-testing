@@ -1,5 +1,5 @@
-// Parity tests migrated from dolthub/dongo/tests/regex_probe_test.go.
-// Probes regex, text-search, and $mod behaviour across MongoDB and Dongo.
+// Parity tests migrated from dolthub/docudolt/tests/regex_probe_test.go.
+// Probes regex, text-search, and $mod behaviour across MongoDB and Docudolt.
 package tests
 
 import (
@@ -12,7 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/dolthub/dongo-parity-testing/harness"
+	"github.com/dolthub/docudolt-parity-testing/harness"
 )
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -31,7 +31,7 @@ func insertTextIndex(ctx context.Context, col *mongo.Collection, fields bson.D, 
 func TestProbeRegexCI(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ProbeRegexCI",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: int32(1)}, {Key: "name", Value: "Hello World"}},
@@ -49,7 +49,7 @@ func TestProbeRegexCI(t *testing.T) {
 func TestProbeRegexMultiline(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ProbeRegexMultiline",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: int32(1)}, {Key: "text", Value: "line one\nline two"}},
@@ -69,7 +69,7 @@ func TestProbeRegexMultiline(t *testing.T) {
 func TestProbeTextPhrase(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ProbeTextPhrase",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertTextIndex(ctx, col, bson.D{{Key: "content", Value: "text"}}, "content_text"); err != nil {
 				return err
@@ -98,7 +98,7 @@ func TestProbeTextPhrase(t *testing.T) {
 func TestProbeTextDiacriticSensitive(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ProbeTextDiacriticSensitive",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertTextIndex(ctx, col, bson.D{{Key: "word", Value: "text"}}, "word_text"); err != nil {
 				return err
@@ -133,7 +133,7 @@ func TestProbeTextDiacriticSensitive(t *testing.T) {
 func TestProbeTextLanguage(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ProbeTextLanguage",
-		Support: harness.DongoMongoOnly,
+		Support: harness.DocudoltMongoOnly,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertTextIndex(ctx, col, bson.D{{Key: "body", Value: "text"}}, "body_text"); err != nil {
 				return err
@@ -167,7 +167,7 @@ func TestProbeTextLanguage(t *testing.T) {
 func TestProbeModInt32(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ProbeModInt32",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: int32(1)}, {Key: "v", Value: int32(9)}},
@@ -185,7 +185,7 @@ func TestProbeModInt32(t *testing.T) {
 func TestProbeModInt64(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ProbeModInt64",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: int32(1)}, {Key: "v", Value: int64(9)}},
@@ -203,7 +203,7 @@ func TestProbeModInt64(t *testing.T) {
 func TestProbeModNestedField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ProbeModNestedField",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: bson.D{{Key: "b", Value: 9}}}},
@@ -221,7 +221,7 @@ func TestProbeModNestedField(t *testing.T) {
 func TestProbeModNonNumericField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ProbeModNonNumericField",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: int32(1)}, {Key: "v", Value: "hello"}},
@@ -240,7 +240,7 @@ func TestProbeModNonNumericField(t *testing.T) {
 func TestProbeModNaNDivisor(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ProbeModNaNDivisor",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: int32(1)}, {Key: "v", Value: 9}},

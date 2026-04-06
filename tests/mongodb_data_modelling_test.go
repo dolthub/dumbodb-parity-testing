@@ -12,7 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/dolthub/dongo-parity-testing/harness"
+	"github.com/dolthub/docudolt-parity-testing/harness"
 )
 
 // ─── One-to-Many with Embedded Documents ──────────────────────────────────────
@@ -31,7 +31,7 @@ func TestDataModelling_EmbeddedOneToMany_PatronAddresses(t *testing.T) {
 	// })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DataModelling_EmbeddedOneToMany_PatronAddresses",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			patron := bson.D{
 				{Key: "_id", Value: "joe"},
@@ -92,7 +92,7 @@ func TestDataModelling_EmbeddedOneToMany_QueryEmbedded(t *testing.T) {
 	// Expected: the joe patron document.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DataModelling_EmbeddedOneToMany_QueryEmbedded",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "joe"},
@@ -139,7 +139,7 @@ func TestDataModelling_ReferencedOneToMany_FindBooksByPublisher(t *testing.T) {
 	// db.books.find({ publisher_id: "oreilly" }) → 2 books
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DataModelling_ReferencedOneToMany_FindBooksByPublisher",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			db := col.Database()
 			publishers := db.Collection(col.Name() + "_publishers")
@@ -190,7 +190,7 @@ func TestDataModelling_ReferencedOneToMany_LookupPublisher(t *testing.T) {
 	// "$lookup to join books with publisher in a single aggregation."
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DataModelling_ReferencedOneToMany_LookupPublisher",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			db := col.Database()
 			publishers := db.Collection(col.Name() + "_pub2")
@@ -254,7 +254,7 @@ func TestDataModelling_ChildRefs_FindImmediateChildren(t *testing.T) {
 	// Expected children: ["MongoDB", "dbm"]
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DataModelling_ChildRefs_FindImmediateChildren",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   devPatternsChildRefsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			var result bson.D
@@ -285,7 +285,7 @@ func TestDataModelling_ChildRefs_FindParentByChildrenArray(t *testing.T) {
 	// Expected: Databases document (contains "MongoDB" in children).
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DataModelling_ChildRefs_FindParentByChildrenArray",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   devPatternsChildRefsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(ctx, bson.D{{Key: "children", Value: "MongoDB"}})
@@ -335,7 +335,7 @@ func TestDataModelling_MaterializedPaths_FindAllDescendants(t *testing.T) {
 	// Expected: 5 documents (all nodes except Books itself).
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DataModelling_MaterializedPaths_FindAllDescendants",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   devPatternsMaterializedPathsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(ctx, bson.D{{Key: "path", Value: bson.D{{Key: "$regex", Value: ",Books,"}}}})
@@ -359,7 +359,7 @@ func TestDataModelling_MaterializedPaths_FindSubtreeDescendants(t *testing.T) {
 	// Expected: Databases, Languages, MongoDB, dbm (4 documents).
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DataModelling_MaterializedPaths_FindSubtreeDescendants",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   devPatternsMaterializedPathsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(
@@ -387,7 +387,7 @@ func TestDataModelling_MaterializedPaths_SortByPath(t *testing.T) {
 	// Expected: Books first (null path), then nodes in path-alphabetical order.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DataModelling_MaterializedPaths_SortByPath",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   devPatternsMaterializedPathsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "path", Value: 1}}))

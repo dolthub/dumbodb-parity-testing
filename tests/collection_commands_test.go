@@ -13,7 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/dolthub/dongo-parity-testing/harness"
+	"github.com/dolthub/docudolt-parity-testing/harness"
 )
 
 // ============================================================
@@ -23,7 +23,7 @@ import (
 func TestCollMod_AddValidator(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CollMod_AddValidator",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Add a JSON Schema validator to an existing collection.
@@ -48,7 +48,7 @@ func TestCollMod_AddValidator(t *testing.T) {
 func TestCollMod_ChangeValidationLevel(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CollMod_ChangeValidationLevel",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Change validation level only (no validator change).
@@ -63,7 +63,7 @@ func TestCollMod_ChangeValidationLevel(t *testing.T) {
 func TestCollMod_ChangeStreamPreAndPostImages(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CollMod_ChangeStreamPreAndPostImages",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Enable pre/post images for change streams (MongoDB 6.0+).
@@ -80,7 +80,7 @@ func TestCollMod_ChangeStreamPreAndPostImages(t *testing.T) {
 func TestCollMod_NonExistentCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CollMod_NonExistentCollection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// collMod on a collection that does not exist must return an error.
@@ -95,7 +95,7 @@ func TestCollMod_NonExistentCollection(t *testing.T) {
 func TestCollMod_InvalidOption(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CollMod_InvalidOption",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Passing an unrecognised option; MongoDB returns an error.
@@ -114,7 +114,7 @@ func TestCollMod_InvalidOption(t *testing.T) {
 func TestCompact_BasicCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Compact_BasicCollection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// compact rewrites and defragments data; returns {ok: 1} on success.
@@ -128,7 +128,7 @@ func TestCompact_BasicCollection(t *testing.T) {
 func TestCompact_WithForceOption(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Compact_WithForceOption",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// compact with force:true runs even on a primary.
@@ -143,7 +143,7 @@ func TestCompact_WithForceOption(t *testing.T) {
 func TestCompact_EmptyCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Compact_EmptyCollection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   nil, // leave collection empty
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// compact on an empty collection should still succeed.
@@ -157,7 +157,7 @@ func TestCompact_EmptyCollection(t *testing.T) {
 func TestCompact_NonExistentCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Compact_NonExistentCollection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// compact on a non-existent collection returns NamespaceNotFound.
@@ -175,7 +175,7 @@ func TestCompact_NonExistentCollection(t *testing.T) {
 func TestAutoCompact_Enable(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AutoCompact_Enable",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// autoCompact enables background compaction for the database (8.0+).
@@ -189,7 +189,7 @@ func TestAutoCompact_Enable(t *testing.T) {
 func TestAutoCompact_Disable(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AutoCompact_Disable",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// autoCompact with false disables background compaction.
@@ -203,7 +203,7 @@ func TestAutoCompact_Disable(t *testing.T) {
 func TestAutoCompact_FreeSpaceTargetMB(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AutoCompact_FreeSpaceTargetMB",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// autoCompact with freeSpaceTargetMB option controls compaction threshold.
@@ -222,7 +222,7 @@ func TestAutoCompact_FreeSpaceTargetMB(t *testing.T) {
 func TestConvertToCapped_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ConvertToCapped_Basic",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// convertToCapped converts a regular collection to a capped collection.
@@ -237,7 +237,7 @@ func TestConvertToCapped_Basic(t *testing.T) {
 func TestConvertToCapped_VerifyCapped(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ConvertToCapped_VerifyCapped",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Convert and then verify via listCollections that options.capped is set.
@@ -260,7 +260,7 @@ func TestConvertToCapped_VerifyCapped(t *testing.T) {
 func TestConvertToCapped_NonExistentCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ConvertToCapped_NonExistentCollection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// convertToCapped on a non-existent collection returns NamespaceNotFound.
@@ -275,7 +275,7 @@ func TestConvertToCapped_NonExistentCollection(t *testing.T) {
 func TestConvertToCapped_ZeroSize(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ConvertToCapped_ZeroSize",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// size of 0 is invalid; MongoDB returns an error.
@@ -290,7 +290,7 @@ func TestConvertToCapped_ZeroSize(t *testing.T) {
 func TestConvertToCapped_MissingSize(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ConvertToCapped_MissingSize",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Omitting size should return an error.
@@ -308,7 +308,7 @@ func TestConvertToCapped_MissingSize(t *testing.T) {
 func TestDataSize_BasicCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DataSize_BasicCollection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// dataSize returns the size of data in a collection or key range.
@@ -323,7 +323,7 @@ func TestDataSize_BasicCollection(t *testing.T) {
 func TestDataSize_EmptyCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DataSize_EmptyCollection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// dataSize on an empty collection should return size 0.
@@ -338,7 +338,7 @@ func TestDataSize_EmptyCollection(t *testing.T) {
 func TestDataSize_WithKeyRange(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DataSize_WithKeyRange",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// dataSize with min/max key range (typically for sharding ranges).
@@ -356,7 +356,7 @@ func TestDataSize_WithKeyRange(t *testing.T) {
 func TestDataSize_NonExistentCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DataSize_NonExistentCollection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// dataSize on a non-existent namespace should return an error or empty result.
@@ -375,7 +375,7 @@ func TestDataSize_NonExistentCollection(t *testing.T) {
 func TestCollStats_NonExistentCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CollStats_NonExistentCollection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// collStats on a non-existent collection returns NamespaceNotFound.
@@ -389,7 +389,7 @@ func TestCollStats_NonExistentCollection(t *testing.T) {
 func TestValidate_NonExistentCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Validate_NonExistentCollection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// validate on a non-existent collection returns NamespaceNotFound.
@@ -403,7 +403,7 @@ func TestValidate_NonExistentCollection(t *testing.T) {
 func TestValidate_Full(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Validate_Full",
-		Support: harness.DongoXFail,
+		Support: harness.DocudoltXFail,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// validate with full:true performs a more thorough check.
@@ -418,7 +418,7 @@ func TestValidate_Full(t *testing.T) {
 func TestValidate_Repair(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Validate_Repair",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// validate with repair:true attempts to fix inconsistencies (requires standalone).
@@ -433,7 +433,7 @@ func TestValidate_Repair(t *testing.T) {
 func TestRenameCollection_NonExistentSource(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "RenameCollection_NonExistentSource",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Renaming a non-existent collection should return NamespaceNotFound.
@@ -456,7 +456,7 @@ func TestRenameCollection_NonExistentSource(t *testing.T) {
 func TestRenameCollection_DropTarget(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "RenameCollection_DropTarget",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			// Create both source and target so we can test dropTarget option.
 			if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "src1"}}); err != nil {
@@ -488,7 +488,7 @@ func TestRenameCollection_DropTarget(t *testing.T) {
 func TestDbStats_ScaleOption(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DbStats_ScaleOption",
-		Support: harness.DongoXFail,
+		Support: harness.DocudoltXFail,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// dbStats with scale option divides size fields by the scale factor.
@@ -503,7 +503,7 @@ func TestDbStats_ScaleOption(t *testing.T) {
 func TestDbStats_NonExistentDatabase(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DbStats_NonExistentDatabase",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// dbStats on a database that has never had data written returns empty stats.
@@ -521,7 +521,7 @@ func TestDbStats_NonExistentDatabase(t *testing.T) {
 func TestDropDatabase_NonExistent(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DropDatabase_NonExistent",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// dropDatabase on a database that does not exist should succeed silently.
@@ -534,7 +534,7 @@ func TestDropDatabase_NonExistent(t *testing.T) {
 func TestListCollections_Filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ListCollections_Filter",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// listCollections with a name filter that matches nothing.
@@ -555,7 +555,7 @@ func TestListCollections_Filter(t *testing.T) {
 func TestListCollections_TypeFilter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ListCollections_TypeFilter",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// listCollections filtering by type:"collection".
@@ -577,7 +577,7 @@ func TestListCollections_TypeFilter(t *testing.T) {
 func TestCount_Deprecated_RunCommand(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Count_Deprecated_RunCommand",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// The legacy "count" command (deprecated in 4.0, still accepted).
@@ -592,7 +592,7 @@ func TestCount_Deprecated_RunCommand(t *testing.T) {
 func TestCount_Deprecated_NoFilter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Count_Deprecated_NoFilter",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// count command without a filter — counts all documents.
@@ -606,7 +606,7 @@ func TestCount_Deprecated_NoFilter(t *testing.T) {
 func TestCount_Deprecated_NonExistentCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Count_Deprecated_NonExistentCollection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// count on a non-existent collection returns n:0 (not an error).
@@ -620,7 +620,7 @@ func TestCount_Deprecated_NonExistentCollection(t *testing.T) {
 func TestDistinct_NonExistentCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Distinct_NonExistentCollection",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// distinct on a non-existent collection returns an empty values array.
@@ -635,7 +635,7 @@ func TestDistinct_NonExistentCollection(t *testing.T) {
 func TestDistinct_WithQuery(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Distinct_WithQuery",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// distinct via RunCommand with a query filter.
@@ -651,7 +651,7 @@ func TestDistinct_WithQuery(t *testing.T) {
 func TestServerStatus_ReplicationField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ServerStatus_ReplicationField",
-		Support: harness.DongoXFail,
+		Support: harness.DocudoltXFail,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// serverStatus with include filter for specific sections.
@@ -668,7 +668,7 @@ func TestServerStatus_ReplicationField(t *testing.T) {
 func TestPing_ExplicitValue(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Ping_ExplicitValue",
-		Support: harness.DongoFull,
+		Support: harness.DocudoltFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// ping always returns {ok: 1} regardless of the argument value.
