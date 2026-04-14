@@ -9,12 +9,12 @@
 //   5. Multi-Field Join (multi-field-join) — products + orders, $lookup with embedded pipeline
 //
 // tutorialCheck() is defined in mongodb_dev_patterns_test.go (same package).
-// Tests start as DocuDoltXFail and graduate to DocuDoltFull as DocuDolt parity is verified.
+// Tests start as DumboDBXFail and graduate to DumboDBFull as DumboDB parity is verified.
 //
-// tutorialCheckXFail is used instead of tutorialCheck for DocuDoltXFail tests.
+// tutorialCheckXFail is used instead of tutorialCheck for DumboDBXFail tests.
 // It logs divergence rather than failing the test, so that XFail tests that
-// produce wrong-but-not-error DocuDolt output don't fail the CI build.
-// When graduating a test to DocuDoltFull, switch back to tutorialCheck.
+// produce wrong-but-not-error DumboDB output don't fail the CI build.
+// When graduating a test to DumboDBFull, switch back to tutorialCheck.
 package tests
 
 import (
@@ -26,14 +26,14 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/dolthub/docudolt-parity-testing/harness"
+	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
 // tutorialCheckXFail verifies actual matches expected from tutorial docs,
-// logging divergence rather than failing the test. Use for DocuDoltXFail tests
-// where DocuDolt may return wrong values (not errors) so that the CI build is not
-// broken by known DocuDolt limitations. Switch to tutorialCheck when graduating
-// a test to DocuDoltFull.
+// logging divergence rather than failing the test. Use for DumboDBXFail tests
+// where DumboDB may return wrong values (not errors) so that the CI build is not
+// broken by known DumboDB limitations. Switch to tutorialCheck when graduating
+// a test to DumboDBFull.
 func tutorialCheckXFail(t *testing.T, name string, actual interface{}, expected interface{}) {
 	t.Helper()
 	cmp := harness.CompareResponses(actual, nil, expected, nil)
@@ -144,7 +144,7 @@ func filteredSubsetPersonsSeed(ctx context.Context, col *mongo.Collection) error
 func TestFilteredSubset_ThreeYoungestEngineers(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FilteredSubset_ThreeYoungestEngineers",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   filteredSubsetPersonsSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := mongo.Pipeline{
@@ -275,7 +275,7 @@ func groupAndTotalOrdersSeedACE(ctx context.Context, col *mongo.Collection) erro
 func TestGroupAndTotal_CustomerOrders2020ACE(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GroupAndTotal_CustomerOrders2020ACE",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   groupAndTotalOrdersSeedACE,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := mongo.Pipeline{
@@ -470,7 +470,7 @@ func unpackArraysOrdersSeed(ctx context.Context, col *mongo.Collection) error {
 func TestUnpackArrays_ProductTotals(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UnpackArrays_ProductTotals",
-		Support: harness.DocuDoltXFail,
+		Support: harness.DumboDBXFail,
 		Setup:   unpackArraysOrdersSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := mongo.Pipeline{
@@ -627,7 +627,7 @@ func oneToOneJoinSeed(ctx context.Context, col *mongo.Collection) error {
 func TestOneToOneJoin_EnrichOrders2020(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "OneToOneJoin_EnrichOrders2020",
-		Support: harness.DocuDoltXFail,
+		Support: harness.DumboDBXFail,
 		Setup:   oneToOneJoinSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := mongo.Pipeline{
@@ -793,7 +793,7 @@ func multiFieldJoinSeed(ctx context.Context, col *mongo.Collection) error {
 func TestMultiFieldJoin_ProductsWithOrders2020(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "MultiFieldJoin_ProductsWithOrders2020",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   multiFieldJoinSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Embedded pipeline used inside the $lookup.

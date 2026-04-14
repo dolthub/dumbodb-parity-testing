@@ -1,4 +1,4 @@
-module github.com/dolthub/docudolt-parity-testing
+module github.com/dolthub/dumbodb-parity-testing
 
 go 1.22
 

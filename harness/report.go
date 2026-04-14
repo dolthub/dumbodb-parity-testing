@@ -6,16 +6,16 @@ import (
 	"os"
 )
 
-// DocuDoltSupport indicates how DocuDolt handles the feature under test.
-type DocuDoltSupport int
+// DumboDBSupport indicates how DumboDB handles the feature under test.
+type DumboDBSupport int
 
 const (
-	// DocuDoltFull: run both MongoDB and DocuDolt, compare — divergence fails CI.
-	DocuDoltFull DocuDoltSupport = iota
-	// DocuDoltMongoOnly: run MongoDB only, skip DocuDolt — for deprecated/unsupported features.
-	DocuDoltMongoOnly
-	// DocuDoltXFail: run both, record DocuDolt failure but do not fail CI.
-	DocuDoltXFail
+	// DumboDBFull: run both MongoDB and DumboDB, compare — divergence fails CI.
+	DumboDBFull DumboDBSupport = iota
+	// DumboDBMongoOnly: run MongoDB only, skip DumboDB — for deprecated/unsupported features.
+	DumboDBMongoOnly
+	// DumboDBXFail: run both, record DumboDB failure but do not fail CI.
+	DumboDBXFail
 )
 
 // TestStatus is the outcome of a single test run.

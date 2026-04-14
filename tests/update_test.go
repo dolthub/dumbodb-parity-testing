@@ -10,7 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/dolthub/docudolt-parity-testing/harness"
+	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
 // seedUpdate inserts a standard document for update tests.
@@ -57,7 +57,7 @@ func readOne(ctx context.Context, col *mongo.Collection, id string) (interface{}
 func TestSet_single_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Set_single_field",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -75,7 +75,7 @@ func TestSet_single_field(t *testing.T) {
 func TestSet_multiple_fields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Set_multiple_fields",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -96,7 +96,7 @@ func TestSet_multiple_fields(t *testing.T) {
 func TestSet_new_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Set_new_field",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -114,7 +114,7 @@ func TestSet_new_field(t *testing.T) {
 func TestSet_nested_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Set_nested_field",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -132,7 +132,7 @@ func TestSet_nested_field(t *testing.T) {
 func TestSet_deep_path(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Set_deep_path",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "dp1"},
@@ -160,7 +160,7 @@ func TestSet_deep_path(t *testing.T) {
 func TestSet_array_element_by_index(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Set_array_element_by_index",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -178,7 +178,7 @@ func TestSet_array_element_by_index(t *testing.T) {
 func TestSet_no_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Set_no_match",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateOne(ctx,
@@ -201,7 +201,7 @@ func TestSet_no_match(t *testing.T) {
 func TestUnset_single_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Unset_single_field",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -219,7 +219,7 @@ func TestUnset_single_field(t *testing.T) {
 func TestUnset_multiple_fields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Unset_multiple_fields",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -240,7 +240,7 @@ func TestUnset_multiple_fields(t *testing.T) {
 func TestUnset_nonexistent_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Unset_nonexistent_field",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateOne(ctx,
@@ -261,7 +261,7 @@ func TestUnset_nonexistent_field(t *testing.T) {
 func TestUnset_nested_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Unset_nested_field",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -281,7 +281,7 @@ func TestUnset_nested_field(t *testing.T) {
 func TestInc_positive(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Inc_positive",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -299,7 +299,7 @@ func TestInc_positive(t *testing.T) {
 func TestInc_negative(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Inc_negative",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -317,7 +317,7 @@ func TestInc_negative(t *testing.T) {
 func TestInc_missing_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Inc_missing_field",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $inc on a field that doesn't exist creates it with the increment value.
@@ -336,7 +336,7 @@ func TestInc_missing_field(t *testing.T) {
 func TestInc_multiple_fields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Inc_multiple_fields",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -357,7 +357,7 @@ func TestInc_multiple_fields(t *testing.T) {
 func TestInc_on_string_field_error(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Inc_on_string_field_error",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -375,7 +375,7 @@ func TestInc_on_string_field_error(t *testing.T) {
 func TestMul_int(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Mul_int",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -393,7 +393,7 @@ func TestMul_int(t *testing.T) {
 func TestMul_float(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Mul_float",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -411,7 +411,7 @@ func TestMul_float(t *testing.T) {
 func TestMul_missing_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Mul_missing_field",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		// $mul on missing field sets it to 0.
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
@@ -430,7 +430,7 @@ func TestMul_missing_field(t *testing.T) {
 func TestMul_zero(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Mul_zero",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -450,7 +450,7 @@ func TestMul_zero(t *testing.T) {
 func TestRename_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Rename_field",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -468,7 +468,7 @@ func TestRename_field(t *testing.T) {
 func TestRename_nested_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Rename_nested_field",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -486,7 +486,7 @@ func TestRename_nested_field(t *testing.T) {
 func TestRename_nonexistent_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Rename_nonexistent_field",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		// Renaming a non-existent field is a no-op in MongoDB.
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
@@ -507,7 +507,7 @@ func TestRename_nonexistent_field(t *testing.T) {
 func TestMin_updates_when_smaller(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Min_updates_when_smaller",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -525,7 +525,7 @@ func TestMin_updates_when_smaller(t *testing.T) {
 func TestMin_no_update_when_larger(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Min_no_update_when_larger",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -543,7 +543,7 @@ func TestMin_no_update_when_larger(t *testing.T) {
 func TestMin_missing_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Min_missing_field",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		// $min on missing field sets the field.
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
@@ -562,7 +562,7 @@ func TestMin_missing_field(t *testing.T) {
 func TestMax_updates_when_larger(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Max_updates_when_larger",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -580,7 +580,7 @@ func TestMax_updates_when_larger(t *testing.T) {
 func TestMax_no_update_when_smaller(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Max_no_update_when_smaller",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -598,7 +598,7 @@ func TestMax_no_update_when_smaller(t *testing.T) {
 func TestMax_missing_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Max_missing_field",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -618,7 +618,7 @@ func TestMax_missing_field(t *testing.T) {
 func TestSetOnInsert_fires_on_upsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SetOnInsert_fires_on_upsert",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Update().SetUpsert(true)
 			_, err := col.UpdateOne(ctx,
@@ -640,7 +640,7 @@ func TestSetOnInsert_fires_on_upsert(t *testing.T) {
 func TestSetOnInsert_noop_on_update(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SetOnInsert_noop_on_update",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "soi-exist"}, {Key: "x", Value: int32(0)}})
 			return err
@@ -669,7 +669,7 @@ func TestSetOnInsert_noop_on_update(t *testing.T) {
 func TestCurrentDate_as_date(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CurrentDate_as_date",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			before := time.Now().Add(-time.Second)
@@ -698,7 +698,7 @@ func TestCurrentDate_as_date(t *testing.T) {
 func TestCurrentDate_as_timestamp(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CurrentDate_as_timestamp",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -719,7 +719,7 @@ func TestCurrentDate_as_timestamp(t *testing.T) {
 func TestPush_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Push_basic",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -737,7 +737,7 @@ func TestPush_basic(t *testing.T) {
 func TestPush_each(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Push_each",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -757,7 +757,7 @@ func TestPush_each(t *testing.T) {
 func TestPush_each_slice(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Push_each_slice",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -778,7 +778,7 @@ func TestPush_each_slice(t *testing.T) {
 func TestPush_each_sort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Push_each_sort",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "ps1"},
@@ -805,7 +805,7 @@ func TestPush_each_sort(t *testing.T) {
 func TestPush_each_position(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Push_each_position",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -826,7 +826,7 @@ func TestPush_each_position(t *testing.T) {
 func TestPush_on_non_array_error(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Push_on_non_array_error",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -843,7 +843,7 @@ func TestPush_on_non_array_error(t *testing.T) {
 func TestPop_last(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Pop_last",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -861,7 +861,7 @@ func TestPop_last(t *testing.T) {
 func TestPop_first(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Pop_first",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -879,7 +879,7 @@ func TestPop_first(t *testing.T) {
 func TestPop_empty_array(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Pop_empty_array",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "pop-empty"},
@@ -905,7 +905,7 @@ func TestPop_empty_array(t *testing.T) {
 func TestPull_by_equality(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Pull_by_equality",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -923,7 +923,7 @@ func TestPull_by_equality(t *testing.T) {
 func TestPull_by_condition(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Pull_by_condition",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "pull-cond"},
@@ -947,7 +947,7 @@ func TestPull_by_condition(t *testing.T) {
 func TestPull_by_in_condition(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Pull_by_in_condition",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -965,7 +965,7 @@ func TestPull_by_in_condition(t *testing.T) {
 func TestPull_no_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Pull_no_match",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateOne(ctx,
@@ -985,7 +985,7 @@ func TestPull_no_match(t *testing.T) {
 func TestPullAll_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "PullAll_basic",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1003,7 +1003,7 @@ func TestPullAll_basic(t *testing.T) {
 func TestPullAll_partial_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "PullAll_partial_match",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1023,7 +1023,7 @@ func TestPullAll_partial_match(t *testing.T) {
 func TestAddToSet_new_element(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddToSet_new_element",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1041,7 +1041,7 @@ func TestAddToSet_new_element(t *testing.T) {
 func TestAddToSet_duplicate_no_change(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddToSet_duplicate_no_change",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1059,7 +1059,7 @@ func TestAddToSet_duplicate_no_change(t *testing.T) {
 func TestAddToSet_each(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddToSet_each",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1079,7 +1079,7 @@ func TestAddToSet_each(t *testing.T) {
 func TestAddToSet_missing_array_creates(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddToSet_missing_array_creates",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1099,7 +1099,7 @@ func TestAddToSet_missing_array_creates(t *testing.T) {
 func TestPositional_dollar_update_first_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Positional_dollar_update_first_match",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "pos1"},
@@ -1127,7 +1127,7 @@ func TestPositional_dollar_update_first_match(t *testing.T) {
 func TestPositional_all_dollar_bracket(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Positional_all_dollar_bracket",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "allpos1"},
@@ -1151,7 +1151,7 @@ func TestPositional_all_dollar_bracket(t *testing.T) {
 func TestArrayFilters_filtered_positional(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ArrayFilters_filtered_positional",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "af1"},
@@ -1185,7 +1185,7 @@ func TestArrayFilters_filtered_positional(t *testing.T) {
 func TestArrayFilters_no_matching_elements(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ArrayFilters_no_matching_elements",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "af-nomatch"},
@@ -1217,7 +1217,7 @@ func TestArrayFilters_no_matching_elements(t *testing.T) {
 func TestPipelineUpdate_set(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "PipelineUpdate_set",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := mongo.Pipeline{
@@ -1240,7 +1240,7 @@ func TestPipelineUpdate_set(t *testing.T) {
 func TestPipelineUpdate_unset(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "PipelineUpdate_unset",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := mongo.Pipeline{
@@ -1261,7 +1261,7 @@ func TestPipelineUpdate_unset(t *testing.T) {
 func TestPipelineUpdate_addFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "PipelineUpdate_addFields",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := mongo.Pipeline{
@@ -1284,7 +1284,7 @@ func TestPipelineUpdate_addFields(t *testing.T) {
 func TestPipelineUpdate_replaceWith(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "PipelineUpdate_replaceWith",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := mongo.Pipeline{
@@ -1309,7 +1309,7 @@ func TestPipelineUpdate_replaceWith(t *testing.T) {
 func TestPipelineUpdate_many(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "PipelineUpdate_many",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := mongo.Pipeline{
@@ -1334,7 +1334,7 @@ func TestPipelineUpdate_many(t *testing.T) {
 func TestBit_and_int32(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Bit_and_int32",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "bit1"},
@@ -1358,7 +1358,7 @@ func TestBit_and_int32(t *testing.T) {
 func TestBit_or_int32(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Bit_or_int32",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "bit2"},
@@ -1382,7 +1382,7 @@ func TestBit_or_int32(t *testing.T) {
 func TestBit_xor_int32(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Bit_xor_int32",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "bit3"},
@@ -1406,7 +1406,7 @@ func TestBit_xor_int32(t *testing.T) {
 func TestBit_and_int64(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Bit_and_int64",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "bit4"},
@@ -1432,7 +1432,7 @@ func TestBit_and_int64(t *testing.T) {
 func TestUpdateMany_set_all(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateMany_set_all",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateMany(ctx,
@@ -1453,7 +1453,7 @@ func TestUpdateMany_set_all(t *testing.T) {
 func TestUpdateMany_inc_filtered(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateMany_inc_filtered",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateMany(ctx,
@@ -1474,7 +1474,7 @@ func TestUpdateMany_inc_filtered(t *testing.T) {
 func TestUpdateMany_no_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateMany_no_match",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateMany(ctx,
@@ -1492,7 +1492,7 @@ func TestUpdateMany_no_match(t *testing.T) {
 func TestUpdateMany_unset_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateMany_unset_field",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateMany(ctx,
@@ -1512,7 +1512,7 @@ func TestUpdateMany_unset_field(t *testing.T) {
 func TestUpsert_creates_doc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Upsert_creates_doc",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Update().SetUpsert(true)
 			res, err := col.UpdateOne(ctx,
@@ -1534,7 +1534,7 @@ func TestUpsert_creates_doc(t *testing.T) {
 func TestUpsert_updates_existing(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Upsert_updates_existing",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "upsert-exist"}, {Key: "v", Value: int32(1)}})
 			return err
@@ -1562,7 +1562,7 @@ func TestUpsert_updates_existing(t *testing.T) {
 func TestSet_id_immutable_error(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Set_id_immutable_error",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1579,7 +1579,7 @@ func TestSet_id_immutable_error(t *testing.T) {
 func TestUpdate_empty_document_error(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Update_empty_document_error",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1596,7 +1596,7 @@ func TestUpdate_empty_document_error(t *testing.T) {
 func TestFindOneAndUpdate_default_returns_before(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndUpdate_default_returns_before",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			var before bson.D
@@ -1612,7 +1612,7 @@ func TestFindOneAndUpdate_default_returns_before(t *testing.T) {
 func TestFindOneAndUpdate_return_after(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndUpdate_return_after",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
@@ -1630,7 +1630,7 @@ func TestFindOneAndUpdate_return_after(t *testing.T) {
 func TestFindOneAndUpdate_upsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndUpdate_upsert",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndUpdate().
 				SetUpsert(true).
@@ -1649,7 +1649,7 @@ func TestFindOneAndUpdate_upsert(t *testing.T) {
 func TestFindOneAndUpdate_projection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndUpdate_projection",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndUpdate().
@@ -1669,7 +1669,7 @@ func TestFindOneAndUpdate_projection(t *testing.T) {
 func TestFindOneAndUpdate_sort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndUpdate_sort",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.FindOneAndUpdate().
@@ -1689,7 +1689,7 @@ func TestFindOneAndUpdate_sort(t *testing.T) {
 func TestFindOneAndUpdate_no_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndUpdate_no_match",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			var result bson.D
@@ -1708,7 +1708,7 @@ func TestFindOneAndUpdate_no_match(t *testing.T) {
 func TestCombined_set_and_inc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_set_and_inc",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1729,7 +1729,7 @@ func TestCombined_set_and_inc(t *testing.T) {
 func TestCombined_set_and_unset(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_set_and_unset",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1750,7 +1750,7 @@ func TestCombined_set_and_unset(t *testing.T) {
 func TestCombined_inc_and_push(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_inc_and_push",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1773,7 +1773,7 @@ func TestCombined_inc_and_push(t *testing.T) {
 func TestReplaceOne_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ReplaceOne_basic",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.ReplaceOne(ctx,
@@ -1795,7 +1795,7 @@ func TestReplaceOne_basic(t *testing.T) {
 func TestReplaceOne_upsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ReplaceOne_upsert",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Replace().SetUpsert(true)
 			res, err := col.ReplaceOne(ctx,
@@ -1814,7 +1814,7 @@ func TestReplaceOne_upsert(t *testing.T) {
 func TestReplaceOne_no_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ReplaceOne_no_match",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.ReplaceOne(ctx,
@@ -1834,7 +1834,7 @@ func TestReplaceOne_no_match(t *testing.T) {
 func TestDeleteOne_by_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DeleteOne_by_filter",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.DeleteOne(ctx, bson.D{{Key: "_id", Value: "u1"}})
@@ -1849,7 +1849,7 @@ func TestDeleteOne_by_filter(t *testing.T) {
 func TestDeleteMany_filtered(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DeleteMany_filtered",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.DeleteMany(ctx, bson.D{{Key: "score", Value: bson.D{{Key: "$gte", Value: int32(20)}}}})
@@ -1866,7 +1866,7 @@ func TestDeleteMany_filtered(t *testing.T) {
 func TestMin_with_date(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Min_with_date",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "date-min"},
@@ -1891,7 +1891,7 @@ func TestMin_with_date(t *testing.T) {
 func TestMax_with_date(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Max_with_date",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "date-max"},
@@ -1918,7 +1918,7 @@ func TestMax_with_date(t *testing.T) {
 func TestSet_null_value(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Set_null_value",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1936,7 +1936,7 @@ func TestSet_null_value(t *testing.T) {
 func TestSet_boolean_value(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Set_boolean_value",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -1954,7 +1954,7 @@ func TestSet_boolean_value(t *testing.T) {
 func TestInc_large_value(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Inc_large_value",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "big"},
@@ -1978,7 +1978,7 @@ func TestInc_large_value(t *testing.T) {
 func TestUpdateOne_matched_not_modified(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_matched_not_modified",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Setting the same value: matched=1 but modified=0.
@@ -2000,7 +2000,7 @@ func TestUpdateOne_matched_not_modified(t *testing.T) {
 func TestPush_creates_array_if_missing(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Push_creates_array_if_missing",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -2018,7 +2018,7 @@ func TestPush_creates_array_if_missing(t *testing.T) {
 func TestMul_on_non_numeric_error(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Mul_on_non_numeric_error",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -2033,7 +2033,7 @@ func TestMul_on_non_numeric_error(t *testing.T) {
 func TestSet_object_value(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Set_object_value",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -2054,7 +2054,7 @@ func TestSet_object_value(t *testing.T) {
 func TestUnset_array_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Unset_array_field",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.UpdateOne(ctx,
@@ -2072,7 +2072,7 @@ func TestUnset_array_field(t *testing.T) {
 func TestSet_create_nested_path(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Set_create_nested_path",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   seedUpdate,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Create a nested path that doesn't exist yet.
@@ -2091,7 +2091,7 @@ func TestSet_create_nested_path(t *testing.T) {
 func TestAddToSet_int_values(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AddToSet_int_values",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "ats-int"},
@@ -2116,7 +2116,7 @@ func TestAddToSet_int_values(t *testing.T) {
 func TestPull_from_nested_array(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Pull_from_nested_array",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "pull-nested"},

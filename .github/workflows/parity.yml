@@ -22,7 +22,7 @@ jobs:
 
     env:
       MONGO_URI: mongodb://localhost:27017
-      DOCUDOLT_URI: mongodb://localhost:27018
+      DUMBODB_URI: mongodb://localhost:27018
 
     steps:
       - uses: actions/checkout@v4
@@ -32,42 +32,42 @@ jobs:
           go-version: "1.22"
           cache: true
 
-      - name: Build Docudolt
+      - name: Build DumboDB
         env:
-          DOCUDOLT_COMMIT: ${{ vars.DOCUDOLT_COMMIT || 'main' }}
+          DUMBODB_COMMIT: ${{ vars.DUMBODB_COMMIT || 'main' }}
         run: |
-          git clone --depth 1 https://x:${{ secrets.DOCUDOLT_READ_TOKEN }}@github.com/dolthub/docudolt.git /tmp/docudolt
-          cd /tmp/docudolt
-          if [ -n "$DOCUDOLT_COMMIT" ] && [ "$DOCUDOLT_COMMIT" != "main" ]; then
-            git fetch --depth 1 origin "$DOCUDOLT_COMMIT"
-            git checkout "$DOCUDOLT_COMMIT"
+          git clone --depth 1 https://x:${{ secrets.DUMBODB_READ_TOKEN }}@github.com/dolthub/dumbodb.git /tmp/dumbodb
+          cd /tmp/dumbodb
+          if [ -n "$DUMBODB_COMMIT" ] && [ "$DUMBODB_COMMIT" != "main" ]; then
+            git fetch --depth 1 origin "$DUMBODB_COMMIT"
+            git checkout "$DUMBODB_COMMIT"
           fi
-          # Build the docudolt binary (adjust path if the repo layout differs)
-          go build -o /usr/local/bin/docudolt ./cmd/docudolt
+          # Build the dumbodb binary (adjust path if the repo layout differs)
+          go build -o /usr/local/bin/dumbodb ./cmd/dumbodb
 
-      - name: Start Docudolt
+      - name: Start DumboDB
         run: |
-          docudolt --port 27018 --data-dir /tmp/docudolt-data > /tmp/docudolt.log 2>&1 &
-          echo $! > /tmp/docudolt.pid
+          dumbodb --port 27018 --data-dir /tmp/dumbodb-data > /tmp/dumbodb.log 2>&1 &
+          echo $! > /tmp/dumbodb.pid
 
-      - name: Wait for Docudolt to be ready
+      - name: Wait for DumboDB to be ready
         run: |
           for i in $(seq 1 30); do
             if nc -z 127.0.0.1 27018 2>/dev/null; then
-              echo "Docudolt ready"
+              echo "DumboDB ready"
               exit 0
             fi
-            # Bail early if docudolt process has already died
-            if ! kill -0 $(cat /tmp/docudolt.pid) 2>/dev/null; then
-              echo "Docudolt process died:" >&2
-              cat /tmp/docudolt.log >&2
+            # Bail early if dumbodb process has already died
+            if ! kill -0 $(cat /tmp/dumbodb.pid) 2>/dev/null; then
+              echo "DumboDB process died:" >&2
+              cat /tmp/dumbodb.log >&2
               exit 1
             fi
-            echo "Waiting for Docudolt ($i/30)..."
+            echo "Waiting for DumboDB ($i/30)..."
             sleep 2
           done
-          echo "Docudolt did not start in time. Log:" >&2
-          cat /tmp/docudolt.log >&2
+          echo "DumboDB did not start in time. Log:" >&2
+          cat /tmp/dumbodb.log >&2
           exit 1
 
       - name: Run parity suite

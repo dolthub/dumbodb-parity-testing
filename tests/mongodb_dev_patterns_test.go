@@ -12,7 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/dolthub/docudolt-parity-testing/harness"
+	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
 // tutorialCheck verifies that actual matches expected (from tutorial docs).
@@ -48,7 +48,7 @@ func TestDevPatterns_ParentRefs_FindParent(t *testing.T) {
 	// Expected: { _id: "MongoDB", name: "MongoDB", parent: "Databases" }
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DevPatterns_ParentRefs_FindParent",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   devPatternsCategoriesParentSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			var result bson.D
@@ -73,7 +73,7 @@ func TestDevPatterns_ParentRefs_FindChildren(t *testing.T) {
 	// Expected: MongoDB and dbm documents (sorted by name for determinism).
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DevPatterns_ParentRefs_FindChildren",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   devPatternsCategoriesParentSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(
@@ -107,7 +107,7 @@ func TestDevPatterns_ParentRefs_IndexOnParent(t *testing.T) {
 	// db.categories.createIndex({ parent: 1 })
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DevPatterns_ParentRefs_IndexOnParent",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   devPatternsCategoriesParentSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "parent", Value: 1}}}
@@ -129,7 +129,7 @@ func TestDevPatterns_TTL_ExpireAfterSeconds(t *testing.T) {
 	// Documents with createdAt older than 3600 seconds are removed by the TTL monitor.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DevPatterns_TTL_ExpireAfterSeconds",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			expireAfter := int32(3600)
 			model := mongo.IndexModel{
@@ -166,7 +166,7 @@ func TestDevPatterns_TTL_ExpireAtSpecificTime(t *testing.T) {
 	// Document expires at the exact datetime stored in the expireAt field.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DevPatterns_TTL_ExpireAtSpecificTime",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			expireAfter := int32(0)
 			model := mongo.IndexModel{
@@ -208,7 +208,7 @@ func TestDevPatterns_AutoIncrement_GetNextSequence(t *testing.T) {
 	// Call getNextSequence twice and verify seq increments: 1, then 2.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DevPatterns_AutoIncrement_GetNextSequence",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "userid"},
@@ -275,7 +275,7 @@ func TestDevPatterns_AutoIncrement_InsertWithSequenceID(t *testing.T) {
 	// Insert two users with auto-incremented _id values (1 and 2).
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DevPatterns_AutoIncrement_InsertWithSequenceID",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			// The counters collection is a separate collection; we seed it here
 			// in a sibling collection named col.Name()+"_counters".

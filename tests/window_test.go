@@ -7,7 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/dolthub/docudolt-parity-testing/harness"
+	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
 // windowSeedDocs: sales records for $setWindowFields tests.
@@ -30,7 +30,7 @@ func insertWindowSeed(ctx context.Context, col *mongo.Collection) error {
 func TestWindow_rank_overall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_rank_overall",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -51,7 +51,7 @@ func TestWindow_rank_overall(t *testing.T) {
 func TestWindow_rank_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_rank_partitioned",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -75,7 +75,7 @@ func TestWindow_rank_partitioned(t *testing.T) {
 func TestWindow_denseRank_overall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_denseRank_overall",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -96,7 +96,7 @@ func TestWindow_denseRank_overall(t *testing.T) {
 func TestWindow_denseRank_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_denseRank_partitioned",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -120,7 +120,7 @@ func TestWindow_denseRank_partitioned(t *testing.T) {
 func TestWindow_rowNumber_overall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_rowNumber_overall",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -141,7 +141,7 @@ func TestWindow_rowNumber_overall(t *testing.T) {
 func TestWindow_rowNumber_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_rowNumber_partitioned",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -165,7 +165,7 @@ func TestWindow_rowNumber_partitioned(t *testing.T) {
 func TestWindow_sum_unboundedCumulative(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_sum_unboundedCumulative",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -191,7 +191,7 @@ func TestWindow_sum_unboundedCumulative(t *testing.T) {
 func TestWindow_sum_partitioned_cumulative(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_sum_partitioned_cumulative",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -218,7 +218,7 @@ func TestWindow_sum_partitioned_cumulative(t *testing.T) {
 func TestWindow_sum_full_partition(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_sum_full_partition",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -246,7 +246,7 @@ func TestWindow_sum_full_partition(t *testing.T) {
 func TestWindow_avg_overall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_avg_overall",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -271,7 +271,7 @@ func TestWindow_avg_overall(t *testing.T) {
 func TestWindow_avg_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_avg_partitioned",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -299,7 +299,7 @@ func TestWindow_avg_partitioned(t *testing.T) {
 func TestWindow_first_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_first_partitioned",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -326,7 +326,7 @@ func TestWindow_first_partitioned(t *testing.T) {
 func TestWindow_last_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_last_partitioned",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -353,7 +353,7 @@ func TestWindow_last_partitioned(t *testing.T) {
 func TestWindow_first_overall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_first_overall",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -379,7 +379,7 @@ func TestWindow_first_overall(t *testing.T) {
 func TestWindow_last_overall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_last_overall",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -407,7 +407,7 @@ func TestWindow_last_overall(t *testing.T) {
 func TestWindow_partitionSortMultiOutput(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_partitionSortMultiOutput",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -441,7 +441,7 @@ func TestWindow_partitionSortMultiOutput(t *testing.T) {
 func TestWindow_partitionOnly_noSort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_partitionOnly_noSort",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -469,7 +469,7 @@ func TestWindow_partitionOnly_noSort(t *testing.T) {
 func TestWindow_range_currentToCurrent(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_range_currentToCurrent",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -495,7 +495,7 @@ func TestWindow_range_currentToCurrent(t *testing.T) {
 func TestWindow_range_minusN_to_current(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_range_minusN_to_current",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Sum salary within 10000 below current salary to current.
@@ -522,7 +522,7 @@ func TestWindow_range_minusN_to_current(t *testing.T) {
 func TestWindow_documents_trailing3(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_documents_trailing3",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Sliding window: previous 2 documents + current.
@@ -549,7 +549,7 @@ func TestWindow_documents_trailing3(t *testing.T) {
 func TestWindow_documents_leadLag(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_documents_leadLag",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Window from -1 to +1 (current row with one neighbor each side).
@@ -578,7 +578,7 @@ func TestWindow_documents_leadLag(t *testing.T) {
 func TestWindow_min_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_min_partitioned",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -604,7 +604,7 @@ func TestWindow_min_partitioned(t *testing.T) {
 func TestWindow_max_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_max_partitioned",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -632,7 +632,7 @@ func TestWindow_max_partitioned(t *testing.T) {
 func TestWindow_sumNullHandling(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_sumNullHandling",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(10)}},
@@ -665,7 +665,7 @@ func TestWindow_sumNullHandling(t *testing.T) {
 func TestWindow_avgNullHandling(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_avgNullHandling",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(10)}},
@@ -697,7 +697,7 @@ func TestWindow_avgNullHandling(t *testing.T) {
 func TestWindow_minNullHandling(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_minNullHandling",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(5)}},
@@ -729,7 +729,7 @@ func TestWindow_minNullHandling(t *testing.T) {
 func TestWindow_allNullSum(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_allNullSum",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: nil}},
@@ -762,7 +762,7 @@ func TestWindow_allNullSum(t *testing.T) {
 func TestWindow_numericOffsetWindow(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_numericOffsetWindow",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(1)}},
@@ -795,7 +795,7 @@ func TestWindow_numericOffsetWindow(t *testing.T) {
 func TestWindow_forwardOffsetWindow(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_forwardOffsetWindow",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(10)}},
@@ -829,7 +829,7 @@ func TestWindow_forwardOffsetWindow(t *testing.T) {
 func TestWindow_partitionByMultipleFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_partitionByMultipleFields",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "region", Value: "west"}, {Key: "score", Value: int32(1)}},
@@ -860,7 +860,7 @@ func TestWindow_partitionByMultipleFields(t *testing.T) {
 func TestWindow_floatValues(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_floatValues",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: float64(1.5)}},
@@ -896,7 +896,7 @@ func TestWindow_floatValues(t *testing.T) {
 func TestWindow_singleDocument(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_singleDocument",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "only"}, {Key: "v", Value: int32(42)}})
 			return err
@@ -926,7 +926,7 @@ func TestWindow_singleDocument(t *testing.T) {
 func TestWindow_count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_count",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(1)}},
@@ -960,7 +960,7 @@ func TestWindow_count(t *testing.T) {
 func TestWindow_push(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_push",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(1)}},
@@ -992,7 +992,7 @@ func TestWindow_push(t *testing.T) {
 func TestWindow_addToSet(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_addToSet",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(1)}},
@@ -1026,7 +1026,7 @@ func TestWindow_addToSet(t *testing.T) {
 func TestWindow_shift(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_shift",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(10)}},
@@ -1063,7 +1063,7 @@ func TestWindow_shift(t *testing.T) {
 func TestWindow_stdDevPop(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_stdDevPop",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(2)}},
@@ -1100,7 +1100,7 @@ func TestWindow_stdDevPop(t *testing.T) {
 func TestWindow_stdDevSamp(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_stdDevSamp",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(2)}},
@@ -1138,7 +1138,7 @@ func TestWindow_stdDevSamp(t *testing.T) {
 func TestWindow_covariancePop(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_covariancePop",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "x", Value: int32(1)}, {Key: "y", Value: int32(2)}},
@@ -1172,7 +1172,7 @@ func TestWindow_covariancePop(t *testing.T) {
 func TestWindow_expMovingAvg(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_expMovingAvg",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(1)}},
@@ -1209,7 +1209,7 @@ func TestWindow_expMovingAvg(t *testing.T) {
 func TestWindow_derivative(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_derivative",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "pos", Value: int32(0)}, {Key: "t", Value: int32(0)}},
@@ -1244,7 +1244,7 @@ func TestWindow_derivative(t *testing.T) {
 func TestWindow_integral(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_integral",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(1)}, {Key: "t", Value: int32(0)}},
@@ -1281,7 +1281,7 @@ func TestWindow_integral(t *testing.T) {
 func TestWindow_linearFill(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_linearFill",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(10)}},
@@ -1310,7 +1310,7 @@ func TestWindow_linearFill(t *testing.T) {
 func TestWindow_locf(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_locf",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(5)}},
@@ -1343,7 +1343,7 @@ func TestWindow_locf(t *testing.T) {
 func TestWindow_top(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_top",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "score", Value: int32(10)}, {Key: "name", Value: "alice"}},
@@ -1377,7 +1377,7 @@ func TestWindow_top(t *testing.T) {
 func TestWindow_bottom(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_bottom",
-		Support: harness.DocuDoltFull,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "score", Value: int32(10)}, {Key: "name", Value: "alice"}},
