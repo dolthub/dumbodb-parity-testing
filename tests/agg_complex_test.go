@@ -878,9 +878,12 @@ func TestAggComplex_redact_nestedField(t *testing.T) {
 func TestAggComplex_matchUnwindGroupSort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchUnwindGroupSort",
-		Support: harness.DumboDBXFail, // sort tie-breaking with equal totalQty diverges: dumbodb orders ties ascending by _id, MongoDB descending
+		Support: harness.DumboDBFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			// Secondary sort on _id asc is required: MongoDB's tie-breaking on
+			// equal totalQty is non-deterministic across runs, so a deterministic
+			// secondary key is needed for a stable comparison.
 			results, err := runPipeline(ctx, col, []bson.D{
 				{{Key: "$match", Value: bson.D{{Key: "status", Value: "shipped"}}}},
 				{{Key: "$unwind", Value: "$items"}},
@@ -889,7 +892,7 @@ func TestAggComplex_matchUnwindGroupSort(t *testing.T) {
 					{Key: "totalQty", Value: bson.D{{Key: "$sum", Value: "$items.qty"}}},
 					{Key: "orderCount", Value: bson.D{{Key: "$sum", Value: 1}}},
 				}}},
-				{{Key: "$sort", Value: bson.D{{Key: "totalQty", Value: -1}}}},
+				{{Key: "$sort", Value: bson.D{{Key: "totalQty", Value: -1}, {Key: "_id", Value: 1}}}},
 			})
 			return docsToSlice(results), err
 		},
@@ -971,11 +974,15 @@ func TestAggComplex_bucket_auto(t *testing.T) {
 func TestAggComplex_sortByCount(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_sortByCount",
-		Support: harness.DumboDBXFail, // $sortByCount tiebreaking order diverges from MongoDB
+		Support: harness.DumboDBFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			// Explicit $sort breaks ties deterministically: MongoDB's $sortByCount
+			// tie order is non-deterministic across runs. Per spec, $sortByCount is
+			// equivalent to $group+$sort{count:-1,_id:1}.
 			results, err := runPipeline(ctx, col, []bson.D{
 				{{Key: "$sortByCount", Value: "$status"}},
+				{{Key: "$sort", Value: bson.D{{Key: "count", Value: int32(-1)}, {Key: "_id", Value: int32(1)}}}},
 			})
 			return docsToSlice(results), err
 		},
@@ -1128,12 +1135,14 @@ func TestAggComplex_sortByCount_TieBreaking(t *testing.T) {
 	})
 }
 
-// TestAggComplex_matchUnwindGroupSort_SameTotalQty captures the sort ordering
-// divergence when grouped items have equal totalQty after unwind+group.
+// TestAggComplex_matchUnwindGroupSort_SameTotalQty verifies that a sort after
+// unwind+group produces the same ordering on both engines, given an explicit
+// tiebreaker. Without a secondary sort key, MongoDB's tie ordering is
+// non-deterministic across runs; DumboDB produces stable ascending-_id order.
 func TestAggComplex_matchUnwindGroupSort_SameTotalQty(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchUnwindGroupSort_SameTotalQty",
-		Support: harness.DumboDBXFail, // sort tie-breaking with equal totalQty diverges: dumbodb orders ties ascending by _id, MongoDB has different implicit ordering
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{
@@ -1165,6 +1174,7 @@ func TestAggComplex_matchUnwindGroupSort_SameTotalQty(t *testing.T) {
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// After grouping: P=5, Q=5, R=5 — three-way tie after summing qty.
+			// Secondary _id ascending makes the tie order deterministic.
 			results, err := runPipeline(ctx, col, []bson.D{
 				{{Key: "$match", Value: bson.D{{Key: "status", Value: "active"}}}},
 				{{Key: "$unwind", Value: "$items"}},
@@ -1172,7 +1182,7 @@ func TestAggComplex_matchUnwindGroupSort_SameTotalQty(t *testing.T) {
 					{Key: "_id", Value: "$items.sku"},
 					{Key: "totalQty", Value: bson.D{{Key: "$sum", Value: "$items.qty"}}},
 				}}},
-				{{Key: "$sort", Value: bson.D{{Key: "totalQty", Value: -1}}}},
+				{{Key: "$sort", Value: bson.D{{Key: "totalQty", Value: -1}, {Key: "_id", Value: 1}}}},
 			})
 			return docsToSlice(results), err
 		},

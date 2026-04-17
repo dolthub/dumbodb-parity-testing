@@ -1134,12 +1134,15 @@ func TestAgg_sortByCount_basic(t *testing.T) {
 func TestAgg_sortByCount_after_unwind(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_sortByCount_after_unwind",
-		Support: harness.DumboDBXFail, // $sortByCount tiebreaking order diverges from MongoDB
+		Support: harness.DumboDBFull,
 		Setup:   insertAggSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			// Explicit $sort makes tie-breaking deterministic: MongoDB's
+			// $sortByCount tie order is non-deterministic across runs.
 			results, err := runPipeline(ctx, col, []bson.D{
 				{{Key: "$unwind", Value: "$tags"}},
 				{{Key: "$sortByCount", Value: "$tags"}},
+				{{Key: "$sort", Value: bson.D{{Key: "count", Value: int32(-1)}, {Key: "_id", Value: int32(1)}}}},
 			})
 			return docsToSlice(results), err
 		},

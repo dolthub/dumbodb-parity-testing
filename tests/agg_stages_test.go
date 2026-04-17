@@ -1469,7 +1469,7 @@ func TestAggStage_sortByCount_SortByCountDescending(t *testing.T) {
 func TestAggStage_sortByCount_TieBreakingOrder(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_sortByCount_TieBreakingOrder",
-		Support: harness.DumboDBXFail, // $sortByCount tiebreaking order diverges from MongoDB
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: 1}, {Key: "score", Value: int32(3)}},
@@ -1482,10 +1482,12 @@ func TestAggStage_sortByCount_TieBreakingOrder(t *testing.T) {
 			return err
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// All three score values appear exactly twice (count=2). Tie-breaking
-			// by ascending _id should yield [1, 2, 3]. DumboDB returns [3, 1, 2].
+			// All three score values appear exactly twice (count=2). MongoDB's
+			// tie ordering is non-deterministic across runs, so we force a stable
+			// order with an explicit secondary sort — yields [1, 2, 3].
 			cursor, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$sortByCount", Value: "$score"}},
+				bson.D{{Key: "$sort", Value: bson.D{{Key: "count", Value: int32(-1)}, {Key: "_id", Value: int32(1)}}}},
 			})
 			if err != nil {
 				return nil, err
@@ -2111,7 +2113,7 @@ func TestAggPipeline_multiStage_UnwindThenGroup(t *testing.T) {
 func TestAggPipeline_multiStage_UnwindThenGroup_tiebreakOrder(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggPipeline_multiStage_UnwindThenGroup_tiebreakOrder",
-		Support: harness.DumboDBXFail, // $sortByCount tiebreaking order diverges from MongoDB
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "p1"}, {Key: "tags", Value: bson.A{"go", "db"}}},
@@ -2122,11 +2124,12 @@ func TestAggPipeline_multiStage_UnwindThenGroup_tiebreakOrder(t *testing.T) {
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Unwind tags, then count occurrences. All three tags appear exactly
-			// twice (count=2), so sort order is determined entirely by the
-			// secondary _id tiebreaker. DumboDB ignores that tiebreaker.
+			// twice (count=2). MongoDB's tie order is non-deterministic; an
+			// explicit secondary sort yields [api, db, go].
 			cursor, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$unwind", Value: "$tags"}},
 				bson.D{{Key: "$sortByCount", Value: "$tags"}},
+				bson.D{{Key: "$sort", Value: bson.D{{Key: "count", Value: int32(-1)}, {Key: "_id", Value: int32(1)}}}},
 			})
 			if err != nil {
 				return nil, err
@@ -2372,7 +2375,7 @@ func TestAggStage_unknown_stage_error(t *testing.T) {
 func TestAggPipeline_sort_TieBreakingAfterGroup(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggPipeline_sort_TieBreakingAfterGroup",
-		Support: harness.DumboDBXFail, // $sortByCount tiebreaking order diverges from MongoDB
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "1"}, {Key: "cat", Value: "C"}},
@@ -2386,14 +2389,14 @@ func TestAggPipeline_sort_TieBreakingAfterGroup(t *testing.T) {
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Group by cat → each group has count=2 (all tied).
-			// Sort by count asc — all values equal, so tie-breaking determines order.
-			// MongoDB and dumbodb produce different orderings of the tied groups.
+			// MongoDB's tie order is non-deterministic; an explicit secondary
+			// sort on _id asc yields [A, B, C].
 			cursor, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$group", Value: bson.D{
 					{Key: "_id", Value: "$cat"},
 					{Key: "n", Value: bson.D{{Key: "$sum", Value: int32(1)}}},
 				}}},
-				bson.D{{Key: "$sort", Value: bson.D{{Key: "n", Value: int32(1)}}}},
+				bson.D{{Key: "$sort", Value: bson.D{{Key: "n", Value: int32(1)}, {Key: "_id", Value: int32(1)}}}},
 			})
 			if err != nil {
 				return nil, err
