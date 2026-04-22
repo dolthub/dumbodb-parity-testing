@@ -26,18 +26,25 @@ type container struct {
 	runArgs []string // everything between `docker run -d ...` and the image name
 }
 
+// URIs use 127.0.0.1 rather than "localhost" deliberately: on hosts where
+// Go's resolver hands back the IPv6 loopback first, clients can see
+// `dial tcp [::1]:27017: connect: connection refused` even though the mongo
+// container is listening — mongod binds IPv4 only inside the container, and
+// docker's IPv6 host-port proxy is best-effort. Explicit IPv4 sidesteps the
+// whole class of "connects sometimes, refused sometimes" failures reported
+// against the first cut of this runner.
 var (
 	mongoContainer = container{
 		name:    "mongodb-bench",
 		image:   "mongo:8.0",
-		hostURI: "mongodb://localhost:27017",
-		runArgs: []string{"-p", "27017:27017"},
+		hostURI: "mongodb://127.0.0.1:27017",
+		runArgs: []string{"-p", "127.0.0.1:27017:27017"},
 	}
 	dumboContainer = container{
 		name:    "dumbodb-bench",
 		image:   "dumbodb-bench:local",
-		hostURI: "mongodb://localhost:27018",
-		runArgs: []string{"-p", "27018:27018"},
+		hostURI: "mongodb://127.0.0.1:27018",
+		runArgs: []string{"-p", "127.0.0.1:27018:27018"},
 	}
 )
 

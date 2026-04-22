@@ -28,6 +28,9 @@ import (
 	"strings"
 	"text/tabwriter"
 	"time"
+
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var (
@@ -91,8 +94,8 @@ func run() error {
 		}
 	}
 
-	dumboResults, dumboErr := runBench("dumbodb", dumboContainer.hostURI)
-	mongoResults, mongoErr := runBench("mongodb", mongoContainer.hostURI)
+	dumboResults, dumboErr := runTargetBench(ctx, "dumbodb", dumboContainer)
+	mongoResults, mongoErr := runTargetBench(ctx, "mongodb", mongoContainer)
 	if dumboErr != nil || mongoErr != nil {
 		return errors.Join(dumboErr, mongoErr)
 	}
@@ -158,6 +161,47 @@ func printKeepAliveBanner(w *os.File) {
 	fmt.Fprintf(w, "Clean up: docker stop %s %s && docker rm %s %s\n",
 		dumboContainer.name, mongoContainer.name,
 		dumboContainer.name, mongoContainer.name)
+}
+
+// runTargetBench verifies the target container is still running (and accepts
+// connections) before handing off to runBench. The early check exists because
+// an opaque "dial tcp ... connection refused" bubbling up from inside `go
+// test` is much harder to triage than an explicit "container X is not running
+// anymore" from the runner — which is exactly the failure mode pa-c8s
+// reported against the first cut of this runner.
+//
+// When -no-containers is set, we trust the user and skip the verification.
+func runTargetBench(ctx context.Context, label string, c container) ([]result, error) {
+	if !*noContainers {
+		if state := containerState(ctx, c.name); state != "running" {
+			return nil, fmt.Errorf(
+				"%s container %q is %q, not running — %s",
+				label, c.name, stateOrMissing(state),
+				"check `docker logs "+c.name+"` for why it exited")
+		}
+		// Re-ping: container may be alive but mongod/dumbodb crashed inside it.
+		// Short timeout — if the server died the TCP refusal is immediate.
+		pingCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		defer cancel()
+		client, err := mongo.Connect(pingCtx, options.Client().ApplyURI(c.hostURI))
+		if err == nil {
+			err = client.Ping(pingCtx, nil)
+			_ = client.Disconnect(context.Background())
+		}
+		if err != nil {
+			return nil, fmt.Errorf(
+				"%s container %q is running but not reachable at %s: %w — check `docker logs %s`",
+				label, c.name, c.hostURI, err, c.name)
+		}
+	}
+	return runBench(label, c.hostURI)
+}
+
+func stateOrMissing(s string) string {
+	if s == "" {
+		return "missing"
+	}
+	return s
 }
 
 // runBench invokes `go test -bench` against the given target and parses the
