@@ -56,10 +56,10 @@ type result struct {
 
 // combined is what we emit as JSON: one row per benchmark with both sides.
 type combined struct {
-	Name        string   `json:"name"`
-	DumboDBNs   *float64 `json:"dumbodb_ns_per_op,omitempty"`
-	MongoNs     *float64 `json:"mongodb_ns_per_op,omitempty"`
-	Ratio       *float64 `json:"ratio,omitempty"` // DumboDB / MongoDB; >1 means DumboDB is slower
+	Name          string   `json:"name"`
+	DumboDBNs     *float64 `json:"dumbodb_ns_per_op,omitempty"`
+	MongoNs       *float64 `json:"mongodb_ns_per_op,omitempty"`
+	PctChange     *float64 `json:"percent_change,omitempty"` // (dumbodb - mongodb) / mongodb * 100
 }
 
 func main() {
@@ -173,8 +173,8 @@ func merge(dumbo, mongo []result) []combined {
 	var rows []combined
 	for _, c := range byName {
 		if c.DumboDBNs != nil && c.MongoNs != nil && *c.MongoNs > 0 {
-			ratio := *c.DumboDBNs / *c.MongoNs
-			c.Ratio = &ratio
+			pct := ((*c.DumboDBNs - *c.MongoNs) / *c.MongoNs) * 100
+			c.PctChange = &pct
 		}
 		rows = append(rows, *c)
 	}
@@ -184,31 +184,48 @@ func merge(dumbo, mongo []result) []combined {
 
 func printTable(w *os.File, rows []combined) {
 	fmt.Fprintln(w)
-	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "Benchmark\tDumboDB (ms/op)\tMongoDB (ms/op)\tRatio (Dumbo/Mongo)")
-	fmt.Fprintln(tw, "---------\t---------------\t---------------\t-------------------")
+	tw := tabwriter.NewWriter(w, 0, 0, 4, ' ', 0)
+	fmt.Fprintln(tw, "test_name\tdumbodb_latency\tmongodb_latency\tpercent_change")
 	for _, r := range rows {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
-			r.Name,
+			benchLabel(r.Name),
 			fmtMs(r.DumboDBNs),
 			fmtMs(r.MongoNs),
-			fmtRatio(r.Ratio),
+			fmtPctChange(r.DumboDBNs, r.MongoNs),
 		)
 	}
 	tw.Flush()
 	fmt.Fprintln(w)
 }
 
-func fmtMs(ns *float64) string {
-	if ns == nil {
-		return "—"
+// benchLabel strips the "Benchmark" prefix and converts to snake_case.
+func benchLabel(name string) string {
+	name = strings.TrimPrefix(name, "Benchmark")
+	// Insert underscore before uppercase runs: "FindOne" -> "Find_One"
+	var b strings.Builder
+	for i, r := range name {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			prev := rune(name[i-1])
+			if prev >= 'a' && prev <= 'z' {
+				b.WriteRune('_')
+			}
+		}
+		b.WriteRune(r)
 	}
-	return fmt.Sprintf("%.3f", *ns/1e6)
+	return strings.ToLower(b.String())
 }
 
-func fmtRatio(r *float64) string {
-	if r == nil {
-		return "—"
+func fmtMs(ns *float64) string {
+	if ns == nil {
+		return "-"
 	}
-	return fmt.Sprintf("%.2fx", *r)
+	return fmt.Sprintf("%.2f", *ns/1e6)
+}
+
+func fmtPctChange(dumboNs, mongoNs *float64) string {
+	if dumboNs == nil || mongoNs == nil || *mongoNs == 0 {
+		return "-"
+	}
+	pct := ((*dumboNs - *mongoNs) / *mongoNs) * 100
+	return fmt.Sprintf("%.1f", pct)
 }
