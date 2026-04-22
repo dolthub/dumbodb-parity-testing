@@ -55,10 +55,9 @@ func BenchmarkAgg_Project(b *testing.B) {
 	col, ctx := withSeededCollection(b, "agg_project", benchDatasetSize, benchDocSize)
 	pipeline := bson.A{
 		bson.D{{Key: "$project", Value: bson.D{
+			{Key: "_id", Value: 1},
 			{Key: "grp", Value: 1},
 			{Key: "tag", Value: 1},
-			// Drop payload to exercise the project-projection path specifically.
-			{Key: "payload", Value: 0},
 		}}},
 	}
 	b.ResetTimer()
