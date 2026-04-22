@@ -45,9 +45,10 @@ These are enumerated in `bd pa-xp1` but not implemented in the first cut:
 
 ## Running
 
-Prerequisite: a MongoDB 8 instance on `:27017` and a DumboDB instance on
-`:27018`. See the repo-level `AGENT.md` / `README.md` for the standard setup
-(`docker run mongo:8.0`, `dumbodb --listen 127.0.0.1:27018 &`).
+Prerequisite: **Docker**. The runner manages its own containers — it builds a
+`dumbodb-bench:local` image from the product (dongo) repo, pulls `mongo:8.0`,
+starts both, waits for readiness, runs the benchmarks, then tears everything
+down (unless `-f` is given). No manual server setup required.
 
 ### One-shot comparison (recommended)
 
@@ -56,6 +57,10 @@ go run ./benchmarks/cmd/compare \
     -benchtime=2s \
     -json benchmarks/results.json
 ```
+
+The first run builds the DumboDB image (a minute or two; CGO-enabled Go build);
+subsequent runs hit Docker's layer cache and finish in seconds when the product
+source hasn't changed.
 
 Example output:
 
@@ -67,19 +72,53 @@ BenchmarkFindOne_ById    2.458            0.434            5.66x
 BenchmarkInsertOne       5.586            0.513            10.89x
 ```
 
+### Investigation flow (keep servers alive)
+
+```bash
+go run ./benchmarks/cmd/compare -bench='^BenchmarkUpdateMany$' -f
+# ... runner finishes, prints:
+#   Servers still running (-f):
+#     DumboDB: mongodb://localhost:27018
+#     MongoDB: mongodb://localhost:27017
+
+mongosh mongodb://localhost:27018   # poke at DumboDB state
+mongosh mongodb://localhost:27017   # compare with MongoDB
+
+# When done:
+docker stop dumbodb-bench mongodb-bench && docker rm dumbodb-bench mongodb-bench
+```
+
+A second `compare -f` invocation will reuse the running containers rather than
+rebuild — handy while iterating on a specific benchmark.
+
 Flags:
 
 | Flag | Default | Purpose |
 |---|---|---|
-| `-dumbodb-uri` | `mongodb://localhost:27018` | DumboDB URI |
-| `-mongodb-uri` | `mongodb://localhost:27017` | MongoDB URI |
-| `-bench`       | `^Benchmark` | Regex of benchmarks to run |
-| `-benchtime`   | `2s` | Go's `-benchtime` (wall-clock per benchmark) |
-| `-count`       | `1` | Go's `-count` (repetitions) |
-| `-json`        | `""` | If set, write JSON results here |
-| `-v`           | `false` | Stream `go test` stderr |
+| `-bench`           | `^Benchmark` | Regex of benchmarks to run |
+| `-benchtime`       | `2s` | Go's `-benchtime` (wall-clock per benchmark) |
+| `-count`           | `1` | Go's `-count` (repetitions) |
+| `-json`            | `""` | If set, write JSON results here |
+| `-v`               | `false` | Stream `go test` stderr |
+| `-f`               | `false` | Keep containers running after the run (for investigation) |
+| `-dumbodb-src`     | `/home/ubuntu/dongo` | Path to the product (dongo) repo; used as Docker build context |
+| `-no-containers`   | `false` | Skip container management; expect servers already at `:27017` / `:27018` |
+| `-health-timeout`  | `60s` | How long to wait for each container to accept connections |
 
-### Running a single target directly
+### Container layout
+
+| Container       | Image                | Host URI                    |
+|-----------------|----------------------|-----------------------------|
+| `mongodb-bench` | `mongo:8.0`          | `mongodb://localhost:27017` |
+| `dumbodb-bench` | `dumbodb-bench:local`| `mongodb://localhost:27018` |
+
+Both are fixed names (not randomized) so the `-f` investigation workflow and
+any shell aliases you build on top can rely on them. If a container with the
+same name exists but is stopped/dead, the runner removes it and starts fresh.
+
+### Running a single target directly (bypassing the runner)
+
+Requires the target server to be already reachable.
 
 ```bash
 go test ./benchmarks \

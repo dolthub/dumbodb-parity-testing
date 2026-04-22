@@ -1,21 +1,23 @@
-// compare runs the benchmark suite twice — once against DumboDB, once against
-// MongoDB — and emits a side-by-side comparison table (text) and/or JSON.
+// compare runs the benchmark suite against DumboDB and MongoDB and emits a
+// side-by-side comparison table (text) and/or JSON.
+//
+// The runner manages its own containers: it builds dumbodb-bench:local from
+// the product repo, pulls mongo:8.0, starts both, waits for readiness, runs
+// the benchmarks, then tears the containers down (unless -f is given).
 //
 // Usage:
 //
-//	go run ./benchmarks/cmd/compare \
-//	    -dumbodb-uri mongodb://localhost:27018 \
-//	    -mongodb-uri mongodb://localhost:27017 \
-//	    -bench '^Benchmark' \
-//	    -benchtime 3s \
-//	    -json results.json
+//	go run ./benchmarks/cmd/compare                    # all benchmarks, teardown after
+//	go run ./benchmarks/cmd/compare -bench '^BenchmarkUpdateMany$' -f  # investigate one op
 //
 // The comparator intentionally does NOT verify functional parity — that is the
 // existing tests/ harness's job. It only measures elapsed time per operation.
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -25,17 +27,20 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
+	"time"
 )
 
 var (
-	dumboDBURI = flag.String("dumbodb-uri", envOr("DUMBODB_URI", "mongodb://localhost:27018"), "DumboDB connection URI")
-	mongoURI   = flag.String("mongodb-uri", envOr("MONGO_URI", "mongodb://localhost:27017"), "MongoDB connection URI")
-	benchRegex = flag.String("bench", "^Benchmark", "-run pattern for benchmarks (go test -bench)")
-	benchTime  = flag.String("benchtime", "2s", "-benchtime value passed to go test")
-	count      = flag.Int("count", 1, "-count value passed to go test (repetitions per benchmark)")
-	jsonOut    = flag.String("json", "", "if set, write JSON results to this path")
-	benchPkg   = flag.String("pkg", "./benchmarks", "Go package containing the benchmarks")
-	verbose    = flag.Bool("v", false, "stream go test output to stderr as it runs")
+	benchRegex    = flag.String("bench", "^Benchmark", "-run pattern for benchmarks (go test -bench)")
+	benchTime     = flag.String("benchtime", "2s", "-benchtime value passed to go test")
+	count         = flag.Int("count", 1, "-count value passed to go test (repetitions per benchmark)")
+	jsonOut       = flag.String("json", "", "if set, write JSON results to this path")
+	benchPkg      = flag.String("pkg", "./benchmarks", "Go package containing the benchmarks")
+	verbose       = flag.Bool("v", false, "stream go test output to stderr as it runs")
+	keepAlive     = flag.Bool("f", false, "keep containers running after benchmarks complete (for investigation)")
+	dumboSrc      = flag.String("dumbodb-src", envOr("DUMBODB_SRC", "/home/ubuntu/dongo"), "path to the product (dongo) repo; used as docker build context")
+	noContainers  = flag.Bool("no-containers", false, "skip container management entirely (expects servers already reachable at the default ports)")
+	healthTimeout = flag.Duration("health-timeout", 60*time.Second, "how long to wait for each container to accept connections")
 )
 
 func envOr(key, fallback string) string {
@@ -64,35 +69,95 @@ type combined struct {
 
 func main() {
 	flag.Parse()
-
-	dumboResults, err := runBench("dumbodb", *dumboDBURI)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "dumbodb bench run failed: %v\n", err)
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
-	mongoResults, err := runBench("mongodb", *mongoURI)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "mongodb bench run failed: %v\n", err)
-		os.Exit(1)
+}
+
+func run() error {
+	ctx := context.Background()
+
+	if !*noContainers {
+		if err := setupContainers(ctx); err != nil {
+			return fmt.Errorf("container setup: %w", err)
+		}
+		// Teardown iff we're not keeping containers alive. Always runs even if
+		// benchmarks fail partway — a stopped container from a crashed run is
+		// much less confusing than leftover daemons.
+		if !*keepAlive {
+			defer stopContainer(context.Background(), dumboContainer)
+			defer stopContainer(context.Background(), mongoContainer)
+		}
+	}
+
+	dumboResults, dumboErr := runBench("dumbodb", dumboContainer.hostURI)
+	mongoResults, mongoErr := runBench("mongodb", mongoContainer.hostURI)
+	if dumboErr != nil || mongoErr != nil {
+		return errors.Join(dumboErr, mongoErr)
 	}
 
 	rows := merge(dumboResults, mongoResults)
 	printTable(os.Stdout, rows)
 
 	if *jsonOut != "" {
-		f, err := os.Create(*jsonOut)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "create %s: %v\n", *jsonOut, err)
-			os.Exit(1)
-		}
-		defer f.Close()
-		enc := json.NewEncoder(f)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(rows); err != nil {
-			fmt.Fprintf(os.Stderr, "write json: %v\n", err)
-			os.Exit(1)
+		if err := writeJSON(*jsonOut, rows); err != nil {
+			return err
 		}
 	}
+
+	if *keepAlive && !*noContainers {
+		printKeepAliveBanner(os.Stdout)
+	}
+	return nil
+}
+
+// setupContainers brings both target servers up and waits for them to accept
+// connections. It short-circuits when containers are already running so the
+// investigation flow (`-f`, then re-run) stays fast.
+func setupContainers(ctx context.Context) error {
+	if err := ensureMongoImage(ctx); err != nil {
+		return fmt.Errorf("pull %s: %w", mongoContainer.image, err)
+	}
+	if err := buildDumboImage(ctx, *dumboSrc); err != nil {
+		return fmt.Errorf("build %s: %w", dumboContainer.image, err)
+	}
+	if err := startContainer(ctx, mongoContainer); err != nil {
+		return err
+	}
+	if err := startContainer(ctx, dumboContainer); err != nil {
+		return err
+	}
+	if err := waitHealthy(ctx, mongoContainer, *healthTimeout); err != nil {
+		return err
+	}
+	if err := waitHealthy(ctx, dumboContainer, *healthTimeout); err != nil {
+		return err
+	}
+	return nil
+}
+
+func writeJSON(path string, rows []combined) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("create %s: %w", path, err)
+	}
+	defer f.Close()
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(rows); err != nil {
+		return fmt.Errorf("write json: %w", err)
+	}
+	return nil
+}
+
+func printKeepAliveBanner(w *os.File) {
+	fmt.Fprintln(w, "Servers still running (-f):")
+	fmt.Fprintf(w, "  DumboDB: %s\n", dumboContainer.hostURI)
+	fmt.Fprintf(w, "  MongoDB: %s\n", mongoContainer.hostURI)
+	fmt.Fprintf(w, "Clean up: docker stop %s %s && docker rm %s %s\n",
+		dumboContainer.name, mongoContainer.name,
+		dumboContainer.name, mongoContainer.name)
 }
 
 // runBench invokes `go test -bench` against the given target and parses the

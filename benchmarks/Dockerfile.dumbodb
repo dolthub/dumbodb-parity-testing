@@ -1,0 +1,40 @@
+# Multi-stage build for DumboDB (the dongo server) from the product repo.
+#
+# Build context must be the product repo root (the directory containing
+# go.mod and cmd/dongo/). The cmd/compare runner handles this automatically;
+# if building by hand:
+#
+#     docker build -f benchmarks/Dockerfile.dumbodb -t dumbodb-bench:local /path/to/product/repo
+#
+# CGO is required because github.com/dolthub/gozstd links against libzstd —
+# hence the gcc-bearing golang base image and libc-bearing debian runtime.
+
+FROM golang:1.25-bookworm AS builder
+WORKDIR /src
+
+# Leverage layer caching: pull deps before the full source copy.
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+ENV CGO_ENABLED=1
+# -buildvcs=false: the build context is a directory copy, not a git checkout,
+# so the Go toolchain's VCS-stamping step would fail.
+RUN go build -buildvcs=false -o /out/dumbodb ./cmd/dongo/
+
+FROM debian:bookworm-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /out/dumbodb /usr/local/bin/dumbodb
+
+# Benchmark convention: DumboDB serves on 27018 inside the container so the
+# host-side port mapping matches (27018:27018). --addr binds to 0.0.0.0 so
+# the port is reachable from outside the container.
+EXPOSE 27018
+VOLUME ["/var/lib/dumbodb"]
+
+ENTRYPOINT ["/usr/local/bin/dumbodb"]
+CMD ["--addr", "0.0.0.0:27018", "--data-dir", "/var/lib/dumbodb"]
