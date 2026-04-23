@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -41,7 +42,7 @@ var (
 	benchPkg      = flag.String("pkg", "./benchmarks", "Go package containing the benchmarks")
 	verbose       = flag.Bool("v", false, "stream go test output to stderr as it runs")
 	keepAlive     = flag.Bool("f", false, "keep containers running after benchmarks complete (for investigation)")
-	dumboSrc      = flag.String("dumbodb-src", envOr("DUMBODB_SRC", "/home/ubuntu/dongo"), "path to the product (dongo) repo; used as docker build context")
+	dumboSrc      = flag.String("dumbodb-src", envOr("DUMBODB_SRC", defaultDumboSrc()), "path to the product (dongo/dumbodb) repo; used as docker build context")
 	noContainers  = flag.Bool("no-containers", false, "skip container management entirely (expects servers already reachable at the default ports)")
 	healthTimeout = flag.Duration("health-timeout", 60*time.Second, "how long to wait for each container to accept connections")
 )
@@ -51,6 +52,24 @@ func envOr(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// defaultDumboSrc guesses the product repo path relative to the current
+// working directory. It checks common sibling names (the parity repo is
+// typically checked out next to the product repo).
+func defaultDumboSrc() string {
+	// Common sibling directory names for the product repo.
+	candidates := []string{"../dongo", "../dumbodb"}
+	for _, c := range candidates {
+		if fi, err := os.Stat(filepath.Join(c, "go.mod")); err == nil && !fi.IsDir() {
+			abs, err := filepath.Abs(c)
+			if err == nil {
+				return abs
+			}
+			return c
+		}
+	}
+	return "../dongo"
 }
 
 // result is one (benchmark, target) data point.
