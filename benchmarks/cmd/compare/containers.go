@@ -159,6 +159,10 @@ func waitHealthy(ctx context.Context, c container, timeout time.Duration) error 
 		lastErr = err
 		time.Sleep(500 * time.Millisecond)
 	}
+	// Dump container logs and state to help diagnose the failure.
+	fmt.Fprintf(os.Stderr, "\n==> %s failed health check — dumping diagnostics:\n", c.name)
+	fmt.Fprintf(os.Stderr, "    state: %s\n", containerState(ctx, c.name))
+	_ = runDocker(ctx, os.Stderr, "logs", "--tail", "30", c.name)
 	return fmt.Errorf("%s never became healthy at %s: %w", c.name, c.hostURI, lastErr)
 }
 
