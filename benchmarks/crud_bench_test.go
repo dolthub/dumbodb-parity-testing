@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -99,6 +100,81 @@ func BenchmarkFindOne_ById(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		id := i % benchDatasetSize
+		var out bson.M
+		if err := col.FindOne(ctx, bson.D{{Key: "_id", Value: id}}).Decode(&out); err != nil {
+			b.Fatalf("FindOne: %v", err)
+		}
+	}
+}
+
+// seedWithIds seeds n docs using makeDoc, but replaces the generated integer
+// _id with idFn(i). Used by the _id-type FindOne benchmarks.
+func seedWithIds(ctx context.Context, col *mongo.Collection, n int, size docSize, idFn func(i int) interface{}) error {
+	r := rand.New(rand.NewSource(*dataSeed))
+	const batch = 500
+	buf := make([]interface{}, 0, batch)
+	for i := 0; i < n; i++ {
+		d := makeDoc(r, i, size)
+		d[0].Value = idFn(i)
+		buf = append(buf, d)
+		if len(buf) == batch || i == n-1 {
+			if _, err := col.InsertMany(ctx, buf, options.InsertMany().SetOrdered(false)); err != nil {
+				return fmt.Errorf("seed insert: %w", err)
+			}
+			buf = buf[:0]
+		}
+	}
+	return nil
+}
+
+func BenchmarkFindOne_ById_String(b *testing.B) {
+	col, ctx := withEmptyCollection(b, "findone_string")
+	idFn := func(i int) interface{} { return fmt.Sprintf("doc-%d", i) }
+	if err := seedWithIds(ctx, col, benchDatasetSize, benchDocSize, idFn); err != nil {
+		b.Fatalf("seed: %v", err)
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		id := fmt.Sprintf("doc-%d", i%benchDatasetSize)
+		var out bson.M
+		if err := col.FindOne(ctx, bson.D{{Key: "_id", Value: id}}).Decode(&out); err != nil {
+			b.Fatalf("FindOne: %v", err)
+		}
+	}
+}
+
+func BenchmarkFindOne_ById_ObjectId(b *testing.B) {
+	col, ctx := withEmptyCollection(b, "findone_oid")
+	ids := make([]primitive.ObjectID, benchDatasetSize)
+	for i := range ids {
+		ids[i] = primitive.NewObjectID()
+	}
+	idFn := func(i int) interface{} { return ids[i] }
+	if err := seedWithIds(ctx, col, benchDatasetSize, benchDocSize, idFn); err != nil {
+		b.Fatalf("seed: %v", err)
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		id := ids[i%benchDatasetSize]
+		var out bson.M
+		if err := col.FindOne(ctx, bson.D{{Key: "_id", Value: id}}).Decode(&out); err != nil {
+			b.Fatalf("FindOne: %v", err)
+		}
+	}
+}
+
+func BenchmarkFindOne_ById_Document(b *testing.B) {
+	col, ctx := withEmptyCollection(b, "findone_doc")
+	makeID := func(i int) bson.D {
+		return bson.D{{Key: "a", Value: i}, {Key: "b", Value: "foo"}}
+	}
+	idFn := func(i int) interface{} { return makeID(i) }
+	if err := seedWithIds(ctx, col, benchDatasetSize, benchDocSize, idFn); err != nil {
+		b.Fatalf("seed: %v", err)
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		id := makeID(i % benchDatasetSize)
 		var out bson.M
 		if err := col.FindOne(ctx, bson.D{{Key: "_id", Value: id}}).Decode(&out); err != nil {
 			b.Fatalf("FindOne: %v", err)
