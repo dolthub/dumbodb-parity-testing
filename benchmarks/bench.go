@@ -87,6 +87,8 @@ const (
 	sizeSmall  docSize = iota // ~100 bytes
 	sizeMedium                // ~1 KB
 	sizeLarge                 // ~10 KB
+	size100KB                 // ~100 KB
+	size1MB                   // ~1 MB
 )
 
 func (s docSize) String() string {
@@ -94,9 +96,13 @@ func (s docSize) String() string {
 	case sizeSmall:
 		return "small"
 	case sizeMedium:
-		return "medium"
+		return "1kb"
 	case sizeLarge:
-		return "large"
+		return "10kb"
+	case size100KB:
+		return "100kb"
+	case size1MB:
+		return "1mb"
 	}
 	return "unknown"
 }
@@ -114,6 +120,10 @@ func makeDoc(r *rand.Rand, i int, size docSize) bson.D {
 		payloadLen = 900
 	case sizeLarge:
 		payloadLen = 9500
+	case size100KB:
+		payloadLen = 100 * 1024
+	case size1MB:
+		payloadLen = 1024 * 1024
 	}
 	payload := make([]byte, payloadLen)
 	for j := range payload {
