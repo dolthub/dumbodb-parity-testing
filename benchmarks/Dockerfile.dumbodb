@@ -1,7 +1,7 @@
 # Multi-stage build for DumboDB (the dongo server) from the product repo.
 #
 # Build context must be the product repo root (the directory containing
-# go.mod and cmd/dongo/). The cmd/compare runner handles this automatically;
+# go.mod and cmd/dumbodb/). The cmd/compare runner handles this automatically;
 # if building by hand:
 #
 #     docker build -f benchmarks/Dockerfile.dumbodb -t dumbodb-bench:local /path/to/product/repo
@@ -21,7 +21,7 @@ COPY . .
 ENV CGO_ENABLED=1
 # -buildvcs=false: the build context is a directory copy, not a git checkout,
 # so the Go toolchain's VCS-stamping step would fail.
-RUN go build -buildvcs=false -o /out/dumbodb ./cmd/dongo/
+RUN go build -buildvcs=false -o /out/dumbodb ./cmd/dumbodb/
 
 FROM debian:bookworm-slim
 RUN apt-get update \

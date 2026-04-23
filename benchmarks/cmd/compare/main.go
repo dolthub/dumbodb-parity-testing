@@ -59,7 +59,7 @@ func envOr(key, fallback string) string {
 // typically checked out next to the product repo).
 func defaultDumboSrc() string {
 	// Common sibling directory names for the product repo.
-	candidates := []string{"../dongo", "../dumbodb"}
+	candidates := []string{"../dumbodb", "../dongo"}
 	for _, c := range candidates {
 		if fi, err := os.Stat(filepath.Join(c, "go.mod")); err == nil && !fi.IsDir() {
 			abs, err := filepath.Abs(c)
@@ -69,7 +69,7 @@ func defaultDumboSrc() string {
 			return c
 		}
 	}
-	return "../dongo"
+	return "../dumbodb"
 }
 
 // result is one (benchmark, target) data point.
