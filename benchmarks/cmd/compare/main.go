@@ -45,6 +45,7 @@ var (
 	dumboSrc      = flag.String("dumbodb-src", envOr("DUMBODB_SRC", defaultDumboSrc()), "path to the product (dongo/dumbodb) repo; used as docker build context")
 	noContainers  = flag.Bool("no-containers", false, "skip container management entirely (expects servers already reachable at the default ports)")
 	healthTimeout = flag.Duration("health-timeout", 60*time.Second, "how long to wait for each container to accept connections")
+	testTimeout   = flag.Duration("test-timeout", 10*time.Minute, "-timeout value passed to go test (caps the entire bench run; large-N benchmarks exceed the 10m default while seeding)")
 )
 
 func envOr(key, fallback string) string {
@@ -74,19 +75,19 @@ func defaultDumboSrc() string {
 
 // result is one (benchmark, target) data point.
 type result struct {
-	Name   string  `json:"name"`
-	Target string  `json:"target"`
-	URI    string  `json:"uri"`
-	N      int     `json:"n"`        // iterations
+	Name    string  `json:"name"`
+	Target  string  `json:"target"`
+	URI     string  `json:"uri"`
+	N       int     `json:"n"` // iterations
 	NsPerOp float64 `json:"ns_per_op"`
 }
 
 // combined is what we emit as JSON: one row per benchmark with both sides.
 type combined struct {
-	Name          string   `json:"name"`
-	DumboDBNs     *float64 `json:"dumbodb_ns_per_op,omitempty"`
-	MongoNs       *float64 `json:"mongodb_ns_per_op,omitempty"`
-	PctChange     *float64 `json:"percent_change,omitempty"` // (dumbodb - mongodb) / mongodb * 100
+	Name      string   `json:"name"`
+	DumboDBNs *float64 `json:"dumbodb_ns_per_op,omitempty"`
+	MongoNs   *float64 `json:"mongodb_ns_per_op,omitempty"`
+	PctChange *float64 `json:"percent_change,omitempty"` // (dumbodb - mongodb) / mongodb * 100
 }
 
 func main() {
@@ -233,6 +234,7 @@ func runBench(label, uri string) ([]result, error) {
 		"-bench", *benchRegex,
 		"-benchtime", *benchTime,
 		"-count", strconv.Itoa(*count),
+		"-timeout", testTimeout.String(),
 		"-args",
 		"-bench.target-uri", uri,
 		"-bench.target-name", label,
@@ -253,7 +255,9 @@ func runBench(label, uri string) ([]result, error) {
 }
 
 // benchLine matches lines like:
-//   BenchmarkInsertOne-8            123    4567 ns/op    ...
+//
+//	BenchmarkInsertOne-8            123    4567 ns/op    ...
+//
 // We tolerate the optional -N suffix and only extract the name, iterations,
 // and ns/op. Other columns (B/op, allocs/op) are ignored for now.
 var benchLine = regexp.MustCompile(`^(Benchmark\S+?)(?:-\d+)?\s+(\d+)\s+(\d+(?:\.\d+)?)\s+ns/op`)

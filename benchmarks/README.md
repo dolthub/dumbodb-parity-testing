@@ -32,6 +32,19 @@ collection is seeded fresh per benchmark; the server used depends on the
 (`{_id, i, grp, tag, payload}`) so filter benchmarks remain comparable across
 size tiers when we add them.
 
+**Scaled index variants** (in `scaled_indexed_bench_test.go`): `Find_FilterEq`,
+`Find_FilterRange`, `UpdateMany`, `DeleteMany`, and `CountDocuments` each have
+`_10K`, `_10K_Indexed`, `_50K`, `_50K_Indexed` variants. The 1K baseline is
+too small for MongoDB's indexes to show their advantage — full-collection
+scans finish before the index-lookup overhead pays off. At 10K the read-side
+indexes (`Find_FilterRange`, `CountDocuments`) cleanly cross a 2x speedup on
+MongoDB; 50K confirms the trend and pushes the ratios further. `Find_FilterEq`,
+`UpdateMany`, and `DeleteMany` plateau below 2x even at 50K because their
+filter (one of ten `grp` values) returns ~10% of the collection — fetching
+that many docs through the index is no cheaper than a sequential scan, and
+for the write benchmarks the dominant cost is the writes themselves, not the
+candidate lookup.
+
 ## Scope — deferred
 
 These are enumerated in `bd pa-xp1` but not implemented in the first cut:
@@ -104,6 +117,7 @@ Flags:
 | `-dumbodb-src`     | `/home/ubuntu/dongo` | Path to the product (dongo) repo; used as Docker build context |
 | `-no-containers`   | `false` | Skip container management; expect servers already at `:27017` / `:27018` |
 | `-health-timeout`  | `60s` | How long to wait for each container to accept connections |
+| `-test-timeout`    | `10m` | `-timeout` passed to `go test`. Bump to `45m` or higher when running the 50K-scale `*_50K` benchmarks — DumboDB's seed step alone takes ~30 minutes at that size. |
 
 ### Container layout
 
