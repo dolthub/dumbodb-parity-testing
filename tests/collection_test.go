@@ -1129,6 +1129,130 @@ func TestCursor_NoCursorTimeout(t *testing.T) {
 // ============================================================
 // Explain
 // ============================================================
+//
+// Explain responses contain server-version-specific noise (serverInfo, host,
+// port, gitVersion, plannerVersion, timing fields, planCacheKey, etc.) that
+// will never match between MongoDB and DumboDB. Rather than compare the full
+// response, these tests extract the high-signal "what plan was chosen?"
+// fields — the parsed query, winning plan stage, selected index — and compare
+// only those. See explainCritical below.
+
+// lookupBSONField returns the value for key in d, or (nil, false).
+func lookupBSONField(d bson.D, key string) (interface{}, bool) {
+	for _, e := range d {
+		if e.Key == key {
+			return e.Value, true
+		}
+	}
+	return nil, false
+}
+
+// findQueryPlanner locates the queryPlanner sub-document in an explain
+// response. For find/count/update/delete/distinct it is at the top level;
+// for aggregate it is nested inside stages[0].$cursor.
+func findQueryPlanner(doc bson.D) bson.D {
+	if v, ok := lookupBSONField(doc, "queryPlanner"); ok {
+		if d, ok := v.(bson.D); ok {
+			return d
+		}
+	}
+	if stages, ok := lookupBSONField(doc, "stages"); ok {
+		if arr, ok := stages.(bson.A); ok && len(arr) > 0 {
+			if first, ok := arr[0].(bson.D); ok {
+				if cursor, ok := lookupBSONField(first, "$cursor"); ok {
+					if cd, ok := cursor.(bson.D); ok {
+						return findQueryPlanner(cd)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// findExecutionStats locates the executionStats sub-document. Like
+// findQueryPlanner, it descends into aggregate's stages[0].$cursor.
+func findExecutionStats(doc bson.D) bson.D {
+	if v, ok := lookupBSONField(doc, "executionStats"); ok {
+		if d, ok := v.(bson.D); ok {
+			return d
+		}
+	}
+	if stages, ok := lookupBSONField(doc, "stages"); ok {
+		if arr, ok := stages.(bson.A); ok && len(arr) > 0 {
+			if first, ok := arr[0].(bson.D); ok {
+				if cursor, ok := lookupBSONField(first, "$cursor"); ok {
+					if cd, ok := cursor.(bson.D); ok {
+						return findExecutionStats(cd)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// extractPlan recursively pulls stage/indexName from a winning plan tree,
+// preserving the inputStage chain so a SORT->FETCH->IXSCAN nest is visible.
+func extractPlan(wp bson.D) bson.D {
+	out := bson.D{}
+	if v, ok := lookupBSONField(wp, "stage"); ok {
+		out = append(out, bson.E{Key: "stage", Value: v})
+	}
+	if v, ok := lookupBSONField(wp, "indexName"); ok {
+		out = append(out, bson.E{Key: "indexName", Value: v})
+	}
+	if v, ok := lookupBSONField(wp, "inputStage"); ok {
+		if isD, ok := v.(bson.D); ok {
+			out = append(out, bson.E{Key: "inputStage", Value: extractPlan(isD)})
+		}
+	}
+	return out
+}
+
+// explainCritical extracts the high-signal fields from an explain response,
+// stripping server-specific noise so MongoDB and DumboDB responses can be
+// compared structurally. Only fields present in the input are emitted.
+func explainCritical(doc bson.D) bson.D {
+	out := bson.D{}
+	if qp := findQueryPlanner(doc); qp != nil {
+		if pq, ok := lookupBSONField(qp, "parsedQuery"); ok {
+			out = append(out, bson.E{Key: "parsedQuery", Value: pq})
+		}
+		if wp, ok := lookupBSONField(qp, "winningPlan"); ok {
+			if wpD, ok := wp.(bson.D); ok {
+				out = append(out, bson.E{Key: "winningPlan", Value: extractPlan(wpD)})
+			}
+		}
+		if rp, ok := lookupBSONField(qp, "rejectedPlans"); ok {
+			if arr, ok := rp.(bson.A); ok {
+				out = append(out, bson.E{Key: "rejectedPlansCount", Value: int32(len(arr))})
+			}
+		}
+	}
+	if es := findExecutionStats(doc); es != nil {
+		esOut := bson.D{}
+		for _, k := range []string{"nReturned", "totalDocsExamined", "totalKeysExamined"} {
+			if v, ok := lookupBSONField(es, k); ok {
+				esOut = append(esOut, bson.E{Key: k, Value: v})
+			}
+		}
+		if len(esOut) > 0 {
+			out = append(out, bson.E{Key: "executionStats", Value: esOut})
+		}
+	}
+	return out
+}
+
+// runExplain executes an explain command and returns only the critical
+// fields, suitable for parity comparison.
+func runExplain(ctx context.Context, col *mongo.Collection, cmd interface{}) (interface{}, error) {
+	var doc bson.D
+	if err := col.Database().RunCommand(ctx, cmd).Decode(&doc); err != nil {
+		return nil, err
+	}
+	return explainCritical(doc), nil
+}
 
 func TestExplain_Find_QueryPlanner(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1143,7 +1267,7 @@ func TestExplain_Find_QueryPlanner(t *testing.T) {
 				}},
 				{Key: "verbosity", Value: "queryPlanner"},
 			}
-			return runCommandDoc(ctx, col, cmd)
+			return runExplain(ctx, col, cmd)
 		},
 	})
 }
@@ -1161,7 +1285,7 @@ func TestExplain_Find_ExecutionStats(t *testing.T) {
 				}},
 				{Key: "verbosity", Value: "executionStats"},
 			}
-			return runCommandDoc(ctx, col, cmd)
+			return runExplain(ctx, col, cmd)
 		},
 	})
 }
@@ -1179,7 +1303,7 @@ func TestExplain_Find_AllPlansExecution(t *testing.T) {
 				}},
 				{Key: "verbosity", Value: "allPlansExecution"},
 			}
-			return runCommandDoc(ctx, col, cmd)
+			return runExplain(ctx, col, cmd)
 		},
 	})
 }
@@ -1200,7 +1324,7 @@ func TestExplain_Aggregate(t *testing.T) {
 				}},
 				{Key: "verbosity", Value: "queryPlanner"},
 			}
-			return runCommandDoc(ctx, col, cmd)
+			return runExplain(ctx, col, cmd)
 		},
 	})
 }
@@ -1218,7 +1342,7 @@ func TestExplain_Count(t *testing.T) {
 				}},
 				{Key: "verbosity", Value: "queryPlanner"},
 			}
-			return runCommandDoc(ctx, col, cmd)
+			return runExplain(ctx, col, cmd)
 		},
 	})
 }
@@ -1239,7 +1363,7 @@ func TestExplain_Update(t *testing.T) {
 				}},
 				{Key: "verbosity", Value: "queryPlanner"},
 			}
-			return runCommandDoc(ctx, col, cmd)
+			return runExplain(ctx, col, cmd)
 		},
 	})
 }
@@ -1260,7 +1384,7 @@ func TestExplain_Delete(t *testing.T) {
 				}},
 				{Key: "verbosity", Value: "queryPlanner"},
 			}
-			return runCommandDoc(ctx, col, cmd)
+			return runExplain(ctx, col, cmd)
 		},
 	})
 }
@@ -1278,7 +1402,92 @@ func TestExplain_Distinct(t *testing.T) {
 				}},
 				{Key: "verbosity", Value: "queryPlanner"},
 			}
-			return runCommandDoc(ctx, col, cmd)
+			return runExplain(ctx, col, cmd)
+		},
+	})
+}
+
+// Index-aware explain tests: build an index, then verify the planner picks
+// IXSCAN on a query that covers it. The point is that explain must reflect
+// actual query planning — a COLLSCAN here would be a parity bug.
+
+func TestExplain_Find_IXSCAN_AfterIndexCreated(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Explain_Find_IXSCAN_AfterIndexCreated",
+		Support: harness.DumboDBXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if err := insertColTestDocs(ctx, col); err != nil {
+				return err
+			}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys: bson.D{{Key: "name", Value: 1}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cmd := bson.D{
+				{Key: "explain", Value: bson.D{
+					{Key: "find", Value: col.Name()},
+					{Key: "filter", Value: bson.D{{Key: "name", Value: "alpha"}}},
+				}},
+				{Key: "verbosity", Value: "queryPlanner"},
+			}
+			return runExplain(ctx, col, cmd)
+		},
+	})
+}
+
+func TestExplain_Count_IXSCAN_AfterIndexCreated(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Explain_Count_IXSCAN_AfterIndexCreated",
+		Support: harness.DumboDBXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if err := insertColTestDocs(ctx, col); err != nil {
+				return err
+			}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys: bson.D{{Key: "val", Value: 1}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cmd := bson.D{
+				{Key: "explain", Value: bson.D{
+					{Key: "count", Value: col.Name()},
+					{Key: "query", Value: bson.D{{Key: "val", Value: int32(3)}}},
+				}},
+				{Key: "verbosity", Value: "queryPlanner"},
+			}
+			return runExplain(ctx, col, cmd)
+		},
+	})
+}
+
+func TestExplain_Aggregate_IXSCAN_AfterIndexCreated(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Explain_Aggregate_IXSCAN_AfterIndexCreated",
+		Support: harness.DumboDBXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if err := insertColTestDocs(ctx, col); err != nil {
+				return err
+			}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys: bson.D{{Key: "val", Value: 1}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cmd := bson.D{
+				{Key: "explain", Value: bson.D{
+					{Key: "aggregate", Value: col.Name()},
+					{Key: "pipeline", Value: bson.A{
+						bson.D{{Key: "$match", Value: bson.D{{Key: "val", Value: int32(3)}}}},
+					}},
+					{Key: "cursor", Value: bson.D{}},
+				}},
+				{Key: "verbosity", Value: "queryPlanner"},
+			}
+			return runExplain(ctx, col, cmd)
 		},
 	})
 }
