@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"sort"
 	"testing"
 	"time"
 
@@ -470,7 +471,7 @@ func unpackArraysOrdersSeed(ctx context.Context, col *mongo.Collection) error {
 func TestUnpackArrays_ProductTotals(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UnpackArrays_ProductTotals",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   unpackArraysOrdersSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := mongo.Pipeline{
@@ -502,13 +503,22 @@ func TestUnpackArrays_ProductTotals(t *testing.T) {
 				return nil, err
 			}
 
-			// Expected docs — order not guaranteed after $group, so tutorialCheck uses set comparison.
+			// $group output order is not guaranteed; sort by product_id for
+			// deterministic comparison between MongoDB and DumboDB.
+			sortDocsByStringKey(results, "product_id")
+
 			expected := []interface{}{
 				bson.D{
 					{Key: "product", Value: "Asus Laptop"},
 					{Key: "total_value", Value: int32(860)},
 					{Key: "quantity", Value: int32(2)},
 					{Key: "product_id", Value: "abc12345"},
+				},
+				bson.D{
+					{Key: "product", Value: "Karcher Hose Set"},
+					{Key: "total_value", Value: int32(66)},
+					{Key: "quantity", Value: int32(3)},
+					{Key: "product_id", Value: "def45678"},
 				},
 				bson.D{
 					{Key: "product", Value: "Morphy Richards Food Mixer"},
@@ -522,21 +532,33 @@ func TestUnpackArrays_ProductTotals(t *testing.T) {
 					{Key: "quantity", Value: int32(1)},
 					{Key: "product_id", Value: "xyz11228"},
 				},
-				bson.D{
-					{Key: "product", Value: "Karcher Hose Set"},
-					{Key: "total_value", Value: int32(66)},
-					{Key: "quantity", Value: int32(3)},
-					{Key: "product_id", Value: "def45678"},
-				},
 			}
 
 			actual := make([]interface{}, len(results))
 			for i, r := range results {
 				actual[i] = r
 			}
-			tutorialCheckXFail(t, "UnpackArrays_ProductTotals", actual, expected)
+			tutorialCheck(t, "UnpackArrays_ProductTotals", actual, expected)
 			return results, nil
 		},
+	})
+}
+
+// sortDocsByStringKey sorts a slice of bson.D by the named string key for
+// deterministic comparison when the underlying pipeline does not guarantee
+// document ordering (e.g. after $group or $lookup without a trailing $sort).
+func sortDocsByStringKey(docs []bson.D, key string) {
+	getKey := func(d bson.D) string {
+		for _, e := range d {
+			if e.Key == key {
+				s, _ := e.Value.(string)
+				return s
+			}
+		}
+		return ""
+	}
+	sort.Slice(docs, func(i, j int) bool {
+		return getKey(docs[i]) < getKey(docs[j])
 	})
 }
 
@@ -627,7 +649,7 @@ func oneToOneJoinSeed(ctx context.Context, col *mongo.Collection) error {
 func TestOneToOneJoin_EnrichOrders2020(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "OneToOneJoin_EnrichOrders2020",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   oneToOneJoinSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := mongo.Pipeline{
@@ -667,11 +689,22 @@ func TestOneToOneJoin_EnrichOrders2020(t *testing.T) {
 				return nil, err
 			}
 
+			// Natural iteration order is not guaranteed; sort by customer_id
+			// for deterministic comparison between MongoDB and DumboDB.
+			sortDocsByStringKey(results, "customer_id")
+
 			expected := []interface{}{
 				bson.D{
 					{Key: "customer_id", Value: "elise_smith@myemail.com"},
 					{Key: "orderdate", Value: primitive.NewDateTimeFromTime(time.Date(2020, 5, 30, 8, 35, 52, 0, time.UTC))},
 					{Key: "value", Value: 431.43},
+					{Key: "product_name", Value: "Asus Laptop"},
+					{Key: "product_category", Value: "ELECTRONICS"},
+				},
+				bson.D{
+					{Key: "customer_id", Value: "jjones@tepidmail.com"},
+					{Key: "orderdate", Value: primitive.NewDateTimeFromTime(time.Date(2020, 12, 26, 8, 55, 46, 0, time.UTC))},
+					{Key: "value", Value: 429.65},
 					{Key: "product_name", Value: "Asus Laptop"},
 					{Key: "product_category", Value: "ELECTRONICS"},
 				},
@@ -682,20 +715,13 @@ func TestOneToOneJoin_EnrichOrders2020(t *testing.T) {
 					{Key: "product_name", Value: "Morphy Richardds Food Mixer"},
 					{Key: "product_category", Value: "KITCHENWARE"},
 				},
-				bson.D{
-					{Key: "customer_id", Value: "jjones@tepidmail.com"},
-					{Key: "orderdate", Value: primitive.NewDateTimeFromTime(time.Date(2020, 12, 26, 8, 55, 46, 0, time.UTC))},
-					{Key: "value", Value: 429.65},
-					{Key: "product_name", Value: "Asus Laptop"},
-					{Key: "product_category", Value: "ELECTRONICS"},
-				},
 			}
 
 			actual := make([]interface{}, len(results))
 			for i, r := range results {
 				actual[i] = r
 			}
-			tutorialCheckXFail(t, "OneToOneJoin_EnrichOrders2020", actual, expected)
+			tutorialCheck(t, "OneToOneJoin_EnrichOrders2020", actual, expected)
 			return results, nil
 		},
 	})

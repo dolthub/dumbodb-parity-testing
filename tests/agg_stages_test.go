@@ -1920,7 +1920,7 @@ func insertOrgHierarchy(ctx context.Context, col *mongo.Collection) error {
 func TestAggStage_graphLookup_TraverseHierarchyFromLeaf(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_graphLookup_TraverseHierarchyFromLeaf",
-		Support: harness.DumboDBXFail, // $graphLookup result array order non-deterministic
+		Support: harness.DumboDBFull,
 		Setup:   insertOrgHierarchy,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
@@ -1939,6 +1939,18 @@ func TestAggStage_graphLookup_TraverseHierarchyFromLeaf(t *testing.T) {
 			var results []bson.D
 			if err := cursor.All(ctx, &results); err != nil {
 				return nil, err
+			}
+			// $graphLookup does not guarantee ordering of the result array.
+			// Sort by _id for deterministic comparison.
+			for _, doc := range results {
+				for i, elem := range doc {
+					if elem.Key == "chain" {
+						if chain, ok := elem.Value.(bson.A); ok {
+							sortBsonAByID(chain)
+							doc[i].Value = chain
+						}
+					}
+				}
 			}
 			return docsToSlice(results), nil
 		},

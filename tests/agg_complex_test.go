@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"sort"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -205,7 +206,7 @@ func TestAggComplex_matchGroupProject_pushArray(t *testing.T) {
 func TestAggComplex_matchGroupProject_addToSet(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_matchGroupProject_addToSet",
-		Support: harness.DumboDBXFail, // $addToSet element ordering is non-deterministic; dumbodb ordering diverges from MongoDB
+		Support: harness.DumboDBFull,
 		Setup:   insertComplexSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -215,7 +216,26 @@ func TestAggComplex_matchGroupProject_addToSet(t *testing.T) {
 				}}},
 				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
 			})
-			return docsToSlice(results), err
+			if err != nil {
+				return nil, err
+			}
+			// $addToSet element ordering is non-deterministic; sort the
+			// uniqueStatuses array for stable comparison.
+			for _, doc := range results {
+				for i, elem := range doc {
+					if elem.Key == "uniqueStatuses" {
+						if arr, ok := elem.Value.(bson.A); ok {
+							sort.Slice(arr, func(a, b int) bool {
+								sa, _ := arr[a].(string)
+								sb, _ := arr[b].(string)
+								return sa < sb
+							})
+							doc[i].Value = arr
+						}
+					}
+				}
+			}
+			return docsToSlice(results), nil
 		},
 	})
 }
@@ -1189,20 +1209,15 @@ func TestAggComplex_matchUnwindGroupSort_SameTotalQty(t *testing.T) {
 	})
 }
 
-// TestAggComplex_graphLookup_bfsOrder documents a dumbodb divergence in
-// $graphLookup result handling. Using $map to extract a field from the result
-// array, MongoDB returns the name strings while dumbodb returns nulls — it cannot
-// resolve sub-field references ($$d.name) over the graphLookup output array.
-// Related dumbodb bug: do-0gb6 ($graphLookup result order / field access).
+// TestAggComplex_graphLookup_bfsOrder collects all descendants of "root" and
+// uses $map to extract names. $graphLookup result array ordering is not
+// guaranteed, so the descendantNames array is sorted before comparison.
 func TestAggComplex_graphLookup_bfsOrder(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_graphLookup_bfsOrder",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertGraphNodes,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// Collect all descendants of "root" and use $map to extract names.
-			// MongoDB resolves $$d.name correctly from the graphLookup array.
-			// DumboDB returns [null, null, ...] — sub-field access fails (do-0gb6).
 			results, err := runPipeline(ctx, col, []bson.D{
 				{{Key: "$match", Value: bson.D{{Key: "_id", Value: "root"}}}},
 				{{Key: "$graphLookup", Value: bson.D{
@@ -1226,7 +1241,24 @@ func TestAggComplex_graphLookup_bfsOrder(t *testing.T) {
 					{Key: "descendantNames", Value: 1},
 				}}},
 			})
-			return docsToSlice(results), err
+			if err != nil {
+				return nil, err
+			}
+			for _, doc := range results {
+				for i, elem := range doc {
+					if elem.Key == "descendantNames" {
+						if names, ok := elem.Value.(bson.A); ok {
+							sort.Slice(names, func(a, b int) bool {
+								sa, _ := names[a].(string)
+								sb, _ := names[b].(string)
+								return sa < sb
+							})
+							doc[i].Value = names
+						}
+					}
+				}
+			}
+			return docsToSlice(results), nil
 		},
 	})
 }
