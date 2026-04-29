@@ -458,7 +458,10 @@ func TestDB_ListDatabaseNames(t *testing.T) {
 
 func TestDB_ListDatabases(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "DB_ListDatabases",
+		Name: "DB_ListDatabases",
+		// XFail: DumboDB closes the connection (EOF) when listDatabases is
+		// invoked at the client level. Re-evaluate when the listDatabases
+		// command is implemented.
 		Support: harness.DumboDBXFail,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
@@ -540,7 +543,7 @@ func TestDB_RunCommand_IsMaster(t *testing.T) {
 func TestDB_RunCommand_BuildInfo(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_BuildInfo",
-		Support: harness.DumboDBXFail, // version string diverges: mongo=8.0.20, dumbodb=7.0.21
+		Support: harness.DumboDBXFail, // version string diverges: mongo=8.0.20, dumbodb=7.0.42
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Omit MongoDB-internal fields: allocator, javascriptEngine, openssl,

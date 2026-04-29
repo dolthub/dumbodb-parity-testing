@@ -1,8 +1,8 @@
 package tests
 
 // bulk_write_test.go covers the MongoDB bulkWrite command (pa-jkc).
-// These start as DumboDBXFail and will be flipped to DumboDBFull once the
-// dongo rig implements the wire-level bulkWrite command.
+// All cases pass against current DumboDB (do-jcyy) — server-side bulkWrite
+// is implemented and the driver routes through it on the current wire version.
 
 import (
 	"context"
@@ -20,7 +20,7 @@ import (
 func TestBulkWriteCmd_mixed_ops(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWriteCmd_mixed_ops",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "bwc1"}, {Key: "x", Value: int32(1)}},
@@ -56,7 +56,7 @@ func TestBulkWriteCmd_mixed_ops(t *testing.T) {
 func TestBulkWriteCmd_ordered_stops_on_error(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWriteCmd_ordered_stops_on_error",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "existing"}})
 			return err
@@ -88,7 +88,7 @@ func TestBulkWriteCmd_ordered_stops_on_error(t *testing.T) {
 func TestBulkWriteCmd_unordered_continues_past_errors(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWriteCmd_unordered_continues_past_errors",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "existing"}})
 			return err
@@ -116,7 +116,7 @@ func TestBulkWriteCmd_unordered_continues_past_errors(t *testing.T) {
 func TestBulkWriteCmd_upsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWriteCmd_upsert",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			models := []mongo.WriteModel{
 				mongo.NewUpdateOneModel().
@@ -142,7 +142,7 @@ func TestBulkWriteCmd_upsert(t *testing.T) {
 func TestBulkWriteCmd_return_counts(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWriteCmd_return_counts",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "rc1"}, {Key: "v", Value: int32(1)}},
@@ -187,7 +187,7 @@ func TestBulkWriteCmd_return_counts(t *testing.T) {
 func TestBulkWriteCmd_nonexistent_collection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWriteCmd_nonexistent_collection",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Use a fresh sibling collection name that has not been created.
 			fresh := col.Database().Collection("bwc_fresh_" + col.Name())
