@@ -22,7 +22,7 @@ import (
 // ============================================================
 
 // runExplain runs an explain command for the given inner command at the given verbosity.
-func runExplain(ctx context.Context, col *mongo.Collection, inner bson.D, verbosity string) (bson.D, error) {
+func explainRunExplain(ctx context.Context, col *mongo.Collection, inner bson.D, verbosity string) (bson.D, error) {
 	cmd := bson.D{
 		{Key: "explain", Value: inner},
 		{Key: "verbosity", Value: verbosity},
@@ -64,7 +64,7 @@ func asDoc(v interface{}) (bson.D, bool) {
 // a flat slice describing each stage and the index it touches, if any.
 // The chain follows inputStage / inputStages — for OR/AND nodes, every branch
 // is recorded in stable order.
-func extractPlan(plan interface{}) []bson.D {
+func explainExtractPlan(plan interface{}) []bson.D {
 	out := []bson.D{}
 	doc, ok := asDoc(plan)
 	if !ok {
@@ -86,12 +86,12 @@ func extractPlan(plan interface{}) []bson.D {
 	}
 
 	if v, ok := lookup(doc, "inputStage"); ok {
-		out = append(out, extractPlan(v)...)
+		out = append(out, explainExtractPlan(v)...)
 	}
 	if v, ok := lookup(doc, "inputStages"); ok {
 		if arr, ok := v.(bson.A); ok {
 			for _, child := range arr {
-				out = append(out, extractPlan(child)...)
+				out = append(out, explainExtractPlan(child)...)
 			}
 		}
 	}
@@ -100,13 +100,13 @@ func extractPlan(plan interface{}) []bson.D {
 
 // explainCritical reduces a full explain document to the comparable subset:
 // the winningPlan stage chain plus, when present, executionStats counters.
-func explainCritical(doc bson.D) bson.D {
+func explainExtractCritical(doc bson.D) bson.D {
 	out := bson.D{}
 
 	if qp, ok := lookup(doc, "queryPlanner"); ok {
 		if qpDoc, ok := asDoc(qp); ok {
 			if wp, ok := lookup(qpDoc, "winningPlan"); ok {
-				out = append(out, bson.E{Key: "winningPlan", Value: extractPlan(wp)})
+				out = append(out, bson.E{Key: "winningPlan", Value: explainExtractPlan(wp)})
 			}
 		}
 	}
@@ -121,7 +121,7 @@ func explainCritical(doc bson.D) bson.D {
 			}
 			out = append(out, bson.E{Key: "executionStats", Value: stats})
 			if stages, ok := lookup(esDoc, "executionStages"); ok {
-				out = append(out, bson.E{Key: "executionStages", Value: extractPlan(stages)})
+				out = append(out, bson.E{Key: "executionStages", Value: explainExtractPlan(stages)})
 			}
 		}
 	}
@@ -170,14 +170,14 @@ func TestExplain_COLLSCAN_NoIndex(t *testing.T) {
 		Support: harness.DumboDBXFail,
 		Setup:   insertExplainDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{{Key: "n", Value: int32(5)}}},
 			}, "queryPlanner")
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -193,14 +193,14 @@ func TestExplain_IXSCAN_Equality(t *testing.T) {
 			return createIndex(ctx, col, bson.D{{Key: "n", Value: 1}})
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{{Key: "n", Value: int32(7)}}},
 			}, "queryPlanner")
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -216,14 +216,14 @@ func TestExplain_IXSCAN_Range(t *testing.T) {
 			return createIndex(ctx, col, bson.D{{Key: "n", Value: 1}})
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{{Key: "n", Value: bson.D{{Key: "$gt", Value: int32(10)}}}}},
 			}, "queryPlanner")
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -240,7 +240,7 @@ func TestExplain_FETCH_After_IXSCAN(t *testing.T) {
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Filter on indexed field, project a non-indexed field → must FETCH.
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{{Key: "n", Value: int32(3)}}},
 				{Key: "projection", Value: bson.D{{Key: "name", Value: int32(1)}, {Key: "_id", Value: int32(0)}}},
@@ -248,7 +248,7 @@ func TestExplain_FETCH_After_IXSCAN(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -265,7 +265,7 @@ func TestExplain_CoveredQuery(t *testing.T) {
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Project only the indexed field (and exclude _id) → covered, no FETCH.
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{{Key: "n", Value: bson.D{{Key: "$gte", Value: int32(5)}}}}},
 				{Key: "projection", Value: bson.D{{Key: "n", Value: int32(1)}, {Key: "_id", Value: int32(0)}}},
@@ -273,7 +273,7 @@ func TestExplain_CoveredQuery(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -288,7 +288,7 @@ func TestExplain_SORT_InMemory(t *testing.T) {
 		Support: harness.DumboDBXFail,
 		Setup:   insertExplainDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{}},
 				{Key: "sort", Value: bson.D{{Key: "score", Value: int32(1)}}},
@@ -296,7 +296,7 @@ func TestExplain_SORT_InMemory(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -312,7 +312,7 @@ func TestExplain_SORT_ViaIndex(t *testing.T) {
 			return createIndex(ctx, col, bson.D{{Key: "score", Value: 1}})
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{}},
 				{Key: "sort", Value: bson.D{{Key: "score", Value: int32(1)}}},
@@ -320,7 +320,7 @@ func TestExplain_SORT_ViaIndex(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -337,7 +337,7 @@ func TestExplain_SORT_FETCH_IXSCAN(t *testing.T) {
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Filter on indexed n, sort on non-indexed score → SORT → FETCH → IXSCAN.
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{{Key: "n", Value: bson.D{{Key: "$gt", Value: int32(5)}}}}},
 				{Key: "sort", Value: bson.D{{Key: "score", Value: int32(1)}}},
@@ -345,7 +345,7 @@ func TestExplain_SORT_FETCH_IXSCAN(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -360,7 +360,7 @@ func TestExplain_LIMIT(t *testing.T) {
 		Support: harness.DumboDBXFail,
 		Setup:   insertExplainDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{}},
 				{Key: "limit", Value: int64(3)},
@@ -368,7 +368,7 @@ func TestExplain_LIMIT(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -379,7 +379,7 @@ func TestExplain_SKIP(t *testing.T) {
 		Support: harness.DumboDBXFail,
 		Setup:   insertExplainDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{}},
 				{Key: "skip", Value: int64(5)},
@@ -387,7 +387,7 @@ func TestExplain_SKIP(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -398,7 +398,7 @@ func TestExplain_SKIP_LIMIT(t *testing.T) {
 		Support: harness.DumboDBXFail,
 		Setup:   insertExplainDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{}},
 				{Key: "skip", Value: int64(2)},
@@ -407,7 +407,7 @@ func TestExplain_SKIP_LIMIT(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -422,7 +422,7 @@ func TestExplain_PROJECTION_SIMPLE(t *testing.T) {
 		Support: harness.DumboDBXFail,
 		Setup:   insertExplainDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{}},
 				{Key: "projection", Value: bson.D{{Key: "name", Value: int32(1)}}},
@@ -430,7 +430,7 @@ func TestExplain_PROJECTION_SIMPLE(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -446,7 +446,7 @@ func TestExplain_PROJECTION_COVERED(t *testing.T) {
 			return createIndex(ctx, col, bson.D{{Key: "score", Value: 1}})
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{{Key: "score", Value: bson.D{{Key: "$gte", Value: int32(0)}}}}},
 				{Key: "projection", Value: bson.D{{Key: "score", Value: int32(1)}, {Key: "_id", Value: int32(0)}}},
@@ -454,7 +454,7 @@ func TestExplain_PROJECTION_COVERED(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -474,14 +474,14 @@ func TestExplain_COUNT_SCAN(t *testing.T) {
 			return createIndex(ctx, col, bson.D{{Key: "n", Value: 1}})
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "count", Value: col.Name()},
 				{Key: "query", Value: bson.D{{Key: "n", Value: bson.D{{Key: "$lte", Value: int32(10)}}}}},
 			}, "queryPlanner")
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -492,14 +492,14 @@ func TestExplain_COUNT_COLLSCAN(t *testing.T) {
 		Support: harness.DumboDBXFail,
 		Setup:   insertExplainDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "count", Value: col.Name()},
 				{Key: "query", Value: bson.D{{Key: "city", Value: "NYC"}}},
 			}, "queryPlanner")
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -519,14 +519,14 @@ func TestExplain_DISTINCT_SCAN(t *testing.T) {
 			return createIndex(ctx, col, bson.D{{Key: "city", Value: 1}})
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "distinct", Value: col.Name()},
 				{Key: "key", Value: "city"},
 			}, "queryPlanner")
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -549,7 +549,7 @@ func TestExplain_OR_MultiIndex(t *testing.T) {
 			return createIndex(ctx, col, bson.D{{Key: "city", Value: 1}})
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{{Key: "$or", Value: bson.A{
 					bson.D{{Key: "n", Value: int32(3)}},
@@ -559,7 +559,7 @@ func TestExplain_OR_MultiIndex(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -578,7 +578,7 @@ func TestExplain_AND_SORTED(t *testing.T) {
 			return createIndex(ctx, col, bson.D{{Key: "score", Value: 1}})
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{
 					{Key: "n", Value: bson.D{{Key: "$gt", Value: int32(2)}}},
@@ -588,7 +588,7 @@ func TestExplain_AND_SORTED(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -611,14 +611,14 @@ func TestExplain_CompoundIndex_PrefixMatch(t *testing.T) {
 			})
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{{Key: "city", Value: "NYC"}}},
 			}, "queryPlanner")
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -637,7 +637,7 @@ func TestExplain_CompoundIndex_FullMatch(t *testing.T) {
 			})
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{
 					{Key: "city", Value: "NYC"},
@@ -647,7 +647,7 @@ func TestExplain_CompoundIndex_FullMatch(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -667,7 +667,7 @@ func TestExplain_CompoundIndex_SortCovered(t *testing.T) {
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Filter on prefix, sort on suffix → index covers both, no SORT stage.
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{{Key: "city", Value: "NYC"}}},
 				{Key: "sort", Value: bson.D{{Key: "score", Value: int32(1)}}},
@@ -675,7 +675,7 @@ func TestExplain_CompoundIndex_SortCovered(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -695,7 +695,7 @@ func TestExplain_Aggregate_MatchIXSCAN(t *testing.T) {
 			return createIndex(ctx, col, bson.D{{Key: "n", Value: 1}})
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "aggregate", Value: col.Name()},
 				{Key: "pipeline", Value: bson.A{
 					bson.D{{Key: "$match", Value: bson.D{{Key: "n", Value: bson.D{{Key: "$gt", Value: int32(10)}}}}}},
@@ -705,7 +705,7 @@ func TestExplain_Aggregate_MatchIXSCAN(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -716,7 +716,7 @@ func TestExplain_Aggregate_COLLSCAN(t *testing.T) {
 		Support: harness.DumboDBXFail,
 		Setup:   insertExplainDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "aggregate", Value: col.Name()},
 				{Key: "pipeline", Value: bson.A{
 					bson.D{{Key: "$match", Value: bson.D{{Key: "city", Value: "LA"}}}},
@@ -726,7 +726,7 @@ func TestExplain_Aggregate_COLLSCAN(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -746,14 +746,14 @@ func TestExplain_ExecutionStats_Indexed(t *testing.T) {
 			return createIndex(ctx, col, bson.D{{Key: "n", Value: 1}})
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{{Key: "n", Value: int32(7)}}},
 			}, "executionStats")
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -764,14 +764,14 @@ func TestExplain_ExecutionStats_FullScan(t *testing.T) {
 		Support: harness.DumboDBXFail,
 		Setup:   insertExplainDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{}},
 			}, "executionStats")
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -795,7 +795,7 @@ func TestExplain_Hint_ForcesIndex(t *testing.T) {
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Equality on n would normally pick the n index; force the score index instead.
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{{Key: "n", Value: int32(7)}}},
 				{Key: "hint", Value: bson.D{{Key: "score", Value: int32(1)}}},
@@ -803,7 +803,7 @@ func TestExplain_Hint_ForcesIndex(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
@@ -820,7 +820,7 @@ func TestExplain_Hint_Natural(t *testing.T) {
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $natural hint forces COLLSCAN even though n is indexed.
-			doc, err := runExplain(ctx, col, bson.D{
+			doc, err := explainRunExplain(ctx, col, bson.D{
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{{Key: "n", Value: int32(7)}}},
 				{Key: "hint", Value: bson.D{{Key: "$natural", Value: int32(1)}}},
@@ -828,7 +828,7 @@ func TestExplain_Hint_Natural(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return explainCritical(doc), nil
+			return explainExtractCritical(doc), nil
 		},
 	})
 }
