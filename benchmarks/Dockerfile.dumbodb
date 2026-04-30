@@ -19,9 +19,12 @@ RUN go mod download
 COPY . .
 
 ENV CGO_ENABLED=1
+ARG GIT_VERSION=unknown
 # -buildvcs=false: the build context is a directory copy, not a git checkout,
 # so the Go toolchain's VCS-stamping step would fail.
-RUN go build -buildvcs=false -o /out/dumbodb ./cmd/dumbodb/
+RUN go build -buildvcs=false \
+    -ldflags "-X github.com/dolthub/dumbodb/internal/version.GitVersion=${GIT_VERSION}" \
+    -o /out/dumbodb ./cmd/dumbodb/
 
 FROM debian:bookworm-slim
 RUN apt-get update \
