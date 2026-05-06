@@ -18,7 +18,7 @@ var queryDocs = []interface{}{
 	bson.D{
 		{Key: "_id", Value: "q1"}, {Key: "name", Value: "Alice"},
 		{Key: "age", Value: int32(25)}, {Key: "score", Value: 8.5},
-		{Key: "active", Value: true}, {Key: "tags", Value: bson.A{"go", "db", "nosql"}},
+		{Key: "active", Value: true}, {Key: "tags", Value: bson.A{"go", "cloud", "nosql"}},
 	},
 	bson.D{
 		{Key: "_id", Value: "q2"}, {Key: "name", Value: "Bob"},
@@ -33,7 +33,7 @@ var queryDocs = []interface{}{
 	bson.D{
 		{Key: "_id", Value: "q4"}, {Key: "name", Value: "Dave"},
 		{Key: "age", Value: int32(35)}, {Key: "score", Value: 4.0},
-		{Key: "active", Value: false}, {Key: "tags", Value: bson.A{"db"}},
+		{Key: "active", Value: false}, {Key: "tags", Value: bson.A{"api"}},
 	},
 	bson.D{
 		{Key: "_id", Value: "q5"}, {Key: "name", Value: "Eve"},
