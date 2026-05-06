@@ -192,6 +192,7 @@ func TestAggComplex_matchGroupProject_pushArray(t *testing.T) {
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
 				{{Key: "$match", Value: bson.D{{Key: "status", Value: "shipped"}}}},
+				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
 				{{Key: "$group", Value: bson.D{
 					{Key: "_id", Value: "$region"},
 					{Key: "customers", Value: bson.D{{Key: "$push", Value: "$customer"}}},

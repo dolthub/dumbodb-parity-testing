@@ -843,6 +843,8 @@ func TestMultiFieldJoin_ProductsWithOrders2020(t *testing.T) {
 				}}},
 				// Stage 3: Remove redundant join fields from the orders side.
 				bson.D{{Key: "$unset", Value: bson.A{"_id", "product_name", "product_variation"}}},
+				// Stage 4: Sort by customer_id for deterministic order.
+				bson.D{{Key: "$sort", Value: bson.D{{Key: "customer_id", Value: 1}}}},
 			}
 
 			pipeline := mongo.Pipeline{
@@ -862,6 +864,8 @@ func TestMultiFieldJoin_ProductsWithOrders2020(t *testing.T) {
 				}}},
 				// Outer Stage 3: Remove _id and description fields.
 				{{Key: "$unset", Value: bson.A{"_id", "description"}}},
+				// Outer Stage 4: Sort by name for deterministic output.
+				{{Key: "$sort", Value: bson.D{{Key: "name", Value: 1}}}},
 			}
 
 			cursor, err := col.Aggregate(ctx, pipeline)
