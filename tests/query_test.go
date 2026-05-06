@@ -1504,7 +1504,7 @@ func TestQuery_sort_desc(t *testing.T) {
 func TestQuery_sort_natural_asc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_sort_natural_asc",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail, // prolly trees do not preserve insertion order
 		Setup:   insertQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return findSortedIDs(ctx, col, bson.D{}, bson.D{{Key: "$natural", Value: 1}})
@@ -1515,7 +1515,7 @@ func TestQuery_sort_natural_asc(t *testing.T) {
 func TestQuery_sort_natural_desc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_sort_natural_desc",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail, // prolly trees do not preserve insertion order
 		Setup:   insertQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return findSortedIDs(ctx, col, bson.D{}, bson.D{{Key: "$natural", Value: -1}})

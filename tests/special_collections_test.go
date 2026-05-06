@@ -84,7 +84,7 @@ func TestCapped_InsertAndEviction(t *testing.T) {
 func TestCapped_NaturalOrderCursor(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_NaturalOrderCursor",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail, // prolly trees do not preserve insertion order
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_natural"

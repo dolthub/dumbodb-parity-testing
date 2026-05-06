@@ -792,7 +792,7 @@ func TestSort_ArrayField_Descending(t *testing.T) {
 func TestSort_Natural_Ascending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_Natural_Ascending",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail, // prolly trees do not preserve insertion order
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -806,7 +806,7 @@ func TestSort_Natural_Ascending(t *testing.T) {
 func TestSort_Natural_Descending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_Natural_Descending",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail, // prolly trees do not preserve insertion order
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
