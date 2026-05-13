@@ -11,7 +11,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// ============================================================
 // Explain helpers
 //
 // runExplain wraps a sub-command in {explain: ..., verbosity: ...} and runs it.
@@ -19,7 +18,6 @@ import (
 // summary of (stage, indexName) pairs along the inputStage chain.
 // explainCritical pulls just the fields we care about for cross-impl parity:
 // the stage chain, the optional executionStats counters, and ok.
-// ============================================================
 
 // runExplain runs an explain command for the given inner command at the given verbosity.
 func explainRunExplain(ctx context.Context, col *mongo.Collection, inner bson.D, verbosity string) (bson.D, error) {
@@ -160,10 +158,6 @@ func createIndex(ctx context.Context, col *mongo.Collection, keys bson.D) error 
 	return err
 }
 
-// ============================================================
-// 1-5: Data Retrieval
-// ============================================================
-
 func TestExplain_COLLSCAN_NoIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_COLLSCAN_NoIndex",
@@ -278,10 +272,6 @@ func TestExplain_CoveredQuery(t *testing.T) {
 	})
 }
 
-// ============================================================
-// 6-8: Sorting
-// ============================================================
-
 func TestExplain_SORT_InMemory(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_SORT_InMemory",
@@ -350,10 +340,6 @@ func TestExplain_SORT_FETCH_IXSCAN(t *testing.T) {
 	})
 }
 
-// ============================================================
-// 9-11: Limit and Skip
-// ============================================================
-
 func TestExplain_LIMIT(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_LIMIT",
@@ -412,10 +398,6 @@ func TestExplain_SKIP_LIMIT(t *testing.T) {
 	})
 }
 
-// ============================================================
-// 12-13: Projection
-// ============================================================
-
 func TestExplain_PROJECTION_SIMPLE(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_PROJECTION_SIMPLE",
@@ -459,10 +441,6 @@ func TestExplain_PROJECTION_COVERED(t *testing.T) {
 	})
 }
 
-// ============================================================
-// 14-15: Count
-// ============================================================
-
 func TestExplain_COUNT_SCAN(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_COUNT_SCAN",
@@ -504,10 +482,6 @@ func TestExplain_COUNT_COLLSCAN(t *testing.T) {
 	})
 }
 
-// ============================================================
-// 16: Distinct
-// ============================================================
-
 func TestExplain_DISTINCT_SCAN(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_DISTINCT_SCAN",
@@ -530,10 +504,6 @@ func TestExplain_DISTINCT_SCAN(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// 17-18: Multi-Index
-// ============================================================
 
 func TestExplain_OR_MultiIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -592,10 +562,6 @@ func TestExplain_AND_SORTED(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// 19-21: Compound Index
-// ============================================================
 
 func TestExplain_CompoundIndex_PrefixMatch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -680,10 +646,6 @@ func TestExplain_CompoundIndex_SortCovered(t *testing.T) {
 	})
 }
 
-// ============================================================
-// 22-23: Aggregation
-// ============================================================
-
 func TestExplain_Aggregate_MatchIXSCAN(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Aggregate_MatchIXSCAN",
@@ -731,10 +693,6 @@ func TestExplain_Aggregate_COLLSCAN(t *testing.T) {
 	})
 }
 
-// ============================================================
-// 24-25: executionStats
-// ============================================================
-
 func TestExplain_ExecutionStats_Indexed(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_ExecutionStats_Indexed",
@@ -775,10 +733,6 @@ func TestExplain_ExecutionStats_FullScan(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// 26-27: Hint
-// ============================================================
 
 func TestExplain_Hint_ForcesIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{

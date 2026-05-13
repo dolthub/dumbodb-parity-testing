@@ -31,8 +31,6 @@ func insertCursorSeed(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
-// ─── maxTimeMS ────────────────────────────────────────────────────────────────
-
 func TestCursor_find_maxTimeMS(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_maxTimeMS",
@@ -50,8 +48,6 @@ func TestCursor_find_maxTimeMS(t *testing.T) {
 		},
 	})
 }
-
-// ─── batchSize ────────────────────────────────────────────────────────────────
 
 func TestCursor_find_batchSize(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -87,8 +83,6 @@ func TestCursor_find_batchSize_one(t *testing.T) {
 		},
 	})
 }
-
-// ─── Cursor exhaustion ────────────────────────────────────────────────────────
 
 func TestCursor_exhaustion_noDocsAfterAll(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -164,8 +158,6 @@ func TestCursor_iterate_manually(t *testing.T) {
 	})
 }
 
-// ─── hint ─────────────────────────────────────────────────────────────────────
-
 func TestCursor_find_hint_naturalOrder(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_hint_naturalOrder",
@@ -206,8 +198,6 @@ func TestCursor_find_hint_idIndex(t *testing.T) {
 	})
 }
 
-// ─── comment ──────────────────────────────────────────────────────────────────
-
 func TestCursor_find_comment(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_comment",
@@ -228,8 +218,6 @@ func TestCursor_find_comment(t *testing.T) {
 	})
 }
 
-// ─── allowDiskUse ─────────────────────────────────────────────────────────────
-
 func TestCursor_find_allowDiskUse(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_allowDiskUse",
@@ -249,8 +237,6 @@ func TestCursor_find_allowDiskUse(t *testing.T) {
 		},
 	})
 }
-
-// ─── readPreference ───────────────────────────────────────────────────────────
 
 func TestCursor_find_readPreference_primary(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -292,8 +278,6 @@ func TestCursor_find_readPreference_primaryPreferred(t *testing.T) {
 	})
 }
 
-// ─── Sort on multiple fields ──────────────────────────────────────────────────
-
 func TestCursor_sort_multiField_groupThenVal(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_sort_multiField_groupThenVal",
@@ -331,8 +315,6 @@ func TestCursor_sort_multiField_valThenId(t *testing.T) {
 		},
 	})
 }
-
-// ─── Skip + Limit ─────────────────────────────────────────────────────────────
 
 func TestCursor_skipLimit_page1(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -440,8 +422,6 @@ func TestCursor_limitOnly(t *testing.T) {
 	})
 }
 
-// ─── Aggregate cursor options ─────────────────────────────────────────────────
-
 func TestCursor_aggregate_batchSize(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_aggregate_batchSize",
@@ -502,8 +482,6 @@ func TestCursor_aggregate_maxTimeMS(t *testing.T) {
 	})
 }
 
-// ─── FindOne options ──────────────────────────────────────────────────────────
-
 func TestCursor_findOne_sort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_findOne_sort",
@@ -551,8 +529,6 @@ func TestCursor_findOne_skip(t *testing.T) {
 		},
 	})
 }
-
-// ─── limit=0 and negative limit ───────────────────────────────────────────────
 
 func TestCursor_LimitZero(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -607,8 +583,6 @@ func TestCursor_LimitNegative(t *testing.T) {
 		},
 	})
 }
-
-// ─── hint by document and by name ─────────────────────────────────────────────
 
 func TestCursor_HintByDocument(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -677,8 +651,6 @@ func TestCursor_HintByName(t *testing.T) {
 	})
 }
 
-// ─── returnKey ────────────────────────────────────────────────────────────────
-
 func TestCursor_ReturnKey(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_ReturnKey",
@@ -711,8 +683,6 @@ func TestCursor_ReturnKey(t *testing.T) {
 		},
 	})
 }
-
-// ─── min/max index bounds ─────────────────────────────────────────────────────
 
 func TestCursor_MinMaxBounds(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -749,8 +719,6 @@ func TestCursor_MinMaxBounds(t *testing.T) {
 		},
 	})
 }
-
-// ─── collation ────────────────────────────────────────────────────────────────
 
 func TestCursor_CollationCaseInsensitive(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -807,8 +775,6 @@ func TestCursor_CollationSort(t *testing.T) {
 		},
 	})
 }
-
-// ─── multi-batch (getMore) ────────────────────────────────────────────────────
 
 func TestCursor_MultiBatch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -868,8 +834,6 @@ func TestCursor_MultiBatchAllHelper(t *testing.T) {
 	})
 }
 
-// ─── tailable cursor on non-capped collection ─────────────────────────────────
-
 func TestCursor_TailableCappedCollectionRequired(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_TailableCappedCollectionRequired",
@@ -888,8 +852,6 @@ func TestCursor_TailableCappedCollectionRequired(t *testing.T) {
 		},
 	})
 }
-
-// ─── cursor.Next() iteration ─────────────────────────────────────────────────
 
 func TestCursor_NextIteration(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -943,8 +905,6 @@ func TestCursor_CloseReleasesResources(t *testing.T) {
 	})
 }
 
-// ─── allowPartialResults ──────────────────────────────────────────────────────
-
 func TestCursor_AllowPartialResultsTrue(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_AllowPartialResultsTrue",
@@ -995,8 +955,6 @@ func TestCursor_AllowPartialResultsFalse(t *testing.T) {
 		},
 	})
 }
-
-// ─── sort + limit + skip combined ─────────────────────────────────────────────
 
 func TestCursor_SortLimitSkipCombined(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{

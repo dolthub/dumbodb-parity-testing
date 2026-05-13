@@ -38,8 +38,6 @@ func insertAdvancedQueryDocsWithTextIndex(ctx context.Context, col *mongo.Collec
 	return err
 }
 
-// ─── Text Search (DumboDBXFail) ───────────────────────────────────────────────
-
 func TestAdvancedQuery_TextSearch_CreateTextIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_TextSearch_CreateTextIndex",
@@ -232,8 +230,6 @@ func TestAdvancedQuery_TextSearch_WithAdditionalFilter(t *testing.T) {
 		},
 	})
 }
-
-// ─── Regex (DumboDBFull for basic, DumboDBXFail for advanced flags) ─────────────
 
 func TestAdvancedQuery_Regex_CaseInsensitive(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -523,8 +519,6 @@ func TestAdvancedQuery_Regex_DigitCharClass(t *testing.T) {
 	})
 }
 
-// ─── $mod ───────────────────────────────────────────────────────────────────
-
 func TestAdvancedQuery_Mod_BasicDivisorRemainder(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_Mod_BasicDivisorRemainder",
@@ -717,8 +711,6 @@ func TestAdvancedQuery_Mod_WithAndOperator(t *testing.T) {
 		},
 	})
 }
-
-// ─── $jsonSchema ─────────────────────────────────────────────────────────────
 
 var jsonSchemaDocs = []interface{}{
 	bson.D{{Key: "_id", Value: "js1"}, {Key: "name", Value: "Alice"}, {Key: "age", Value: int32(25)}, {Key: "email", Value: "alice@example.com"}},
@@ -1338,8 +1330,6 @@ func TestAdvancedQuery_JsonSchema_BsonType_Null(t *testing.T) {
 	})
 }
 
-// ─── Additional Text Search tests ────────────────────────────────────────────
-
 func TestAdvancedQuery_TextSearch_DiacriticSensitive(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_TextSearch_DiacriticSensitive",
@@ -1412,8 +1402,6 @@ func TestAdvancedQuery_TextSearch_MultiFieldIndex(t *testing.T) {
 		},
 	})
 }
-
-// ─── Additional Regex tests ──────────────────────────────────────────────────
 
 func TestAdvancedQuery_Regex_WordBoundary(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1490,8 +1478,6 @@ func TestAdvancedQuery_Regex_CombinedWithMod(t *testing.T) {
 		},
 	})
 }
-
-// ─── Additional $mod tests ───────────────────────────────────────────────────
 
 func TestAdvancedQuery_Mod_Divisor3(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1575,8 +1561,6 @@ func TestAdvancedQuery_Mod_InOrClause(t *testing.T) {
 		},
 	})
 }
-
-// ─── Additional $jsonSchema tests ────────────────────────────────────────────
 
 func TestAdvancedQuery_JsonSchema_UniqueItems(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{

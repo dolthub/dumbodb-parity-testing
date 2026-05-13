@@ -69,8 +69,6 @@ func runPipeline(ctx context.Context, col *mongo.Collection, pipeline []bson.D) 
 	return results, cursor.All(ctx, &results)
 }
 
-// ─── $match ───────────────────────────────────────────────────────────────────
-
 func TestAgg_match_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_match_basic",
@@ -154,8 +152,6 @@ func TestAgg_match_and(t *testing.T) {
 	})
 }
 
-// ─── $project ─────────────────────────────────────────────────────────────────
-
 func TestAgg_project_include(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_project_include",
@@ -230,8 +226,6 @@ func TestAgg_project_rename_field(t *testing.T) {
 	})
 }
 
-// ─── $sort ────────────────────────────────────────────────────────────────────
-
 func TestAgg_sort_ascending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_sort_ascending",
@@ -279,8 +273,6 @@ func TestAgg_sort_multi_key(t *testing.T) {
 		},
 	})
 }
-
-// ─── $limit / $skip ───────────────────────────────────────────────────────────
 
 func TestAgg_limit_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -348,8 +340,6 @@ func TestAgg_limit_exceeds_count(t *testing.T) {
 	})
 }
 
-// ─── $count ───────────────────────────────────────────────────────────────────
-
 func TestAgg_count_all(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_count_all",
@@ -394,8 +384,6 @@ func TestAgg_count_empty_collection(t *testing.T) {
 		},
 	})
 }
-
-// ─── $group ───────────────────────────────────────────────────────────────────
 
 func TestAgg_group_sum(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -570,8 +558,6 @@ func TestAgg_group_empty_collection(t *testing.T) {
 	})
 }
 
-// ─── $unwind ──────────────────────────────────────────────────────────────────
-
 func TestAgg_unwind_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_unwind_basic",
@@ -663,8 +649,6 @@ func TestAgg_unwind_empty_array(t *testing.T) {
 	})
 }
 
-// ─── $lookup ──────────────────────────────────────────────────────────────────
-
 func TestAgg_lookup_equality(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_lookup_equality",
@@ -730,8 +714,6 @@ func TestAgg_lookup_pipeline_form(t *testing.T) {
 		},
 	})
 }
-
-// ─── $addFields / $set / $unset ───────────────────────────────────────────────
 
 func TestAgg_addFields_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -821,8 +803,6 @@ func TestAgg_unset_stage_single(t *testing.T) {
 	})
 }
 
-// ─── $replaceRoot / $replaceWith ──────────────────────────────────────────────
-
 func TestAgg_replaceRoot_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_replaceRoot_basic",
@@ -886,8 +866,6 @@ func TestAgg_replaceRoot_mergeObjects(t *testing.T) {
 	})
 }
 
-// ─── $out ─────────────────────────────────────────────────────────────────────
-
 func TestAgg_out_to_collection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_out_to_collection",
@@ -911,8 +889,6 @@ func TestAgg_out_to_collection(t *testing.T) {
 		},
 	})
 }
-
-// ─── $merge ───────────────────────────────────────────────────────────────────
 
 func TestAgg_merge_insert_new(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -976,8 +952,6 @@ func TestAgg_merge_whenMatched_merge(t *testing.T) {
 	})
 }
 
-// ─── $facet ───────────────────────────────────────────────────────────────────
-
 func TestAgg_facet_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_facet_basic",
@@ -1028,8 +1002,6 @@ func TestAgg_facet_with_count(t *testing.T) {
 		},
 	})
 }
-
-// ─── $bucket / $bucketAuto ────────────────────────────────────────────────────
 
 func TestAgg_bucket_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1115,8 +1087,6 @@ func TestAgg_bucketAuto_with_output(t *testing.T) {
 	})
 }
 
-// ─── $sortByCount ─────────────────────────────────────────────────────────────
-
 func TestAgg_sortByCount_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_sortByCount_basic",
@@ -1148,8 +1118,6 @@ func TestAgg_sortByCount_after_unwind(t *testing.T) {
 		},
 	})
 }
-
-// ─── $graphLookup ─────────────────────────────────────────────────────────────
 
 func TestAgg_graphLookup_hierarchy(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1219,8 +1187,6 @@ func TestAgg_graphLookup_maxDepth(t *testing.T) {
 	})
 }
 
-// ─── $sample ──────────────────────────────────────────────────────────────────
-
 func TestAgg_sample_count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_sample_count",
@@ -1254,8 +1220,6 @@ func TestAgg_sample_exceeds_size(t *testing.T) {
 		},
 	})
 }
-
-// ─── $redact ──────────────────────────────────────────────────────────────────
 
 func TestAgg_redact_prune(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1322,8 +1286,6 @@ func TestAgg_redact_prune_all(t *testing.T) {
 		},
 	})
 }
-
-// ─── Multi-stage pipelines ────────────────────────────────────────────────────
 
 func TestAgg_pipeline_match_group_sort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1401,8 +1363,6 @@ func TestAgg_pipeline_addFields_match(t *testing.T) {
 		},
 	})
 }
-
-// ─── Aggregate options ────────────────────────────────────────────────────────
 
 func TestAgg_allowDiskUse(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1773,8 +1733,6 @@ func TestAgg_match_gt_lt_range(t *testing.T) {
 		},
 	})
 }
-
-// ─── Additional $addFields / $project expression tests ────────────────────────
 
 func TestProject_computed_add(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{

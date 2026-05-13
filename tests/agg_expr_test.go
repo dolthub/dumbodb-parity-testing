@@ -45,8 +45,6 @@ func insertNumDoc(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
-// ─── Arithmetic expressions ───────────────────────────────────────────────────
-
 func TestExpr_add(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_add",
@@ -281,8 +279,6 @@ func TestExpr_log_base(t *testing.T) {
 	})
 }
 
-// ─── String expressions ───────────────────────────────────────────────────────
-
 func insertStrDoc(ctx context.Context, col *mongo.Collection) error {
 	_, err := col.InsertOne(ctx, bson.D{
 		{Key: "_id", Value: "s1"},
@@ -410,8 +406,6 @@ func TestExpr_indexOfBytes(t *testing.T) {
 		},
 	})
 }
-
-// ─── Array expressions ────────────────────────────────────────────────────────
 
 func insertArrDoc(ctx context.Context, col *mongo.Collection) error {
 	_, err := col.InsertOne(ctx, bson.D{
@@ -656,8 +650,6 @@ func TestExpr_zip(t *testing.T) {
 	})
 }
 
-// ─── Date expressions ─────────────────────────────────────────────────────────
-
 func insertDateDoc(ctx context.Context, col *mongo.Collection) error {
 	ts := primitive.NewDateTimeFromTime(time.Date(2024, 6, 15, 10, 30, 45, 0, time.UTC))
 	_, err := col.InsertOne(ctx, bson.D{
@@ -769,8 +761,6 @@ func TestExpr_dateDiff(t *testing.T) {
 		},
 	})
 }
-
-// ─── Conditional expressions ──────────────────────────────────────────────────
 
 func TestExpr_cond_true(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -892,8 +882,6 @@ func TestExpr_switch_basic(t *testing.T) {
 	})
 }
 
-// ─── Type conversion expressions ─────────────────────────────────────────────
-
 func insertTypeDoc(ctx context.Context, col *mongo.Collection) error {
 	_, err := col.InsertOne(ctx, bson.D{
 		{Key: "_id", Value: "t1"},
@@ -999,8 +987,6 @@ func TestExpr_convert_with_onError(t *testing.T) {
 	})
 }
 
-// ─── Comparison expressions in $project ───────────────────────────────────────
-
 func TestExpr_cmp_operators(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_cmp_operators",
@@ -1047,8 +1033,6 @@ func TestExpr_gte_lte(t *testing.T) {
 		},
 	})
 }
-
-// ─── Group accumulators ───────────────────────────────────────────────────────
 
 func insertGroupSeed(ctx context.Context, col *mongo.Collection) error {
 	_, err := col.InsertMany(ctx, []interface{}{
@@ -1207,8 +1191,6 @@ func TestAccum_multi_accumulators(t *testing.T) {
 	})
 }
 
-// ─── Boolean / logical expressions ───────────────────────────────────────────
-
 func TestExpr_and_or_not(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_and_or_not",
@@ -1232,8 +1214,6 @@ func TestExpr_and_or_not(t *testing.T) {
 	})
 }
 
-// ─── $trunc ───────────────────────────────────────────────────────────────────
-
 func TestExpr_trunc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_trunc",
@@ -1250,8 +1230,6 @@ func TestExpr_trunc(t *testing.T) {
 		},
 	})
 }
-
-// ─── $toLong / $toDate ────────────────────────────────────────────────────────
 
 func TestExpr_toLong(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1284,8 +1262,6 @@ func TestExpr_toDate(t *testing.T) {
 	})
 }
 
-// ─── $objectToArray ───────────────────────────────────────────────────────────
-
 func TestExpr_objectToArray(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_objectToArray",
@@ -1308,8 +1284,6 @@ func TestExpr_objectToArray(t *testing.T) {
 		},
 	})
 }
-
-// ─── Set expressions ──────────────────────────────────────────────────────────
 
 func insertSetDocs(ctx context.Context, col *mongo.Collection) error {
 	_, err := col.InsertOne(ctx, bson.D{
@@ -1412,8 +1386,6 @@ func TestExpr_setIsSubset(t *testing.T) {
 	})
 }
 
-// ─── $literal ─────────────────────────────────────────────────────────────────
-
 func TestExpr_literal(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_literal",
@@ -1431,8 +1403,6 @@ func TestExpr_literal(t *testing.T) {
 		},
 	})
 }
-
-// ─── $let ─────────────────────────────────────────────────────────────────────
 
 func TestExpr_let(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1452,8 +1422,6 @@ func TestExpr_let(t *testing.T) {
 		},
 	})
 }
-
-// ─── $type expression ─────────────────────────────────────────────────────────
 
 func TestExpr_type(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1478,8 +1446,6 @@ func TestExpr_type(t *testing.T) {
 		},
 	})
 }
-
-// ─── Null / missing field handling ────────────────────────────────────────────
 
 func TestExpr_null_field_in_arithmetic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1516,8 +1482,6 @@ func TestExpr_missing_field_in_cond(t *testing.T) {
 	})
 }
 
-// ─── $mergeObjects in $project ────────────────────────────────────────────────
-
 func TestExpr_mergeObjects_project(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Expr_mergeObjects_project",
@@ -1538,8 +1502,6 @@ func TestExpr_mergeObjects_project(t *testing.T) {
 		},
 	})
 }
-
-// ─── $expr in $match (aggregation expression in query) ────────────────────────
 
 func TestExpr_expr_in_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1566,8 +1528,6 @@ func TestExpr_expr_in_match(t *testing.T) {
 		},
 	})
 }
-
-// ─── Chained expressions ──────────────────────────────────────────────────────
 
 func TestExpr_nested_arithmetic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1641,8 +1601,6 @@ func TestExpr_array_map_filter_size(t *testing.T) {
 		},
 	})
 }
-
-// ─── $addFields in expression context ────────────────────────────────────────
 
 func TestExpr_addFields_arithmetic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1971,8 +1929,6 @@ func TestExpr_addFields_chained(t *testing.T) {
 		},
 	})
 }
-
-// ─── Additional $project expression tests ────────────────────────────────────
 
 func TestExpr_project_abs_negative(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{

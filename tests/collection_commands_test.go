@@ -16,10 +16,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// ============================================================
-// collMod
-// ============================================================
-
 func TestCollMod_AddValidator(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CollMod_AddValidator",
@@ -107,10 +103,6 @@ func TestCollMod_InvalidOption(t *testing.T) {
 	})
 }
 
-// ============================================================
-// compact
-// ============================================================
-
 func TestCompact_BasicCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Compact_BasicCollection",
@@ -168,10 +160,6 @@ func TestCompact_NonExistentCollection(t *testing.T) {
 	})
 }
 
-// ============================================================
-// autoCompact (new in MongoDB 8.0)
-// ============================================================
-
 func TestAutoCompact_Enable(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AutoCompact_Enable",
@@ -214,10 +202,6 @@ func TestAutoCompact_FreeSpaceTargetMB(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// convertToCapped
-// ============================================================
 
 func TestConvertToCapped_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -301,10 +285,6 @@ func TestConvertToCapped_MissingSize(t *testing.T) {
 	})
 }
 
-// ============================================================
-// dataSize
-// ============================================================
-
 func TestDataSize_BasicCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DataSize_BasicCollection",
@@ -367,10 +347,6 @@ func TestDataSize_NonExistentCollection(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Error cases for existing commands
-// ============================================================
 
 func TestCollStats_NonExistentCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{

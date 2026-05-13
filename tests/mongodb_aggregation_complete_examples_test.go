@@ -43,7 +43,6 @@ func tutorialCheckXFail(t *testing.T, name string, actual interface{}, expected 
 	}
 }
 
-// ─── 1. Filter Data ───────────────────────────────────────────────────────────
 // https://www.mongodb.com/docs/manual/tutorial/aggregation-examples/filtered-subset/
 //
 // Selects persons who are engineers, sorts youngest-first, limits to 3,
@@ -203,7 +202,6 @@ func TestFilteredSubset_ThreeYoungestEngineers(t *testing.T) {
 	})
 }
 
-// ─── 2. Group and Total ────────────────────────────────────────────────────────
 // https://www.mongodb.com/docs/manual/tutorial/aggregation-examples/group-and-total/
 //
 // Groups 2020 orders by customer, computes first_purchase_date, total_value,
@@ -382,7 +380,6 @@ func TestGroupAndTotal_CustomerOrders2020ACE(t *testing.T) {
 	})
 }
 
-// ─── 3. Unwind Arrays ─────────────────────────────────────────────────────────
 // https://www.mongodb.com/docs/manual/tutorial/aggregation-examples/unpack-arrays/
 //
 // Unpacks a products array from order documents, filters products priced > $15,
@@ -562,7 +559,6 @@ func sortDocsByStringKey(docs []bson.D, key string) {
 	})
 }
 
-// ─── 4. One-to-One Join ────────────────────────────────────────────────────────
 // https://www.mongodb.com/docs/manual/tutorial/aggregation-examples/one-to-one-join/
 //
 // Joins orders (product_id) to products (p_id) via $lookup, enriches with
@@ -727,7 +723,6 @@ func TestOneToOneJoin_EnrichOrders2020(t *testing.T) {
 	})
 }
 
-// ─── 5. Multi-Field Join ───────────────────────────────────────────────────────
 // https://www.mongodb.com/docs/manual/tutorial/aggregation-examples/multi-field-join/
 //
 // Joins products to orders on two fields simultaneously (name+variation) using

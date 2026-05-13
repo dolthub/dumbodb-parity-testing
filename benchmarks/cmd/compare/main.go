@@ -59,7 +59,6 @@ func envOr(key, fallback string) string {
 // working directory. It checks common sibling names (the parity repo is
 // typically checked out next to the product repo).
 func defaultDumboSrc() string {
-	// Common sibling directory names for the product repo.
 	candidates := []string{"../dumbodb", "../dongo"}
 	for _, c := range candidates {
 		if fi, err := os.Stat(filepath.Join(c, "go.mod")); err == nil && !fi.IsDir() {

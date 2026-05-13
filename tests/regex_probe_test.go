@@ -15,9 +15,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
-
-// insertTextIndex creates a text index on the given fields using the provided name.
 func insertTextIndex(ctx context.Context, col *mongo.Collection, fields bson.D, name string) error {
 	_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys:    fields,
@@ -25,8 +22,6 @@ func insertTextIndex(ctx context.Context, col *mongo.Collection, fields bson.D, 
 	})
 	return err
 }
-
-// ─── regex ────────────────────────────────────────────────────────────────────
 
 func TestProbeRegexCI(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -63,8 +58,6 @@ func TestProbeRegexMultiline(t *testing.T) {
 		},
 	})
 }
-
-// ─── text search ──────────────────────────────────────────────────────────────
 
 func TestProbeTextPhrase(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -161,8 +154,6 @@ func TestProbeTextLanguage(t *testing.T) {
 		},
 	})
 }
-
-// ─── $mod ─────────────────────────────────────────────────────────────────────
 
 func TestProbeModInt32(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{

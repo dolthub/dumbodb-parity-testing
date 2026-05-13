@@ -13,7 +13,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// ─── local geo helpers ────────────────────────────────────────────────────────
 // Note: geoPoint is already defined in geospatial_test.go.
 
 // geoLineString builds a GeoJSON LineString document from coordinate arrays.
@@ -94,8 +93,6 @@ func geoFindSortedIDs(ctx context.Context, col *mongo.Collection, filter interfa
 	}
 	return result, nil
 }
-
-// ─── 2dsphere index — GeoJSON geometry types ─────────────────────────────────
 
 func TestGeo_2dsphere_PointInsertAndFind(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -238,8 +235,6 @@ func TestGeo_2dsphere_GeometryCollectionInsert(t *testing.T) {
 	})
 }
 
-// ─── 2d (legacy) index ────────────────────────────────────────────────────────
-
 func TestGeo_2d_ArrayCoordInsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_2d_ArrayCoordInsert",
@@ -310,8 +305,6 @@ func TestGeo_2d_NearWithMaxDistance(t *testing.T) {
 		},
 	})
 }
-
-// ─── $geoWithin ───────────────────────────────────────────────────────────────
 
 func TestGeo_geoWithin_Polygon(t *testing.T) {
 	queryPoly := geoPolygon(
@@ -385,8 +378,6 @@ func TestGeo_geoWithin_Box(t *testing.T) {
 		},
 	})
 }
-
-// ─── $geoIntersects ───────────────────────────────────────────────────────────
 
 // TestGeo_GeoIntersects_LineString verifies $geoIntersects with a LineString
 // query geometry. Now passing in DumboDB.
@@ -466,8 +457,6 @@ func TestGeo_geoIntersects_Point(t *testing.T) {
 		},
 	})
 }
-
-// ─── $near ────────────────────────────────────────────────────────────────────
 
 func TestGeo_near_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -550,8 +539,6 @@ func TestGeo_near_MinAndMaxDistance(t *testing.T) {
 	})
 }
 
-// ─── $nearSphere ──────────────────────────────────────────────────────────────
-
 func TestGeo_nearSphere_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_nearSphere_Basic",
@@ -611,8 +598,6 @@ func TestGeo_nearSphere_MinDistance(t *testing.T) {
 		},
 	})
 }
-
-// ─── $geoNear aggregation ─────────────────────────────────────────────────────
 
 func TestGeo_geoNear_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -758,8 +743,6 @@ func TestGeo_geoNear_NonSpherical(t *testing.T) {
 	})
 }
 
-// ─── strict Point validation (MongoDB 8.0) ───────────────────────────────────
-
 func TestGeo_near_InvalidPointLongitude(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_near_InvalidPointLongitude",
@@ -826,8 +809,6 @@ func TestGeo_geoNear_InvalidPoint(t *testing.T) {
 		},
 	})
 }
-
-// ─── compound and advanced 2dsphere ──────────────────────────────────────────
 
 func TestGeo_2dsphere_Compound(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{

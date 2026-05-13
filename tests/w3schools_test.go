@@ -56,7 +56,6 @@ func w3sInsertPostsSeed(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
-// ─── Insert ───────────────────────────────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_mongosh_insert.php
 
 func TestW3S_Insert_InsertOne(t *testing.T) {
@@ -129,7 +128,6 @@ func TestW3S_Insert_InsertMany(t *testing.T) {
 	})
 }
 
-// ─── Find ─────────────────────────────────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_mongosh_find.php
 
 func TestW3S_Find_FindAll(t *testing.T) {
@@ -284,7 +282,6 @@ func TestW3S_Find_ProjectExcludeField(t *testing.T) {
 	})
 }
 
-// ─── Query Operators ──────────────────────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_query_operators.php
 // The tutorial page is a reference index; the tests below demonstrate each operator.
 
@@ -350,7 +347,6 @@ func TestW3S_QueryOperators_Or(t *testing.T) {
 	})
 }
 
-// ─── Update ───────────────────────────────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_mongosh_update.php
 
 func TestW3S_Update_UpdateOne(t *testing.T) {
@@ -427,7 +423,6 @@ func TestW3S_Update_UpdateMany(t *testing.T) {
 	})
 }
 
-// ─── Update Operators ─────────────────────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_update_operators.php
 // The tutorial page is a reference index; the tests below demonstrate each operator.
 
@@ -563,7 +558,6 @@ func TestW3S_UpdateOperators_AddToSet(t *testing.T) {
 	})
 }
 
-// ─── Delete ───────────────────────────────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_mongosh_delete.php
 
 func TestW3S_Delete_DeleteOne(t *testing.T) {
@@ -607,7 +601,6 @@ func TestW3S_Delete_DeleteMany(t *testing.T) {
 	})
 }
 
-// ─── Aggregation $group ───────────────────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_aggregations_group.php
 
 // w3sListingsSeed inserts listing documents resembling the sample_airbnb dataset.
@@ -672,7 +665,6 @@ func TestW3S_AggGroup_CountPerGroup(t *testing.T) {
 	})
 }
 
-// ─── Aggregation $limit ───────────────────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_aggregations_limit.php
 
 func TestW3S_AggLimit_LimitOne(t *testing.T) {
@@ -722,7 +714,6 @@ func TestW3S_AggLimit_LimitThree(t *testing.T) {
 	})
 }
 
-// ─── Aggregation $project ─────────────────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_aggregations_project.php
 
 // w3sRestaurantsSeed inserts restaurant documents resembling the sample_restaurants dataset.
@@ -842,7 +833,6 @@ func TestW3S_AggProject_ExcludeId(t *testing.T) {
 	})
 }
 
-// ─── Aggregation $sort ────────────────────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_aggregations_sort.php
 
 func TestW3S_AggSort_SortDescending(t *testing.T) {
@@ -905,7 +895,6 @@ func TestW3S_AggSort_SortAscending(t *testing.T) {
 	})
 }
 
-// ─── Aggregation $match ───────────────────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_aggregations_match.php
 
 func TestW3S_AggMatch_FilterByPropertyType(t *testing.T) {
@@ -966,7 +955,6 @@ func TestW3S_AggMatch_CountAfterFilter(t *testing.T) {
 	})
 }
 
-// ─── Aggregation $addFields ───────────────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_aggregations_addFields.php
 
 func TestW3S_AggAddFields_ComputedAvg(t *testing.T) {
@@ -1033,7 +1021,6 @@ func TestW3S_AggAddFields_StaticField(t *testing.T) {
 	})
 }
 
-// ─── Aggregation $count ───────────────────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_aggregations_count.php
 
 func TestW3S_AggCount_CountFiltered(t *testing.T) {
@@ -1085,7 +1072,6 @@ func TestW3S_AggCount_CountAll(t *testing.T) {
 	})
 }
 
-// ─── Aggregation $lookup ──────────────────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_aggregations_lookup.php
 
 func TestW3S_AggLookup_JoinCollections(t *testing.T) {
@@ -1174,7 +1160,6 @@ func TestW3S_AggLookup_NoMatchEmptyArray(t *testing.T) {
 	})
 }
 
-// ─── Aggregation $group (additional) ─────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_aggregations_group.php
 
 func TestW3S_AggGroup_SumField(t *testing.T) {
@@ -1292,7 +1277,6 @@ func TestW3S_AggGroup_Push(t *testing.T) {
 	})
 }
 
-// ─── Aggregation $out ─────────────────────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_aggregations_out.php
 
 func TestW3S_AggOut_GroupAndWrite(t *testing.T) {
@@ -1337,7 +1321,6 @@ func TestW3S_AggOut_GroupAndWrite(t *testing.T) {
 	})
 }
 
-// ─── Query Operators (additional) ────────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_query_operators.php
 
 func TestW3S_QueryOperators_Lt(t *testing.T) {
@@ -1483,7 +1466,6 @@ func TestW3S_QueryOperators_Regex(t *testing.T) {
 	})
 }
 
-// ─── Update Operators (additional) ───────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_update_operators.php
 
 func TestW3S_UpdateOperators_Mul(t *testing.T) {
@@ -1635,7 +1617,6 @@ func TestW3S_UpdateOperators_Pull(t *testing.T) {
 	})
 }
 
-// ─── Aggregation $project (additional) ───────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_aggregations_project.php
 
 func TestW3S_AggProject_ComputedField(t *testing.T) {
@@ -1669,7 +1650,6 @@ func TestW3S_AggProject_ComputedField(t *testing.T) {
 	})
 }
 
-// ─── Aggregation $sort (additional) ──────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_aggregations_sort.php
 
 func TestW3S_AggSort_MultiField(t *testing.T) {
@@ -1703,7 +1683,6 @@ func TestW3S_AggSort_MultiField(t *testing.T) {
 	})
 }
 
-// ─── Aggregation $match (additional) ─────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_aggregations_match.php
 
 func TestW3S_AggMatch_ComparisonFilter(t *testing.T) {
@@ -1769,7 +1748,6 @@ func TestW3S_AggMatch_MatchThenGroup(t *testing.T) {
 	})
 }
 
-// ─── Aggregation $addFields (additional) ─────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_aggregations_addFields.php
 
 func TestW3S_AggAddFields_ArithmeticExpr(t *testing.T) {
@@ -1807,7 +1785,6 @@ func TestW3S_AggAddFields_ArithmeticExpr(t *testing.T) {
 	})
 }
 
-// ─── Aggregation $count (additional) ─────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_aggregations_count.php
 
 func TestW3S_AggCount_AfterMultipleStages(t *testing.T) {
@@ -1839,7 +1816,6 @@ func TestW3S_AggCount_AfterMultipleStages(t *testing.T) {
 	})
 }
 
-// ─── Aggregation $lookup (additional) ────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_aggregations_lookup.php
 
 func TestW3S_AggLookup_AllRows(t *testing.T) {
@@ -1883,7 +1859,6 @@ func TestW3S_AggLookup_AllRows(t *testing.T) {
 	})
 }
 
-// ─── Indexing / Search ────────────────────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_indexing_search.php
 
 // w3sMoviesSeed inserts movie documents for indexing and search tests.
@@ -2050,7 +2025,6 @@ func TestW3S_Indexing_AtlasSearch(t *testing.T) {
 	})
 }
 
-// ─── Validation ───────────────────────────────────────────────────────────────
 // https://www.w3schools.com/mongodb/mongodb_schema_validation.php
 
 func TestW3S_Validation_CreateCollectionWithValidator(t *testing.T) {

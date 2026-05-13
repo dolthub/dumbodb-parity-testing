@@ -12,10 +12,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// ============================================================
-// Single-field indexes
-// ============================================================
-
 func TestIndex_CreateOne_SingleAscending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_CreateOne_SingleAscending",
@@ -137,10 +133,6 @@ func TestIndex_CreateOne_IdempotentSameSpec(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Compound indexes
-// ============================================================
-
 func TestIndex_CreateOne_Compound(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_CreateOne_Compound",
@@ -232,10 +224,6 @@ func TestIndex_Compound_Drop(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Unique indexes
-// ============================================================
 
 func TestIndex_Unique_CreateOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -331,10 +319,6 @@ func TestIndex_Unique_Compound(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Sparse indexes
-// ============================================================
-
 func TestIndex_Sparse_CreateOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Sparse_CreateOne",
@@ -412,10 +396,6 @@ func TestIndex_Sparse_UniqueWithMissingField(t *testing.T) {
 	})
 }
 
-// ============================================================
-// TTL indexes
-// ============================================================
-
 func TestIndex_TTL_CreateOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_TTL_CreateOne",
@@ -482,10 +462,6 @@ func TestIndex_TTL_InsertAndVerifyNotExpiredYet(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Partial indexes
-// ============================================================
 
 func TestIndex_Partial_CreateOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -555,10 +531,6 @@ func TestIndex_Partial_WithExistsFilter(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Wildcard indexes
-// ============================================================
-
 func TestIndex_Wildcard_AllFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Wildcard_AllFields",
@@ -613,10 +585,6 @@ func TestIndex_Wildcard_QueryUnindexedField(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Text indexes
-// ============================================================
 
 func TestIndex_Text_CreateOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -696,10 +664,6 @@ func TestIndex_Text_WithLanguage(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// 2dsphere geospatial indexes
-// ============================================================
 
 func TestIndex_2dsphere_CreateOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -796,10 +760,6 @@ func TestIndex_2dsphere_GeoWithinQuery(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Hashed indexes
-// ============================================================
-
 func TestIndex_Hashed_CreateOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Hashed_CreateOne",
@@ -839,10 +799,6 @@ func TestIndex_Hashed_EqualityQuery(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// CreateMany
-// ============================================================
 
 func TestIndex_CreateMany_TwoIndexes(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -902,10 +858,6 @@ func TestIndex_CreateMany_ThreeCompound(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// ListIndexes
-// ============================================================
 
 func TestIndex_ListIndexes_EmptyCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1008,10 +960,6 @@ func TestIndex_ListIndexes_VerifyNames(t *testing.T) {
 	})
 }
 
-// ============================================================
-// DropOne edge cases
-// ============================================================
-
 func TestIndex_DropOne_NonExistent(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_DropOne_NonExistent",
@@ -1060,10 +1008,6 @@ func TestIndex_DropAll_AfterCreateMany(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Hint on Find
-// ============================================================
 
 func TestIndex_Hint_Find_ByName(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1171,10 +1115,6 @@ func TestIndex_Hint_NonExistentIndexError(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Explain with index hint
-// ============================================================
-
 func TestIndex_Explain_WithHint(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Explain_WithHint",
@@ -1206,10 +1146,6 @@ func TestIndex_Explain_WithHint(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// $indexStats aggregation stage
-// ============================================================
 
 func TestIndex_IndexStats_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1265,10 +1201,6 @@ func TestIndex_IndexStats_NoIndexes(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Named indexes
-// ============================================================
-
 func TestIndex_CreateOne_CustomName(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_CreateOne_CustomName",
@@ -1307,10 +1239,6 @@ func TestIndex_DropOne_CustomName(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Index with background option (deprecated but still valid in driver)
-// ============================================================
-
 func TestIndex_CreateOne_WithBackground(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_CreateOne_WithBackground",
@@ -1328,10 +1256,6 @@ func TestIndex_CreateOne_WithBackground(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Edge cases
-// ============================================================
 
 func TestIndex_CreateOne_OnNestedField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1469,10 +1393,6 @@ func TestIndex_Hint_Aggregate(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Unique index — additional edge cases
-// ============================================================
-
 func TestIndex_Unique_NullValues(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Unique_NullValues",
@@ -1521,10 +1441,6 @@ func TestIndex_Unique_DropAndRecreate(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Compound index — additional cases
-// ============================================================
 
 func TestIndex_Compound_SortOrder(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1611,10 +1527,6 @@ func TestIndex_Compound_PrefixQuery(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Sort with index
-// ============================================================
-
 func TestIndex_Sort_WithIndexedField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Sort_WithIndexedField",
@@ -1685,10 +1597,6 @@ func TestIndex_Sort_DescendingWithIndex(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Collation index
-// ============================================================
-
 func TestIndex_Collation_CaseInsensitive(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Collation_CaseInsensitive",
@@ -1729,10 +1637,6 @@ func TestIndex_Collation_UniqueWithCollation(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Sparse index — additional cases
-// ============================================================
 
 func TestIndex_Sparse_CreateAndQuery(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1786,10 +1690,6 @@ func TestIndex_Sparse_Drop(t *testing.T) {
 	})
 }
 
-// ============================================================
-// TTL — additional cases
-// ============================================================
-
 func TestIndex_TTL_OnNestedDateField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_TTL_OnNestedDateField",
@@ -1808,10 +1708,6 @@ func TestIndex_TTL_OnNestedDateField(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Partial index — additional cases
-// ============================================================
 
 func TestIndex_Partial_UniquePartial(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1856,10 +1752,6 @@ func TestIndex_Partial_CompoundKeys(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Text index — additional cases
-// ============================================================
 
 func TestIndex_Text_WeightedFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1941,10 +1833,6 @@ func TestIndex_Text_ExcludeWord(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Wildcard index — additional cases
-// ============================================================
-
 func TestIndex_Wildcard_WithWildcardProjection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Wildcard_WithWildcardProjection",
@@ -1965,10 +1853,6 @@ func TestIndex_Wildcard_WithWildcardProjection(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// 2dsphere — additional cases
-// ============================================================
 
 func TestIndex_2dsphere_Compound(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -2032,10 +1916,6 @@ func TestIndex_2dsphere_GeoIntersects(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Hashed index — additional cases
-// ============================================================
-
 func TestIndex_Hashed_CannotBeUnique(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Hashed_CannotBeUnique",
@@ -2054,10 +1934,6 @@ func TestIndex_Hashed_CannotBeUnique(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Hint — additional cases
-// ============================================================
 
 func TestIndex_Hint_FindOne_ByName(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -2112,10 +1988,6 @@ func TestIndex_Hint_CountDocuments(t *testing.T) {
 	})
 }
 
-// ============================================================
-// ListIndexes — additional cases
-// ============================================================
-
 func TestIndex_ListIndexes_AfterDropAll(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_ListIndexes_AfterDropAll",
@@ -2167,10 +2039,6 @@ func TestIndex_ListIndexes_CheckKeys(t *testing.T) {
 	})
 }
 
-// ============================================================
-// CreateMany — additional cases
-// ============================================================
-
 func TestIndex_CreateMany_MixedTypes(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_CreateMany_MixedTypes",
@@ -2221,10 +2089,6 @@ func TestIndex_CreateMany_WithCustomNames(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Explain — additional cases
-// ============================================================
 
 func TestIndex_Explain_CollectionScan(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -2288,10 +2152,6 @@ func TestIndex_Explain_UpdateWithHint(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Index on deeply nested field
-// ============================================================
-
 func TestIndex_CreateOne_DeepNested(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_CreateOne_DeepNested",
@@ -2331,10 +2191,6 @@ func TestIndex_NestedField_Query(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// $indexStats — additional case
-// ============================================================
 
 func TestIndex_IndexStats_AfterInsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{

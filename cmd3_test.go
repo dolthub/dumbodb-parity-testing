@@ -44,7 +44,6 @@ func TestServerStatusCompare(t *testing.T) {
 	}
 	fmt.Println()
 	
-	// Get repl field from mongo
 	for _, e := range mongo_res {
 		if e.Key == "repl" {
 			fmt.Printf("MongoDB repl: %v\n", e.Value)
@@ -62,7 +61,6 @@ func TestServerStatusCompare(t *testing.T) {
 		}
 	}
 	
-	// Test compact empty vs non-existent
 	dumboDBCol := dumboDBClient.Database("test_compact_x").Collection("col")
 	var r1 bson.D
 	e1 := dumboDBCol.Database().RunCommand(ctx, bson.D{{Key: "compact", Value: "col"}}).Decode(&r1)

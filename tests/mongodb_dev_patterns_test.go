@@ -25,7 +25,6 @@ func tutorialCheck(t *testing.T, name string, actual interface{}, expected inter
 	}
 }
 
-// ─── Model Tree Structures with Parent References ──────────────────────────────
 // https://www.mongodb.com/docs/manual/tutorial/model-tree-structures-with-parent-references/
 
 // devPatternsCategoriesParentSeed inserts the categories tree from the tutorial.
@@ -120,7 +119,6 @@ func TestDevPatterns_ParentRefs_IndexOnParent(t *testing.T) {
 	})
 }
 
-// ─── Expire Data (TTL Indexes) ────────────────────────────────────────────────
 // https://www.mongodb.com/docs/manual/tutorial/expire-data/
 
 func TestDevPatterns_TTL_ExpireAfterSeconds(t *testing.T) {
@@ -197,7 +195,6 @@ func TestDevPatterns_TTL_ExpireAtSpecificTime(t *testing.T) {
 	})
 }
 
-// ─── Auto-Incrementing Sequences (Counters Collection) ───────────────────────
 // https://www.mongodb.com/docs/manual/tutorial/create-an-auto-incrementing-field/
 //
 // Pattern: maintain a "counters" collection; use FindOneAndUpdate with $inc

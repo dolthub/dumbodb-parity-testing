@@ -43,8 +43,6 @@ func insertAndReadBack(ctx context.Context, colWC, readCol *mongo.Collection, do
 	return back, nil
 }
 
-// --- InsertOne with writeConcern ---
-
 func TestWriteConcern_insert_w1_nojournal(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "WriteConcern_insert_w1_nojournal",
@@ -94,8 +92,6 @@ func TestWriteConcern_insert_w0_fire_and_forget(t *testing.T) {
 		},
 	})
 }
-
-// --- writeConcern on update / delete / bulkWrite ---
 
 func TestWriteConcern_update_w1(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -186,7 +182,6 @@ func TestWriteConcern_bulkWrite_w1(t *testing.T) {
 	})
 }
 
-// --- getLastError ---
 //
 // getLastError was removed from MongoDB in 5.1. We still test it because the
 // dongo rig is tracking wire-protocol coverage; on modern MongoDB the driver

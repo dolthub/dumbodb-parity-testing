@@ -17,7 +17,6 @@ var (
 	clientsErr    error
 )
 
-// Clients holds connections to MongoDB and DumboDB.
 type Clients struct {
 	Mongo *mongo.Client
 	DumboDB *mongo.Client

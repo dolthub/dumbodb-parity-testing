@@ -15,7 +15,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// ─── $text query operator ──────────────────────────────────────────────────────
 // https://www.mongodb.com/docs/manual/reference/operator/query/text/
 //
 // Collection: stores
@@ -142,7 +141,6 @@ func TestTextPatterns_BasicSearch_ExactPhrase(t *testing.T) {
 	})
 }
 
-// ─── Text Search in Aggregation Pipeline ──────────────────────────────────────
 // https://www.mongodb.com/docs/manual/tutorial/text-search-in-aggregation/
 //
 // Collection: articles

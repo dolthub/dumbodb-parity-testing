@@ -31,8 +31,6 @@ import (
 // size routinely exceeded a 60-minute test timeout. If you want 100K data,
 // add the benchmarks back and run with `-test-timeout=2h`.
 
-// --- Find with equality filter ---------------------------------------------
-
 func benchmarkFindFilterEqScaled(b *testing.B, n int) {
 	col, ctx := withSeededCollection(b, fmt.Sprintf("findeq_%d", n), n, sizeSmall)
 	b.ResetTimer()
@@ -68,8 +66,6 @@ func BenchmarkFind_FilterEq_10K(b *testing.B)         { benchmarkFindFilterEqSca
 func BenchmarkFind_FilterEq_10K_Indexed(b *testing.B) { benchmarkFindFilterEqScaledIndexed(b, 10000) }
 func BenchmarkFind_FilterEq_50K(b *testing.B)         { benchmarkFindFilterEqScaled(b, 50000) }
 func BenchmarkFind_FilterEq_50K_Indexed(b *testing.B) { benchmarkFindFilterEqScaledIndexed(b, 50000) }
-
-// --- Find with range filter ------------------------------------------------
 
 // Range filter bounds scale with n so the result set stays roughly 1% of the
 // collection across sizes. Without scaling, a fixed [100, 200) range returns
@@ -124,8 +120,6 @@ func BenchmarkFind_FilterRange_50K_Indexed(b *testing.B) {
 	benchmarkFindFilterRangeScaledIndexed(b, 50000)
 }
 
-// --- UpdateMany ------------------------------------------------------------
-
 func benchmarkUpdateManyScaled(b *testing.B, n int) {
 	col, ctx := withSeededCollection(b, fmt.Sprintf("updatemany_%d", n), n, sizeSmall)
 	b.ResetTimer()
@@ -157,8 +151,6 @@ func BenchmarkUpdateMany_10K(b *testing.B)         { benchmarkUpdateManyScaled(b
 func BenchmarkUpdateMany_10K_Indexed(b *testing.B) { benchmarkUpdateManyScaledIndexed(b, 10000) }
 func BenchmarkUpdateMany_50K(b *testing.B)         { benchmarkUpdateManyScaled(b, 50000) }
 func BenchmarkUpdateMany_50K_Indexed(b *testing.B) { benchmarkUpdateManyScaledIndexed(b, 50000) }
-
-// --- DeleteMany ------------------------------------------------------------
 
 // DeleteMany scales the per-iteration refill cost: each iteration deletes one
 // group (n/10 docs) and refills it off the clock. At n=100K that's 10K
@@ -216,8 +208,6 @@ func BenchmarkDeleteMany_10K(b *testing.B)         { benchmarkDeleteManyScaled(b
 func BenchmarkDeleteMany_10K_Indexed(b *testing.B) { benchmarkDeleteManyScaledIndexed(b, 10000) }
 func BenchmarkDeleteMany_50K(b *testing.B)         { benchmarkDeleteManyScaled(b, 50000) }
 func BenchmarkDeleteMany_50K_Indexed(b *testing.B) { benchmarkDeleteManyScaledIndexed(b, 50000) }
-
-// --- CountDocuments --------------------------------------------------------
 
 func benchmarkCountDocumentsScaled(b *testing.B, n int) {
 	col, ctx := withSeededCollection(b, fmt.Sprintf("count_%d", n), n, sizeSmall)

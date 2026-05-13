@@ -14,8 +14,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// ─── ObjectID ─────────────────────────────────────────────────────────────────
-
 func TestBSON_objectid_auto_generated(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_objectid_auto_generated",
@@ -116,8 +114,6 @@ func TestBSON_objectid_from_hex(t *testing.T) {
 	})
 }
 
-// ─── Int32 vs Int64 ───────────────────────────────────────────────────────────
-
 func TestBSON_int32_insert_query(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_int32_insert_query",
@@ -216,8 +212,6 @@ func TestBSON_int64_type_filter(t *testing.T) {
 	})
 }
 
-// ─── Double / Float64 ─────────────────────────────────────────────────────────
-
 func TestBSON_double_insert_query(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_double_insert_query",
@@ -296,8 +290,6 @@ func TestBSON_double_type_filter(t *testing.T) {
 	})
 }
 
-// ─── Decimal128 ───────────────────────────────────────────────────────────────
-
 func TestBSON_decimal128_roundtrip(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_decimal128_roundtrip",
@@ -371,8 +363,6 @@ func TestBSON_decimal128_high_precision(t *testing.T) {
 	})
 }
 
-// ─── Boolean ──────────────────────────────────────────────────────────────────
-
 func TestBSON_bool_insert_query(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_bool_insert_query",
@@ -441,8 +431,6 @@ func TestBSON_bool_type_filter(t *testing.T) {
 		},
 	})
 }
-
-// ─── Date / DateTime ──────────────────────────────────────────────────────────
 
 func TestBSON_date_insert_query(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -542,8 +530,6 @@ func TestBSON_date_type_filter(t *testing.T) {
 	})
 }
 
-// ─── Null ─────────────────────────────────────────────────────────────────────
-
 func TestBSON_null_insert_query(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_null_insert_query",
@@ -633,8 +619,6 @@ func TestBSON_null_in_comparison(t *testing.T) {
 		},
 	})
 }
-
-// ─── Array ────────────────────────────────────────────────────────────────────
 
 func TestBSON_array_empty(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -740,8 +724,6 @@ func TestBSON_array_sort_mixed_types(t *testing.T) {
 	})
 }
 
-// ─── Embedded document ────────────────────────────────────────────────────────
-
 func TestBSON_embedded_doc_insert_query(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_embedded_doc_insert_query",
@@ -834,8 +816,6 @@ func TestBSON_embedded_doc_type_filter(t *testing.T) {
 	})
 }
 
-// ─── Binary (BinData) ─────────────────────────────────────────────────────────
-
 func TestBSON_binary_insert_query(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_binary_insert_query",
@@ -883,8 +863,6 @@ func TestBSON_binary_type_filter(t *testing.T) {
 	})
 }
 
-// ─── UUID as Binary subtype 4 ─────────────────────────────────────────────────
-
 func TestBSON_uuid_binary_subtype4(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_uuid_binary_subtype4",
@@ -912,8 +890,6 @@ func TestBSON_uuid_binary_subtype4(t *testing.T) {
 		},
 	})
 }
-
-// ─── Regex ────────────────────────────────────────────────────────────────────
 
 func TestBSON_regex_insert_query(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -984,8 +960,6 @@ func TestBSON_regex_type_filter(t *testing.T) {
 	})
 }
 
-// ─── Timestamp (internal BSON type) ──────────────────────────────────────────
-
 func TestBSON_timestamp_insert_roundtrip(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_timestamp_insert_roundtrip",
@@ -1033,8 +1007,6 @@ func TestBSON_timestamp_type_filter(t *testing.T) {
 		},
 	})
 }
-
-// ─── MinKey / MaxKey ──────────────────────────────────────────────────────────
 
 func TestBSON_minkey_maxkey_insert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1107,8 +1079,6 @@ func TestBSON_minkey_type_filter(t *testing.T) {
 	})
 }
 
-// ─── String type ─────────────────────────────────────────────────────────────
-
 func TestBSON_string_type_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_string_type_filter",
@@ -1129,8 +1099,6 @@ func TestBSON_string_type_filter(t *testing.T) {
 		},
 	})
 }
-
-// ─── $type with numeric codes ─────────────────────────────────────────────────
 
 func TestBSON_type_numeric_code_double(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1176,8 +1144,6 @@ func TestBSON_type_numeric_code_string(t *testing.T) {
 	})
 }
 
-// ─── $type with "number" alias ────────────────────────────────────────────────
-
 func TestBSON_type_number_alias(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_type_number_alias",
@@ -1204,8 +1170,6 @@ func TestBSON_type_number_alias(t *testing.T) {
 	})
 }
 
-// ─── ObjectID type filter ─────────────────────────────────────────────────────
-
 func TestBSON_objectid_type_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_objectid_type_filter",
@@ -1227,8 +1191,6 @@ func TestBSON_objectid_type_filter(t *testing.T) {
 		},
 	})
 }
-
-// ─── Type coercion edge cases ─────────────────────────────────────────────────
 
 func TestBSON_no_coercion_string_number(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1281,8 +1243,6 @@ func TestBSON_type_ordering_in_sort(t *testing.T) {
 	})
 }
 
-// ─── $type with multiple types array ─────────────────────────────────────────
-
 func TestBSON_type_multi_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_type_multi_filter",
@@ -1306,8 +1266,6 @@ func TestBSON_type_multi_filter(t *testing.T) {
 		},
 	})
 }
-
-// ─── $exists edge cases ───────────────────────────────────────────────────────
 
 func TestBSON_exists_true(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1350,8 +1308,6 @@ func TestBSON_exists_false(t *testing.T) {
 		},
 	})
 }
-
-// ─── Array element queries ────────────────────────────────────────────────────
 
 func TestBSON_array_elem_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1422,8 +1378,6 @@ func TestBSON_array_all_query(t *testing.T) {
 	})
 }
 
-// ─── String field operations ──────────────────────────────────────────────────
-
 func TestBSON_string_empty(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_string_empty",
@@ -1460,8 +1414,6 @@ func TestBSON_string_unicode(t *testing.T) {
 		},
 	})
 }
-
-// ─── Integer overflow / boundary values ──────────────────────────────────────
 
 func TestBSON_int32_max_min(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1517,8 +1469,6 @@ func TestBSON_int64_max_min(t *testing.T) {
 	})
 }
 
-// ─── ObjectID timestamp extraction ───────────────────────────────────────────
-
 func TestBSON_objectid_timestamp(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_objectid_timestamp",
@@ -1552,8 +1502,6 @@ func TestBSON_objectid_timestamp(t *testing.T) {
 	})
 }
 
-// ─── Nested null in array ─────────────────────────────────────────────────────
-
 func TestBSON_null_in_array(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_null_in_array",
@@ -1572,8 +1520,6 @@ func TestBSON_null_in_array(t *testing.T) {
 		},
 	})
 }
-
-// ─── Multi-key index on array (query behavior) ────────────────────────────────
 
 func TestBSON_array_field_query_any_element(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1597,8 +1543,6 @@ func TestBSON_array_field_query_any_element(t *testing.T) {
 	})
 }
 
-// ─── BSON document field order ────────────────────────────────────────────────
-
 func TestBSON_doc_field_order_preserved(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_doc_field_order_preserved",
@@ -1619,8 +1563,6 @@ func TestBSON_doc_field_order_preserved(t *testing.T) {
 		},
 	})
 }
-
-// ─── Projection with array fields ─────────────────────────────────────────────
 
 func TestBSON_array_projection_slice(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1644,8 +1586,6 @@ func TestBSON_array_projection_slice(t *testing.T) {
 		},
 	})
 }
-
-// ─── $in / $nin with mixed BSON types ────────────────────────────────────────
 
 func TestBSON_in_mixed_types(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1692,8 +1632,6 @@ func TestBSON_nin_query(t *testing.T) {
 		},
 	})
 }
-
-// ─── Additional $type alias tests ─────────────────────────────────────────────
 
 func TestBSON_type_oid_numeric_code(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{

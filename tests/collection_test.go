@@ -94,10 +94,6 @@ func omitFields(doc bson.D, keys ...string) bson.D {
 	return result
 }
 
-// ============================================================
-// Collection management
-// ============================================================
-
 func TestCollection_ImplicitCreate(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_ImplicitCreate",
@@ -435,10 +431,6 @@ func TestCollection_CreateTimeSeries(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Database-level operations
-// ============================================================
-
 func TestDB_ListDatabaseNames(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_ListDatabaseNames",
@@ -681,10 +673,6 @@ func TestDB_RunCommand_Drop(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Cursor commands
-// ============================================================
 
 func TestCursor_AllDocs(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1126,9 +1114,7 @@ func TestCursor_NoCursorTimeout(t *testing.T) {
 	})
 }
 
-// ============================================================
 // Explain
-// ============================================================
 //
 // Explain responses contain server-version-specific noise (serverInfo, host,
 // port, gitVersion, plannerVersion, timing fields, planCacheKey, etc.) that
@@ -1491,10 +1477,6 @@ func TestExplain_Aggregate_IXSCAN_AfterIndexCreated(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Additional collection operations
-// ============================================================
 
 func TestCollection_CountDocuments_NoFilter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{

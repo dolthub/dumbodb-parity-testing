@@ -11,8 +11,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// ─── Seed data ────────────────────────────────────────────────────────────────
-
 // complexSeedDocs: orders with items, customer, and region fields.
 var complexSeedDocs = []interface{}{
 	bson.D{
@@ -110,8 +108,6 @@ func insertRedactDocs(ctx context.Context, col *mongo.Collection) error {
 	_, err := col.InsertMany(ctx, redactDocs)
 	return err
 }
-
-// ─── Multi-stage: $match + $group + $sort + $project ─────────────────────────
 
 func TestAggComplex_matchGroupSortProject(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -241,8 +237,6 @@ func TestAggComplex_matchGroupProject_addToSet(t *testing.T) {
 	})
 }
 
-// ─── Multi-stage: $unwind + $group ───────────────────────────────────────────
-
 func TestAggComplex_unwindGroup_skuTotals(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_unwindGroup_skuTotals",
@@ -326,8 +320,6 @@ func TestAggComplex_unwindWithIndex(t *testing.T) {
 		},
 	})
 }
-
-// ─── Multi-stage: $lookup + $unwind + $group ─────────────────────────────────
 
 func TestAggComplex_lookupUnwindGroup(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -448,8 +440,6 @@ func TestAggComplex_lookupPipeline(t *testing.T) {
 	})
 }
 
-// ─── $facet ───────────────────────────────────────────────────────────────────
-
 func TestAggComplex_facet_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_facet_basic",
@@ -539,8 +529,6 @@ func TestAggComplex_facet_withMatchAndCount(t *testing.T) {
 		},
 	})
 }
-
-// ─── $graphLookup ─────────────────────────────────────────────────────────────
 
 func TestAggComplex_graphLookup_simpleTree(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -712,8 +700,6 @@ func TestAggComplex_graphLookup_withCycles(t *testing.T) {
 	})
 }
 
-// ─── $sample ──────────────────────────────────────────────────────────────────
-
 func TestAggComplex_sample_count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_sample_count",
@@ -777,8 +763,6 @@ func TestAggComplex_sample_all(t *testing.T) {
 		},
 	})
 }
-
-// ─── $redact ──────────────────────────────────────────────────────────────────
 
 func TestAggComplex_redact_prune(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -893,8 +877,6 @@ func TestAggComplex_redact_nestedField(t *testing.T) {
 		},
 	})
 }
-
-// ─── Complex combinations ─────────────────────────────────────────────────────
 
 func TestAggComplex_matchUnwindGroupSort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1121,8 +1103,6 @@ func TestAggComplex_setWindowFields_simple(t *testing.T) {
 		},
 	})
 }
-
-// ─── targeted divergence tests ────────────────────────────────────────────────
 
 // TestAggComplex_sortByCount_TieBreaking verifies $sortByCount with a three-way
 // tie in counts. An explicit $sort on {count:-1, _id:1} after $sortByCount makes

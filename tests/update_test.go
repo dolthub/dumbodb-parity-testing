@@ -52,8 +52,6 @@ func readOne(ctx context.Context, col *mongo.Collection, id string) (interface{}
 	return result, err
 }
 
-// ─── $set ──────────────────────────────────────────────────────────────────────
-
 func TestSet_single_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Set_single_field",
@@ -196,8 +194,6 @@ func TestSet_no_match(t *testing.T) {
 	})
 }
 
-// ─── $unset ────────────────────────────────────────────────────────────────────
-
 func TestUnset_single_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Unset_single_field",
@@ -275,8 +271,6 @@ func TestUnset_nested_field(t *testing.T) {
 		},
 	})
 }
-
-// ─── $inc ──────────────────────────────────────────────────────────────────────
 
 func TestInc_positive(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -370,8 +364,6 @@ func TestInc_on_string_field_error(t *testing.T) {
 	})
 }
 
-// ─── $mul ──────────────────────────────────────────────────────────────────────
-
 func TestMul_int(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Mul_int",
@@ -445,8 +437,6 @@ func TestMul_zero(t *testing.T) {
 	})
 }
 
-// ─── $rename ───────────────────────────────────────────────────────────────────
-
 func TestRename_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Rename_field",
@@ -501,8 +491,6 @@ func TestRename_nonexistent_field(t *testing.T) {
 		},
 	})
 }
-
-// ─── $min / $max ───────────────────────────────────────────────────────────────
 
 func TestMin_updates_when_smaller(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -613,8 +601,6 @@ func TestMax_missing_field(t *testing.T) {
 	})
 }
 
-// ─── $setOnInsert ──────────────────────────────────────────────────────────────
-
 func TestSetOnInsert_fires_on_upsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SetOnInsert_fires_on_upsert",
@@ -664,8 +650,6 @@ func TestSetOnInsert_noop_on_update(t *testing.T) {
 	})
 }
 
-// ─── $currentDate ──────────────────────────────────────────────────────────────
-
 func TestCurrentDate_as_date(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CurrentDate_as_date",
@@ -713,8 +697,6 @@ func TestCurrentDate_as_timestamp(t *testing.T) {
 		},
 	})
 }
-
-// ─── $push ─────────────────────────────────────────────────────────────────────
 
 func TestPush_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -838,8 +820,6 @@ func TestPush_on_non_array_error(t *testing.T) {
 	})
 }
 
-// ─── $pop ──────────────────────────────────────────────────────────────────────
-
 func TestPop_last(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Pop_last",
@@ -899,8 +879,6 @@ func TestPop_empty_array(t *testing.T) {
 		},
 	})
 }
-
-// ─── $pull ─────────────────────────────────────────────────────────────────────
 
 func TestPull_by_equality(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -980,8 +958,6 @@ func TestPull_no_match(t *testing.T) {
 	})
 }
 
-// ─── $pullAll ──────────────────────────────────────────────────────────────────
-
 func TestPullAll_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "PullAll_basic",
@@ -1017,8 +993,6 @@ func TestPullAll_partial_match(t *testing.T) {
 		},
 	})
 }
-
-// ─── $addToSet ─────────────────────────────────────────────────────────────────
 
 func TestAddToSet_new_element(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1093,8 +1067,6 @@ func TestAddToSet_missing_array_creates(t *testing.T) {
 		},
 	})
 }
-
-// ─── Positional operators ───────────────────────────────────────────────────────
 
 func TestPositional_dollar_update_first_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1212,8 +1184,6 @@ func TestArrayFilters_no_matching_elements(t *testing.T) {
 	})
 }
 
-// ─── Pipeline-style updates ────────────────────────────────────────────────────
-
 func TestPipelineUpdate_set(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "PipelineUpdate_set",
@@ -1329,8 +1299,6 @@ func TestPipelineUpdate_many(t *testing.T) {
 	})
 }
 
-// ─── $bit ──────────────────────────────────────────────────────────────────────
-
 func TestBit_and_int32(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Bit_and_int32",
@@ -1427,8 +1395,6 @@ func TestBit_and_int64(t *testing.T) {
 	})
 }
 
-// ─── UpdateMany ────────────────────────────────────────────────────────────────
-
 func TestUpdateMany_set_all(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateMany_set_all",
@@ -1507,8 +1473,6 @@ func TestUpdateMany_unset_field(t *testing.T) {
 	})
 }
 
-// ─── Upsert ────────────────────────────────────────────────────────────────────
-
 func TestUpsert_creates_doc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Upsert_creates_doc",
@@ -1557,8 +1521,6 @@ func TestUpsert_updates_existing(t *testing.T) {
 	})
 }
 
-// ─── $set _id immutable ─────────────────────────────────────────────────────────
-
 func TestSet_id_immutable_error(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Set_id_immutable_error",
@@ -1574,8 +1536,6 @@ func TestSet_id_immutable_error(t *testing.T) {
 	})
 }
 
-// ─── Empty update document ─────────────────────────────────────────────────────
-
 func TestUpdate_empty_document_error(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Update_empty_document_error",
@@ -1590,8 +1550,6 @@ func TestUpdate_empty_document_error(t *testing.T) {
 		},
 	})
 }
-
-// ─── FindOneAndUpdate ──────────────────────────────────────────────────────────
 
 func TestFindOneAndUpdate_default_returns_before(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1703,8 +1661,6 @@ func TestFindOneAndUpdate_no_match(t *testing.T) {
 	})
 }
 
-// ─── Combine multiple operators ─────────────────────────────────────────────────
-
 func TestCombined_set_and_inc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_set_and_inc",
@@ -1768,8 +1724,6 @@ func TestCombined_inc_and_push(t *testing.T) {
 	})
 }
 
-// ─── ReplaceOne ────────────────────────────────────────────────────────────────
-
 func TestReplaceOne_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ReplaceOne_basic",
@@ -1829,8 +1783,6 @@ func TestReplaceOne_no_match(t *testing.T) {
 	})
 }
 
-// ─── DeleteOne / DeleteMany (completion) ───────────────────────────────────────
-
 func TestDeleteOne_by_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DeleteOne_by_filter",
@@ -1860,8 +1812,6 @@ func TestDeleteMany_filtered(t *testing.T) {
 		},
 	})
 }
-
-// ─── $min/$max with dates ──────────────────────────────────────────────────────
 
 func TestMin_with_date(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1912,8 +1862,6 @@ func TestMax_with_date(t *testing.T) {
 		},
 	})
 }
-
-// ─── Edge cases ────────────────────────────────────────────────────────────────
 
 func TestSet_null_value(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{

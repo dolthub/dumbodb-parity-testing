@@ -108,10 +108,6 @@ func runFindAll(ctx context.Context, col *mongo.Collection, filter interface{}, 
 	return result, nil
 }
 
-// ============================================================
-// Projection — inclusion / exclusion basics
-// ============================================================
-
 func TestProjection_IncludeFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_IncludeFields",
@@ -243,10 +239,6 @@ func TestProjection_MultipleInclusions(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Projection — nested field dot-notation
-// ============================================================
-
 func TestProjection_NestedField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_NestedField",
@@ -311,10 +303,6 @@ func TestProjection_NestedAndTopLevel(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Projection — FindOne with projection
-// ============================================================
-
 func TestProjection_FindOne_IncludeFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_FindOne_IncludeFields",
@@ -359,10 +347,6 @@ func TestProjection_FindOne_NestedField(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Projection — $slice operator
-// ============================================================
 
 func TestProjection_Slice_FirstN(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -454,10 +438,6 @@ func TestProjection_Slice_NegativeSkip(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Projection — $elemMatch in projection (DumboDBXFail)
-// ============================================================
-
 func TestProjection_ElemMatch_ScoresGte80(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_ElemMatch_ScoresGte80",
@@ -527,10 +507,6 @@ func TestProjection_ElemMatch_NoMatchInDoc(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Projection — positional $ operator (DumboDBXFail)
-// ============================================================
-
 func TestProjection_Positional_ScoresGte80(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Projection_Positional_ScoresGte80",
@@ -558,10 +534,6 @@ func TestProjection_Positional_TagsGo(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Sort — basic ascending/descending
-// ============================================================
 
 func TestSort_Ascending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -619,10 +591,6 @@ func TestSort_StringDescending(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Sort — nested fields
-// ============================================================
-
 func TestSort_NestedField_Asc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_NestedField_Asc",
@@ -650,10 +618,6 @@ func TestSort_NestedField_Desc(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Sort — null / missing values
-// ============================================================
 
 func TestSort_NullValues_Ascending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -697,10 +661,6 @@ func TestSort_MissingField_Ascending(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Sort — multi-field (3+ fields)
-// ============================================================
 
 func TestSort_TwoFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -753,10 +713,6 @@ func TestSort_FourFields(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Sort — array field (uses minimum element; DumboDBXFail)
-// ============================================================
-
 func TestSort_ArrayField_Ascending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_ArrayField_Ascending",
@@ -784,10 +740,6 @@ func TestSort_ArrayField_Descending(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Sort — $natural
-// ============================================================
 
 func TestSort_Natural_Ascending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -817,10 +769,6 @@ func TestSort_Natural_Descending(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Sort — $meta textScore (DumboDBXFail — requires text index)
-// ============================================================
-
 func TestSort_MetaTextScore(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_MetaTextScore",
@@ -846,10 +794,6 @@ func TestSort_MetaTextScore(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Combined — sort + projection + limit + skip
-// ============================================================
 
 func TestCombined_SortProjection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1070,10 +1014,6 @@ func TestCombined_Sort_ElemMatch_Projection(t *testing.T) {
 	})
 }
 
-// ============================================================
-// FindOne with sort and $skip via FindOneOptions
-// ============================================================
-
 func TestCombined_FindOne_SkipViaFind(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_FindOne_SkipViaFind",
@@ -1090,10 +1030,6 @@ func TestCombined_FindOne_SkipViaFind(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Projection — NullField included in projection result
-// ============================================================
 
 func TestProjection_NullFieldIncluded(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1123,10 +1059,6 @@ func TestProjection_NullFieldExcluded(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Sort — boolean field
-// ============================================================
-
 func TestSort_BooleanField_Asc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_BooleanField_Asc",
@@ -1155,10 +1087,6 @@ func TestSort_BooleanField_Desc(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Combined — large limit (returns all)
-// ============================================================
-
 func TestCombined_LargeLimit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Combined_LargeLimit",
@@ -1173,10 +1101,6 @@ func TestCombined_LargeLimit(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Combined — Projection + Sort on same field
-// ============================================================
 
 func TestCombined_ProjectAndSortSameField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{

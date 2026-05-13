@@ -46,8 +46,6 @@ func docsToSlice(docs []bson.D) []interface{} {
 	return out
 }
 
-// --- InsertOne ---
-
 func TestInsertOne_acknowledged(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "InsertOne_acknowledged",
@@ -142,8 +140,6 @@ func TestInsertOne_array_field(t *testing.T) {
 	})
 }
 
-// --- InsertMany ---
-
 func TestInsertMany_ordered(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "InsertMany_ordered",
@@ -184,8 +180,6 @@ func TestInsertMany_unordered_partial_failure(t *testing.T) {
 		},
 	})
 }
-
-// --- FindOne ---
 
 func TestFindOne_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -246,8 +240,6 @@ func TestFindOne_sort(t *testing.T) {
 		},
 	})
 }
-
-// --- Find ---
 
 func TestFind_all_sorted(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -341,8 +333,6 @@ func TestFind_count_via_cursor(t *testing.T) {
 		},
 	})
 }
-
-// --- UpdateOne ---
 
 func TestUpdateOne_set(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -594,8 +584,6 @@ func TestUpdateOne_multi_field_inc(t *testing.T) {
 	})
 }
 
-// --- Field update operators ---
-
 func TestUpdateOne_mul_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_mul_basic",
@@ -812,8 +800,6 @@ func TestUpdateOne_setOnInsert_no_upsert(t *testing.T) {
 		},
 	})
 }
-
-// --- Array update operators ---
 
 func TestUpdateOne_push_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1128,8 +1114,6 @@ func TestUpdateOne_addToSet_each(t *testing.T) {
 	})
 }
 
-// --- Positional operators ---
-
 func TestUpdateOne_positional_first_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_positional_first_match",
@@ -1221,8 +1205,6 @@ func TestUpdateOne_arrayFilters(t *testing.T) {
 		},
 	})
 }
-
-// --- Pipeline-style updates ---
 
 func TestUpdateOne_pipeline_set(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1316,8 +1298,6 @@ func TestUpdateMany_pipeline(t *testing.T) {
 	})
 }
 
-// --- Bitwise operators ---
-
 func TestUpdateOne_bit_and(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateOne_bit_and",
@@ -1405,8 +1385,6 @@ func TestUpdateOne_bit_xor(t *testing.T) {
 	})
 }
 
-// --- UpdateMany ---
-
 func TestUpdateMany(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UpdateMany",
@@ -1470,8 +1448,6 @@ func TestUpdateMany_upsert(t *testing.T) {
 	})
 }
 
-// --- FindOneAndUpdate (DumboDBXFail) ---
-
 func TestFindOneAndUpdate_returnBefore(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndUpdate_returnBefore",
@@ -1511,8 +1487,6 @@ func TestFindOneAndUpdate_returnAfter(t *testing.T) {
 		},
 	})
 }
-
-// --- FindOneAndReplace (DumboDBXFail) ---
 
 func TestFindOneAndReplace_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1588,8 +1562,6 @@ func TestFindOneAndReplace_no_match(t *testing.T) {
 	})
 }
 
-// --- FindOneAndDelete (DumboDBXFail) ---
-
 func TestFindOneAndDelete_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindOneAndDelete_basic",
@@ -1638,8 +1610,6 @@ func TestFindOneAndDelete_no_match(t *testing.T) {
 		},
 	})
 }
-
-// --- CountDocuments ---
 
 func TestCountDocuments_all(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1743,8 +1713,6 @@ func TestCountDocuments_nested_filter(t *testing.T) {
 	})
 }
 
-// --- EstimatedDocumentCount (DumboDBXFail) ---
-
 func TestEstimatedDocumentCount_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "EstimatedDocumentCount_basic",
@@ -1777,8 +1745,6 @@ func TestEstimatedDocumentCount_empty(t *testing.T) {
 		},
 	})
 }
-
-// --- Distinct (DumboDBXFail) ---
 
 func TestDistinct_string_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1864,8 +1830,6 @@ func TestDistinct_no_results(t *testing.T) {
 	})
 }
 
-// --- DeleteOne ---
-
 func TestDeleteOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DeleteOne",
@@ -1894,8 +1858,6 @@ func TestDeleteOne_no_match(t *testing.T) {
 		},
 	})
 }
-
-// --- DeleteMany ---
 
 func TestDeleteMany(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1928,8 +1890,6 @@ func TestDeleteMany_all(t *testing.T) {
 	})
 }
 
-// --- ReplaceOne ---
-
 func TestReplaceOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ReplaceOne",
@@ -1954,8 +1914,6 @@ func TestReplaceOne(t *testing.T) {
 		},
 	})
 }
-
-// --- BulkWrite (collection-level) ---
 
 func TestBulkWrite_mixed_ops(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -2151,8 +2109,6 @@ func TestBulkWrite_upsert_model(t *testing.T) {
 		},
 	})
 }
-
-// --- Error cases ---
 
 func TestUpdateOne_inc_on_string_error(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{

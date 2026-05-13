@@ -33,8 +33,6 @@ func datasetSizeFor(size docSize) int {
 	return 100
 }
 
-// --- InsertOne × size --------------------------------------------------------
-
 func benchmarkInsertOneAt(b *testing.B, label string, size docSize) {
 	col, ctx := withEmptyCollection(b, label)
 	r := rand.New(rand.NewSource(*dataSeed))
@@ -53,8 +51,6 @@ func BenchmarkInsertOne_10KB(b *testing.B)  { benchmarkInsertOneAt(b, "insertone
 func BenchmarkInsertOne_100KB(b *testing.B) { benchmarkInsertOneAt(b, "insertone_100kb", size100KB) }
 func BenchmarkInsertOne_1MB(b *testing.B)   { benchmarkInsertOneAt(b, "insertone_1mb", size1MB) }
 
-// --- FindOne × size ----------------------------------------------------------
-
 func benchmarkFindOneAt(b *testing.B, label string, size docSize) {
 	n := datasetSizeFor(size)
 	col, ctx := withSeededCollection(b, label, n, size)
@@ -72,8 +68,6 @@ func BenchmarkFindOne_1KB(b *testing.B)   { benchmarkFindOneAt(b, "findone_1kb",
 func BenchmarkFindOne_10KB(b *testing.B)  { benchmarkFindOneAt(b, "findone_10kb", sizeLarge) }
 func BenchmarkFindOne_100KB(b *testing.B) { benchmarkFindOneAt(b, "findone_100kb", size100KB) }
 func BenchmarkFindOne_1MB(b *testing.B)   { benchmarkFindOneAt(b, "findone_1mb", size1MB) }
-
-// --- UpdateOne set-one-field × size -----------------------------------------
 
 // benchmarkUpdateOneSetFieldAt measures a single $set on one small field in
 // a document of varying size. The interesting question is how much the

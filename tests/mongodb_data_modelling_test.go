@@ -15,7 +15,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// ─── One-to-Many with Embedded Documents ──────────────────────────────────────
 // https://www.mongodb.com/docs/manual/tutorial/model-embedded-one-to-many-relationships-between-documents/
 //
 // Pattern: embed the "many" side inside the "one" document when always accessed together.
@@ -125,7 +124,6 @@ func TestDataModelling_EmbeddedOneToMany_QueryEmbedded(t *testing.T) {
 	})
 }
 
-// ─── One-to-Many with Document References ─────────────────────────────────────
 // https://www.mongodb.com/docs/manual/tutorial/model-referenced-one-to-many-relationships-between-documents/
 //
 // Pattern: store a reference (foreign key) in child documents pointing to parent.
@@ -233,7 +231,6 @@ func TestDataModelling_ReferencedOneToMany_LookupPublisher(t *testing.T) {
 	})
 }
 
-// ─── Model Tree Structures with Child References ───────────────────────────────
 // https://www.mongodb.com/docs/manual/tutorial/model-tree-structures-with-child-references/
 
 func devPatternsChildRefsSeed(ctx context.Context, col *mongo.Collection) error {
@@ -312,7 +309,6 @@ func TestDataModelling_ChildRefs_FindParentByChildrenArray(t *testing.T) {
 	})
 }
 
-// ─── Model Tree Structures with Materialized Paths ────────────────────────────
 // https://www.mongodb.com/docs/manual/tutorial/model-tree-structures-with-materialized-paths/
 //
 // Pattern: store full ancestor path as a comma-delimited string in each document.

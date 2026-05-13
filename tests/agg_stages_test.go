@@ -39,8 +39,6 @@ func sortBsonAByID(a bson.A) {
 	})
 }
 
-// ─── $match ───────────────────────────────────────────────────────────────────
-
 func aggMatchSeed() []interface{} {
 	return []interface{}{
 		bson.D{{Key: "_id", Value: "a"}, {Key: "x", Value: int32(1)}},
@@ -183,8 +181,6 @@ func TestAggStage_match_InOperator(t *testing.T) {
 		},
 	})
 }
-
-// ─── $group ───────────────────────────────────────────────────────────────────
 
 func aggGroupSeed() []interface{} {
 	return []interface{}{
@@ -548,8 +544,6 @@ func TestAggStage_groupErrors_NonDocumentSpec(t *testing.T) {
 	})
 }
 
-// ─── $sort ────────────────────────────────────────────────────────────────────
-
 func aggSortSeed() []interface{} {
 	return []interface{}{
 		bson.D{{Key: "_id", Value: "c"}, {Key: "v", Value: int32(3)}},
@@ -645,8 +639,6 @@ func TestAggStage_sort_EmptyCollection(t *testing.T) {
 		},
 	})
 }
-
-// ─── $limit ───────────────────────────────────────────────────────────────────
 
 func aggLimitSeed() []interface{} {
 	return []interface{}{
@@ -754,8 +746,6 @@ func TestAggStage_limit_LimitNegativeError(t *testing.T) {
 	})
 }
 
-// ─── $skip ────────────────────────────────────────────────────────────────────
-
 func aggSkipSeed() []interface{} {
 	return []interface{}{
 		bson.D{{Key: "_id", Value: "a"}},
@@ -846,8 +836,6 @@ func TestAggStage_skip_SkipNegativeError(t *testing.T) {
 		},
 	})
 }
-
-// ─── $project ─────────────────────────────────────────────────────────────────
 
 func aggProjectSeed() []interface{} {
 	return []interface{}{
@@ -951,8 +939,6 @@ func TestAggStage_project_ComputedField(t *testing.T) {
 		},
 	})
 }
-
-// ─── $unwind ──────────────────────────────────────────────────────────────────
 
 func aggUnwindSeed() []interface{} {
 	return []interface{}{
@@ -1085,8 +1071,6 @@ func TestAggStage_unwind_IncludeArrayIndex(t *testing.T) {
 	})
 }
 
-// ─── $addFields ───────────────────────────────────────────────────────────────
-
 func aggAddFieldsSeed() []interface{} {
 	return []interface{}{
 		bson.D{{Key: "_id", Value: "a"}, {Key: "x", Value: int32(10)}, {Key: "y", Value: int32(5)}},
@@ -1165,8 +1149,6 @@ func TestAggStage_addFields_OriginalFieldsPreserved(t *testing.T) {
 	})
 }
 
-// ─── $set ─────────────────────────────────────────────────────────────────────
-
 func TestAggStage_set_SetNewField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_set_SetNewField",
@@ -1219,8 +1201,6 @@ func TestAggStage_set_SetOverwritesField(t *testing.T) {
 	})
 }
 
-// ─── $unset ───────────────────────────────────────────────────────────────────
-
 func TestAggStage_unset_UnsetSingleField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unset_UnsetSingleField",
@@ -1272,8 +1252,6 @@ func TestAggStage_unset_UnsetMultipleFields(t *testing.T) {
 		},
 	})
 }
-
-// ─── $count ───────────────────────────────────────────────────────────────────
 
 func aggCountSeed() []interface{} {
 	return []interface{}{
@@ -1377,8 +1355,6 @@ func TestAggStage_countErrors_FieldNameWithDot(t *testing.T) {
 	})
 }
 
-// ─── $replaceRoot / $replaceWith ──────────────────────────────────────────────
-
 func TestAggStage_replaceRoot_ReplaceWithNestedDoc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_replaceRoot_ReplaceWithNestedDoc",
@@ -1432,8 +1408,6 @@ func TestAggStage_replaceWith_ReplaceWithNestedDoc(t *testing.T) {
 		},
 	})
 }
-
-// ─── $sortByCount ─────────────────────────────────────────────────────────────
 
 func TestAggStage_sortByCount_SortByCountDescending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1501,8 +1475,6 @@ func TestAggStage_sortByCount_TieBreakingOrder(t *testing.T) {
 	})
 }
 
-// ─── $facet ───────────────────────────────────────────────────────────────────
-
 func TestAggStage_facet_MultipleFacets(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_facet_MultipleFacets",
@@ -1539,8 +1511,6 @@ func TestAggStage_facet_MultipleFacets(t *testing.T) {
 		},
 	})
 }
-
-// ─── $bucket ──────────────────────────────────────────────────────────────────
 
 func aggBucketSeed() []interface{} {
 	return []interface{}{
@@ -1631,8 +1601,6 @@ func TestAggStage_bucket_MissingBoundariesError(t *testing.T) {
 	})
 }
 
-// ─── $bucketAuto ──────────────────────────────────────────────────────────────
-
 func aggBucketAutoSeed() []interface{} {
 	return []interface{}{
 		bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(10)}},
@@ -1715,8 +1683,6 @@ func TestAggStage_bucketAuto_MissingBucketsError(t *testing.T) {
 	})
 }
 
-// ─── $lookup ──────────────────────────────────────────────────────────────────
-
 func TestAggStage_lookup_SimpleEqualityJoin(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_lookup_SimpleEqualityJoin",
@@ -1796,8 +1762,6 @@ func TestAggStage_lookup_NoMatchProducesEmptyArray(t *testing.T) {
 	})
 }
 
-// ─── $out ─────────────────────────────────────────────────────────────────────
-
 func TestAggStage_out_OutToNewCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_out_OutToNewCollection",
@@ -1833,8 +1797,6 @@ func TestAggStage_out_OutToNewCollection(t *testing.T) {
 		},
 	})
 }
-
-// ─── $merge ───────────────────────────────────────────────────────────────────
 
 func TestAggStage_merge_MergeIntoNewCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1903,8 +1865,6 @@ func TestAggStage_merge_MergeStringForm(t *testing.T) {
 		},
 	})
 }
-
-// ─── $graphLookup ─────────────────────────────────────────────────────────────
 
 func insertOrgHierarchy(ctx context.Context, col *mongo.Collection) error {
 	// Build an org hierarchy: CEO → VP → Manager → Employee.
@@ -1997,8 +1957,6 @@ func TestAggStage_graphLookup_MaxDepthLimitsTraversal(t *testing.T) {
 		},
 	})
 }
-
-// ─── Multi-stage pipelines ────────────────────────────────────────────────────
 
 func aggMultiStageSeed() []interface{} {
 	return []interface{}{
@@ -2177,8 +2135,6 @@ func TestAggPipeline_multiStage_ProjectThenSort(t *testing.T) {
 	})
 }
 
-// ─── Unsupported stage errors ─────────────────────────────────────────────────
-
 func TestAggStage_unsupportedErrors_changeStream(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unsupportedErrors_changeStream",
@@ -2233,8 +2189,6 @@ func TestAggStage_unsupportedErrors_search(t *testing.T) {
 		},
 	})
 }
-
-// ─── Error cases ──────────────────────────────────────────────────────────────
 
 func TestAggStage_unknownStageError(t *testing.T) {
 	// Diverge (do-gx4x): unknown aggregation stage — mongo returns error code
@@ -2293,8 +2247,6 @@ func TestAggStage_invalidPipelineSpec(t *testing.T) {
 	})
 }
 
-// ─── $collStats ───────────────────────────────────────────────────────────────
-
 func TestAggStage_collStats_StorageStats(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_collStats_StorageStats",
@@ -2349,8 +2301,6 @@ func TestAggStage_collStats_Count(t *testing.T) {
 	})
 }
 
-// ─── Error-code divergence XFail tests ────────────────────────────────────────
-
 func TestAggStage_bucket_OneBoundaryError(t *testing.T) {
 	// Diverge (do-t63k): $bucket with only one boundary value — mongo returns
 	// error code Location40192; dumbodb returns BadValue with a different message.
@@ -2381,8 +2331,6 @@ func TestAggStage_unknown_stage_error(t *testing.T) {
 		},
 	})
 }
-
-// ─── Sort tie-breaking divergence XFail tests ─────────────────────────────────
 
 func TestAggPipeline_sort_TieBreakingAfterGroup(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{

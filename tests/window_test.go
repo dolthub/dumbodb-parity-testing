@@ -25,8 +25,6 @@ func insertWindowSeed(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
-// ─── $rank ────────────────────────────────────────────────────────────────────
-
 func TestWindow_rank_overall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_rank_overall",
@@ -69,8 +67,6 @@ func TestWindow_rank_partitioned(t *testing.T) {
 		},
 	})
 }
-
-// ─── $denseRank ───────────────────────────────────────────────────────────────
 
 func TestWindow_denseRank_overall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -115,8 +111,6 @@ func TestWindow_denseRank_partitioned(t *testing.T) {
 	})
 }
 
-// ─── $rowNumber ───────────────────────────────────────────────────────────────
-
 func TestWindow_rowNumber_overall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_rowNumber_overall",
@@ -159,8 +153,6 @@ func TestWindow_rowNumber_partitioned(t *testing.T) {
 		},
 	})
 }
-
-// ─── $sum over window ─────────────────────────────────────────────────────────
 
 func TestWindow_sum_unboundedCumulative(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -241,8 +233,6 @@ func TestWindow_sum_full_partition(t *testing.T) {
 	})
 }
 
-// ─── $avg over window ─────────────────────────────────────────────────────────
-
 func TestWindow_avg_overall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_avg_overall",
@@ -293,8 +283,6 @@ func TestWindow_avg_partitioned(t *testing.T) {
 		},
 	})
 }
-
-// ─── $first / $last over window ───────────────────────────────────────────────
 
 func TestWindow_first_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -402,8 +390,6 @@ func TestWindow_last_overall(t *testing.T) {
 	})
 }
 
-// ─── partitionBy + sortBy combinations ───────────────────────────────────────
-
 func TestWindow_partitionSortMultiOutput(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_partitionSortMultiOutput",
@@ -463,8 +449,6 @@ func TestWindow_partitionOnly_noSort(t *testing.T) {
 		},
 	})
 }
-
-// ─── Range-based windows ──────────────────────────────────────────────────────
 
 func TestWindow_range_currentToCurrent(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -573,8 +557,6 @@ func TestWindow_documents_leadLag(t *testing.T) {
 	})
 }
 
-// ─── $min / $max over window ─────────────────────────────────────────────────
-
 func TestWindow_min_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_min_partitioned",
@@ -626,8 +608,6 @@ func TestWindow_max_partitioned(t *testing.T) {
 		},
 	})
 }
-
-// ─── null handling ────────────────────────────────────────────────────────────
 
 func TestWindow_sumNullHandling(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -757,8 +737,6 @@ func TestWindow_allNullSum(t *testing.T) {
 	})
 }
 
-// ─── offset windows ───────────────────────────────────────────────────────────
-
 func TestWindow_numericOffsetWindow(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_numericOffsetWindow",
@@ -823,8 +801,6 @@ func TestWindow_forwardOffsetWindow(t *testing.T) {
 		},
 	})
 }
-
-// ─── partition by multiple fields / edge cases ────────────────────────────────
 
 func TestWindow_partitionByMultipleFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -921,8 +897,6 @@ func TestWindow_singleDocument(t *testing.T) {
 	})
 }
 
-// ─── $count window operator ───────────────────────────────────────────────────
-
 func TestWindow_count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_count",
@@ -954,8 +928,6 @@ func TestWindow_count(t *testing.T) {
 		},
 	})
 }
-
-// ─── $push and $addToSet window operators ─────────────────────────────────────
 
 func TestWindow_push(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1021,8 +993,6 @@ func TestWindow_addToSet(t *testing.T) {
 	})
 }
 
-// ─── $shift window operator ───────────────────────────────────────────────────
-
 func TestWindow_shift(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_shift",
@@ -1057,8 +1027,6 @@ func TestWindow_shift(t *testing.T) {
 		},
 	})
 }
-
-// ─── $stdDevPop and $stdDevSamp ───────────────────────────────────────────────
 
 func TestWindow_stdDevPop(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1133,8 +1101,6 @@ func TestWindow_stdDevSamp(t *testing.T) {
 	})
 }
 
-// ─── $covariancePop ───────────────────────────────────────────────────────────
-
 func TestWindow_covariancePop(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_covariancePop",
@@ -1166,8 +1132,6 @@ func TestWindow_covariancePop(t *testing.T) {
 		},
 	})
 }
-
-// ─── $expMovingAvg ────────────────────────────────────────────────────────────
 
 func TestWindow_expMovingAvg(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1203,8 +1167,6 @@ func TestWindow_expMovingAvg(t *testing.T) {
 		},
 	})
 }
-
-// ─── $derivative and $integral ────────────────────────────────────────────────
 
 func TestWindow_derivative(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1276,8 +1238,6 @@ func TestWindow_integral(t *testing.T) {
 	})
 }
 
-// ─── $linearFill and $locf ────────────────────────────────────────────────────
-
 func TestWindow_linearFill(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_linearFill",
@@ -1337,8 +1297,6 @@ func TestWindow_locf(t *testing.T) {
 		},
 	})
 }
-
-// ─── $top and $bottom ─────────────────────────────────────────────────────────
 
 func TestWindow_top(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{

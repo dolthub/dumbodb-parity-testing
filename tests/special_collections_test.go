@@ -12,10 +12,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// ============================================================
-// Capped collections
-// ============================================================
-
 func TestCapped_CreateCollection_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_CreateCollection_Basic",
@@ -314,10 +310,6 @@ func TestCapped_IsCapped_CollStats(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Views
-// ============================================================
 
 func TestView_CreateFromCollection_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -655,10 +647,6 @@ func TestView_Empty_Pipeline(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Time series collections
-// ============================================================
 
 func TestTimeSeries_CreateCollection_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1196,10 +1184,6 @@ func TestTimeSeries_SumAggregation(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Mixed / edge cases across special collection types
-// ============================================================
 
 func TestCapped_SmallSize_ManyInserts(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{

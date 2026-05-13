@@ -19,12 +19,10 @@ func TestMongoCommands(t *testing.T) {
 	
 	db := client.Database("admin")
 	
-	// Test autoCompact
 	var result bson.D
 	err = db.RunCommand(ctx, bson.D{{Key: "autoCompact", Value: true}}).Decode(&result)
 	fmt.Printf("autoCompact result: %v, err: %v\n", result, err)
 	
-	// Test serverStatus with repl field filter
 	testdb := client.Database("test_server_status")
 	var result2 bson.D
 	err2 := testdb.RunCommand(ctx, bson.D{
@@ -39,7 +37,6 @@ func TestMongoCommands(t *testing.T) {
 	}
 	fmt.Printf("\nerr2: %v\n", err2)
 	
-	// Test convertToCapped on non-existent collection
 	var r3 bson.D
 	e3 := testdb.RunCommand(ctx, bson.D{
 		{Key: "convertToCapped", Value: "no_such_xyz"},
@@ -47,7 +44,6 @@ func TestMongoCommands(t *testing.T) {
 	}).Decode(&r3)
 	fmt.Printf("convertToCapped non-existent err: %v\n", e3)
 	
-	// Test convertToCapped with zero size
 	var r4 bson.D
 	e4 := testdb.RunCommand(ctx, bson.D{
 		{Key: "convertToCapped", Value: "mytest"},
@@ -55,14 +51,12 @@ func TestMongoCommands(t *testing.T) {
 	}).Decode(&r4)
 	fmt.Printf("convertToCapped zero size err: %v\n", e4)
 	
-	// Test convertToCapped missing size
 	var r5 bson.D
 	e5 := testdb.RunCommand(ctx, bson.D{
 		{Key: "convertToCapped", Value: "mytest"},
 	}).Decode(&r5)
 	fmt.Printf("convertToCapped missing size err: %v\n", e5)
 	
-	// Test collMod unknown option
 	col := client.Database("testdb_xyz").Collection("mycol")
 	col.InsertOne(ctx, bson.D{{Key: "_id", Value: 1}})
 	var r6 bson.D
@@ -72,7 +66,6 @@ func TestMongoCommands(t *testing.T) {
 	}).Decode(&r6)
 	fmt.Printf("collMod unknown option err: %v\n", e6)
 	
-	// Cleanup
 	client.Database("testdb_xyz").Drop(ctx)
 	client.Database("test_server_status").Drop(ctx)
 }

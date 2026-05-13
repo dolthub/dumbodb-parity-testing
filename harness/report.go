@@ -18,7 +18,6 @@ const (
 	DumboDBXFail
 )
 
-// TestStatus is the outcome of a single test run.
 type TestStatus int
 
 const (
@@ -43,7 +42,6 @@ func (s TestStatus) String() string {
 	}
 }
 
-// TestResult records the outcome of a single PairTest call.
 type TestResult struct {
 	Name   string
 	Status TestStatus
@@ -58,7 +56,6 @@ type Summary struct {
 	XFail     int
 }
 
-// Add records a test result into the summary.
 func (s *Summary) Add(r TestResult) {
 	switch r.Status {
 	case StatusPass:
@@ -77,7 +74,6 @@ func (s *Summary) HasUnexpectedFailures() bool {
 	return s.Diverging > 0
 }
 
-// Print writes a human-readable summary to w.
 func (s *Summary) Print(w io.Writer) {
 	fmt.Fprintf(w, "\nParity Summary\n")
 	fmt.Fprintf(w, "  Matching:   %d\n", s.Matching)
@@ -88,7 +84,6 @@ func (s *Summary) Print(w io.Writer) {
 	fmt.Fprintf(w, "  Total:      %d\n", total)
 }
 
-// PrintSummary prints the summary to stdout.
 func PrintSummary(s *Summary) {
 	s.Print(os.Stdout)
 }

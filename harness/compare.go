@@ -13,7 +13,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// CompareResult indicates the outcome of a comparison.
 type CompareResult int
 
 const (
@@ -22,7 +21,6 @@ const (
 	CompareError
 )
 
-// Comparison holds the result of comparing two responses.
 type Comparison struct {
 	Result CompareResult
 	Diff   string
@@ -98,7 +96,6 @@ func normalize(v interface{}) interface{} {
 		return nil
 	}
 
-	// Dereference pointers.
 	rv := reflect.ValueOf(v)
 	for rv.Kind() == reflect.Ptr {
 		if rv.IsNil() {
@@ -179,7 +176,6 @@ func normalize(v interface{}) interface{} {
 	}
 }
 
-// objectIDSentinel is a placeholder used to detect ObjectID values during normalization.
 const objectIDSentinel = "<ObjectID>"
 
 func normalizeBSONDoc(d bson.D) map[string]interface{} {

@@ -27,7 +27,6 @@ func TestMongoErrorCodes(t *testing.T) {
 		fmt.Printf("autoCompact non-admin: code=%d, msg=%s\n", cmdErr1.Code, cmdErr1.Message)
 	}
 	
-	// Test collMod unknown option error code
 	testdb2 := client.Database("test_codes_xyz2")
 	testdb2.Collection("col").InsertOne(ctx, bson.D{{Key: "_id", Value: 1}})
 	var r2 bson.D
@@ -40,7 +39,6 @@ func TestMongoErrorCodes(t *testing.T) {
 		fmt.Printf("collMod unknownOption: code=%d, msg=%s\n", cmdErr2.Code, cmdErr2.Message)
 	}
 	
-	// Test convertToCapped non-existent
 	var r3 bson.D
 	e3 := testdb.RunCommand(ctx, bson.D{
 		{Key: "convertToCapped", Value: "no_such_xyz"},
@@ -69,7 +67,6 @@ func TestMongoErrorCodes(t *testing.T) {
 		fmt.Printf("serverStatus repl keys: %v\n", keys)
 	}
 	
-	// Test renameCollection non-existent source
 	admDb := client.Database("admin")
 	var r5 bson.D
 	e5 := admDb.RunCommand(ctx, bson.D{
@@ -81,7 +78,6 @@ func TestMongoErrorCodes(t *testing.T) {
 		fmt.Printf("renameCollection non-existent: code=%d, msg=%s\n", cmdErr5.Code, cmdErr5.Message)
 	}
 	
-	// Cleanup
 	client.Database("test_codes_xyz").Drop(ctx)
 	client.Database("test_codes_xyz2").Drop(ctx)
 }

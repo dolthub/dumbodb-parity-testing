@@ -72,8 +72,6 @@ func findIDs(ctx context.Context, col *mongo.Collection, filter interface{}) ([]
 	return ids, nil
 }
 
-// --- Comparison operators ---
-
 func TestQuery_eq(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_eq",
@@ -157,8 +155,6 @@ func TestQuery_range_compound(t *testing.T) {
 	})
 }
 
-// --- Logical operators ---
-
 func TestQuery_and(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_and",
@@ -218,8 +214,6 @@ func TestQuery_nor(t *testing.T) {
 	})
 }
 
-// --- Element operators ---
-
 func TestQuery_exists_true(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_exists_true",
@@ -276,8 +270,6 @@ func TestQuery_type_number(t *testing.T) {
 	})
 }
 
-// --- Array operators ---
-
 func TestQuery_all(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_all",
@@ -325,8 +317,6 @@ func TestQuery_size(t *testing.T) {
 		},
 	})
 }
-
-// --- MONGO_ONLY: deprecated / unsupported operators ---
 
 // TestQuery_where uses $where (JavaScript evaluation), deprecated since MongoDB 4.4
 // and unsupported in DumboDB.
@@ -398,10 +388,6 @@ func TestQuery_regex_basic(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Extended seed datasets
-// ============================================================
 
 // bitwiseDocs contains documents with integer flags for bitwise operator tests.
 var bitwiseDocs = []interface{}{
@@ -566,10 +552,6 @@ func insertTypedDocs(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
-// ============================================================
-// Additional helpers
-// ============================================================
-
 // findWithProjection runs a Find sorted by _id and returns documents with the given projection.
 func findWithProjection(ctx context.Context, col *mongo.Collection, filter, projection interface{}) (interface{}, error) {
 	opts := options.Find().
@@ -609,10 +591,6 @@ func findSortedIDs(ctx context.Context, col *mongo.Collection, filter, sort inte
 	}
 	return result, nil
 }
-
-// ============================================================
-// Evaluation operators: $expr
-// ============================================================
 
 func TestQuery_expr_field_eq(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -756,10 +734,6 @@ func TestQuery_expr_literal_compare(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Evaluation operators: $mod
-// ============================================================
-
 func TestQuery_mod_basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_mod_basic",
@@ -806,10 +780,6 @@ func TestQuery_mod_even(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Evaluation operators: $jsonSchema
-// ============================================================
 
 func TestQuery_jsonSchema_required(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -864,10 +834,6 @@ func TestQuery_jsonSchema_properties_minimum(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Evaluation operators: $regex with advanced flags
-// ============================================================
-
 func TestQuery_regex_multiline(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_regex_multiline",
@@ -913,10 +879,6 @@ func TestQuery_regex_dotall(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Bitwise operators (all DumboDBXFail)
-// ============================================================
 
 func TestQuery_bitsAllClear_bitmask(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1025,10 +987,6 @@ func TestQuery_bitsAnySet_positions(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Geospatial operators
-// ============================================================
 
 func TestQuery_geo_within_box(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1163,10 +1121,6 @@ func TestQuery_geo_intersects_polygon(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Array query gaps
-// ============================================================
 
 func TestQuery_elemMatch_embedded_docs(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1347,10 +1301,6 @@ func TestQuery_deep_nested_dot_notation(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Projection operators
-// ============================================================
-
 func TestQuery_proj_include_fields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_proj_include_fields",
@@ -1473,10 +1423,6 @@ func TestQuery_proj_elemMatch_projection(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Sort edge cases
-// ============================================================
-
 func TestQuery_sort_multi_field(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_sort_multi_field",
@@ -1586,10 +1532,6 @@ func TestQuery_sort_nested_field(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// $type with BSON type aliases
-// ============================================================
 
 func TestQuery_type_int(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1734,10 +1676,6 @@ func TestQuery_type_numeric_code(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Comparison and logical edge cases
-// ============================================================
 
 func TestQuery_eq_null(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{

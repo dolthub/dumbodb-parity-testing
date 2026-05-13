@@ -14,10 +14,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// ============================================================
-// Seed data
-// ============================================================
-
 // cityGeoJSON contains world cities as GeoJSON Points for 2dsphere tests.
 // Coordinates are [longitude, latitude] per GeoJSON spec.
 var cityGeoJSON = []interface{}{
@@ -84,10 +80,6 @@ func insertLegacy(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
-// ============================================================
-// Helpers
-// ============================================================
-
 // geoFindIDs runs a geo query, returns IDs sorted alphabetically for stable comparison.
 func geoFindIDs(ctx context.Context, col *mongo.Collection, filter interface{}) (interface{}, error) {
 	opts := options.Find().
@@ -134,10 +126,6 @@ func geoPoint(lng, lat float64) bson.D {
 	}
 }
 
-// ============================================================
-// Index creation
-// ============================================================
-
 func TestGeo_Index_2dsphere_Create(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Index_2dsphere_Create",
@@ -183,10 +171,6 @@ func TestGeo_Index_2d_Create(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// $near (GeoJSON / 2dsphere)
-// ============================================================
 
 func TestGeo_Near_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -321,10 +305,6 @@ func TestGeo_Near_WithQueryFilter(t *testing.T) {
 	})
 }
 
-// ============================================================
-// $nearSphere (GeoJSON / 2dsphere)
-// ============================================================
-
 func TestGeo_NearSphere_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_NearSphere_Basic",
@@ -406,10 +386,6 @@ func TestGeo_NearSphere_NoConstraints(t *testing.T) {
 	})
 }
 
-// ============================================================
-// $geoWithin $centerSphere
-// ============================================================
-
 func TestGeo_GeoWithin_CenterSphere_Tiny(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoWithin_CenterSphere_Tiny",
@@ -469,10 +445,6 @@ func TestGeo_GeoWithin_CenterSphere_Europe(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// $geoWithin $geometry (polygon / multipolygon)
-// ============================================================
 
 func TestGeo_GeoWithin_Polygon_EastUS(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -601,10 +573,6 @@ func TestGeo_GeoWithin_MultiPolygon(t *testing.T) {
 	})
 }
 
-// ============================================================
-// $geoIntersects
-// ============================================================
-
 func TestGeo_GeoIntersects_Point_Exact(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_GeoIntersects_Point_Exact",
@@ -689,10 +657,6 @@ func TestGeo_GeoIntersects_MultiPolygon(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// GeoJSON document types in the collection
-// ============================================================
 
 func TestGeo_DocType_PolygonDocs(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -872,10 +836,6 @@ func TestGeo_DocType_GeometryCollection(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Legacy 2d index operators
-// ============================================================
-
 func TestGeo_Legacy_Box(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Legacy_Box",
@@ -980,10 +940,6 @@ func TestGeo_Legacy_NearSphere_2d(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// $geoNear aggregation stage
-// ============================================================
 
 func TestGeo_GeoNear_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -1176,10 +1132,6 @@ func TestGeo_GeoNear_DistanceMultiplier(t *testing.T) {
 		},
 	})
 }
-
-// ============================================================
-// Edge cases
-// ============================================================
 
 func TestGeo_Edge_NullLocation(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
