@@ -22,6 +22,36 @@ inspirations: MongoDB and Dolt.
 
 ---
 
+## Coding Style Requirements
+ - NEVER use non-ascii characters. 7-bit ascii only. No emojis, emdashes, and the like. American Ascii only.
+ - Minimal comments. This code is primarily agent consumed, and the comments are noise for humans. Comments
+   should only be used when the clarify something which is not obvious from the code itself: reference to a spec,
+   adhearing to an API annomoly, gDoc which states caller musts, and so forth.
+
+### Copyright Header for New Files
+
+All new source files you create must use this header:
+
+```go
+// Copyright {CURRENT YEAR} Dolthub, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+```
+
+(substitute actual year in {CURRENT YEAR})
+
+---
+
 ## Rules
 
 - Do not commit unless explicitly asked.
