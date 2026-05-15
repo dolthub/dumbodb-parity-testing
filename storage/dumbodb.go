@@ -133,14 +133,14 @@ func (b *DumboDBBackend) UpdateEmail(ctx context.Context, id, newEmail string) e
 
 func (b *DumboDBBackend) Commit(ctx context.Context, msg string) error {
 	return b.client.Database(b.encodedDB()).RunCommand(ctx, bson.D{
-		{Key: "dumboDBCommit", Value: 1},
+		{Key: "dumboCommit", Value: 1},
 		{Key: "message", Value: msg},
 	}).Err()
 }
 
 func (b *DumboDBBackend) CreateBranch(ctx context.Context, branch string) error {
 	return b.client.Database(b.encodedDB()).RunCommand(ctx, bson.D{
-		{Key: "dumboDBBranch", Value: 1},
+		{Key: "dumboBranch", Value: 1},
 		{Key: "branch", Value: branch},
 	}).Err()
 }
@@ -155,7 +155,7 @@ func (b *DumboDBBackend) Checkout(_ context.Context, branch string) error {
 func (b *DumboDBBackend) Merge(ctx context.Context, fromBranch string) (time.Duration, error) {
 	start := time.Now()
 	err := b.client.Database(b.encodedDB()).RunCommand(ctx, bson.D{
-		{Key: "dumboDBMerge", Value: 1},
+		{Key: "dumboMerge", Value: 1},
 		{Key: "merge_in", Value: fromBranch},
 	}).Err()
 	dur := time.Since(start)
