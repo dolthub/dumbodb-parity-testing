@@ -9,18 +9,11 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// TestTransactionSmoke verifies the harness support-level contract.
-//
-// MongoDB 8 supports multi-document transactions. DumboDB does not yet.
-// This test is intentionally marked DumboDBFull so CI fails red — proving
-// the harness correctly surfaces a real divergence.
-//
-// To verify the other direction: change DumboDBFull → DumboDBXFail and CI
-// should go green (divergence recorded but not fatal).
+// TestTransactionSmoke verifies basic startTransaction / insert / commitTransaction.
 func TestTransactionSmoke(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "transaction-smoke",
-		Support: harness.DumboDBXFail, // DumboDBFull confirmed red; XFail = divergence recorded, CI green
+		Support: harness.DumboDBXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			session, err := col.Database().Client().StartSession()
 			if err != nil {

@@ -14,8 +14,9 @@
 
 package tests
 
-// All currently DumboDBXFail: DumboDB has not shipped startTransaction.
-// Flip Support to DumboDBFull when the feature lands.
+// All tests that require two independent sessions use two separate mongo.Client
+// instances so each session is guaranteed a distinct TCP connection and
+// independent server-side conninfo state.
 
 import (
 	"context"
@@ -26,6 +27,7 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // errCode mirrors harness/compare.go's unexported errorCode so tests can put
@@ -53,23 +55,39 @@ func sortByID(docs []bson.M) {
 	})
 }
 
+// secondClient opens a second mongo.Client to the same server as col.
+// It uses the server URI injected by the harness into ctx so session B's
+// operations land on a separate TCP connection with independent conninfo state.
+func secondClient(ctx context.Context) (*mongo.Client, func(), error) {
+	uri := harness.ServerURI(ctx)
+	if uri == "" {
+		return nil, nil, errors.New("secondClient: no server URI in context (test must run via harness.PairTest)")
+	}
+	c, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+	if err != nil {
+		return nil, nil, err
+	}
+	return c, func() { _ = c.Disconnect(ctx) }, nil
+}
+
 func TestTransaction_basic_start_commit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "basic_start_commit",
 		Support: harness.DumboDBXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			client := col.Database().Client()
+			clientA := col.Database().Client()
+			clientB, closeB, err := secondClient(ctx)
+			if err != nil {
+				return nil, err
+			}
+			defer closeB()
+			colB := clientB.Database(col.Database().Name()).Collection(col.Name())
 
-			sessA, err := client.StartSession()
+			sessA, err := clientA.StartSession()
 			if err != nil {
 				return nil, err
 			}
 			defer sessA.EndSession(ctx)
-			sessB, err := client.StartSession()
-			if err != nil {
-				return nil, err
-			}
-			defer sessB.EndSession(ctx)
 
 			if err := sessA.StartTransaction(); err != nil {
 				return nil, err
@@ -83,8 +101,7 @@ func TestTransaction_basic_start_commit(t *testing.T) {
 				return nil, err
 			}
 
-			scB := mongo.NewSessionContext(ctx, sessB)
-			beforeErr := col.FindOne(scB, bson.D{{Key: "_id", Value: "p1"}}).Err()
+			beforeErr := colB.FindOne(ctx, bson.D{{Key: "_id", Value: "p1"}}).Err()
 			bSawBefore := beforeErr == nil
 
 			if err := sessA.CommitTransaction(ctx); err != nil {
@@ -92,7 +109,7 @@ func TestTransaction_basic_start_commit(t *testing.T) {
 			}
 
 			var afterDoc bson.M
-			afterErr := col.FindOne(scB, bson.D{{Key: "_id", Value: "p1"}}).Decode(&afterDoc)
+			afterErr := colB.FindOne(ctx, bson.D{{Key: "_id", Value: "p1"}}).Decode(&afterDoc)
 			bSawAfter := afterErr == nil
 
 			return bson.D{
@@ -157,18 +174,19 @@ func TestTransaction_read_your_own_writes(t *testing.T) {
 		Name:    "read_your_own_writes",
 		Support: harness.DumboDBXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			client := col.Database().Client()
+			clientA := col.Database().Client()
+			clientB, closeB, err := secondClient(ctx)
+			if err != nil {
+				return nil, err
+			}
+			defer closeB()
+			colB := clientB.Database(col.Database().Name()).Collection(col.Name())
 
-			sessA, err := client.StartSession()
+			sessA, err := clientA.StartSession()
 			if err != nil {
 				return nil, err
 			}
 			defer sessA.EndSession(ctx)
-			sessB, err := client.StartSession()
-			if err != nil {
-				return nil, err
-			}
-			defer sessB.EndSession(ctx)
 
 			if err := sessA.StartTransaction(); err != nil {
 				return nil, err
@@ -182,14 +200,15 @@ func TestTransaction_read_your_own_writes(t *testing.T) {
 				return nil, err
 			}
 
+			// A reads its own write inside the txn.
 			var aOwn bson.M
 			if err := col.FindOne(scA, bson.D{{Key: "_id", Value: "p3"}}).Decode(&aOwn); err != nil {
 				_ = sessA.AbortTransaction(ctx)
 				return nil, err
 			}
 
-			scB := mongo.NewSessionContext(ctx, sessB)
-			bBeforeErr := col.FindOne(scB, bson.D{{Key: "_id", Value: "p3"}}).Err()
+			// B reads before commit on a separate connection.
+			bBeforeErr := colB.FindOne(ctx, bson.D{{Key: "_id", Value: "p3"}}).Err()
 			bSawBefore := bBeforeErr == nil
 
 			if err := sessA.CommitTransaction(ctx); err != nil {
@@ -197,7 +216,7 @@ func TestTransaction_read_your_own_writes(t *testing.T) {
 			}
 
 			var bAfter bson.M
-			bAfterErr := col.FindOne(scB, bson.D{{Key: "_id", Value: "p3"}}).Decode(&bAfter)
+			bAfterErr := colB.FindOne(ctx, bson.D{{Key: "_id", Value: "p3"}}).Decode(&bAfter)
 			bSawAfter := bAfterErr == nil
 
 			return bson.D{
@@ -223,14 +242,20 @@ func TestTransaction_doc_lock_conflict(t *testing.T) {
 			return err
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			client := col.Database().Client()
+			clientA := col.Database().Client()
+			clientB, closeB, err := secondClient(ctx)
+			if err != nil {
+				return nil, err
+			}
+			defer closeB()
+			colB := clientB.Database(col.Database().Name()).Collection(col.Name())
 
-			sessA, err := client.StartSession()
+			sessA, err := clientA.StartSession()
 			if err != nil {
 				return nil, err
 			}
 			defer sessA.EndSession(ctx)
-			sessB, err := client.StartSession()
+			sessB, err := clientB.StartSession()
 			if err != nil {
 				return nil, err
 			}
@@ -248,14 +273,13 @@ func TestTransaction_doc_lock_conflict(t *testing.T) {
 				return nil, err
 			}
 
-			// MongoDB's default maxTransactionLockRequestTimeoutMillis is 5ms,
-			// so B's conflicting update returns WriteConflict (112) quickly.
+			// MongoDB's default maxTransactionLockRequestTimeoutMillis is 5ms.
 			if err := sessB.StartTransaction(); err != nil {
 				_ = sessA.AbortTransaction(ctx)
 				return nil, err
 			}
 			scB := mongo.NewSessionContext(ctx, sessB)
-			_, bErr := col.UpdateOne(scB,
+			_, bErr := colB.UpdateOne(scB,
 				bson.D{{Key: "_id", Value: "p4"}},
 				bson.D{{Key: "$set", Value: bson.D{{Key: "x", Value: "B"}}}},
 			)
@@ -284,14 +308,20 @@ func TestTransaction_non_conflicting_succeed(t *testing.T) {
 		Name:    "non_conflicting_succeed",
 		Support: harness.DumboDBXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			client := col.Database().Client()
+			clientA := col.Database().Client()
+			clientB, closeB, err := secondClient(ctx)
+			if err != nil {
+				return nil, err
+			}
+			defer closeB()
+			colB := clientB.Database(col.Database().Name()).Collection(col.Name())
 
-			sessA, err := client.StartSession()
+			sessA, err := clientA.StartSession()
 			if err != nil {
 				return nil, err
 			}
 			defer sessA.EndSession(ctx)
-			sessB, err := client.StartSession()
+			sessB, err := clientB.StartSession()
 			if err != nil {
 				return nil, err
 			}
@@ -311,7 +341,7 @@ func TestTransaction_non_conflicting_succeed(t *testing.T) {
 				return nil, err
 			}
 			scB := mongo.NewSessionContext(ctx, sessB)
-			if _, err := col.InsertOne(scB, bson.D{{Key: "_id", Value: "p5-b"}}); err != nil {
+			if _, err := colB.InsertOne(scB, bson.D{{Key: "_id", Value: "p5-b"}}); err != nil {
 				_ = sessA.AbortTransaction(ctx)
 				_ = sessB.AbortTransaction(ctx)
 				return nil, err
@@ -351,9 +381,15 @@ func TestTransaction_endSession_discards(t *testing.T) {
 		Name:    "endSession_discards",
 		Support: harness.DumboDBXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			client := col.Database().Client()
+			clientA := col.Database().Client()
+			clientB, closeB, err := secondClient(ctx)
+			if err != nil {
+				return nil, err
+			}
+			defer closeB()
+			colB := clientB.Database(col.Database().Name()).Collection(col.Name())
 
-			sessA, err := client.StartSession()
+			sessA, err := clientA.StartSession()
 			if err != nil {
 				return nil, err
 			}
@@ -374,13 +410,7 @@ func TestTransaction_endSession_discards(t *testing.T) {
 
 			sessA.EndSession(ctx)
 
-			sessB, err := client.StartSession()
-			if err != nil {
-				return nil, err
-			}
-			defer sessB.EndSession(ctx)
-			scB := mongo.NewSessionContext(ctx, sessB)
-			bErr := col.FindOne(scB, bson.D{{Key: "_id", Value: "p8"}}).Err()
+			bErr := colB.FindOne(ctx, bson.D{{Key: "_id", Value: "p8"}}).Err()
 			discarded := errors.Is(bErr, mongo.ErrNoDocuments)
 
 			return bson.D{

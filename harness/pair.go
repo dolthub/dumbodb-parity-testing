@@ -9,6 +9,22 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+type serverURIKey struct{}
+
+// ServerURI returns the URI of the server that col is connected to, as injected
+// by the harness before calling TestCase.Run. Tests that need a second client
+// to the same server use this to avoid guessing the URI.
+func ServerURI(ctx context.Context) string {
+	if v, ok := ctx.Value(serverURIKey{}).(string); ok {
+		return v
+	}
+	return ""
+}
+
+func withServerURI(ctx context.Context, uri string) context.Context {
+	return context.WithValue(ctx, serverURIKey{}, uri)
+}
+
 // TestCase defines a single parity test to run against both MongoDB and DumboDB.
 type TestCase struct {
 	// Name identifies the test in reports and generates the isolated DB name.
@@ -75,8 +91,8 @@ func runMongoOnly(t *testing.T, ctx context.Context, tc TestCase, mongoCol *mong
 func runFull(t *testing.T, ctx context.Context, tc TestCase, mongoCol, dumboDBCol *mongo.Collection) TestResult {
 	t.Helper()
 	setup(t, ctx, tc, mongoCol, dumboDBCol)
-	mongoResult, mongoErr := tc.Run(ctx, mongoCol)
-	dumboDBResult, dumboDBErr := tc.Run(ctx, dumboDBCol)
+	mongoResult, mongoErr := tc.Run(withServerURI(ctx, mongoURI()), mongoCol)
+	dumboDBResult, dumboDBErr := tc.Run(withServerURI(ctx, dumboDBURI()), dumboDBCol)
 
 	cmp := CompareResponses(mongoResult, mongoErr, dumboDBResult, dumboDBErr)
 	if cmp.Result == Match {
@@ -90,8 +106,8 @@ func runFull(t *testing.T, ctx context.Context, tc TestCase, mongoCol, dumboDBCo
 func runXFail(t *testing.T, ctx context.Context, tc TestCase, mongoCol, dumboDBCol *mongo.Collection) TestResult {
 	t.Helper()
 	setup(t, ctx, tc, mongoCol, dumboDBCol)
-	mongoResult, mongoErr := tc.Run(ctx, mongoCol)
-	dumboDBResult, dumboDBErr := tc.Run(ctx, dumboDBCol)
+	mongoResult, mongoErr := tc.Run(withServerURI(ctx, mongoURI()), mongoCol)
+	dumboDBResult, dumboDBErr := tc.Run(withServerURI(ctx, dumboDBURI()), dumboDBCol)
 
 	cmp := CompareResponses(mongoResult, mongoErr, dumboDBResult, dumboDBErr)
 	if cmp.Result == Match {
