@@ -1,3 +1,17 @@
+// Copyright 2026 Dolthub, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package harness
 
 import (
@@ -35,6 +49,15 @@ func dumboDBURI() string {
 	}
 	return "mongodb://localhost:27018"
 }
+
+// MongoURI is the exported view of the MongoDB connection URI used by the
+// harness. Wire-level tests (which open their own TCP connections rather than
+// going through the driver) use this to dial the same server the driver-based
+// tests do.
+func MongoURI() string { return mongoURI() }
+
+// DumboDBURI is the exported view of the DumboDB connection URI. See MongoURI.
+func DumboDBURI() string { return dumboDBURI() }
 
 // GetClients returns the shared Mongo+DumboDB client pair, connecting on first call.
 func GetClients(ctx context.Context) (*Clients, error) {
