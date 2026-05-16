@@ -73,7 +73,7 @@ func secondClient(ctx context.Context) (*mongo.Client, func(), error) {
 func TestTransaction_basic_start_commit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "basic_start_commit",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			clientA := col.Database().Client()
 			clientB, closeB, err := secondClient(ctx)
@@ -125,7 +125,7 @@ func TestTransaction_basic_start_commit(t *testing.T) {
 func TestTransaction_abort_discards(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "abort_discards",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			client := col.Database().Client()
 
@@ -172,7 +172,7 @@ func TestTransaction_abort_discards(t *testing.T) {
 func TestTransaction_read_your_own_writes(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "read_your_own_writes",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			clientA := col.Database().Client()
 			clientB, closeB, err := secondClient(ctx)
@@ -233,7 +233,7 @@ func TestTransaction_read_your_own_writes(t *testing.T) {
 func TestTransaction_doc_lock_conflict(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "doc_lock_conflict",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "p4"},
@@ -306,6 +306,12 @@ func TestTransaction_doc_lock_conflict(t *testing.T) {
 func TestTransaction_non_conflicting_succeed(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "non_conflicting_succeed",
+		// MongoDB rejects implicit collection creation when two concurrent
+		// transactions both try to create the same namespace (returns
+		// WriteConflict "namespace is already in use"). DumboDB does not
+		// have this restriction and lets both txns succeed. The divergence
+		// is in DumboDB's favor; revisit if Mongo ever drops the rule or
+		// the test is rewritten with a pre-existing collection.
 		Support: harness.DumboDBXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			clientA := col.Database().Client()
@@ -379,7 +385,7 @@ func TestTransaction_non_conflicting_succeed(t *testing.T) {
 func TestTransaction_endSession_discards(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "endSession_discards",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			clientA := col.Database().Client()
 			clientB, closeB, err := secondClient(ctx)
