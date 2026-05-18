@@ -513,6 +513,140 @@ func TestTransaction_drop_database_in_txn(t *testing.T) {
 	})
 }
 
+func TestTransaction_create_index_in_txn(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "create_index_in_txn",
+		Support: harness.DumboDBXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}, {Key: "x", Value: int32(1)}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			sess, err := col.Database().Client().StartSession()
+			if err != nil {
+				return nil, err
+			}
+			defer sess.EndSession(ctx)
+
+			startErr := sess.StartTransaction()
+			sc := mongo.NewSessionContext(ctx, sess)
+			_, createErr := col.Indexes().CreateOne(sc, mongo.IndexModel{
+				Keys: bson.D{{Key: "x", Value: int32(1)}},
+			})
+			commitErr := sess.CommitTransaction(ctx)
+
+			cur, _ := col.Indexes().List(ctx)
+			var indexes []bson.M
+			if cur != nil {
+				_ = cur.All(ctx, &indexes)
+			}
+			names := make([]interface{}, 0, len(indexes))
+			for _, idx := range indexes {
+				names = append(names, idx["name"])
+			}
+			sort.SliceStable(names, func(i, j int) bool {
+				si, _ := names[i].(string)
+				sj, _ := names[j].(string)
+				return si < sj
+			})
+
+			return bson.D{
+				{Key: "startOk", Value: startErr == nil},
+				{Key: "createOk", Value: createErr == nil},
+				{Key: "createCode", Value: errCode(createErr)},
+				{Key: "commitOk", Value: commitErr == nil},
+				{Key: "commitCode", Value: errCode(commitErr)},
+				{Key: "indexNamesAfter", Value: names},
+			}, nil
+		},
+	})
+}
+
+func TestTransaction_rename_collection_in_txn(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "rename_collection_in_txn",
+		Support: harness.DumboDBXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			sess, err := col.Database().Client().StartSession()
+			if err != nil {
+				return nil, err
+			}
+			defer sess.EndSession(ctx)
+
+			oldName := col.Name()
+			newName := col.Name() + "_renamed"
+			dbName := col.Database().Name()
+
+			startErr := sess.StartTransaction()
+			sc := mongo.NewSessionContext(ctx, sess)
+			renameErr := col.Database().Client().Database("admin").RunCommand(sc, bson.D{
+				{Key: "renameCollection", Value: dbName + "." + oldName},
+				{Key: "to", Value: dbName + "." + newName},
+			}).Err()
+			commitErr := sess.CommitTransaction(ctx)
+
+			names, _ := col.Database().ListCollectionNames(ctx, bson.D{})
+			oldPresent, newPresent := false, false
+			for _, n := range names {
+				if n == oldName {
+					oldPresent = true
+				}
+				if n == newName {
+					newPresent = true
+				}
+			}
+
+			return bson.D{
+				{Key: "startOk", Value: startErr == nil},
+				{Key: "renameOk", Value: renameErr == nil},
+				{Key: "renameCode", Value: errCode(renameErr)},
+				{Key: "commitOk", Value: commitErr == nil},
+				{Key: "commitCode", Value: errCode(commitErr)},
+				{Key: "oldNameExistsAfter", Value: oldPresent},
+				{Key: "newNameExistsAfter", Value: newPresent},
+			}, nil
+		},
+	})
+}
+
+func TestTransaction_create_collection_existing_in_txn(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "create_collection_existing_in_txn",
+		Support: harness.DumboDBXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			sess, err := col.Database().Client().StartSession()
+			if err != nil {
+				return nil, err
+			}
+			defer sess.EndSession(ctx)
+
+			startErr := sess.StartTransaction()
+			sc := mongo.NewSessionContext(ctx, sess)
+			createErr := col.Database().CreateCollection(sc, col.Name())
+			commitErr := sess.CommitTransaction(ctx)
+
+			cnt, _ := col.CountDocuments(ctx, bson.D{})
+
+			return bson.D{
+				{Key: "startOk", Value: startErr == nil},
+				{Key: "createOk", Value: createErr == nil},
+				{Key: "createCode", Value: errCode(createErr)},
+				{Key: "commitOk", Value: commitErr == nil},
+				{Key: "commitCode", Value: errCode(commitErr)},
+				{Key: "seedCountAfter", Value: int32(cnt)},
+			}, nil
+		},
+	})
+}
+
 func TestTransaction_endSession_discards(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "endSession_discards",
