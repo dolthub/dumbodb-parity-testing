@@ -7,17 +7,17 @@ MongoDB and emits a side-by-side table.
 
 The suite is deliberately **separate from the parity harness in `tests/`**. The
 parity harness runs the same operation against both servers *simultaneously* and
-compares responses — correct behavior is its contract, not timing. Benchmarks
+compares responses - correct behavior is its contract, not timing. Benchmarks
 need isolation: one server under load at a time, no cross-contamination.
 
 ## Goals
 
 1. **Find hotspots in DumboDB** (primary)
 2. **Produce a public-facing comparison table** (DumboDB vs MongoDB)
-3. Serve as a regression gate (lower priority — ratios are stable enough
+3. Serve as a regression gate (lower priority - ratios are stable enough
    for humans, not yet stable enough for CI)
 
-## Scope — what's covered today
+## Scope - what's covered today
 
 **CRUD**: `InsertOne`, `InsertMany` (batches of 100 and 1000), `FindOne` (by
 `_id`), `Find` (full scan), `Find` with equality filter, `Find` with range
@@ -35,30 +35,30 @@ size tiers when we add them.
 **Scaled index variants** (in `scaled_indexed_bench_test.go`): `Find_FilterEq`,
 `Find_FilterRange`, `UpdateMany`, `DeleteMany`, and `CountDocuments` each have
 `_10K`, `_10K_Indexed`, `_50K`, `_50K_Indexed` variants. The 1K baseline is
-too small for MongoDB's indexes to show their advantage — full-collection
+too small for MongoDB's indexes to show their advantage - full-collection
 scans finish before the index-lookup overhead pays off. At 10K the read-side
 indexes (`Find_FilterRange`, `CountDocuments`) cleanly cross a 2x speedup on
 MongoDB; 50K confirms the trend and pushes the ratios further. `Find_FilterEq`,
 `UpdateMany`, and `DeleteMany` plateau below 2x even at 50K because their
-filter (one of ten `grp` values) returns ~10% of the collection — fetching
+filter (one of ten `grp` values) returns ~10% of the collection - fetching
 that many docs through the index is no cheaper than a sequential scan, and
 for the write benchmarks the dominant cost is the writes themselves, not the
 candidate lookup.
 
-## Scope — deferred
+## Scope - deferred
 
 These are enumerated in `bd pa-xp1` but not implemented in the first cut:
 
 - `$unwind + $group`, `$lookup` (join)
-- `CreateCollection`, `Drop` (they'd be their own benchmarks — mostly DDL timing)
-- Scaling dimensions beyond 1K × small docs (10K, 100K; medium, large). Helpers
-  in `bench.go` already parameterize both — add parameterized sub-benchmarks when
+- `CreateCollection`, `Drop` (they'd be their own benchmarks - mostly DDL timing)
+- Scaling dimensions beyond 1K x small docs (10K, 100K; medium, large). Helpers
+  in `bench.go` already parameterize both - add parameterized sub-benchmarks when
   we want the extra surface area.
-- dolt-specific commands — the task explicitly scopes us to the MongoDB wire protocol.
+- dolt-specific commands - the task explicitly scopes us to the MongoDB wire protocol.
 
 ## Running
 
-Prerequisite: **Docker**. The runner manages its own containers — it builds a
+Prerequisite: **Docker**. The runner manages its own containers - it builds a
 `dumbodb-bench:local` image from the product (dongo) repo, pulls `mongo:8.0`,
 starts both, waits for readiness, runs the benchmarks, then tears everything
 down (unless `-f` is given). No manual server setup required.
@@ -68,7 +68,7 @@ down (unless `-f` is given). No manual server setup required.
 ```bash
 go run ./benchmarks/cmd/compare \
     -benchtime=2s \
-    -json benchmarks/results.json
+    -csv benchmarks/results.csv
 ```
 
 The first run builds the DumboDB image (a minute or two; CGO-enabled Go build);
@@ -102,7 +102,7 @@ docker stop dumbodb-bench mongodb-bench && docker rm dumbodb-bench mongodb-bench
 ```
 
 A second `compare -f` invocation will reuse the running containers rather than
-rebuild — handy while iterating on a specific benchmark.
+rebuild - handy while iterating on a specific benchmark.
 
 Flags:
 
@@ -111,13 +111,13 @@ Flags:
 | `-bench`           | `^Benchmark` | Regex of benchmarks to run |
 | `-benchtime`       | `2s` | Go's `-benchtime` (wall-clock per benchmark) |
 | `-count`           | `1` | Go's `-count` (repetitions) |
-| `-json`            | `""` | If set, write JSON results here |
+| `-csv`             | `""` | If set, write CSV results here |
 | `-v`               | `false` | Stream `go test` stderr |
 | `-f`               | `false` | Keep containers running after the run (for investigation) |
 | `-dumbodb-src`     | `/home/ubuntu/dongo` | Path to the product (dongo) repo; used as Docker build context |
 | `-no-containers`   | `false` | Skip container management; expect servers already at `:27017` / `:27018` |
 | `-health-timeout`  | `60s` | How long to wait for each container to accept connections |
-| `-test-timeout`    | `10m` | `-timeout` passed to `go test`. Bump to `45m` or higher when running the 50K-scale `*_50K` benchmarks — DumboDB's seed step alone takes ~30 minutes at that size. |
+| `-test-timeout`    | `10m` | `-timeout` passed to `go test`. Bump to `45m` or higher when running the 50K-scale `*_50K` benchmarks - DumboDB's seed step alone takes ~30 minutes at that size. |
 
 ### Container layout
 
@@ -151,21 +151,19 @@ generated database name. Each benchmark creates a uniquely-named database
 
 The comparator emits two artifacts:
 
-1. **Table** (stdout) — human-readable during development.
-2. **JSON** (`-json <path>`) — one array element per benchmark:
+1. **Table** (stdout) - human-readable during development.
+2. **CSV** (`-csv <path>`) - one header row plus one row per benchmark:
 
-   ```json
-   {
-     "name": "BenchmarkInsertOne",
-     "dumbodb_ns_per_op": 5585953,
-     "mongodb_ns_per_op": 512888,
-     "ratio": 10.89
-   }
+   ```csv
+   name,dumbodb_ns_per_op,mongodb_ns_per_op,percent_change
+   BenchmarkInsertOne,5585953.00,512888.00,988.89
    ```
 
-   A missing side (benchmark ran against only one target) omits that field and
-   the ratio. Downstream tools (public-facing comparison pages, regression gates)
-   should consume the JSON.
+   `ns_per_op` columns are fixed-point with two decimal places. `percent_change`
+   is `(dumbodb - mongodb) / mongodb * 100`. A missing side (benchmark ran
+   against only one target) leaves the corresponding column blank, and
+   `percent_change` is blank as well. Downstream tools (public-facing comparison
+   pages, regression gates) should consume the CSV.
 
 ## Notes on measurement hygiene
 
@@ -186,6 +184,6 @@ The comparator emits two artifacts:
    or `withEmptyCollection(b, label)` for insert-style ops.
 3. Call `b.ResetTimer()` after setup, `b.StopTimer()` / `b.StartTimer()` around
    any per-iteration setup that shouldn't count.
-4. Keep iterations independent — do not rely on collection state carrying across
+4. Keep iterations independent - do not rely on collection state carrying across
    iterations unless you explicitly design for it (see `BenchmarkDeleteOne` for
    how to reseed).

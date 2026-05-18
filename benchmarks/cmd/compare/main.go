@@ -1,5 +1,5 @@
 // compare runs the benchmark suite against DumboDB and MongoDB and emits a
-// side-by-side comparison table (text) and/or JSON.
+// side-by-side comparison table (text) and/or CSV.
 //
 // The runner manages its own containers: it builds dumbodb-bench:local from
 // the product repo, pulls mongo:8.0, starts both, waits for readiness, runs
@@ -16,7 +16,7 @@ package main
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/csv"
 	"errors"
 	"flag"
 	"fmt"
@@ -38,7 +38,7 @@ var (
 	benchRegex    = flag.String("bench", "^Benchmark", "-run pattern for benchmarks (go test -bench)")
 	benchTime     = flag.String("benchtime", "2s", "-benchtime value passed to go test")
 	count         = flag.Int("count", 1, "-count value passed to go test (repetitions per benchmark)")
-	jsonOut       = flag.String("json", "", "if set, write JSON results to this path")
+	csvOut        = flag.String("csv", "", "if set, write CSV results to this path")
 	benchPkg      = flag.String("pkg", "./benchmarks", "Go package containing the benchmarks")
 	verbose       = flag.Bool("v", false, "stream go test output to stderr as it runs")
 	keepAlive     = flag.Bool("f", false, "keep containers running after benchmarks complete (for investigation)")
@@ -74,19 +74,19 @@ func defaultDumboSrc() string {
 
 // result is one (benchmark, target) data point.
 type result struct {
-	Name    string  `json:"name"`
-	Target  string  `json:"target"`
-	URI     string  `json:"uri"`
-	N       int     `json:"n"` // iterations
-	NsPerOp float64 `json:"ns_per_op"`
+	Name    string
+	Target  string
+	URI     string
+	N       int // iterations
+	NsPerOp float64
 }
 
-// combined is what we emit as JSON: one row per benchmark with both sides.
+// combined is what we emit as CSV: one row per benchmark with both sides.
 type combined struct {
-	Name      string   `json:"name"`
-	DumboDBNs *float64 `json:"dumbodb_ns_per_op,omitempty"`
-	MongoNs   *float64 `json:"mongodb_ns_per_op,omitempty"`
-	PctChange *float64 `json:"percent_change,omitempty"` // (dumbodb - mongodb) / mongodb * 100
+	Name      string
+	DumboDBNs *float64
+	MongoNs   *float64
+	PctChange *float64 // (dumbodb - mongodb) / mongodb * 100
 }
 
 func main() {
@@ -122,8 +122,8 @@ func run() error {
 	rows := merge(dumboResults, mongoResults)
 	printTable(os.Stdout, rows)
 
-	if *jsonOut != "" {
-		if err := writeJSON(*jsonOut, rows); err != nil {
+	if *csvOut != "" {
+		if err := writeCSV(*csvOut, rows); err != nil {
 			return err
 		}
 	}
@@ -159,18 +159,42 @@ func setupContainers(ctx context.Context) error {
 	return nil
 }
 
-func writeJSON(path string, rows []combined) error {
+func writeCSV(path string, rows []combined) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("create %s: %w", path, err)
 	}
 	defer f.Close()
-	enc := json.NewEncoder(f)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(rows); err != nil {
-		return fmt.Errorf("write json: %w", err)
+	w := csv.NewWriter(f)
+	if err := w.Write([]string{"name", "dumbodb_ns_per_op", "mongodb_ns_per_op", "percent_change"}); err != nil {
+		return fmt.Errorf("write csv header: %w", err)
+	}
+	for _, r := range rows {
+		if err := w.Write([]string{r.Name, fmtNs(r.DumboDBNs), fmtNs(r.MongoNs), fmtPct(r.PctChange)}); err != nil {
+			return fmt.Errorf("write csv row: %w", err)
+		}
+	}
+	w.Flush()
+	if err := w.Error(); err != nil {
+		return fmt.Errorf("flush csv: %w", err)
 	}
 	return nil
+}
+
+// fmtNs formats an optional ns/op value as a fixed-point string, empty when nil.
+func fmtNs(v *float64) string {
+	if v == nil {
+		return ""
+	}
+	return strconv.FormatFloat(*v, 'f', 2, 64)
+}
+
+// fmtPct formats an optional percent-change value, empty when nil.
+func fmtPct(v *float64) string {
+	if v == nil {
+		return ""
+	}
+	return strconv.FormatFloat(*v, 'f', 2, 64)
 }
 
 func printKeepAliveBanner(w *os.File) {
