@@ -9,7 +9,7 @@
 # CGO is required because github.com/dolthub/gozstd links against libzstd —
 # hence the gcc-bearing golang base image and libc-bearing debian runtime.
 
-FROM golang:1.25-bookworm AS builder
+FROM golang:1.26-bookworm AS builder
 WORKDIR /src
 
 # Leverage layer caching: pull deps before the full source copy.
