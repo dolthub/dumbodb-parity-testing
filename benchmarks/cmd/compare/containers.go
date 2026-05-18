@@ -40,11 +40,12 @@ var (
 		hostURI: "mongodb://127.0.0.1:27017",
 		runArgs: []string{"-p", "127.0.0.1:27017:27017"},
 	}
+	// dumboContainer's image and runArgs are populated by prepareDumboImage at
+	// runtime: pulled-image mode uses dolthub/dumbodb (listens on 27017 inside),
+	// source-build mode uses dumbodb-bench:local (listens on 27018 inside).
 	dumboContainer = container{
 		name:    "dumbodb-bench",
-		image:   "dumbodb-bench:local",
 		hostURI: "mongodb://127.0.0.1:27018",
-		runArgs: []string{"-p", "127.0.0.1:27018:27018"},
 	}
 )
 
@@ -56,6 +57,18 @@ func ensureMongoImage(ctx context.Context) error {
 	}
 	fmt.Fprintf(os.Stderr, "==> pulling %s\n", mongoContainer.image)
 	return runDocker(ctx, nil, "pull", mongoContainer.image)
+}
+
+// ensureDumboImage pulls dumboContainer.image if it is not already present
+// locally. For mutable tags (e.g. :latest) run `docker pull` manually first if
+// you want to refresh; this function deliberately reuses cached images so
+// repeated benchmark runs stay fast.
+func ensureDumboImage(ctx context.Context) error {
+	if imagePresent(ctx, dumboContainer.image) {
+		return nil
+	}
+	fmt.Fprintf(os.Stderr, "==> pulling %s\n", dumboContainer.image)
+	return runDocker(ctx, nil, "pull", dumboContainer.image)
 }
 
 // buildDumboImage builds dumbodb-bench:local from the product repo. Always
