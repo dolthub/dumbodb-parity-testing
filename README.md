@@ -118,10 +118,10 @@ to build from a local checkout instead:
 Output is a markdown-ish table on stdout plus optional CSV for downstream
 tooling (regression gates, public comparison pages).
 
-    Benchmark                DumboDB (ms/op)  MongoDB (ms/op)  Ratio
-    BenchmarkCountDocuments  33.454           1.241            26.95x
-    BenchmarkFindOne_ById    2.458            0.434             5.66x
-    BenchmarkInsertOne       5.586            0.513            10.89x
+    test_name           dumbodb_latency    mongodb_latency    multiplier
+    count_documents     33.454             1.241              26.95x
+    find_one_by_id      2.458              0.434              5.66x
+    insert_one          5.586              0.513              10.89x
 
 Useful flags (full list in `benchmarks/README.md`):
 

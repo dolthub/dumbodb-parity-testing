@@ -68,10 +68,10 @@ type result struct {
 
 // combined is what we emit as CSV: one row per benchmark with both sides.
 type combined struct {
-	Name      string
-	DumboDBNs *float64
-	MongoNs   *float64
-	PctChange *float64 // (dumbodb - mongodb) / mongodb * 100
+	Name       string
+	DumboDBNs  *float64
+	MongoNs    *float64
+	Multiplier *float64 // dumbodb / mongodb; 2.0 means DumboDB is 2x slower, 0.5 means 2x faster
 }
 
 func main() {
@@ -173,11 +173,11 @@ func writeCSV(path string, rows []combined) error {
 	}
 	defer f.Close()
 	w := csv.NewWriter(f)
-	if err := w.Write([]string{"name", "dumbodb_ns_per_op", "mongodb_ns_per_op", "percent_change"}); err != nil {
+	if err := w.Write([]string{"name", "dumbodb_ns_per_op", "mongodb_ns_per_op", "multiplier"}); err != nil {
 		return fmt.Errorf("write csv header: %w", err)
 	}
 	for _, r := range rows {
-		if err := w.Write([]string{r.Name, fmtNs(r.DumboDBNs), fmtNs(r.MongoNs), fmtPct(r.PctChange)}); err != nil {
+		if err := w.Write([]string{r.Name, fmtNs(r.DumboDBNs), fmtNs(r.MongoNs), fmtMultiplier(r.Multiplier)}); err != nil {
 			return fmt.Errorf("write csv row: %w", err)
 		}
 	}
@@ -196,8 +196,9 @@ func fmtNs(v *float64) string {
 	return strconv.FormatFloat(*v, 'f', 2, 64)
 }
 
-// fmtPct formats an optional percent-change value, empty when nil.
-func fmtPct(v *float64) string {
+// fmtMultiplier formats an optional multiplier value, empty when nil. Bare
+// numeric (no "x" suffix) so the CSV stays machine-parseable.
+func fmtMultiplier(v *float64) string {
 	if v == nil {
 		return ""
 	}
@@ -335,8 +336,8 @@ func merge(dumbo, mongo []result) []combined {
 	var rows []combined
 	for _, c := range byName {
 		if c.DumboDBNs != nil && c.MongoNs != nil && *c.MongoNs > 0 {
-			pct := ((*c.DumboDBNs - *c.MongoNs) / *c.MongoNs) * 100
-			c.PctChange = &pct
+			mult := *c.DumboDBNs / *c.MongoNs
+			c.Multiplier = &mult
 		}
 		rows = append(rows, *c)
 	}
@@ -347,13 +348,13 @@ func merge(dumbo, mongo []result) []combined {
 func printTable(w *os.File, rows []combined) {
 	fmt.Fprintln(w)
 	tw := tabwriter.NewWriter(w, 0, 0, 4, ' ', 0)
-	fmt.Fprintln(tw, "test_name\tdumbodb_latency\tmongodb_latency\tpercent_change")
+	fmt.Fprintln(tw, "test_name\tdumbodb_latency\tmongodb_latency\tmultiplier")
 	for _, r := range rows {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
 			benchLabel(r.Name),
 			fmtMs(r.DumboDBNs),
 			fmtMs(r.MongoNs),
-			fmtPctChange(r.DumboDBNs, r.MongoNs),
+			fmtMultiplierStdout(r.DumboDBNs, r.MongoNs),
 		)
 	}
 	tw.Flush()
@@ -384,10 +385,11 @@ func fmtMs(ns *float64) string {
 	return fmt.Sprintf("%.2f", *ns/1e6)
 }
 
-func fmtPctChange(dumboNs, mongoNs *float64) string {
+// fmtMultiplierStdout formats dumbodb/mongodb as "Nx" for the human-readable
+// stdout table. Returns "-" when either side is missing or mongo time is zero.
+func fmtMultiplierStdout(dumboNs, mongoNs *float64) string {
 	if dumboNs == nil || mongoNs == nil || *mongoNs == 0 {
 		return "-"
 	}
-	pct := ((*dumboNs - *mongoNs) / *mongoNs) * 100
-	return fmt.Sprintf("%.1f", pct)
+	return fmt.Sprintf("%.2fx", *dumboNs / *mongoNs)
 }

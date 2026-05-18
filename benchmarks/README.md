@@ -81,12 +81,14 @@ instead of pulling.
 Example output:
 
 ```
-Benchmark                DumboDB (ms/op)  MongoDB (ms/op)  Ratio (Dumbo/Mongo)
----------                ---------------  ---------------  -------------------
-BenchmarkCountDocuments  33.454           1.241            26.95x
-BenchmarkFindOne_ById    2.458            0.434            5.66x
-BenchmarkInsertOne       5.586            0.513            10.89x
+test_name           dumbodb_latency    mongodb_latency    multiplier
+count_documents     33.454             1.241              26.95x
+find_one_by_id      2.458              0.434              5.66x
+insert_one          5.586              0.513              10.89x
 ```
+
+`multiplier` is `dumbodb / mongodb`: `26.95x` means DumboDB takes 26.95x as
+long as MongoDB; values under `1.00x` mean DumboDB is faster.
 
 ### Investigation flow (keep servers alive)
 
@@ -166,15 +168,16 @@ The comparator emits two artifacts:
 2. **CSV** (`-csv <path>`) - one header row plus one row per benchmark:
 
    ```csv
-   name,dumbodb_ns_per_op,mongodb_ns_per_op,percent_change
-   BenchmarkInsertOne,5585953.00,512888.00,988.89
+   name,dumbodb_ns_per_op,mongodb_ns_per_op,multiplier
+   BenchmarkInsertOne,5585953.00,512888.00,10.89
    ```
 
-   `ns_per_op` columns are fixed-point with two decimal places. `percent_change`
-   is `(dumbodb - mongodb) / mongodb * 100`. A missing side (benchmark ran
-   against only one target) leaves the corresponding column blank, and
-   `percent_change` is blank as well. Downstream tools (public-facing comparison
-   pages, regression gates) should consume the CSV.
+   `ns_per_op` columns are fixed-point with two decimal places. `multiplier`
+   is `dumbodb / mongodb` - `2.00` means DumboDB takes 2x as long as MongoDB,
+   `0.50` means it is twice as fast. A missing side (benchmark ran against
+   only one target) leaves the corresponding column blank, and `multiplier`
+   is blank as well. Downstream tools (public-facing comparison pages,
+   regression gates) should consume the CSV.
 
 ## Notes on measurement hygiene
 
