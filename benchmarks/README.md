@@ -58,10 +58,10 @@ These are enumerated in `bd pa-xp1` but not implemented in the first cut:
 
 ## Running
 
-Prerequisite: **Docker**. The runner manages its own containers - it builds a
-`dumbodb-bench:local` image from the product (dongo) repo, pulls `mongo:8.0`,
-starts both, waits for readiness, runs the benchmarks, then tears everything
-down (unless `-f` is given). No manual server setup required.
+Prerequisite: **Docker**. The runner manages its own containers - it pulls
+`dolthub/dumbodb:latest` and `mongo:8.0`, starts both, waits for readiness,
+runs the benchmarks, then tears everything down (unless `-f` is given). No
+manual server setup required.
 
 ### One-shot comparison (recommended)
 
@@ -71,9 +71,12 @@ go run ./benchmarks/cmd/compare \
     -csv benchmarks/results.csv
 ```
 
-The first run builds the DumboDB image (a minute or two; CGO-enabled Go build);
-subsequent runs hit Docker's layer cache and finish in seconds when the product
-source hasn't changed.
+By default the runner measures the released `dolthub/dumbodb:latest` image. To
+pin a specific release, pass `-dumbodb-image=dolthub/dumbodb:v0.1.1` (or set
+`DUMBODB_IMAGE`). To benchmark an unreleased commit from a local checkout,
+pass `-dumbodb-src=/path/to/dumbodb` and the runner will build
+`dumbodb-bench:local` from that tree via `benchmarks/Dockerfile.dumbodb`
+instead of pulling.
 
 Example output:
 
@@ -102,7 +105,7 @@ docker stop dumbodb-bench mongodb-bench && docker rm dumbodb-bench mongodb-bench
 ```
 
 A second `compare -f` invocation will reuse the running containers rather than
-rebuild - handy while iterating on a specific benchmark.
+re-pull or rebuild - handy while iterating on a specific benchmark.
 
 Flags:
 
@@ -114,21 +117,29 @@ Flags:
 | `-csv`             | `""` | If set, write CSV results here |
 | `-v`               | `false` | Stream `go test` stderr |
 | `-f`               | `false` | Keep containers running after the run (for investigation) |
-| `-dumbodb-src`     | `/home/ubuntu/dongo` | Path to the product (dongo) repo; used as Docker build context |
+| `-dumbodb-image`   | `dolthub/dumbodb:latest` | Image to pull and run as DumboDB (env: `DUMBODB_IMAGE`). Ignored when `-dumbodb-src` is set. |
+| `-dumbodb-src`     | `""` | If set, build DumboDB from this source directory via `benchmarks/Dockerfile.dumbodb` instead of pulling `-dumbodb-image` (env: `DUMBODB_SRC`). |
 | `-no-containers`   | `false` | Skip container management; expect servers already at `:27017` / `:27018` |
 | `-health-timeout`  | `60s` | How long to wait for each container to accept connections |
 | `-test-timeout`    | `10m` | `-timeout` passed to `go test`. Bump to `45m` or higher when running the 50K-scale `*_50K` benchmarks - DumboDB's seed step alone takes ~30 minutes at that size. |
 
+The runner reuses an already-present DumboDB image rather than re-pulling, so
+mutable tags like `:latest` do not auto-refresh. Run `docker pull
+dolthub/dumbodb:latest` (or `docker image rm`) by hand when you want a fresh
+copy.
+
 ### Container layout
 
-| Container       | Image                | Host URI                    |
-|-----------------|----------------------|-----------------------------|
-| `mongodb-bench` | `mongo:8.0`          | `mongodb://localhost:27017` |
-| `dumbodb-bench` | `dumbodb-bench:local`| `mongodb://localhost:27018` |
+| Container       | Image (default mode)      | Host URI                    |
+|-----------------|---------------------------|-----------------------------|
+| `mongodb-bench` | `mongo:8.0`               | `mongodb://localhost:27017` |
+| `dumbodb-bench` | `dolthub/dumbodb:latest`  | `mongodb://localhost:27018` |
 
-Both are fixed names (not randomized) so the `-f` investigation workflow and
-any shell aliases you build on top can rely on them. If a container with the
-same name exists but is stopped/dead, the runner removes it and starts fresh.
+With `-dumbodb-src` set, `dumbodb-bench` runs the locally-built
+`dumbodb-bench:local` image instead. Both container names are fixed (not
+randomized) so the `-f` investigation workflow and any shell aliases you build
+on top can rely on them. If a container with the same name exists but is
+stopped/dead, the runner removes it and starts fresh.
 
 ### Running a single target directly (bypassing the runner)
 

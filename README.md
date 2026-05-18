@@ -18,10 +18,12 @@ you are investigating:
 
 - Go 1.22+
 - Docker (every suite uses containers for at least one of its servers)
-- A built `dumbodb` binary or the [dolthub/dumbodb](https://github.com/dolthub/dumbodb)
-  source tree. The parity suite expects the binary on `PATH` (or running on
-  `DUMBODB_URI`); the benchmark runner builds a Docker image from source; the
-  storage suite expects `dolthub/dumbodb:latest` published to a registry.
+- A way to run DumboDB. The parity suite expects a `dumbodb` binary on `PATH`
+  (or a server already running at `DUMBODB_URI`). The benchmark runner and the
+  storage suite both pull `dolthub/dumbodb:latest` from the registry by default;
+  for benching an unreleased commit, point `-dumbodb-src` at a local checkout
+  of [dolthub/dumbodb](https://github.com/dolthub/dumbodb) and the benchmark
+  runner will build from source instead.
 
 This module is intentionally outside the workspace `go.work` at the repo
 root. Build and run with `GOWORK=off`:
@@ -103,10 +105,11 @@ at 10K and 50K documents, with and without an index on the filter field; see
 `benchmarks/README.md` for the full matrix and the reasoning behind which
 operations gain from indexes at which sizes.
 
-**Running.** The `cmd/compare` runner manages containers end-to-end. It
-builds a `dumbodb-bench:local` image from a local DumboDB source checkout,
-pulls `mongo:8.0`, waits for both to accept connections, runs the
-benchmarks, and tears the containers down:
+**Running.** The `cmd/compare` runner manages containers end-to-end. By
+default it pulls `dolthub/dumbodb:latest` and `mongo:8.0`, waits for both to
+accept connections, runs the benchmarks, and tears the containers down. Pass
+`-dumbodb-image=dolthub/dumbodb:vX.Y.Z` to pin a release, or `-dumbodb-src`
+to build from a local checkout instead:
 
     go run ./benchmarks/cmd/compare \
         -benchtime=2s \
@@ -127,7 +130,8 @@ Useful flags (full list in `benchmarks/README.md`):
 | `-bench`          | Regex of benchmarks to run                                      |
 | `-benchtime`      | Wall-clock budget per benchmark                                 |
 | `-f`              | Keep both containers alive after the run (for `mongosh` probing)|
-| `-dumbodb-src`    | Path to the DumboDB repo used as the Docker build context       |
+| `-dumbodb-image`  | Image to pull and run as DumboDB (default `dolthub/dumbodb:latest`) |
+| `-dumbodb-src`    | Build DumboDB from this source checkout instead of pulling      |
 | `-no-containers`  | Skip container management; assume servers already running       |
 | `-test-timeout`   | `-timeout` for `go test`; raise for the 50K-scale variants      |
 

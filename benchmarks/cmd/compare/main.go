@@ -1,9 +1,11 @@
 // compare runs the benchmark suite against DumboDB and MongoDB and emits a
 // side-by-side comparison table (text) and/or CSV.
 //
-// The runner manages its own containers: it builds dumbodb-bench:local from
-// the product repo, pulls mongo:8.0, starts both, waits for readiness, runs
-// the benchmarks, then tears the containers down (unless -f is given).
+// The runner manages its own containers: by default it pulls
+// dolthub/dumbodb:latest and mongo:8.0, starts both, waits for readiness,
+// runs the benchmarks, then tears the containers down (unless -f is given).
+// Pass -dumbodb-src to opt into building DumboDB from a local source tree
+// instead (useful for benching unreleased commits).
 //
 // Usage:
 //
@@ -22,7 +24,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -42,7 +43,8 @@ var (
 	benchPkg      = flag.String("pkg", "./benchmarks", "Go package containing the benchmarks")
 	verbose       = flag.Bool("v", false, "stream go test output to stderr as it runs")
 	keepAlive     = flag.Bool("f", false, "keep containers running after benchmarks complete (for investigation)")
-	dumboSrc      = flag.String("dumbodb-src", envOr("DUMBODB_SRC", defaultDumboSrc()), "path to the product (dongo/dumbodb) repo; used as docker build context")
+	dumboImage    = flag.String("dumbodb-image", envOr("DUMBODB_IMAGE", "dolthub/dumbodb:latest"), "Docker image tag to pull and run as DumboDB. Ignored when -dumbodb-src is set.")
+	dumboSrc      = flag.String("dumbodb-src", envOr("DUMBODB_SRC", ""), "if set, build DumboDB from this source directory (using benchmarks/Dockerfile.dumbodb) instead of pulling -dumbodb-image")
 	noContainers  = flag.Bool("no-containers", false, "skip container management entirely (expects servers already reachable at the default ports)")
 	healthTimeout = flag.Duration("health-timeout", 60*time.Second, "how long to wait for each container to accept connections")
 	testTimeout   = flag.Duration("test-timeout", 10*time.Minute, "-timeout value passed to go test (caps the entire bench run; large-N benchmarks exceed the 10m default while seeding)")
@@ -53,23 +55,6 @@ func envOr(key, fallback string) string {
 		return v
 	}
 	return fallback
-}
-
-// defaultDumboSrc guesses the product repo path relative to the current
-// working directory. It checks common sibling names (the parity repo is
-// typically checked out next to the product repo).
-func defaultDumboSrc() string {
-	candidates := []string{"../dumbodb", "../dongo"}
-	for _, c := range candidates {
-		if fi, err := os.Stat(filepath.Join(c, "go.mod")); err == nil && !fi.IsDir() {
-			abs, err := filepath.Abs(c)
-			if err == nil {
-				return abs
-			}
-			return c
-		}
-	}
-	return "../dumbodb"
 }
 
 // result is one (benchmark, target) data point.
@@ -141,8 +126,8 @@ func setupContainers(ctx context.Context) error {
 	if err := ensureMongoImage(ctx); err != nil {
 		return fmt.Errorf("pull %s: %w", mongoContainer.image, err)
 	}
-	if err := buildDumboImage(ctx, *dumboSrc); err != nil {
-		return fmt.Errorf("build %s: %w", dumboContainer.image, err)
+	if err := prepareDumboImage(ctx); err != nil {
+		return err
 	}
 	if err := startContainer(ctx, mongoContainer); err != nil {
 		return err
@@ -155,6 +140,28 @@ func setupContainers(ctx context.Context) error {
 	}
 	if err := waitHealthy(ctx, dumboContainer, *healthTimeout); err != nil {
 		return err
+	}
+	return nil
+}
+
+// prepareDumboImage selects the DumboDB image based on the flags and ensures
+// it is available locally. When -dumbodb-src is set, build dumbodb-bench:local
+// from that source tree. Otherwise pull -dumbodb-image from the registry.
+// In both cases dumboContainer is mutated to point at the chosen image and the
+// matching host-to-container port mapping for that image.
+func prepareDumboImage(ctx context.Context) error {
+	if *dumboSrc != "" {
+		dumboContainer.image = "dumbodb-bench:local"
+		dumboContainer.runArgs = []string{"-p", "127.0.0.1:27018:27018"}
+		if err := buildDumboImage(ctx, *dumboSrc); err != nil {
+			return fmt.Errorf("build %s: %w", dumboContainer.image, err)
+		}
+		return nil
+	}
+	dumboContainer.image = *dumboImage
+	dumboContainer.runArgs = []string{"-p", "127.0.0.1:27018:27017"}
+	if err := ensureDumboImage(ctx); err != nil {
+		return fmt.Errorf("pull %s: %w", dumboContainer.image, err)
 	}
 	return nil
 }
