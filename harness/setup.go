@@ -32,7 +32,16 @@ var (
 )
 
 type Clients struct {
+	// Mongo is a connection to a standalone MongoDB. Used for tests whose
+	// expected behavior matches a non-replica-set deployment (e.g. compact
+	// allowed on primary, validate {repair:true} allowed, $changeStream
+	// unsupported).
 	Mongo *mongo.Client
+	// MongoRS is a connection to a single-node MongoDB replica set. Used
+	// for tests that require multi-document transaction semantics. Nil
+	// when MONGO_RS_URI is not configured; tests that request
+	// TopologyReplicaSet then skip with a clear message.
+	MongoRS *mongo.Client
 	DumboDB *mongo.Client
 }
 
@@ -41,6 +50,12 @@ func mongoURI() string {
 		return v
 	}
 	return "mongodb://localhost:27017"
+}
+
+// mongoRSURI returns the optional MongoDB replica-set URI. Empty when the
+// env var is not set; the harness then skips ReplicaSet-topology tests.
+func mongoRSURI() string {
+	return os.Getenv("MONGO_RS_URI")
 }
 
 func dumboDBURI() string {
@@ -56,10 +71,17 @@ func dumboDBURI() string {
 // tests do.
 func MongoURI() string { return mongoURI() }
 
+// MongoRSURI is the exported view of the optional MongoDB replica-set URI.
+// Empty when not configured.
+func MongoRSURI() string { return mongoRSURI() }
+
 // DumboDBURI is the exported view of the DumboDB connection URI. See MongoURI.
 func DumboDBURI() string { return dumboDBURI() }
 
-// GetClients returns the shared Mongo+DumboDB client pair, connecting on first call.
+// GetClients returns the shared Mongo+DumboDB client trio, connecting on
+// first call. The replica-set Mongo client is connected only when
+// MONGO_RS_URI is set; otherwise Clients.MongoRS is nil and tests that
+// request TopologyReplicaSet skip.
 func GetClients(ctx context.Context) (*Clients, error) {
 	clientsOnce.Do(func() {
 		mc, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURI()))
@@ -72,9 +94,25 @@ func GetClients(ctx context.Context) (*Clients, error) {
 			return
 		}
 
+		var rsc *mongo.Client
+		if uri := mongoRSURI(); uri != "" {
+			rsc, err = mongo.Connect(ctx, options.Client().ApplyURI(uri))
+			if err != nil {
+				// Don't fail the whole suite; just leave RS unavailable
+				// and tests requiring it will skip.
+				rsc = nil
+			} else if err := rsc.Ping(ctx, nil); err != nil {
+				_ = rsc.Disconnect(ctx)
+				rsc = nil
+			}
+		}
+
 		dc, err := mongo.Connect(ctx, options.Client().ApplyURI(dumboDBURI()))
 		if err != nil {
 			_ = mc.Disconnect(ctx)
+			if rsc != nil {
+				_ = rsc.Disconnect(ctx)
+			}
 			clientsErr = fmt.Errorf("connect dumbodb: %w", err)
 			return
 		}
@@ -83,16 +121,33 @@ func GetClients(ctx context.Context) (*Clients, error) {
 			return
 		}
 
-		globalClients = &Clients{Mongo: mc, DumboDB: dc}
+		globalClients = &Clients{Mongo: mc, MongoRS: rsc, DumboDB: dc}
 	})
 	return globalClients, clientsErr
 }
 
 // TestDB creates a uniquely-named database for a single test on both servers.
-// The returned cleanup function drops both databases; callers should defer it.
-// If DumboDB is unreachable (e.g. crashed mid-suite), TestDB returns an error
-// immediately rather than blocking for the 30-second server-selection timeout.
+// The mongo side uses the standalone client; see TestDBForTopology for
+// replica-set-requiring tests.
 func (c *Clients) TestDB(ctx context.Context, testName string) (mongoCol, dumboDBCol *mongo.Collection, cleanup func(), err error) {
+	return c.TestDBForTopology(ctx, testName, TopologyStandalone)
+}
+
+// TestDBForTopology creates the per-test database pair, picking the Mongo
+// client matching the requested topology. The returned cleanup function
+// drops both databases; callers should defer it.
+//
+// If DumboDB is unreachable (e.g. crashed mid-suite), TestDBForTopology
+// returns an error immediately rather than blocking for the 30-second
+// server-selection timeout. If the requested topology's Mongo client is
+// not configured (typically MONGO_RS_URI unset), mongoCol is nil and the
+// error is ErrTopologyUnavailable so callers can skip cleanly.
+func (c *Clients) TestDBForTopology(ctx context.Context, testName string, topo Topology) (mongoCol, dumboDBCol *mongo.Collection, cleanup func(), err error) {
+	mongoClient, ok := c.clientForTopology(topo)
+	if !ok {
+		return nil, nil, func() {}, ErrTopologyUnavailable
+	}
+
 	// Fast health check: if DumboDB crashed after the initial connection, detect it
 	// quickly (2s) rather than letting every subsequent test hang for 30s.
 	pingCtx, pingCancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -104,16 +159,52 @@ func (c *Clients) TestDB(ctx context.Context, testName string) (mongoCol, dumboD
 	dbName := fmt.Sprintf("parity_%s_%d", sanitizeName(testName), time.Now().UnixNano())
 	const colName = "col"
 
-	mongoCol = c.Mongo.Database(dbName).Collection(colName)
+	mongoCol = mongoClient.Database(dbName).Collection(colName)
 	dumboDBCol = c.DumboDB.Database(dbName).Collection(colName)
 
 	cleanup = func() {
 		dropCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		_ = c.Mongo.Database(dbName).Drop(dropCtx)
+		_ = mongoClient.Database(dbName).Drop(dropCtx)
 		_ = c.DumboDB.Database(dbName).Drop(dropCtx)
 	}
 	return mongoCol, dumboDBCol, cleanup, nil
+}
+
+// clientForTopology returns the Mongo client for the requested topology
+// and reports whether one is available.
+func (c *Clients) clientForTopology(topo Topology) (*mongo.Client, bool) {
+	switch topo {
+	case TopologyReplicaSet:
+		if c.MongoRS == nil {
+			return nil, false
+		}
+		return c.MongoRS, true
+	default:
+		return c.Mongo, true
+	}
+}
+
+// mongoURIForTopology returns the Mongo URI for the requested topology.
+// Empty when the topology has no configured URI.
+func mongoURIForTopology(topo Topology) string {
+	switch topo {
+	case TopologyReplicaSet:
+		return mongoRSURI()
+	default:
+		return mongoURI()
+	}
+}
+
+// ErrTopologyUnavailable is returned by TestDBForTopology when the
+// requested Mongo topology is not configured in this environment.
+// PairTest translates this into a skip.
+var ErrTopologyUnavailable = topologyUnavailableError{}
+
+type topologyUnavailableError struct{}
+
+func (topologyUnavailableError) Error() string {
+	return "harness: requested Mongo topology not configured (set MONGO_RS_URI for ReplicaSet)"
 }
 
 // sanitizeName converts a test name to a safe database name component.

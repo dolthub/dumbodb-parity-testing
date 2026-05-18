@@ -74,6 +74,7 @@ func TestTransaction_basic_start_commit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "basic_start_commit",
 		Support: harness.DumboDBFull,
+		Topology: harness.TopologyReplicaSet,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			clientA := col.Database().Client()
 			clientB, closeB, err := secondClient(ctx)
@@ -126,6 +127,7 @@ func TestTransaction_abort_discards(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "abort_discards",
 		Support: harness.DumboDBFull,
+		Topology: harness.TopologyReplicaSet,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			client := col.Database().Client()
 
@@ -173,6 +175,7 @@ func TestTransaction_read_your_own_writes(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "read_your_own_writes",
 		Support: harness.DumboDBFull,
+		Topology: harness.TopologyReplicaSet,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			clientA := col.Database().Client()
 			clientB, closeB, err := secondClient(ctx)
@@ -234,6 +237,7 @@ func TestTransaction_doc_lock_conflict(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "doc_lock_conflict",
 		Support: harness.DumboDBFull,
+		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
 				{Key: "_id", Value: "p4"},
@@ -307,6 +311,7 @@ func TestTransaction_non_conflicting_succeed(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "non_conflicting_succeed",
 		Support: harness.DumboDBXFail,
+		Topology: harness.TopologyReplicaSet,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			clientA := col.Database().Client()
 			clientB, closeB, err := secondClient(ctx)
@@ -371,6 +376,7 @@ func TestTransaction_concurrent_inserts_preexisting_collection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "concurrent_inserts_preexisting_collection",
 		Support: harness.DumboDBXFail,
+		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
 			return err
@@ -435,6 +441,7 @@ func TestTransaction_drop_in_txn(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "drop_in_txn",
 		Support: harness.DumboDBXFail,
+		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
 			return err
@@ -476,6 +483,7 @@ func TestTransaction_drop_database_in_txn(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "drop_database_in_txn",
 		Support: harness.DumboDBXFail,
+		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
 			return err
@@ -517,6 +525,7 @@ func TestTransaction_create_index_in_txn(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "create_index_in_txn",
 		Support: harness.DumboDBXFail,
+		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}, {Key: "x", Value: int32(1)}})
 			return err
@@ -566,6 +575,7 @@ func TestTransaction_rename_collection_in_txn(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "rename_collection_in_txn",
 		Support: harness.DumboDBXFail,
+		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
 			return err
@@ -617,6 +627,7 @@ func TestTransaction_create_collection_existing_in_txn(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "create_collection_existing_in_txn",
 		Support: harness.DumboDBXFail,
+		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
 			return err
@@ -651,6 +662,7 @@ func TestTransaction_endSession_discards(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "endSession_discards",
 		Support: harness.DumboDBFull,
+		Topology: harness.TopologyReplicaSet,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			clientA := col.Database().Client()
 			clientB, closeB, err := secondClient(ctx)
