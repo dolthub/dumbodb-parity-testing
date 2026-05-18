@@ -306,12 +306,6 @@ func TestTransaction_doc_lock_conflict(t *testing.T) {
 func TestTransaction_non_conflicting_succeed(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "non_conflicting_succeed",
-		// MongoDB rejects implicit collection creation when two concurrent
-		// transactions both try to create the same namespace (returns
-		// WriteConflict "namespace is already in use"). DumboDB does not
-		// have this restriction and lets both txns succeed. The divergence
-		// is in DumboDB's favor; revisit if Mongo ever drops the rule or
-		// the test is rewritten with a pre-existing collection.
 		Support: harness.DumboDBXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			clientA := col.Database().Client()
@@ -333,50 +327,105 @@ func TestTransaction_non_conflicting_succeed(t *testing.T) {
 			}
 			defer sessB.EndSession(ctx)
 
-			if err := sessA.StartTransaction(); err != nil {
-				return nil, err
-			}
+			aStartErr := sessA.StartTransaction()
 			scA := mongo.NewSessionContext(ctx, sessA)
-			if _, err := col.InsertOne(scA, bson.D{{Key: "_id", Value: "p5-a"}}); err != nil {
-				_ = sessA.AbortTransaction(ctx)
-				return nil, err
-			}
+			_, aInsertErr := col.InsertOne(scA, bson.D{{Key: "_id", Value: "p5-a"}})
 
-			if err := sessB.StartTransaction(); err != nil {
-				_ = sessA.AbortTransaction(ctx)
-				return nil, err
-			}
+			bStartErr := sessB.StartTransaction()
 			scB := mongo.NewSessionContext(ctx, sessB)
-			if _, err := colB.InsertOne(scB, bson.D{{Key: "_id", Value: "p5-b"}}); err != nil {
-				_ = sessA.AbortTransaction(ctx)
-				_ = sessB.AbortTransaction(ctx)
-				return nil, err
-			}
+			_, bInsertErr := colB.InsertOne(scB, bson.D{{Key: "_id", Value: "p5-b"}})
 
-			if err := sessA.CommitTransaction(ctx); err != nil {
-				return nil, err
-			}
-			if err := sessB.CommitTransaction(ctx); err != nil {
-				return nil, err
-			}
+			aCommitErr := sessA.CommitTransaction(ctx)
+			bCommitErr := sessB.CommitTransaction(ctx)
 
-			cur, err := col.Find(ctx, bson.D{})
-			if err != nil {
-				return nil, err
-			}
+			cur, _ := col.Find(ctx, bson.D{})
 			var docs []bson.M
-			if err := cur.All(ctx, &docs); err != nil {
-				return nil, err
+			if cur != nil {
+				_ = cur.All(ctx, &docs)
 			}
 			sortByID(docs)
-
 			ids := make([]interface{}, 0, len(docs))
 			for _, d := range docs {
 				ids = append(ids, d["_id"])
 			}
+
 			return bson.D{
-				{Key: "count", Value: int32(len(docs))},
-				{Key: "ids", Value: ids},
+				{Key: "aStartOk", Value: aStartErr == nil},
+				{Key: "aInsertOk", Value: aInsertErr == nil},
+				{Key: "aInsertCode", Value: errCode(aInsertErr)},
+				{Key: "bStartOk", Value: bStartErr == nil},
+				{Key: "bInsertOk", Value: bInsertErr == nil},
+				{Key: "bInsertCode", Value: errCode(bInsertErr)},
+				{Key: "aCommitOk", Value: aCommitErr == nil},
+				{Key: "aCommitCode", Value: errCode(aCommitErr)},
+				{Key: "bCommitOk", Value: bCommitErr == nil},
+				{Key: "bCommitCode", Value: errCode(bCommitErr)},
+				{Key: "finalCount", Value: int32(len(docs))},
+				{Key: "finalIds", Value: ids},
+			}, nil
+		},
+	})
+}
+
+func TestTransaction_concurrent_inserts_preexisting_collection(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "concurrent_inserts_preexisting_collection",
+		Support: harness.DumboDBXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			clientA := col.Database().Client()
+			clientB, closeB, err := secondClient(ctx)
+			if err != nil {
+				return nil, err
+			}
+			defer closeB()
+			colB := clientB.Database(col.Database().Name()).Collection(col.Name())
+
+			sessA, err := clientA.StartSession()
+			if err != nil {
+				return nil, err
+			}
+			defer sessA.EndSession(ctx)
+			sessB, err := clientB.StartSession()
+			if err != nil {
+				return nil, err
+			}
+			defer sessB.EndSession(ctx)
+
+			aStartErr := sessA.StartTransaction()
+			scA := mongo.NewSessionContext(ctx, sessA)
+			_, aInsertErr := col.InsertOne(scA, bson.D{{Key: "_id", Value: "p5-pre-a"}})
+
+			bStartErr := sessB.StartTransaction()
+			scB := mongo.NewSessionContext(ctx, sessB)
+			_, bInsertErr := colB.InsertOne(scB, bson.D{{Key: "_id", Value: "p5-pre-b"}})
+
+			aCommitErr := sessA.CommitTransaction(ctx)
+			bCommitErr := sessB.CommitTransaction(ctx)
+
+			cur, _ := col.Find(ctx, bson.D{})
+			var docs []bson.M
+			if cur != nil {
+				_ = cur.All(ctx, &docs)
+			}
+			sortByID(docs)
+			ids := make([]interface{}, 0, len(docs))
+			for _, d := range docs {
+				ids = append(ids, d["_id"])
+			}
+
+			return bson.D{
+				{Key: "aStartOk", Value: aStartErr == nil},
+				{Key: "aInsertOk", Value: aInsertErr == nil},
+				{Key: "bStartOk", Value: bStartErr == nil},
+				{Key: "bInsertOk", Value: bInsertErr == nil},
+				{Key: "aCommitOk", Value: aCommitErr == nil},
+				{Key: "bCommitOk", Value: bCommitErr == nil},
+				{Key: "finalCount", Value: int32(len(docs))},
+				{Key: "finalIds", Value: ids},
 			}, nil
 		},
 	})
