@@ -431,6 +431,88 @@ func TestTransaction_concurrent_inserts_preexisting_collection(t *testing.T) {
 	})
 }
 
+func TestTransaction_drop_in_txn(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "drop_in_txn",
+		Support: harness.DumboDBXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			sess, err := col.Database().Client().StartSession()
+			if err != nil {
+				return nil, err
+			}
+			defer sess.EndSession(ctx)
+
+			startErr := sess.StartTransaction()
+			sc := mongo.NewSessionContext(ctx, sess)
+			dropErr := col.Drop(sc)
+			commitErr := sess.CommitTransaction(ctx)
+
+			names, _ := col.Database().ListCollectionNames(ctx, bson.D{})
+			present := false
+			for _, n := range names {
+				if n == col.Name() {
+					present = true
+					break
+				}
+			}
+
+			return bson.D{
+				{Key: "startOk", Value: startErr == nil},
+				{Key: "dropOk", Value: dropErr == nil},
+				{Key: "dropCode", Value: errCode(dropErr)},
+				{Key: "commitOk", Value: commitErr == nil},
+				{Key: "commitCode", Value: errCode(commitErr)},
+				{Key: "collectionExistsAfter", Value: present},
+			}, nil
+		},
+	})
+}
+
+func TestTransaction_drop_database_in_txn(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "drop_database_in_txn",
+		Support: harness.DumboDBXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			sess, err := col.Database().Client().StartSession()
+			if err != nil {
+				return nil, err
+			}
+			defer sess.EndSession(ctx)
+
+			startErr := sess.StartTransaction()
+			sc := mongo.NewSessionContext(ctx, sess)
+			dropErr := col.Database().Drop(sc)
+			commitErr := sess.CommitTransaction(ctx)
+
+			names, _ := col.Database().Client().ListDatabaseNames(ctx, bson.D{})
+			present := false
+			for _, n := range names {
+				if n == col.Database().Name() {
+					present = true
+					break
+				}
+			}
+
+			return bson.D{
+				{Key: "startOk", Value: startErr == nil},
+				{Key: "dropOk", Value: dropErr == nil},
+				{Key: "dropCode", Value: errCode(dropErr)},
+				{Key: "commitOk", Value: commitErr == nil},
+				{Key: "commitCode", Value: errCode(commitErr)},
+				{Key: "databaseExistsAfter", Value: present},
+			}, nil
+		},
+	})
+}
+
 func TestTransaction_endSession_discards(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "endSession_discards",
