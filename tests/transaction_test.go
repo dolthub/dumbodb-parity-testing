@@ -626,7 +626,7 @@ func TestTransaction_rename_collection_in_txn(t *testing.T) {
 func TestTransaction_create_collection_existing_in_txn(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "create_collection_existing_in_txn",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
