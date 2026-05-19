@@ -375,7 +375,7 @@ func TestTransaction_non_conflicting_succeed(t *testing.T) {
 func TestTransaction_concurrent_inserts_preexisting_collection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "concurrent_inserts_preexisting_collection",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
