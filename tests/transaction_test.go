@@ -440,7 +440,7 @@ func TestTransaction_concurrent_inserts_preexisting_collection(t *testing.T) {
 func TestTransaction_drop_in_txn(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "drop_in_txn",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
@@ -482,7 +482,7 @@ func TestTransaction_drop_in_txn(t *testing.T) {
 func TestTransaction_drop_database_in_txn(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "drop_database_in_txn",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
@@ -524,7 +524,7 @@ func TestTransaction_drop_database_in_txn(t *testing.T) {
 func TestTransaction_create_index_in_txn(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "create_index_in_txn",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}, {Key: "x", Value: int32(1)}})
@@ -574,7 +574,7 @@ func TestTransaction_create_index_in_txn(t *testing.T) {
 func TestTransaction_rename_collection_in_txn(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "rename_collection_in_txn",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
