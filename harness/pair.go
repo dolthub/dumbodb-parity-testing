@@ -2,11 +2,23 @@ package harness
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
+)
+
+// Topology is the Mongo deployment shape a test expects to compare against.
+// The default zero value is TopologyStandalone. Tests that require multi-
+// document transactions or replica-set-only features (e.g. $changeStream)
+// set Topology to TopologyReplicaSet.
+type Topology int
+
+const (
+	TopologyStandalone Topology = iota
+	TopologyReplicaSet
 )
 
 type serverURIKey struct{}
@@ -31,6 +43,11 @@ type TestCase struct {
 	Name string
 	// Support controls how DumboDB is exercised (Full, MongoOnly, XFail).
 	Support DumboDBSupport
+	// Topology selects which Mongo deployment shape the test compares
+	// against. Zero value is TopologyStandalone (the default). Tests
+	// that require multi-document transactions or replica-set features
+	// set TopologyReplicaSet and skip when MONGO_RS_URI is not set.
+	Topology Topology
 	// Setup runs before the test operation; may be nil.
 	// It is called with the same collection passed to Run.
 	Setup func(ctx context.Context, col *mongo.Collection) error
@@ -52,19 +69,25 @@ func PairTest(t *testing.T, tc TestCase) TestResult {
 		t.Fatalf("PairTest %s: could not get clients: %v", tc.Name, err)
 	}
 
-	mongoCol, dumboDBCol, cleanup, err := clients.TestDB(ctx, tc.Name)
+	mongoCol, dumboDBCol, cleanup, err := clients.TestDBForTopology(ctx, tc.Name, tc.Topology)
 	if err != nil {
+		if errors.Is(err, ErrTopologyUnavailable) {
+			t.Skipf("PairTest %s: %v", tc.Name, err)
+			return TestResult{Name: tc.Name, Status: StatusSkip}
+		}
 		t.Fatalf("PairTest %s: could not allocate test DB: %v", tc.Name, err)
 	}
 	defer cleanup()
+
+	mongoURIForTest := mongoURIForTopology(tc.Topology)
 
 	switch tc.Support {
 	case DumboDBMongoOnly:
 		return runMongoOnly(t, ctx, tc, mongoCol)
 	case DumboDBFull:
-		return runFull(t, ctx, tc, mongoCol, dumboDBCol)
+		return runFull(t, ctx, tc, mongoCol, dumboDBCol, mongoURIForTest)
 	case DumboDBXFail:
-		return runXFail(t, ctx, tc, mongoCol, dumboDBCol)
+		return runXFail(t, ctx, tc, mongoCol, dumboDBCol, mongoURIForTest)
 	default:
 		t.Fatalf("PairTest %s: unknown DumboDBSupport level %d", tc.Name, tc.Support)
 		return TestResult{Name: tc.Name, Status: StatusFail}
@@ -88,10 +111,10 @@ func runMongoOnly(t *testing.T, ctx context.Context, tc TestCase, mongoCol *mong
 	return TestResult{Name: tc.Name, Status: StatusSkip}
 }
 
-func runFull(t *testing.T, ctx context.Context, tc TestCase, mongoCol, dumboDBCol *mongo.Collection) TestResult {
+func runFull(t *testing.T, ctx context.Context, tc TestCase, mongoCol, dumboDBCol *mongo.Collection, mongoURIForTest string) TestResult {
 	t.Helper()
 	setup(t, ctx, tc, mongoCol, dumboDBCol)
-	mongoResult, mongoErr := tc.Run(withServerURI(ctx, mongoURI()), mongoCol)
+	mongoResult, mongoErr := tc.Run(withServerURI(ctx, mongoURIForTest), mongoCol)
 	dumboDBResult, dumboDBErr := tc.Run(withServerURI(ctx, dumboDBURI()), dumboDBCol)
 
 	cmp := CompareResponses(mongoResult, mongoErr, dumboDBResult, dumboDBErr)
@@ -103,10 +126,10 @@ func runFull(t *testing.T, ctx context.Context, tc TestCase, mongoCol, dumboDBCo
 	return TestResult{Name: tc.Name, Status: StatusFail, Diff: cmp.Diff}
 }
 
-func runXFail(t *testing.T, ctx context.Context, tc TestCase, mongoCol, dumboDBCol *mongo.Collection) TestResult {
+func runXFail(t *testing.T, ctx context.Context, tc TestCase, mongoCol, dumboDBCol *mongo.Collection, mongoURIForTest string) TestResult {
 	t.Helper()
 	setup(t, ctx, tc, mongoCol, dumboDBCol)
-	mongoResult, mongoErr := tc.Run(withServerURI(ctx, mongoURI()), mongoCol)
+	mongoResult, mongoErr := tc.Run(withServerURI(ctx, mongoURIForTest), mongoCol)
 	dumboDBResult, dumboDBErr := tc.Run(withServerURI(ctx, dumboDBURI()), dumboDBCol)
 
 	cmp := CompareResponses(mongoResult, mongoErr, dumboDBResult, dumboDBErr)

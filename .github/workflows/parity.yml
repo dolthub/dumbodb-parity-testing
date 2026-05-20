@@ -23,10 +23,36 @@ jobs:
 
     env:
       MONGO_URI: mongodb://localhost:27017
+      MONGO_RS_URI: mongodb://localhost:27019/?replicaSet=rs0
       DUMBODB_URI: mongodb://localhost:27018
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Start replica-set MongoDB on :27019
+        run: |
+          # Multi-document transactions require a replica set. Standalone
+          # Mongo on :27017 keeps non-transactional tests at parity (see
+          # harness.Topology). Tests requiring transactions declare
+          # TopologyReplicaSet and route to this instance.
+          docker run -d --name mongo-rs --network host \
+            mongo:8.0 mongod --replSet rs0 --bind_ip_all --port 27019
+          for i in $(seq 1 30); do
+            if docker exec mongo-rs mongosh --port 27019 --quiet --eval 'db.runCommand({ping:1})' >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          docker exec mongo-rs mongosh --port 27019 --quiet --eval \
+            'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27019"}]})'
+          for i in $(seq 1 30); do
+            if docker exec mongo-rs mongosh --port 27019 --quiet --eval \
+                'if (db.runCommand({hello:1}).primary) quit(0); else quit(1)' >/dev/null 2>&1; then
+              echo "Replica set primary elected"
+              break
+            fi
+            sleep 2
+          done
 
       - uses: actions/setup-go@v5
         with:
