@@ -704,19 +704,19 @@ func TestTransaction_endSession_discards(t *testing.T) {
 	})
 }
 
-// TestTransaction_lock_wait_honours_timeout verifies that setting
-// maxTransactionLockRequestTimeoutMillis to 5s causes a contending writer
-// to wait, rather than failing immediately as in the default 5ms case
-// already covered by TestTransaction_doc_lock_conflict. The lock holder
-// never releases during the wait, so sessB still ends with WriteConflict;
-// the parity signal is the elapsed wait, bucketed via waitedAtLeast2s to
-// tolerate scheduling jitter.
-//
-// Marked DumboDBXFail until DocLockManager.Acquire observes the parameter.
-func TestTransaction_lock_wait_honours_timeout(t *testing.T) {
+// TestTransaction_doc_conflict_ignores_lock_timeout pins down empirical
+// MongoDB 8.0 behaviour: document-level write conflicts inside a multi-
+// document transaction return WriteConflict (112) with the
+// TransientTransactionError label essentially immediately, even when
+// maxTransactionLockRequestTimeoutMillis is set high. WiredTiger uses
+// optimistic concurrency control for per-document conflicts; the lock-
+// timeout parameter applies to intent/collection-level lock acquisition,
+// not to OCC-detected document conflicts. DumboDB's DocLockManager fails
+// fast on conflict, which matches.
+func TestTransaction_doc_conflict_ignores_lock_timeout(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:     "lock_wait_honours_timeout",
-		Support:  harness.DumboDBXFail,
+		Name:     "doc_conflict_ignores_lock_timeout",
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
@@ -790,7 +790,7 @@ func TestTransaction_lock_wait_honours_timeout(t *testing.T) {
 			return bson.D{
 				{Key: "bGotError", Value: bErr != nil},
 				{Key: "bErrCode", Value: errCode(bErr)},
-				{Key: "waitedAtLeast2s", Value: elapsed >= 2*time.Second},
+				{Key: "bReturnedFast", Value: elapsed < 500*time.Millisecond},
 				{Key: "finalX", Value: final["x"]},
 			}, nil
 		},
