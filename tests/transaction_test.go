@@ -23,6 +23,7 @@ import (
 	"errors"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 	"go.mongodb.org/mongo-driver/bson"
@@ -698,6 +699,99 @@ func TestTransaction_endSession_discards(t *testing.T) {
 
 			return bson.D{
 				{Key: "discardedAfterEndSession", Value: discarded},
+			}, nil
+		},
+	})
+}
+
+// TestTransaction_lock_wait_honours_timeout verifies that setting
+// maxTransactionLockRequestTimeoutMillis to 5s causes a contending writer
+// to wait, rather than failing immediately as in the default 5ms case
+// already covered by TestTransaction_doc_lock_conflict. The lock holder
+// never releases during the wait, so sessB still ends with WriteConflict;
+// the parity signal is the elapsed wait, bucketed via waitedAtLeast2s to
+// tolerate scheduling jitter.
+//
+// Marked DumboDBXFail until DocLockManager.Acquire observes the parameter.
+func TestTransaction_lock_wait_honours_timeout(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:     "lock_wait_honours_timeout",
+		Support:  harness.DumboDBXFail,
+		Topology: harness.TopologyReplicaSet,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{
+				{Key: "_id", Value: "p9"},
+				{Key: "x", Value: "original"},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			clientA := col.Database().Client()
+			clientB, closeB, err := secondClient(ctx)
+			if err != nil {
+				return nil, err
+			}
+			defer closeB()
+			colB := clientB.Database(col.Database().Name()).Collection(col.Name())
+
+			if err := clientA.Database("admin").RunCommand(ctx, bson.D{
+				{Key: "setParameter", Value: 1},
+				{Key: "maxTransactionLockRequestTimeoutMillis", Value: int32(5000)},
+			}).Err(); err != nil {
+				return nil, err
+			}
+			defer resetLockTimeout(ctx, clientA)()
+
+			sessA, err := clientA.StartSession()
+			if err != nil {
+				return nil, err
+			}
+			defer sessA.EndSession(ctx)
+			sessB, err := clientB.StartSession()
+			if err != nil {
+				return nil, err
+			}
+			defer sessB.EndSession(ctx)
+
+			if err := sessA.StartTransaction(); err != nil {
+				return nil, err
+			}
+			scA := mongo.NewSessionContext(ctx, sessA)
+			if _, err := col.UpdateOne(scA,
+				bson.D{{Key: "_id", Value: "p9"}},
+				bson.D{{Key: "$set", Value: bson.D{{Key: "x", Value: "A"}}}},
+			); err != nil {
+				_ = sessA.AbortTransaction(ctx)
+				return nil, err
+			}
+
+			if err := sessB.StartTransaction(); err != nil {
+				_ = sessA.AbortTransaction(ctx)
+				return nil, err
+			}
+			scB := mongo.NewSessionContext(ctx, sessB)
+			start := time.Now()
+			_, bErr := colB.UpdateOne(scB,
+				bson.D{{Key: "_id", Value: "p9"}},
+				bson.D{{Key: "$set", Value: bson.D{{Key: "x", Value: "B"}}}},
+			)
+			elapsed := time.Since(start)
+
+			_ = sessB.AbortTransaction(ctx)
+			if err := sessA.CommitTransaction(ctx); err != nil {
+				return nil, err
+			}
+
+			var final bson.M
+			if err := col.FindOne(ctx, bson.D{{Key: "_id", Value: "p9"}}).Decode(&final); err != nil {
+				return nil, err
+			}
+
+			return bson.D{
+				{Key: "bGotError", Value: bErr != nil},
+				{Key: "bErrCode", Value: errCode(bErr)},
+				{Key: "waitedAtLeast2s", Value: elapsed >= 2*time.Second},
+				{Key: "finalX", Value: final["x"]},
 			}, nil
 		},
 	})
