@@ -60,11 +60,11 @@ func seedDoc(id string) func(context.Context, *mongo.Collection) error {
 }
 
 // Case 1: A holds, B (non-txn) updates the same doc, A commits.
-// Expected MongoDB: B blocks ~2s, then succeeds. final.x = "B".
+// MongoDB blocks B until A commits, then B's update applies. final.x = "B".
 func TestNonTxnUpdate_BlocksUntilCommit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:     "NonTxnUpdate_BlocksUntilCommit",
-		Support:  harness.DumboDBXFail,
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup:    seedDoc("p"),
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
@@ -116,11 +116,11 @@ func TestNonTxnUpdate_BlocksUntilCommit(t *testing.T) {
 }
 
 // Case 2: A holds, B (non-txn) updates the same doc, A aborts.
-// Expected MongoDB: B blocks ~2s, then succeeds. final.x = "B".
+// MongoDB blocks B until A aborts, then B's update applies. final.x = "B".
 func TestNonTxnUpdate_BlocksUntilAbort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:     "NonTxnUpdate_BlocksUntilAbort",
-		Support:  harness.DumboDBXFail,
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup:    seedDoc("p"),
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
@@ -172,11 +172,11 @@ func TestNonTxnUpdate_BlocksUntilAbort(t *testing.T) {
 }
 
 // Case 3: A holds (via update), B (non-txn) deletes the doc, A commits.
-// Expected MongoDB: B blocks ~2s, then deletes the (now-committed) doc.
+// MongoDB blocks B until A commits, then deletes the (now-committed) doc.
 func TestNonTxnDelete_BlocksUntilCommit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:     "NonTxnDelete_BlocksUntilCommit",
-		Support:  harness.DumboDBXFail,
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup:    seedDoc("p"),
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
@@ -229,14 +229,17 @@ func TestNonTxnDelete_BlocksUntilCommit(t *testing.T) {
 }
 
 // Case 4: A inserts new doc inside txn, B (non-txn) upserts with same _id,
-// A commits. Empirically MongoDB does NOT block B's upsert when no
-// committed doc exists yet: B's local-read sees no match, B inserts its
-// own doc, and A's commit then silently fails with a duplicate-key
-// conflict. DumboDB observes the same client-visible outcome.
+// A commits. MongoDB does NOT block B here: an uncommitted insert is not
+// visible to B's read concern, so B's upsert sees no match and inserts
+// its own doc, and A's commit then silently loses to a duplicate-key
+// conflict. DumboDB's doc-lock manager treats the in-flight insert like
+// any other held doc, so B's upsert blocks and observes A's commit, then
+// fails the insert path with DuplicateKey. Different end states; the
+// divergence pins down the gap.
 func TestNonTxnUpsert_RacesWithInsertCommit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:     "NonTxnUpsert_RacesWithInsertCommit",
-		Support:  harness.DumboDBFull,
+		Support:  harness.DumboDBXFail,
 		Topology: harness.TopologyReplicaSet,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			clientA := col.Database().Client()
@@ -287,13 +290,15 @@ func TestNonTxnUpsert_RacesWithInsertCommit(t *testing.T) {
 }
 
 // Case 5: A inserts new doc inside txn, B (non-txn) upserts with same _id,
-// A aborts. Empirically MongoDB does NOT block B's upsert here either:
-// B sees no committed match and inserts its own doc, then A's abort is
-// a no-op for B's row. DumboDB observes the same client-visible outcome.
+// A aborts. MongoDB does NOT block here (same reason as case 4: B does not
+// see the uncommitted insert). DumboDB's doc-lock blocks B until A
+// aborts, then B's upsert proceeds and inserts. Final state matches but
+// the bWaitedAtLeast1s signal differs; XFail until DumboDB stops gating
+// non-txn writes on uncommitted inserts.
 func TestNonTxnUpsert_RacesWithInsertAbort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:     "NonTxnUpsert_RacesWithInsertAbort",
-		Support:  harness.DumboDBFull,
+		Support:  harness.DumboDBXFail,
 		Topology: harness.TopologyReplicaSet,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			clientA := col.Database().Client()
@@ -396,9 +401,10 @@ func TestNonTxnRead_DoesNotBlock(t *testing.T) {
 }
 
 // Case 7: A holds and never commits, B (non-txn) attempts update with
-// maxTimeMS: 500. Expected MongoDB: B times out with code 50
-// MaxTimeMSExpired. Encoded via RunCommand to attach maxTimeMS to the
-// update command directly.
+// maxTimeMS: 500. MongoDB times out at 500ms with code 50 MaxTimeMSExpired.
+// DumboDB does not yet honour the maxTimeMS field on updates, so B blocks
+// past the deadline; bCtx caps B's wait at 2s so this test does not
+// monopolise the harness ctx and poison later tests.
 func TestNonTxnUpdate_MaxTimeMSExpires(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:     "NonTxnUpdate_MaxTimeMSExpires",
@@ -432,8 +438,10 @@ func TestNonTxnUpdate_MaxTimeMSExpires(t *testing.T) {
 				return nil, err
 			}
 
+			bCtx, bCancel := context.WithTimeout(ctx, 2*time.Second)
+			defer bCancel()
 			start := time.Now()
-			bErr := dbB.RunCommand(ctx, bson.D{
+			bErr := dbB.RunCommand(bCtx, bson.D{
 				{Key: "update", Value: col.Name()},
 				{Key: "updates", Value: bson.A{bson.D{
 					{Key: "q", Value: bson.D{{Key: "_id", Value: "p"}}},
@@ -447,7 +455,7 @@ func TestNonTxnUpdate_MaxTimeMSExpires(t *testing.T) {
 			return bson.D{
 				{Key: "bGotError", Value: bErr != nil},
 				{Key: "bErrCode", Value: errCode(bErr)},
-				{Key: "bElapsedRoughly500ms", Value: elapsed >= 400*time.Millisecond && elapsed < 2*time.Second},
+				{Key: "bElapsedRoughly500ms", Value: elapsed >= 400*time.Millisecond && elapsed < 1500*time.Millisecond},
 			}, nil
 		},
 	})
@@ -517,11 +525,12 @@ func TestNonTxnUpdate_DifferentDoc_DoesNotBlock(t *testing.T) {
 }
 
 // Case 9: A holds (via update), B (non-txn) findAndModify on the same doc,
-// A commits. Expected MongoDB: B blocks ~2s like a plain update. final.x = "B".
+// A commits. MongoDB blocks B until A commits, then B's findAndModify
+// applies. final.x = "B".
 func TestNonTxnFindAndModify_BlocksUntilCommit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:     "NonTxnFindAndModify_BlocksUntilCommit",
-		Support:  harness.DumboDBXFail,
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup:    seedDoc("p"),
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
