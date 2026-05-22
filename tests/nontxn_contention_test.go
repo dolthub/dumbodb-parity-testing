@@ -229,17 +229,16 @@ func TestNonTxnDelete_BlocksUntilCommit(t *testing.T) {
 }
 
 // Case 4: A inserts new doc inside txn, B (non-txn) upserts with same _id,
-// A commits. MongoDB does NOT block B here: an uncommitted insert is not
-// visible to B's read concern, so B's upsert sees no match and inserts
-// its own doc, and A's commit then silently loses to a duplicate-key
-// conflict. DumboDB's doc-lock manager treats the in-flight insert like
-// any other held doc, so B's upsert blocks and observes A's commit, then
-// fails the insert path with DuplicateKey. Different end states; the
-// divergence pins down the gap.
+// A commits. MongoDB does not block B here -- an uncommitted insert is
+// not visible to B's read concern, so B's upsert sees no match and
+// inserts its own doc, and A's commit then silently loses to a
+// duplicate-key conflict. DumboDB's insert-kind doc locks are invisible
+// to non-txn waiters for the same reason, so the observable outcome
+// matches.
 func TestNonTxnUpsert_RacesWithInsertCommit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:     "NonTxnUpsert_RacesWithInsertCommit",
-		Support:  harness.DumboDBXFail,
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			clientA := col.Database().Client()
@@ -290,15 +289,13 @@ func TestNonTxnUpsert_RacesWithInsertCommit(t *testing.T) {
 }
 
 // Case 5: A inserts new doc inside txn, B (non-txn) upserts with same _id,
-// A aborts. MongoDB does NOT block here (same reason as case 4: B does not
-// see the uncommitted insert). DumboDB's doc-lock blocks B until A
-// aborts, then B's upsert proceeds and inserts. Final state matches but
-// the bWaitedAtLeast1s signal differs; XFail until DumboDB stops gating
-// non-txn writes on uncommitted inserts.
+// A aborts. MongoDB does not block here for the same reason as case 4
+// (uncommitted insert is invisible to B's read). DumboDB's insert-kind
+// locks are likewise invisible to non-txn waiters, matching MongoDB.
 func TestNonTxnUpsert_RacesWithInsertAbort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:     "NonTxnUpsert_RacesWithInsertAbort",
-		Support:  harness.DumboDBXFail,
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			clientA := col.Database().Client()
@@ -401,14 +398,12 @@ func TestNonTxnRead_DoesNotBlock(t *testing.T) {
 }
 
 // Case 7: A holds and never commits, B (non-txn) attempts update with
-// maxTimeMS: 500. MongoDB times out at 500ms with code 50 MaxTimeMSExpired.
-// DumboDB does not yet honour the maxTimeMS field on updates, so B blocks
-// past the deadline; bCtx caps B's wait at 2s so this test does not
-// monopolise the harness ctx and poison later tests.
+// maxTimeMS: 500. Both servers time out at 500ms with code 50
+// MaxTimeMSExpired. bCtx caps B's wait at 2s as a backstop.
 func TestNonTxnUpdate_MaxTimeMSExpires(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:     "NonTxnUpdate_MaxTimeMSExpires",
-		Support:  harness.DumboDBXFail,
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup:    seedDoc("p"),
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
