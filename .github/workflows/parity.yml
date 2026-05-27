@@ -145,10 +145,12 @@ jobs:
 
       - name: Run parity suite
         run: |
+          set -o pipefail
           mkdir -p results
+          # pipefail propagates go test's non-zero exit through tee so a
+          # single JSON-streamed run gates CI. The artifact uploaded below
+          # carries the same data for post-hoc human inspection.
           go test ./... -v -timeout 15m -json | tee results/parity.json
-          # Re-run without -json for human-readable output; ignore exit code (json run sets it)
-          go test ./... -timeout 15m
 
       - name: Upload results
         if: always()
