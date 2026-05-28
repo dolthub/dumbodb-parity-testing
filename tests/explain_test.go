@@ -765,7 +765,7 @@ func TestExplain_Hint_ForcesIndex(t *testing.T) {
 func TestExplain_Hint_Natural(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Hint_Natural",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
