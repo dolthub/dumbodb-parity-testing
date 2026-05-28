@@ -508,7 +508,7 @@ func TestExplain_DISTINCT_SCAN(t *testing.T) {
 func TestExplain_OR_MultiIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_OR_MultiIndex",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
