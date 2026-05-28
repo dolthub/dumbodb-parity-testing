@@ -20,13 +20,14 @@ import (
 	"testing"
 )
 
-// maxDumboOverhead is the maximum allowed ratio of DumboDB storage to
-// Dolt storage for the same logical workload. JSON documents include
-// field names per row where Dolt's row format does not, so a small
-// overhead is expected. The 5% start is a stake-in-the-ground that
-// almost certainly fails on the first run; tighten or loosen after
-// the first measurement pass.
-const maxDumboOverhead = 1.05
+// maxDumboOverDoltJSON is the maximum allowed ratio of DumboDB
+// storage to Dolt-JSON storage for the same logical workload. This
+// is the apples-to-apples comparison: both sides store the same JSON
+// document payload with the same secondary-index coverage on email.
+// Any overhead here is dumbo-side serialisation / chunking cost, not
+// the JSON-vs-typed-columns story. 5% is the stake-in-the-ground
+// budget; tighten or loosen after the first measurement pass.
+const maxDumboOverDoltJSON = 1.05
 
 // scaleSizes are the document counts the parity test sweeps over.
 // 10M is the upper bound -- inserts at 500/batch are 20k batches,
@@ -35,17 +36,31 @@ const maxDumboOverhead = 1.05
 var scaleSizes = []int{10_000, 100_000, 1_000_000, 10_000_000}
 
 // TestStorageParity_Scale measures post-GC on-disk storage for the
-// same straight-insert workload across both backends and asserts
-// DumboDB stays within maxDumboOverhead of Dolt.
+// same straight-insert workload across three storage shapes:
 //
-// Workload per size: insert N canonical Doc records (the same
-// {_id, email, name, age} shape used by the merge tests), commit,
-// run GC via Backend.StorageBytes, walk the data dir.
+//   - Dolt (typed columns):   the {_id, email, name, age} schema with
+//                              INDEX idx_email -- baseline.
+//   - DoltJSON:                same data stored as {_id, doc JSON}
+//                              with a generated `email` column +
+//                              INDEX idx_email. Apples-to-apples
+//                              JSON storage with an equivalent
+//                              secondary index.
+//   - DumboDB:                 stored as BSON via the wire protocol
+//                              with an `email_1` index.
+//
+// The primary assertion is DumboDB <= maxDumboOverDoltJSON x DoltJSON
+// -- both sides store JSON, so any overhead is dumbo-side chunking /
+// serialisation cost. The DumboDB-vs-Dolt-typed ratio is logged for
+// context (it includes the JSON-vs-typed-columns penalty too).
+//
+// Workload per size: insert N canonical Doc records, commit, run GC
+// via Backend.StorageBytes, walk the data dir.
 //
 // Not a benchmark: each size runs once and the assertion catches
 // regressions / scaling-coefficient drift. The expected first-pass
-// failure mode is DumboDB's BSON-with-field-names overhead; once the
-// real ratio is measured we calibrate maxDumboOverhead.
+// failure mode is DumboDB's BSON-with-field-names overhead vs
+// DoltJSON's MySQL-JSON-binary encoding; once the real ratio is
+// measured we calibrate maxDumboOverDoltJSON.
 func TestStorageParity_Scale(t *testing.T) {
 	if testing.Short() {
 		t.Skip("scale parity is long-running; omit -short to run")
@@ -53,62 +68,71 @@ func TestStorageParity_Scale(t *testing.T) {
 	ctx := context.Background()
 
 	type row struct {
-		n            int
-		doltBytes    int64
-		dumboBytes   int64
-		ratio        float64
-		overheadPct  float64
-		withinBudget bool
+		n             int
+		doltBytes     int64
+		doltJSONBytes int64
+		dumboBytes    int64
+		// Apples-to-apples: both store JSON with idx_email coverage.
+		dumboOverJSON     float64
+		dumboOverJSONPct  float64
+		// Context: dolt's JSON penalty over typed columns.
+		jsonOverTyped     float64
+		jsonOverTypedPct  float64
+		// Context: dumbo's overhead vs the typed baseline.
+		dumboOverTyped    float64
+		dumboOverTypedPct float64
+		withinBudget      bool
 	}
 	rows := make([]row, 0, len(scaleSizes))
-
-	// Resolve once so the ordering Dolt-then-DumboDB is fixed even
-	// if backendFactories order changes; we want the same backend on
-	// each side of every ratio in the summary table.
-	var doltFactory, dumboFactory func(context.Context) (Backend, error)
-	for _, bf := range backendFactories {
-		switch bf.name {
-		case "Dolt":
-			doltFactory = bf.new
-		case "DumboDB":
-			dumboFactory = bf.new
-		}
-	}
-	if doltFactory == nil || dumboFactory == nil {
-		t.Fatalf("backendFactories must include Dolt and DumboDB; got %+v", backendFactories)
-	}
 
 	for _, n := range scaleSizes {
 		n := n
 		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
-			doltBytes := measureStraightInsert(ctx, t, doltFactory, n)
-			dumboBytes := measureStraightInsert(ctx, t, dumboFactory, n)
-			ratio := float64(dumboBytes) / float64(doltBytes)
-			overheadPct := (ratio - 1.0) * 100.0
+			doltBytes := measureStraightInsert(ctx, t,
+				func(c context.Context) (Backend, error) { return NewDoltBackend(c) }, n)
+			doltJSONBytes := measureStraightInsert(ctx, t,
+				func(c context.Context) (Backend, error) { return NewDoltJSONBackend(c) }, n)
+			dumboBytes := measureStraightInsert(ctx, t,
+				func(c context.Context) (Backend, error) { return NewDumboDBBackend(c) }, n)
 
 			r := row{
-				n:            n,
-				doltBytes:    doltBytes,
-				dumboBytes:   dumboBytes,
-				ratio:        ratio,
-				overheadPct:  overheadPct,
-				withinBudget: ratio <= maxDumboOverhead,
+				n:                 n,
+				doltBytes:         doltBytes,
+				doltJSONBytes:     doltJSONBytes,
+				dumboBytes:        dumboBytes,
+				dumboOverJSON:     float64(dumboBytes) / float64(doltJSONBytes),
+				jsonOverTyped:     float64(doltJSONBytes) / float64(doltBytes),
+				dumboOverTyped:    float64(dumboBytes) / float64(doltBytes),
 			}
+			r.dumboOverJSONPct = (r.dumboOverJSON - 1.0) * 100.0
+			r.jsonOverTypedPct = (r.jsonOverTyped - 1.0) * 100.0
+			r.dumboOverTypedPct = (r.dumboOverTyped - 1.0) * 100.0
+			r.withinBudget = r.dumboOverJSON <= maxDumboOverDoltJSON
 			rows = append(rows, r)
 
-			t.Logf("n=%d dolt=%s dumbo=%s ratio=%.4f overhead=%.2f%%",
-				n, fmtBytes(doltBytes), fmtBytes(dumboBytes), ratio, overheadPct)
+			t.Logf("n=%d  dolt=%s  dolt-json=%s  dumbo=%s  "+
+				"dumbo/dolt-json=%.4f (%+.2f%%)  "+
+				"json/typed=%.4f (%+.2f%%)  "+
+				"dumbo/typed=%.4f (%+.2f%%)",
+				n,
+				fmtBytes(doltBytes), fmtBytes(doltJSONBytes), fmtBytes(dumboBytes),
+				r.dumboOverJSON, r.dumboOverJSONPct,
+				r.jsonOverTyped, r.jsonOverTypedPct,
+				r.dumboOverTyped, r.dumboOverTypedPct)
 
 			if !r.withinBudget {
-				t.Errorf("DumboDB storage %.2f%% over Dolt; budget is %.2f%%",
-					overheadPct, (maxDumboOverhead-1.0)*100.0)
+				t.Errorf("DumboDB %.2f%% over DoltJSON; budget is %.2f%%",
+					r.dumboOverJSONPct, (maxDumboOverDoltJSON-1.0)*100.0)
 			}
 		})
 	}
 
 	// Summary table, printed even if individual sub-tests failed so
 	// the calibration story is visible in one place.
-	headers := []string{"Docs", "Dolt", "DumboDB", "Ratio", "Overhead", "Within budget"}
+	headers := []string{
+		"Docs", "DoltTyped", "DoltJSON", "DumboDB",
+		"Dumbo/DoltJSON", "JSON/Typed", "Dumbo/Typed", "Within budget",
+	}
 	tableRows := make([][]string, len(rows))
 	for i, r := range rows {
 		within := "yes"
@@ -118,9 +142,11 @@ func TestStorageParity_Scale(t *testing.T) {
 		tableRows[i] = []string{
 			fmt.Sprintf("%d", r.n),
 			fmtBytes(r.doltBytes),
+			fmtBytes(r.doltJSONBytes),
 			fmtBytes(r.dumboBytes),
-			fmt.Sprintf("%.4f", r.ratio),
-			fmt.Sprintf("%+.2f%%", r.overheadPct),
+			fmt.Sprintf("%.3fx (%+.2f%%)", r.dumboOverJSON, r.dumboOverJSONPct),
+			fmt.Sprintf("%.3fx (%+.2f%%)", r.jsonOverTyped, r.jsonOverTypedPct),
+			fmt.Sprintf("%.3fx (%+.2f%%)", r.dumboOverTyped, r.dumboOverTypedPct),
 			within,
 		}
 	}
