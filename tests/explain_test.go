@@ -537,7 +537,7 @@ func TestExplain_OR_MultiIndex(t *testing.T) {
 func TestExplain_AND_SORTED(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_AND_SORTED",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
