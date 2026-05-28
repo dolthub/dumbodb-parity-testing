@@ -621,7 +621,7 @@ func TestExplain_CompoundIndex_FullMatch(t *testing.T) {
 func TestExplain_CompoundIndex_SortCovered(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_CompoundIndex_SortCovered",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
