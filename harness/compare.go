@@ -35,13 +35,64 @@ var defaultIgnoredFields = map[string]bool{
 	"insertedIds":   true,
 }
 
+// millisToleranceMS is the maximum amount DumboDB is allowed to be slower
+// than MongoDB on a server-side `millis` field before the comparison is
+// flagged as a divergence. DumboDB being faster is always accepted; a
+// small absolute slack catches sub-tick rounding noise and routine jitter
+// while still flagging cases where DumboDB is materially slower (an early
+// performance-regression signal).
+const millisToleranceMS = 5
+
 // CompareResponses compares a MongoDB response against a DumboDB response,
 // handling both result values and errors.
 func CompareResponses(mongoResult interface{}, mongoErr error, dumboDBResult interface{}, dumboDBErr error) Comparison {
 	if mongoErr != nil || dumboDBErr != nil {
 		return compareErrors(mongoErr, dumboDBErr)
 	}
-	return compareValues(normalize(mongoResult), normalize(dumboDBResult))
+	mongo := normalize(mongoResult)
+	dumbodb := normalize(dumboDBResult)
+	harmonizeMillis(mongo, dumbodb)
+	return compareValues(mongo, dumbodb)
+}
+
+// harmonizeMillis walks the two normalized values in tandem. At any map
+// level where both sides report a numeric "millis" field, the DumboDB
+// value is rewritten to the MongoDB value when DumboDB is at most
+// millisToleranceMS slower (or any amount faster). The subsequent
+// reflect.DeepEqual then treats those millis pairs as matched.
+//
+// DumboDB slower than MongoDB by more than the tolerance is left
+// unmodified and surfaces as a divergence.
+func harmonizeMillis(mongo, dumbodb interface{}) {
+	switch ma := mongo.(type) {
+	case map[string]interface{}:
+		da, ok := dumbodb.(map[string]interface{})
+		if !ok {
+			return
+		}
+		if mv, ok := ma["millis"]; ok {
+			if dv, ok2 := da["millis"]; ok2 {
+				mf, ok3 := toFloat64(mv)
+				df, ok4 := toFloat64(dv)
+				if ok3 && ok4 && df <= mf+float64(millisToleranceMS) {
+					da["millis"] = mv
+				}
+			}
+		}
+		for k, v := range ma {
+			if dv, ok := da[k]; ok {
+				harmonizeMillis(v, dv)
+			}
+		}
+	case []interface{}:
+		da, ok := dumbodb.([]interface{})
+		if !ok || len(da) != len(ma) {
+			return
+		}
+		for i := range ma {
+			harmonizeMillis(ma[i], da[i])
+		}
+	}
 }
 
 func compareErrors(mongoErr, dumboDBErr error) Comparison {

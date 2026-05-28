@@ -25,6 +25,9 @@ jobs:
       MONGO_URI: mongodb://localhost:27017
       MONGO_RS_URI: mongodb://localhost:27019/?replicaSet=rs0
       DUMBODB_URI: mongodb://localhost:27018
+      DUMBODB_DATA_DIR: /tmp/dumbodb-data
+      DOLT_URI: "root:@tcp(localhost:3306)/"
+      DOLT_DATA_DIR: /tmp/dolt-data
 
     steps:
       - uses: actions/checkout@v4
@@ -97,12 +100,57 @@ jobs:
           cat /tmp/dumbodb.log >&2
           exit 1
 
+      - name: Install Dolt
+        run: |
+          # The ./storage parity tests drive a live dolt sql-server. Pull
+          # the latest release binary rather than `go install` to match a
+          # tagged build and avoid surprise toolchain bumps.
+          DOLT_VERSION=$(curl -sSL https://api.github.com/repos/dolthub/dolt/releases/latest \
+            | grep -m1 '"tag_name"' | cut -d'"' -f4 | sed 's/^v//')
+          echo "Installing dolt v${DOLT_VERSION}"
+          curl -sSL "https://github.com/dolthub/dolt/releases/download/v${DOLT_VERSION}/dolt-linux-amd64.tar.gz" \
+            -o /tmp/dolt.tar.gz
+          tar -xzf /tmp/dolt.tar.gz -C /tmp
+          sudo mv /tmp/dolt-linux-amd64/bin/dolt /usr/local/bin/dolt
+          dolt version
+
+      - name: Start Dolt sql-server
+        run: |
+          mkdir -p "$DOLT_DATA_DIR"
+          # Committer identity is required for CALL DOLT_COMMIT.
+          dolt config --global --add user.email "parity-ci@dolthub.local"
+          dolt config --global --add user.name  "parity-ci"
+          (cd "$DOLT_DATA_DIR" && dolt sql-server --host 0.0.0.0 --port 3306) \
+            > /tmp/dolt.log 2>&1 &
+          echo $! > /tmp/dolt.pid
+
+      - name: Wait for Dolt sql-server to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if nc -z 127.0.0.1 3306 2>/dev/null; then
+              echo "Dolt sql-server ready"
+              exit 0
+            fi
+            if ! kill -0 $(cat /tmp/dolt.pid) 2>/dev/null; then
+              echo "Dolt sql-server process died:" >&2
+              cat /tmp/dolt.log >&2
+              exit 1
+            fi
+            echo "Waiting for Dolt sql-server ($i/30)..."
+            sleep 2
+          done
+          echo "Dolt sql-server did not start in time. Log:" >&2
+          cat /tmp/dolt.log >&2
+          exit 1
+
       - name: Run parity suite
         run: |
+          set -o pipefail
           mkdir -p results
+          # pipefail propagates go test's non-zero exit through tee so a
+          # single JSON-streamed run gates CI. The artifact uploaded below
+          # carries the same data for post-hoc human inspection.
           go test ./... -v -timeout 15m -json | tee results/parity.json
-          # Re-run without -json for human-readable output; ignore exit code (json run sets it)
-          go test ./... -timeout 15m
 
       - name: Upload results
         if: always()
