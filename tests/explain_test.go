@@ -566,7 +566,7 @@ func TestExplain_AND_SORTED(t *testing.T) {
 func TestExplain_CompoundIndex_PrefixMatch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_CompoundIndex_PrefixMatch",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -592,7 +592,7 @@ func TestExplain_CompoundIndex_PrefixMatch(t *testing.T) {
 func TestExplain_CompoundIndex_FullMatch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_CompoundIndex_FullMatch",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
