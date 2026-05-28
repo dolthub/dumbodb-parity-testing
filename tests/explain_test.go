@@ -294,7 +294,7 @@ func TestExplain_SORT_InMemory(t *testing.T) {
 func TestExplain_SORT_ViaIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_SORT_ViaIndex",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
