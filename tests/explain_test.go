@@ -250,7 +250,7 @@ func TestExplain_FETCH_After_IXSCAN(t *testing.T) {
 func TestExplain_CoveredQuery(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_CoveredQuery",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -420,7 +420,7 @@ func TestExplain_PROJECTION_SIMPLE(t *testing.T) {
 func TestExplain_PROJECTION_COVERED(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_PROJECTION_COVERED",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
