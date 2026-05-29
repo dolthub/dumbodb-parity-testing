@@ -696,7 +696,7 @@ func TestExplain_Aggregate_COLLSCAN(t *testing.T) {
 func TestExplain_ExecutionStats_Indexed(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_ExecutionStats_Indexed",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -719,7 +719,7 @@ func TestExplain_ExecutionStats_Indexed(t *testing.T) {
 func TestExplain_ExecutionStats_FullScan(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_ExecutionStats_FullScan",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertExplainDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			doc, err := explainRunExplain(ctx, col, bson.D{
