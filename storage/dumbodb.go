@@ -165,10 +165,17 @@ func (b *DumboDBBackend) Merge(ctx context.Context, fromBranch string) (time.Dur
 	return dur, nil
 }
 
-// StorageBytes measures the on-disk size of this database's directory.
-// DumboDB GC is not yet implemented; the measurement reflects live storage
-// including any unreferenced chunks from prior commits.
-func (b *DumboDBBackend) StorageBytes(_ context.Context) (int64, error) {
+// StorageBytes runs dumboGC to collect unreferenced chunks, then measures
+// the on-disk size of this database's directory. Mirrors DoltBackend's
+// CALL DOLT_GC() step so the size measurement compares post-GC stores
+// on both sides. Default mode (no full compaction) for parity with
+// dolt's CALL DOLT_GC() which also runs default mode.
+func (b *DumboDBBackend) StorageBytes(ctx context.Context) (int64, error) {
+	if err := b.client.Database(b.encodedDB()).RunCommand(ctx, bson.D{
+		{Key: "dumboGC", Value: 1},
+	}).Err(); err != nil {
+		return 0, fmt.Errorf("dumbodb gc: %w", err)
+	}
 	return dirBytes(filepath.Join(b.dataDir, b.dbName))
 }
 

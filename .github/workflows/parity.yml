@@ -28,6 +28,10 @@ jobs:
       DUMBODB_DATA_DIR: /tmp/dumbodb-data
       DOLT_URI: "root:@tcp(localhost:3306)/"
       DOLT_DATA_DIR: /tmp/dolt-data
+      # Cap TestStorageParity_Scale at 100k docs in CI. The full
+      # sweep (10k -> 10M) takes hours; a manual run does the whole
+      # matrix by default. Drop or raise this to widen CI coverage.
+      STORAGE_PARITY_MAX_DOCS: "100000"
 
     steps:
       - uses: actions/checkout@v4
