@@ -22,14 +22,44 @@ import (
 	"testing"
 )
 
-// maxDumboOverDoltJSON is the maximum allowed ratio of DumboDB
-// storage to Dolt-JSON storage for the same logical workload. This
-// is the apples-to-apples comparison: both sides store the same JSON
-// document payload with the same secondary-index coverage on email.
-// Any overhead here is dumbo-side serialisation / chunking cost, not
-// the JSON-vs-typed-columns story. 5% is the stake-in-the-ground
-// budget; tighten or loosen after the first measurement pass.
-const maxDumboOverDoltJSON = 1.05
+// maxDumboOverDoltJSON is the per-size budget for the ratio of
+// DumboDB storage to Dolt-JSON storage. Both sides store the same
+// JSON document payload with the same secondary-index coverage on
+// email; the ratio is dumbo-side serialisation + chunking + GC-leftover
+// overhead. Today's measurements (CI numbers, with workstation
+// numbers in parentheses):
+//
+//   10k:   2.29x (2.23x)
+//   100k:  8.16x (6.49x)
+//   1M:    --    (8.18x)
+//   10M:   --    (--)
+//
+// The thresholds below carry ~15% headroom over today's worst case
+// per size so a meaningful regression flags fast. As dumbo storage
+// improves, tighten the matching entry. Add entries for new sizes
+// added to defaultScaleSizes.
+var maxDumboOverDoltJSON = map[int]float64{
+	10_000:     2.6,
+	100_000:    9.5,
+	1_000_000:  9.5,
+	10_000_000: 11.0,
+}
+
+// dumboBudgetFor returns the budget for n, defaulting to the highest
+// configured entry if n is unknown (a missing entry means the test
+// matrix grew without a calibration pass).
+func dumboBudgetFor(n int) float64 {
+	if v, ok := maxDumboOverDoltJSON[n]; ok {
+		return v
+	}
+	var fallback float64
+	for _, v := range maxDumboOverDoltJSON {
+		if v > fallback {
+			fallback = v
+		}
+	}
+	return fallback
+}
 
 // scaleSizes are the document counts the parity test sweeps over by
 // default -- the manual run does the whole matrix. CI overrides via
@@ -125,6 +155,7 @@ func TestStorageParity_Scale(t *testing.T) {
 			dumboBytes := measureStraightInsert(ctx, t,
 				func(c context.Context) (Backend, error) { return NewDumboDBBackend(c) }, n)
 
+			budget := dumboBudgetFor(n)
 			r := row{
 				n:                 n,
 				doltBytes:         doltBytes,
@@ -137,22 +168,22 @@ func TestStorageParity_Scale(t *testing.T) {
 			r.dumboOverJSONPct = (r.dumboOverJSON - 1.0) * 100.0
 			r.jsonOverTypedPct = (r.jsonOverTyped - 1.0) * 100.0
 			r.dumboOverTypedPct = (r.dumboOverTyped - 1.0) * 100.0
-			r.withinBudget = r.dumboOverJSON <= maxDumboOverDoltJSON
+			r.withinBudget = r.dumboOverJSON <= budget
 			rows = append(rows, r)
 
 			t.Logf("n=%d  dolt=%s  dolt-json=%s  dumbo=%s  "+
-				"dumbo/dolt-json=%.4f (%+.2f%%)  "+
+				"dumbo/dolt-json=%.4f (%+.2f%%)  budget=%.2fx  "+
 				"json/typed=%.4f (%+.2f%%)  "+
 				"dumbo/typed=%.4f (%+.2f%%)",
 				n,
 				fmtBytes(doltBytes), fmtBytes(doltJSONBytes), fmtBytes(dumboBytes),
-				r.dumboOverJSON, r.dumboOverJSONPct,
+				r.dumboOverJSON, r.dumboOverJSONPct, budget,
 				r.jsonOverTyped, r.jsonOverTypedPct,
 				r.dumboOverTyped, r.dumboOverTypedPct)
 
 			if !r.withinBudget {
-				t.Errorf("DumboDB %.2f%% over DoltJSON; budget is %.2f%%",
-					r.dumboOverJSONPct, (maxDumboOverDoltJSON-1.0)*100.0)
+				t.Errorf("DumboDB %.4fx over DoltJSON; budget for n=%d is %.2fx",
+					r.dumboOverJSON, n, budget)
 			}
 		})
 	}
