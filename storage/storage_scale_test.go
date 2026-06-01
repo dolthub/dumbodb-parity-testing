@@ -17,6 +17,8 @@ package storage
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
 	"testing"
 )
 
@@ -29,11 +31,35 @@ import (
 // budget; tighten or loosen after the first measurement pass.
 const maxDumboOverDoltJSON = 1.05
 
-// scaleSizes are the document counts the parity test sweeps over.
-// 10M is the upper bound -- inserts at 500/batch are 20k batches,
-// minutes of wall time. Use -run to target a single size if iterating
-// quickly.
-var scaleSizes = []int{10_000, 100_000, 1_000_000, 10_000_000}
+// scaleSizes are the document counts the parity test sweeps over by
+// default -- the manual run does the whole matrix. CI overrides via
+// STORAGE_PARITY_MAX_DOCS to cap the sweep within its time budget.
+//
+// 10M is the upper bound. Inserts at 500/batch are 20k batches and
+// the GC pass on a multi-GB store takes minutes; the full sweep is
+// hours of wall time on a workstation.
+var defaultScaleSizes = []int{10_000, 100_000, 1_000_000, 10_000_000}
+
+// effectiveScaleSizes filters defaultScaleSizes against the optional
+// STORAGE_PARITY_MAX_DOCS env var (any size above the cap is
+// dropped). An unset or malformed env var returns the full list.
+func effectiveScaleSizes() []int {
+	cap := os.Getenv("STORAGE_PARITY_MAX_DOCS")
+	if cap == "" {
+		return defaultScaleSizes
+	}
+	capN, err := strconv.Atoi(cap)
+	if err != nil || capN <= 0 {
+		return defaultScaleSizes
+	}
+	out := make([]int, 0, len(defaultScaleSizes))
+	for _, n := range defaultScaleSizes {
+		if n <= capN {
+			out = append(out, n)
+		}
+	}
+	return out
+}
 
 // TestStorageParity_Scale measures post-GC on-disk storage for the
 // same straight-insert workload across three storage shapes:
@@ -83,9 +109,13 @@ func TestStorageParity_Scale(t *testing.T) {
 		dumboOverTypedPct float64
 		withinBudget      bool
 	}
-	rows := make([]row, 0, len(scaleSizes))
+	sizes := effectiveScaleSizes()
+	if len(sizes) == 0 {
+		t.Skipf("STORAGE_PARITY_MAX_DOCS=%q excludes every defaultScaleSizes entry", os.Getenv("STORAGE_PARITY_MAX_DOCS"))
+	}
+	rows := make([]row, 0, len(sizes))
 
-	for _, n := range scaleSizes {
+	for _, n := range sizes {
 		n := n
 		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
 			doltBytes := measureStraightInsert(ctx, t,
