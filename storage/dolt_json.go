@@ -24,17 +24,15 @@ import (
 // VARCHAR-pk table:
 //
 //	CREATE TABLE users (
-//	    _id   VARCHAR(64) PRIMARY KEY,
-//	    doc   JSON NOT NULL,
-//	    email VARCHAR(255) AS (doc->>'$.email') STORED,
-//	    INDEX idx_email (email)
+//	    _id VARCHAR(64) PRIMARY KEY,
+//	    doc JSON NOT NULL
 //	);
 //
-// The `email` generated column mirrors the secondary index DoltBackend
-// has on its typed `email` column, so storage growth comparisons stay
-// apples-to-apples for the secondary-index portion. The base row
-// payload is the JSON document itself, isolating "JSON includes field
-// names per row" as the only schema-shape variable vs DoltBackend.
+// The base row payload is the JSON document itself, isolating "JSON
+// includes field names per row" as the only schema-shape variable vs
+// DoltBackend. No secondary index -- the parity test is currently
+// scoped to base-table storage cost; index parity is deferred until
+// DumboDB's index storage path is repaired.
 //
 // All branching / commit / GC / measurement plumbing is inherited
 // from DoltBackend via embedding; only Setup, InsertBatch, and
@@ -59,10 +57,8 @@ func (b *DoltJSONBackend) Name() string { return "DoltJSON" }
 func (b *DoltJSONBackend) Setup(ctx context.Context) error {
 	_, err := b.db.ExecContext(ctx, `
 		CREATE TABLE users (
-			_id   VARCHAR(64)  PRIMARY KEY,
-			doc   JSON         NOT NULL,
-			email VARCHAR(255) AS (JSON_UNQUOTE(JSON_EXTRACT(doc, '$.email'))) STORED,
-			INDEX idx_email (email)
+			_id VARCHAR(64) PRIMARY KEY,
+			doc JSON        NOT NULL
 		)`)
 	return err
 }

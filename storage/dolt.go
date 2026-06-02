@@ -85,8 +85,7 @@ func (b *DoltBackend) Setup(ctx context.Context) error {
 			_id   VARCHAR(64)  PRIMARY KEY,
 			email VARCHAR(255) NOT NULL,
 			name  VARCHAR(255),
-			age   INT,
-			INDEX idx_email (email)
+			age   INT
 		)`)
 	return err
 }

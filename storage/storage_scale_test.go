@@ -24,25 +24,30 @@ import (
 
 // maxDumboOverDoltJSON is the per-size budget for the ratio of
 // DumboDB storage to Dolt-JSON storage. Both sides store the same
-// JSON document payload with the same secondary-index coverage on
-// email; the ratio is dumbo-side serialisation + chunking + GC-leftover
-// overhead. Today's measurements (CI numbers, with workstation
-// numbers in parentheses):
+// JSON document payload with no secondary indexes; the ratio is
+// dumbo-side serialisation + chunking + GC-leftover overhead.
 //
-//   10k:   2.29x (2.23x)
-//   100k:  8.16x (6.49x)
-//   1M:    --    (8.18x)
-//   10M:   --    (--)
+// Post-JsonAdaptiveEnc measurements (workstation, after workspace-r11
+// switched the collection doc column from JSONAddrEnc to
+// JsonAdaptiveEnc -- documents now pack inline in their row tuples
+// instead of one chunk per doc):
 //
-// The thresholds below carry ~15% headroom over today's worst case
-// per size so a meaningful regression flags fast. As dumbo storage
-// improves, tighten the matching entry. Add entries for new sizes
-// added to defaultScaleSizes.
+//   10k:   1.96x  (was 3.99x)
+//   100k:  3.97x  (was 9.20x)
+//   1M:    -- (not yet remeasured post-fix)
+//   10M:   -- (not yet remeasured post-fix)
+//
+// The absolute storage win is large -- 100k dropped from 21.2 MB to
+// 3.6 MB -- but the ratio stays above 1.0x because dolt's
+// prolly-tree leaves pack rows extraordinarily efficiently at small
+// scales. Residual overhead (BSON / Extended-JSON type wrappers,
+// per-collection metadata) is what's left to chase. Budgets carry
+// ~25% headroom over today's worst case at each measured size.
 var maxDumboOverDoltJSON = map[int]float64{
-	10_000:     2.6,
-	100_000:    9.5,
-	1_000_000:  9.5,
-	10_000_000: 11.0,
+	10_000:     2.5,
+	100_000:    5.0,
+	1_000_000:  6.0,
+	10_000_000: 7.0,
 }
 
 // dumboBudgetFor returns the budget for n, defaulting to the highest
@@ -94,15 +99,15 @@ func effectiveScaleSizes() []int {
 // TestStorageParity_Scale measures post-GC on-disk storage for the
 // same straight-insert workload across three storage shapes:
 //
-//   - Dolt (typed columns):   the {_id, email, name, age} schema with
-//                              INDEX idx_email -- baseline.
-//   - DoltJSON:                same data stored as {_id, doc JSON}
-//                              with a generated `email` column +
-//                              INDEX idx_email. Apples-to-apples
-//                              JSON storage with an equivalent
-//                              secondary index.
-//   - DumboDB:                 stored as BSON via the wire protocol
-//                              with an `email_1` index.
+//   - Dolt (typed columns):   the {_id, email, name, age} schema --
+//                              baseline.
+//   - DoltJSON:                same data stored as {_id, doc JSON}.
+//                              Apples-to-apples JSON storage.
+//   - DumboDB:                 stored as BSON via the wire protocol.
+//
+// No secondary indexes on any side: index parity is deferred until
+// DumboDB's index storage path is repaired. The test is currently
+// scoped to base-table / collection storage cost.
 //
 // The primary assertion is DumboDB <= maxDumboOverDoltJSON x DoltJSON
 // -- both sides store JSON, so any overhead is dumbo-side chunking /
