@@ -131,22 +131,22 @@ func TestStorageParity_PartialUpdates(t *testing.T) {
 
 // maxDumboOverDoltJSONPartialUpdate is the per-variant budget for the
 // ratio of DumboDB to Dolt-JSON storage after the insert+update
-// workload. These are baseline values captured BEFORE the
-// workspace-a3u storage-shape dispatch lands; budgets are deliberately
-// generous. workspace-bjc tightens them once the optimised numbers are
-// known.
+// workload. Tightened in workspace-bjc to ~15% headroom over the
+// measured post-dispatch numbers:
 //
-// The "inline" budget is loose because today's applyFieldMutations
-// pays a chunk-store write for every mutation regardless of where the
-// document is stored; the post-dispatch number should drop materially.
+//   small_inline      pre-dispatch 1.951x | post-dispatch 1.951x
+//   large_out_of_band pre-dispatch 1.010x | post-dispatch 1.013x
 //
-// The "out-of-band" budget should be tight even pre-dispatch -- both
-// sides go through IndexedJsonDocument structural sharing for large
-// docs, so the ratio is dominated by other factors (BSON Extended JSON
-// wrappers, per-collection metadata).
+// The post-dispatch numbers match the baseline at the byte level
+// because the storage measurement runs after CALL DOLT_GC() / dumboGC,
+// which reclaims the transient chunks the pre-dispatch
+// applyFieldMutations wrote on every inline mutation. The dispatch
+// win is real (zero chunk-store IO on the inline mutation path,
+// verified by the workspace-a3u unit tests) but shows up as CPU /
+// IO / transient-growth, not as steady-state on-disk bytes.
 var maxDumboOverDoltJSONPartialUpdate = map[string]float64{
-	"small_inline":      10.0,
-	"large_out_of_band": 3.0,
+	"small_inline":      2.5,
+	"large_out_of_band": 1.3,
 }
 
 // measureInsertUpdate runs the insert + partial-update workload on a
