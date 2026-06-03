@@ -88,12 +88,11 @@ func (b *DumboDBBackend) col() *mongo.Collection {
 	return b.client.Database(b.encodedDB()).Collection("users")
 }
 
-func (b *DumboDBBackend) Setup(ctx context.Context) error {
-	_, err := b.col().Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys:    bson.D{{Key: "email", Value: 1}},
-		Options: options.Index().SetName("email_1"),
-	})
-	return err
+func (b *DumboDBBackend) Setup(_ context.Context) error {
+	// Mongo collections are auto-created on first insert; no secondary
+	// indexes (index parity is deferred until DumboDB's index storage
+	// path is repaired).
+	return nil
 }
 
 func (b *DumboDBBackend) InsertBatch(ctx context.Context, docs []Doc) error {
