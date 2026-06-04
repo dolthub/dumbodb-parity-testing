@@ -80,7 +80,7 @@ func updateMutationBenchN(size docSize) int {
 	case size100KB:
 		return 10
 	case size1MB:
-		return 20
+		return 5
 	}
 	return 50
 }
