@@ -79,9 +79,6 @@ func BenchmarkFindOne_1MB(b *testing.B)   { benchmarkFindOneAt(b, "findone_1mb",
 // a document of varying size. The interesting question is how much the
 // server must rewrite vs. patch in place as docs grow.
 func benchmarkUpdateOneSetFieldAt(b *testing.B, label string, size docSize) {
-	if size > sizeLarge {
-		b.Skip("100KB+ cells disabled while we establish a memory-pressure threshold")
-	}
 	n := datasetSizeFor(size)
 	col, ctx := withSeededCollection(b, label, n, size)
 	b.ResetTimer()
