@@ -9,11 +9,49 @@
 package benchmarks
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
+
+// commitEvery is the period (in iterations) at which the mutation-
+// kind benchmarks issue a dumboCommit. Without periodic commits the
+// dolt working-set state (NBS table-file index, in-flight chunk
+// references, etc.) accumulates unboundedly across the b.N
+// iterations and the dumbodb process eventually gets OOM-killed at
+// 100KB+ document sizes. dumboCommit advances HEAD, lets GC reclaim
+// orphaned chunks, and frees the in-memory working-set state.
+//
+// 200 matches the storage cadence sweep's default K=8 over 1600
+// mutations; tune via -bench-commit-every if it becomes a benchmark
+// dimension worth sweeping.
+const commitEvery = 200
+
+// maybeCommit issues a dumboCommit against the database that owns
+// col when i is a non-zero multiple of commitEvery. The commit is
+// off the clock (the caller stops/starts the benchmark timer around
+// it). Errors are non-fatal -- a commit failure indicates dumbodb
+// trouble worth knowing about but shouldn't abort the benchmark
+// mid-flight; the benchmark Fatal will fire on the next failing
+// UpdateOne instead.
+func maybeCommit(b *testing.B, ctx context.Context, col *mongo.Collection, i int) {
+	b.Helper()
+	if i == 0 || i%commitEvery != 0 {
+		return
+	}
+	b.StopTimer()
+	err := col.Database().RunCommand(ctx, bson.D{
+		{Key: "dumboCommit", Value: int32(1)},
+		{Key: "message", Value: fmt.Sprintf("bench commit at i=%d", i)},
+	}).Err()
+	if err != nil {
+		b.Logf("dumboCommit at i=%d: %v", i, err)
+	}
+	b.StartTimer()
+}
 
 // The mutation-kind benchmarks stress how the storage layer handles
 // changes to container lengths -- arrays growing or shrinking, fields
@@ -56,6 +94,7 @@ func benchmarkArrayExtend(b *testing.B, size docSize, depth int) {
 	path := mutationPath(depth, "target_d"+depthSuffix(depth)+"_arr")
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		maybeCommit(b, ctx, col, i)
 		id := ids[i%n]
 		_, err := col.UpdateOne(ctx,
 			bson.D{{Key: "_id", Value: id}},
@@ -76,6 +115,7 @@ func benchmarkArrayShorten(b *testing.B, size docSize, depth int) {
 	path := mutationPath(depth, "target_d"+depthSuffix(depth)+"_arr")
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		maybeCommit(b, ctx, col, i)
 		id := ids[i%n]
 		_, err := col.UpdateOne(ctx,
 			bson.D{{Key: "_id", Value: id}},
@@ -96,6 +136,7 @@ func benchmarkFieldInsert(b *testing.B, size docSize, depth int) {
 	col, ctx, ids := withSeededTypedRealistic(b, fmt.Sprintf("fldins_%s_d%d", size, depth), n, size)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		maybeCommit(b, ctx, col, i)
 		id := ids[i%n]
 		path := mutationPath(depth, fmt.Sprintf("ins_%d", i))
 		_, err := col.UpdateOne(ctx,
@@ -117,6 +158,7 @@ func benchmarkFieldRemove(b *testing.B, size docSize, depth int) {
 	col, ctx, ids := withSeededTypedRealistic(b, fmt.Sprintf("fldrm_%s_d%d", size, depth), n, size)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		maybeCommit(b, ctx, col, i)
 		id := ids[i%n]
 		fieldName := fmt.Sprintf("rm_%d", i)
 		path := mutationPath(depth, fieldName)
