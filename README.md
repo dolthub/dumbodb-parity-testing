@@ -107,13 +107,33 @@ operations gain from indexes at which sizes.
 
 **Running.** The `cmd/compare` runner manages containers end-to-end. By
 default it pulls `dolthub/dumbodb:latest` and `mongo:8.0`, waits for both to
-accept connections, runs the benchmarks, and tears the containers down. Pass
-`-dumbodb-image=dolthub/dumbodb:vX.Y.Z` to pin a release, or `-dumbodb-src`
-to build from a local checkout instead:
+accept connections, runs the benchmarks, and tears the containers down:
 
     go run ./benchmarks/cmd/compare \
         -benchtime=2s \
         -csv benchmarks/results.csv
+
+Pass `-dumbodb-image=dolthub/dumbodb:vX.Y.Z` to pin a release instead of
+`:latest`.
+
+**Benchmarking unreleased code.** To measure a commit that has no published
+image, point `-dumbodb-src` (or the `DUMBODB_SRC` env var) at a local checkout
+of [dolthub/dumbodb](https://github.com/dolthub/dumbodb):
+
+    go run ./benchmarks/cmd/compare \
+        -dumbodb-src ~/Documents/src/dumbodb \
+        -benchtime=2s \
+        -csv benchmarks/results.csv
+
+The runner builds a `dumbodb-bench:local` image from that tree via
+`benchmarks/Dockerfile.dumbodb` and runs it in place of the released image.
+The image is rebuilt on every invocation, so edits to the source tree are
+picked up automatically. Two caveats:
+
+- A `dumbodb-bench` container left running by a previous `-f` session is
+  reused as-is; `docker stop dumbodb-bench && docker rm dumbodb-bench` first
+  to make sure the freshly-built image is what actually runs.
+- `-dumbodb-image` is ignored when `-dumbodb-src` is set.
 
 Output is a markdown-ish table on stdout plus optional CSV for downstream
 tooling (regression gates, public comparison pages).
