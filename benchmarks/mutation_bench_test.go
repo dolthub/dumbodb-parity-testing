@@ -89,6 +89,9 @@ func updateMutationBenchN(size docSize) int {
 // depth. Each iteration appends one element to the array; over b.N
 // iterations the targeted arrays accumulate elements.
 func benchmarkArrayExtend(b *testing.B, size docSize, depth int) {
+	if size > sizeLarge {
+		b.Skip("100KB+ cells disabled while we establish a memory-pressure threshold; reach via raise-or-remove of this guard")
+	}
 	n := updateMutationBenchN(size)
 	col, ctx, ids := withSeededTypedRealistic(b, fmt.Sprintf("arrext_%s_d%d", size, depth), n, size)
 	path := mutationPath(depth, "target_d"+depthSuffix(depth)+"_arr")
@@ -110,6 +113,9 @@ func benchmarkArrayExtend(b *testing.B, size docSize, depth int) {
 // the array empties, $pop becomes a no-op; that is part of the cost
 // model -- real workloads also do empty-array pops.
 func benchmarkArrayShorten(b *testing.B, size docSize, depth int) {
+	if size > sizeLarge {
+		b.Skip("100KB+ cells disabled while we establish a memory-pressure threshold")
+	}
 	n := updateMutationBenchN(size)
 	col, ctx, ids := withSeededTypedRealistic(b, fmt.Sprintf("arrshrt_%s_d%d", size, depth), n, size)
 	path := mutationPath(depth, "target_d"+depthSuffix(depth)+"_arr")
@@ -132,6 +138,9 @@ func benchmarkArrayShorten(b *testing.B, size docSize, depth int) {
 // an existing field. Over time the targeted parent document accumulates
 // many siblings; this is the natural cost of repeated inserts.
 func benchmarkFieldInsert(b *testing.B, size docSize, depth int) {
+	if size > sizeLarge {
+		b.Skip("100KB+ cells disabled while we establish a memory-pressure threshold")
+	}
 	n := updateMutationBenchN(size)
 	col, ctx, ids := withSeededTypedRealistic(b, fmt.Sprintf("fldins_%s_d%d", size, depth), n, size)
 	b.ResetTimer()
@@ -154,6 +163,9 @@ func benchmarkFieldInsert(b *testing.B, size docSize, depth int) {
 // iterations we use a freshly inserted, uniquely named field on the
 // fly: insert then unset, with insertion off the clock.
 func benchmarkFieldRemove(b *testing.B, size docSize, depth int) {
+	if size > sizeLarge {
+		b.Skip("100KB+ cells disabled while we establish a memory-pressure threshold")
+	}
 	n := updateMutationBenchN(size)
 	col, ctx, ids := withSeededTypedRealistic(b, fmt.Sprintf("fldrm_%s_d%d", size, depth), n, size)
 	b.ResetTimer()

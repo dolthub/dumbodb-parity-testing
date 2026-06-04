@@ -25,6 +25,9 @@ import (
 // gone.
 
 func benchmarkInsertOneTypedRealisticAt(b *testing.B, size docSize) {
+	if size > sizeLarge {
+		b.Skip("100KB+ cells disabled while we establish a memory-pressure threshold")
+	}
 	col, ctx := withEmptyCollection(b, fmt.Sprintf("ins_typedreal_%s", size))
 	r := rand.New(rand.NewSource(*dataSeed))
 	b.ResetTimer()
@@ -53,6 +56,9 @@ func BenchmarkInsertOne_TypedRealistic_1MB(b *testing.B) {
 }
 
 func benchmarkFindOneTypedRealisticAt(b *testing.B, size docSize) {
+	if size > sizeLarge {
+		b.Skip("100KB+ cells disabled while we establish a memory-pressure threshold")
+	}
 	n := datasetSizeFor(size)
 	col, ctx, ids := withSeededTypedRealistic(b, fmt.Sprintf("find_typedreal_%s", size), n, size)
 	b.ResetTimer()
@@ -111,6 +117,9 @@ func BenchmarkAggregateFilter_TypedRealistic_10KB(b *testing.B) {
 // ten Dates at the top level), which the bson-a / bson-b branches drop
 // entirely.
 func benchmarkInsertOneTypedExtremeAt(b *testing.B, size docSize) {
+	if size > sizeLarge {
+		b.Skip("100KB+ cells disabled while we establish a memory-pressure threshold")
+	}
 	col, ctx := withEmptyCollection(b, fmt.Sprintf("ins_typedxtm_%s", size))
 	r := rand.New(rand.NewSource(*dataSeed))
 	b.ResetTimer()
