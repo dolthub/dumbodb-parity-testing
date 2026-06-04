@@ -149,10 +149,18 @@ func setupContainers(ctx context.Context) error {
 // from that source tree. Otherwise pull -dumbodb-image from the registry.
 // In both cases dumboContainer is mutated to point at the chosen image and the
 // matching host-to-container port mapping for that image.
+//
+// Source-build mode additionally publishes port 6060 so the pprof endpoint
+// baked into dumbodb-bench:local (see benchmarks/Dockerfile.dumbodb) is
+// reachable from the host. Pulled-image mode does not, because the public
+// image's CMD does not include -pprof-addr.
 func prepareDumboImage(ctx context.Context) error {
 	if *dumboSrc != "" {
 		dumboContainer.image = "dumbodb-bench:local"
-		dumboContainer.runArgs = []string{"-p", "127.0.0.1:27018:27018"}
+		dumboContainer.runArgs = []string{
+			"-p", "127.0.0.1:27018:27018",
+			"-p", "127.0.0.1:6060:6060",
+		}
 		if err := buildDumboImage(ctx, *dumboSrc); err != nil {
 			return fmt.Errorf("build %s: %w", dumboContainer.image, err)
 		}

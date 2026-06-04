@@ -43,7 +43,12 @@ COPY --from=builder /out/dumbodb /usr/local/bin/dumbodb
 # host-side port mapping matches (27018:27018). --addr binds to 0.0.0.0 so
 # the port is reachable from outside the container.
 EXPOSE 27018
+# pprof endpoint exposed so benchmark investigations can attach
+# `go tool pprof http://127.0.0.1:6060/debug/pprof/profile?seconds=N`
+# without recompiling. Zero runtime overhead when no client connects.
+# The compare runner publishes 6060 to the host in source-build mode.
+EXPOSE 6060
 VOLUME ["/var/lib/dumbodb"]
 
 ENTRYPOINT ["/usr/local/bin/dumbodb"]
-CMD ["--addr", "0.0.0.0:27018", "--data-dir", "/var/lib/dumbodb"]
+CMD ["--addr", "0.0.0.0:27018", "--data-dir", "/var/lib/dumbodb", "-pprof-addr", "0.0.0.0:6060"]
