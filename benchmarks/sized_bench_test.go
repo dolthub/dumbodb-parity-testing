@@ -55,9 +55,6 @@ func BenchmarkInsertOne_100KB(b *testing.B) { benchmarkInsertOneAt(b, "insertone
 func BenchmarkInsertOne_1MB(b *testing.B)   { benchmarkInsertOneAt(b, "insertone_1mb", size1MB) }
 
 func benchmarkFindOneAt(b *testing.B, label string, size docSize) {
-	if size > sizeLarge {
-		b.Skip("100KB+ cells disabled while we establish a memory-pressure threshold")
-	}
 	n := datasetSizeFor(size)
 	col, ctx := withSeededCollection(b, label, n, size)
 	b.ResetTimer()
