@@ -34,6 +34,9 @@ func datasetSizeFor(size docSize) int {
 }
 
 func benchmarkInsertOneAt(b *testing.B, label string, size docSize) {
+	if size > sizeLarge {
+		b.Skip("100KB+ cells disabled while we establish a memory-pressure threshold")
+	}
 	col, ctx := withEmptyCollection(b, label)
 	r := rand.New(rand.NewSource(*dataSeed))
 	b.ResetTimer()

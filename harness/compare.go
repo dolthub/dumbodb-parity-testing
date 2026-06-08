@@ -180,6 +180,16 @@ func normalize(v interface{}) interface{} {
 			s[i] = normalize(doc)
 		}
 		return s
+	case []bson.D:
+		// bson.D preserves insertion order; dumbodb's bson-a storage
+		// lex-sorts object fields on write. Comparing field order
+		// would diverge for every multi-field result. Normalise each
+		// element to a map so the comparison is order-insensitive.
+		s := make([]interface{}, len(val))
+		for i, doc := range val {
+			s[i] = normalize(doc)
+		}
+		return s
 	case []interface{}:
 		return normalizeSlice(val)
 	case primitive.ObjectID:

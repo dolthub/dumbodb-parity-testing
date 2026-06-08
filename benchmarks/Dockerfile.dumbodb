@@ -8,8 +8,14 @@
 #
 # CGO is required because github.com/dolthub/gozstd links against libzstd —
 # hence the gcc-bearing golang base image and libc-bearing debian runtime.
+# github.com/dolthub/go-icu-regex additionally links against ICU: the builder
+# needs the headers (libicu-dev) and the runtime needs the shared libs
+# (libicu72 on bookworm). Both stages are bookworm, so the ICU versions match.
 
 FROM golang:1.26-bookworm AS builder
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libicu-dev \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 
 # Leverage layer caching: pull deps before the full source copy.
@@ -28,7 +34,7 @@ RUN go build -buildvcs=false \
 
 FROM debian:bookworm-slim
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
+    && apt-get install -y --no-install-recommends ca-certificates libicu72 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /out/dumbodb /usr/local/bin/dumbodb
@@ -37,7 +43,12 @@ COPY --from=builder /out/dumbodb /usr/local/bin/dumbodb
 # host-side port mapping matches (27018:27018). --addr binds to 0.0.0.0 so
 # the port is reachable from outside the container.
 EXPOSE 27018
+# pprof endpoint exposed so benchmark investigations can attach
+# `go tool pprof http://127.0.0.1:6060/debug/pprof/profile?seconds=N`
+# without recompiling. Zero runtime overhead when no client connects.
+# The compare runner publishes 6060 to the host in source-build mode.
+EXPOSE 6060
 VOLUME ["/var/lib/dumbodb"]
 
 ENTRYPOINT ["/usr/local/bin/dumbodb"]
-CMD ["--addr", "0.0.0.0:27018", "--data-dir", "/var/lib/dumbodb"]
+CMD ["--addr", "0.0.0.0:27018", "--data-dir", "/var/lib/dumbodb", "-pprof-addr", "0.0.0.0:6060"]
