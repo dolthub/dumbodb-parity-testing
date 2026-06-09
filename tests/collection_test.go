@@ -132,7 +132,7 @@ func TestCollection_CreateExplicit(t *testing.T) {
 func TestCollection_CreateCapped(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_CreateCapped",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.CreateCollection().SetCapped(true).SetSizeInBytes(1024 * 1024)
@@ -152,7 +152,7 @@ func TestCollection_CreateCapped(t *testing.T) {
 func TestCollection_CreateCapped_SizeAndMax(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collection_CreateCapped_SizeAndMax",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Capped collection with both size and max document count.

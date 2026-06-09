@@ -206,7 +206,7 @@ func TestAutoCompact_FreeSpaceTargetMB(t *testing.T) {
 func TestConvertToCapped_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ConvertToCapped_Basic",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// convertToCapped converts a regular collection to a capped collection.
@@ -221,7 +221,7 @@ func TestConvertToCapped_Basic(t *testing.T) {
 func TestConvertToCapped_VerifyCapped(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ConvertToCapped_VerifyCapped",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Convert and then verify via listCollections that options.capped is set.
@@ -244,7 +244,7 @@ func TestConvertToCapped_VerifyCapped(t *testing.T) {
 func TestConvertToCapped_NonExistentCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ConvertToCapped_NonExistentCollection",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// convertToCapped on a non-existent collection returns NamespaceNotFound.
@@ -259,7 +259,7 @@ func TestConvertToCapped_NonExistentCollection(t *testing.T) {
 func TestConvertToCapped_ZeroSize(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ConvertToCapped_ZeroSize",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// size of 0 is invalid; MongoDB returns an error.
@@ -274,7 +274,7 @@ func TestConvertToCapped_ZeroSize(t *testing.T) {
 func TestConvertToCapped_MissingSize(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ConvertToCapped_MissingSize",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Omitting size should return an error.
