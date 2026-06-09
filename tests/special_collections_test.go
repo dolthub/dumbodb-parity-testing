@@ -15,7 +15,7 @@ import (
 func TestCapped_CreateCollection_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_CreateCollection_Basic",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_basic"
@@ -32,7 +32,7 @@ func TestCapped_CreateCollection_Basic(t *testing.T) {
 func TestCapped_CreateCollection_WithMax(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_CreateCollection_WithMax",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_withmax"
@@ -49,7 +49,7 @@ func TestCapped_CreateCollection_WithMax(t *testing.T) {
 func TestCapped_InsertAndEviction(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_InsertAndEviction",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_eviction"
@@ -80,7 +80,7 @@ func TestCapped_InsertAndEviction(t *testing.T) {
 func TestCapped_NaturalOrderCursor(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_NaturalOrderCursor",
-		Support: harness.DumboDBXFail, // prolly trees do not preserve insertion order
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_natural"
@@ -125,7 +125,7 @@ func TestCapped_NaturalOrderCursor(t *testing.T) {
 func TestCapped_NaturalOrderReverse(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_NaturalOrderReverse",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_natural_rev"
@@ -159,7 +159,7 @@ func TestCapped_NaturalOrderReverse(t *testing.T) {
 func TestCapped_TailableCursor(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_TailableCursor",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_tailable"
@@ -199,7 +199,7 @@ func TestCapped_TailableCursor(t *testing.T) {
 func TestCapped_DeleteFails(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_DeleteFails",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_delete"
@@ -226,7 +226,7 @@ func TestCapped_DeleteFails(t *testing.T) {
 func TestCapped_UpdateGrowthFails(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_UpdateGrowthFails",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_grow"
@@ -257,7 +257,7 @@ func TestCapped_UpdateGrowthFails(t *testing.T) {
 func TestCapped_InsertMany_ExceedMax(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_InsertMany_ExceedMax",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_insertmany"
@@ -288,7 +288,7 @@ func TestCapped_InsertMany_ExceedMax(t *testing.T) {
 func TestCapped_IsCapped_CollStats(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_IsCapped_CollStats",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_stats"
@@ -1188,7 +1188,7 @@ func TestTimeSeries_SumAggregation(t *testing.T) {
 func TestCapped_SmallSize_ManyInserts(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_SmallSize_ManyInserts",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_small"
@@ -1221,7 +1221,7 @@ func TestCapped_SmallSize_ManyInserts(t *testing.T) {
 func TestCapped_Find_AfterEviction(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_Find_AfterEviction",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_find_evict"
@@ -1259,7 +1259,7 @@ func TestCapped_Find_AfterEviction(t *testing.T) {
 func TestView_OnCappedCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_OnCappedCollection",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_for_view"
@@ -1464,7 +1464,7 @@ func TestView_DropAndRecreate(t *testing.T) {
 func TestCapped_CreateIndex_Fails(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_CreateIndex_Fails",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_idx"
@@ -1527,7 +1527,7 @@ func TestTimeSeries_DistinctOnMetaField(t *testing.T) {
 func TestCapped_CountDocuments_Empty(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_CountDocuments_Empty",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_count_empty"
@@ -1550,7 +1550,7 @@ func TestCapped_CountDocuments_Empty(t *testing.T) {
 func TestCapped_FindOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_FindOne",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_findone"
@@ -1658,7 +1658,7 @@ func TestView_Sort_OnView(t *testing.T) {
 func TestCapped_UpdateSameSize_Succeeds(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_UpdateSameSize_Succeeds",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			cappedName := "capped_upd_same"

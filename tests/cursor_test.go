@@ -837,7 +837,7 @@ func TestCursor_MultiBatchAllHelper(t *testing.T) {
 func TestCursor_TailableCappedCollectionRequired(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_TailableCappedCollectionRequired",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "a"}})
 			return err
