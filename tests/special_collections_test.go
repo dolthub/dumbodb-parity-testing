@@ -367,7 +367,11 @@ func TestView_CreateWithProjection(t *testing.T) {
 			}
 			defer db.Collection(viewName).Drop(ctx)
 
-			cur, err := db.Collection(viewName).Find(ctx, bson.D{})
+			// Return each projected doc's name plus whether the projected-out
+			// fields are present, so the parity check verifies the view's
+			// projection is actually applied (secret and _id dropped) rather
+			// than only that two docs came back.
+			cur, err := db.Collection(viewName).Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "name", Value: 1}}))
 			if err != nil {
 				return nil, err
 			}
@@ -375,7 +379,18 @@ func TestView_CreateWithProjection(t *testing.T) {
 			if err := cur.All(ctx, &results); err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
+			out := bson.A{}
+			for _, d := range results {
+				m := d.Map()
+				_, hasSecret := m["secret"]
+				_, hasID := m["_id"]
+				out = append(out, bson.D{
+					{Key: "name", Value: m["name"]},
+					{Key: "hasSecret", Value: hasSecret},
+					{Key: "hasID", Value: hasID},
+				})
+			}
+			return bson.D{{Key: "docs", Value: out}}, nil
 		},
 	})
 }
@@ -494,6 +509,59 @@ func TestView_WithMatchPipeline(t *testing.T) {
 				return nil, err
 			}
 			return bson.D{{Key: "count", Value: count}}, nil
+		},
+	})
+}
+
+// TestView_Find_And_Count_ApplyMatchPipeline guards that the view's $match
+// pipeline is applied on the find() path and the legacy count command, not
+// only on aggregate/countDocuments. Before the fix find() returned all source
+// rows (pipeline ignored) and the count command returned 0.
+func TestView_Find_And_Count_ApplyMatchPipeline(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "View_Find_And_Count_ApplyMatchPipeline",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: int32(1)}, {Key: "status", Value: "active"}},
+				bson.D{{Key: "_id", Value: int32(2)}, {Key: "status", Value: "inactive"}},
+				bson.D{{Key: "_id", Value: int32(3)}, {Key: "status", Value: "active"}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			viewName := "view_find_match"
+			pipeline := mongo.Pipeline{
+				bson.D{{Key: "$match", Value: bson.D{{Key: "status", Value: "active"}}}},
+			}
+			if err := db.CreateView(ctx, viewName, col.Name(), pipeline); err != nil {
+				return nil, err
+			}
+			defer db.Collection(viewName).Drop(ctx)
+
+			cur, err := db.Collection(viewName).Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cur.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			findIDs := bson.A{}
+			for _, d := range results {
+				findIDs = append(findIDs, d.Map()["_id"])
+			}
+
+			var countCmd bson.D
+			if err := db.RunCommand(ctx, bson.D{{Key: "count", Value: viewName}}).Decode(&countCmd); err != nil {
+				return nil, err
+			}
+
+			return bson.D{
+				{Key: "findIDs", Value: findIDs},
+				{Key: "countN", Value: countCmd.Map()["n"]},
+			}, nil
 		},
 	})
 }
@@ -1650,7 +1718,13 @@ func TestView_Sort_OnView(t *testing.T) {
 			if err := cur.All(ctx, &results); err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
+			// Return the ordered val sequence so the parity check verifies sort
+			// order on the view, not just the row count.
+			vals := bson.A{}
+			for _, d := range results {
+				vals = append(vals, d.Map()["val"])
+			}
+			return bson.D{{Key: "vals", Value: vals}}, nil
 		},
 	})
 }
