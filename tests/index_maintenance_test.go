@@ -450,7 +450,7 @@ func TestIndex_MixedNumeric_EqualityUnified(t *testing.T) {
 func TestIndex_MixedNumeric_GtCrossesBoundary(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_MixedNumeric_GtCrossesBoundary",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   idxmMixedNumericSetup,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return idxmProbe(ctx, col, "gt25",
@@ -462,7 +462,7 @@ func TestIndex_MixedNumeric_GtCrossesBoundary(t *testing.T) {
 func TestIndex_MixedNumeric_GteCrossesBoundary(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_MixedNumeric_GteCrossesBoundary",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   idxmMixedNumericSetup,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return idxmProbe(ctx, col, "gte25",
@@ -474,7 +474,7 @@ func TestIndex_MixedNumeric_GteCrossesBoundary(t *testing.T) {
 func TestIndex_MixedNumeric_LtCrossesBoundary(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_MixedNumeric_LtCrossesBoundary",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   idxmMixedNumericSetup,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			out := bson.D{}
@@ -538,7 +538,7 @@ func TestIndex_LossyTypes_Decimal128(t *testing.T) {
 	d25, _ := primitive.ParseDecimal128("2.5")
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_LossyTypes_Decimal128",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: idxmSetupNamed(bson.D{
 			{Key: "dec15", Value: d15},
 			{Key: "dec25", Value: d25},
@@ -556,7 +556,7 @@ func TestIndex_LossyTypes_Timestamp(t *testing.T) {
 	ts2 := primitive.Timestamp{T: 200, I: 2}
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_LossyTypes_Timestamp",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: idxmSetupNamed(bson.D{
 			{Key: "ts1", Value: ts1},
 			{Key: "ts2", Value: ts2},
@@ -571,7 +571,7 @@ func TestIndex_LossyTypes_Timestamp(t *testing.T) {
 func TestIndex_LossyTypes_NaN(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_LossyTypes_NaN",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: idxmSetupNamed(bson.D{
 			{Key: "nan", Value: math.NaN()},
 			{Key: "nul", Value: nil},
