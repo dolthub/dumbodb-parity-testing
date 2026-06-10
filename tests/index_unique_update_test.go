@@ -1,10 +1,21 @@
+// Copyright 2026 Dolthub, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tests
 
-// Parity family for unique-index enforcement on the update path
-// (behavior U2 of dumbodb docs/design/secondary-index-structural-sharing.md):
-// an update that would change a doc's unique key to collide with
-// another doc fails with a duplicate-key error and leaves both docs
-// unchanged.
+// Behavior U2 of dumbodb
+// docs/design/secondary-index-structural-sharing.md.
 
 import (
 	"context"
@@ -33,9 +44,6 @@ func idxmUniqueSetup(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
-// idxmDupOutcome reduces an update error to a comparable shape: did it
-// fail, and was it a duplicate-key failure (MongoDB error 11000 /
-// "duplicate key" text).
 func idxmDupOutcome(err error) bson.D {
 	if err == nil {
 		return bson.D{{Key: "failed", Value: false}, {Key: "dup", Value: false}}
@@ -56,7 +64,6 @@ func TestIndex_UniqueUpdate_SetCollision(t *testing.T) {
 				bson.D{{Key: "$set", Value: bson.D{{Key: "f", Value: "bravo"}}}})
 			out := idxmDupOutcome(updErr)
 
-			// Both docs must be unchanged after the failed update.
 			probes, err := idxmProbe(ctx, col, "alpha", bson.D{{Key: "f", Value: "alpha"}})
 			if err != nil {
 				return nil, err
@@ -98,8 +105,6 @@ func TestIndex_UniqueUpdate_NonCollidingSucceeds(t *testing.T) {
 		Support: harness.DumboDBFull,
 		Setup:   idxmUniqueSetup,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// Changing to a fresh value is fine; so is a same-value
-			// rewrite of the doc that already owns the key.
 			if _, err := col.UpdateOne(ctx,
 				bson.D{{Key: "_id", Value: "u1"}},
 				bson.D{{Key: "$set", Value: bson.D{{Key: "f", Value: "charlie"}}}}); err != nil {

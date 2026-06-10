@@ -1,9 +1,21 @@
+// Copyright 2026 Dolthub, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tests
 
-// Parity families for sparse / partial index membership (behaviors M1
-// and M2 of dumbodb docs/design/secondary-index-structural-sharing.md):
-// query results and unique coexistence are MongoDB-defined; the
-// stored-content halves are dumbodb-only tests.
+// Behaviors M1 and M2 of dumbodb
+// docs/design/secondary-index-structural-sharing.md.
 
 import (
 	"context"
@@ -35,13 +47,11 @@ func TestIndex_Sparse_QueryAfterFieldTransitions(t *testing.T) {
 			return err
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// Field appears on the previously-missing doc...
 			if _, err := col.UpdateOne(ctx,
 				bson.D{{Key: "_id", Value: "miss"}},
 				bson.D{{Key: "$set", Value: bson.D{{Key: "f", Value: "bravo"}}}}); err != nil {
 				return nil, err
 			}
-			// ...and disappears from the doc that had it.
 			if _, err := col.UpdateOne(ctx,
 				bson.D{{Key: "_id", Value: "has"}},
 				bson.D{{Key: "$unset", Value: bson.D{{Key: "f", Value: ""}}}}); err != nil {
@@ -78,7 +88,6 @@ func TestIndex_Sparse_UniqueCoexistence(t *testing.T) {
 			return err
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// Two docs both missing the sparse-unique field must coexist.
 			docs := []interface{}{
 				bson.D{{Key: "_id", Value: "m1"}, {Key: "other", Value: int32(1)}},
 				bson.D{{Key: "_id", Value: "m2"}, {Key: "other", Value: int32(2)}},
@@ -117,8 +126,6 @@ func TestIndex_Partial_MembershipTransition(t *testing.T) {
 			return err
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// The design doc's motivating example: a member leaves the
-			// filter; a non-member enters it.
 			if _, err := col.UpdateOne(ctx,
 				bson.D{{Key: "_id", Value: "a1"}},
 				bson.D{{Key: "$set", Value: bson.D{{Key: "status", Value: "inactive"}}}}); err != nil {
@@ -129,9 +136,6 @@ func TestIndex_Partial_MembershipTransition(t *testing.T) {
 				bson.D{{Key: "$set", Value: bson.D{{Key: "status", Value: "active"}}}}); err != nil {
 				return nil, err
 			}
-			// Queries on f must return all matching docs regardless of
-			// index membership (the partial index covers a subset; the
-			// query planner must not lose the rest).
 			out := bson.D{}
 			for _, probe := range []struct {
 				label  string
