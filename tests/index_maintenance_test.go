@@ -110,7 +110,7 @@ func idxmSetupNamed(values bson.D, indexField string) func(context.Context, *mon
 func TestIndex_UpdateReindex_Set(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_UpdateReindex_Set",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: idxmSetupNamed(bson.D{
 			{Key: "u1", Value: "alpha"}, {Key: "u2", Value: "bravo"}, {Key: "u3", Value: "charlie"},
 		}, "field"),
@@ -142,7 +142,7 @@ func TestIndex_UpdateReindex_Set(t *testing.T) {
 func TestIndex_UpdateReindex_Unset(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_UpdateReindex_Unset",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: idxmSetupNamed(bson.D{
 			{Key: "u1", Value: "alpha"}, {Key: "u2", Value: "bravo"},
 		}, "field"),
@@ -174,7 +174,7 @@ func TestIndex_UpdateReindex_Unset(t *testing.T) {
 func TestIndex_UpdateReindex_Inc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_UpdateReindex_Inc",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: idxmSetupNamed(bson.D{
 			{Key: "u1", Value: int32(10)}, {Key: "u2", Value: int32(20)}, {Key: "u3", Value: int32(30)},
 		}, "n"),
@@ -206,7 +206,7 @@ func TestIndex_UpdateReindex_Inc(t *testing.T) {
 func TestIndex_UpdateReindex_Replace(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_UpdateReindex_Replace",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: idxmSetupNamed(bson.D{
 			{Key: "u1", Value: "alpha"}, {Key: "u2", Value: "bravo"},
 		}, "field"),
@@ -238,7 +238,7 @@ func TestIndex_UpdateReindex_Replace(t *testing.T) {
 func TestIndex_UpdateReindex_UpdateMany(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_UpdateReindex_UpdateMany",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: idxmSetupNamed(bson.D{
 			{Key: "u1", Value: "alpha"}, {Key: "u2", Value: "alpha"}, {Key: "u3", Value: "bravo"},
 		}, "field"),
@@ -270,7 +270,7 @@ func TestIndex_UpdateReindex_UpdateMany(t *testing.T) {
 func TestIndex_UpdateReindex_Upsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_UpdateReindex_Upsert",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: idxmSetupNamed(bson.D{
 			{Key: "u1", Value: "alpha"},
 		}, "field"),
@@ -308,7 +308,7 @@ func TestIndex_UpdateReindex_Upsert(t *testing.T) {
 func TestIndex_DeleteUnindex_DeleteOneByID(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_DeleteUnindex_DeleteOneByID",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: idxmSetupNamed(bson.D{
 			{Key: "d1", Value: "alpha"}, {Key: "d2", Value: "bravo"},
 		}, "field"),
@@ -324,7 +324,7 @@ func TestIndex_DeleteUnindex_DeleteOneByID(t *testing.T) {
 func TestIndex_DeleteUnindex_DeleteOneByFilter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_DeleteUnindex_DeleteOneByFilter",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: idxmSetupNamed(bson.D{
 			{Key: "d1", Value: "alpha"}, {Key: "d2", Value: "bravo"},
 		}, "field"),
@@ -340,7 +340,7 @@ func TestIndex_DeleteUnindex_DeleteOneByFilter(t *testing.T) {
 func TestIndex_DeleteUnindex_DeleteMany(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_DeleteUnindex_DeleteMany",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: idxmSetupNamed(bson.D{
 			{Key: "d1", Value: "alpha"}, {Key: "d2", Value: "alpha"}, {Key: "d3", Value: "bravo"},
 		}, "field"),
@@ -370,7 +370,7 @@ func TestIndex_DeleteUnindex_DeleteMany(t *testing.T) {
 func TestIndex_DeleteUnindex_FindOneAndDelete(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_DeleteUnindex_FindOneAndDelete",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: idxmSetupNamed(bson.D{
 			{Key: "d1", Value: "alpha"}, {Key: "d2", Value: "bravo"},
 		}, "field"),
