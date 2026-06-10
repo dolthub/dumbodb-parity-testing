@@ -154,3 +154,43 @@ func TestIndex_Partial_MembershipTransition(t *testing.T) {
 		},
 	})
 }
+
+// A query that implies the partial condition uses the index (see the
+// explain tests); this pins that the index-used path returns exactly the
+// in-filter docs and nothing outside the partial set.
+func TestIndex_Partial_ImpliesFilterReturnsSubset(t *testing.T) {
+	partialOpts := options.Index().SetPartialFilterExpression(
+		bson.D{{Key: "status", Value: "active"}})
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_Partial_ImpliesFilterReturnsSubset",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			docs := []interface{}{
+				bson.D{{Key: "_id", Value: "s1"}, {Key: "f", Value: "alpha"}, {Key: "status", Value: "active"}},
+				bson.D{{Key: "_id", Value: "s2"}, {Key: "f", Value: "alpha"}, {Key: "status", Value: "inactive"}},
+				bson.D{{Key: "_id", Value: "s3"}, {Key: "f", Value: "bravo"}, {Key: "status", Value: "active"}},
+			}
+			if _, err := col.InsertMany(ctx, docs); err != nil {
+				return err
+			}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "f", Value: int32(1)}},
+				Options: partialOpts,
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Find(ctx,
+				bson.D{{Key: "f", Value: "alpha"}, {Key: "status", Value: "active"}},
+				options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+			if err != nil {
+				return nil, err
+			}
+			var got []bson.D
+			if err := cur.All(ctx, &got); err != nil {
+				return nil, err
+			}
+			return got, nil
+		},
+	})
+}
