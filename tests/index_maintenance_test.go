@@ -1,15 +1,22 @@
+// Copyright 2026 Dolthub, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tests
 
-// Red-bar parity families for secondary-index maintenance gaps.
-// See dumbodb docs/design/secondary-index-structural-sharing.md:
-//
-//   Index_UpdateReindex_*  -- behavior W2 (updates do not re-index)
-//   Index_DeleteUnindex_*  -- behavior W3 (deletes leave stale entries)
-//   Index_MixedNumeric_*   -- behavior T2 (non-integer float mis-bucketing)
-//   Index_LossyTypes_*     -- behavior T3 (lossy encodings corrupt counts)
-//
-// Tests whose behavior is currently broken are DumboDBXFail; they flip
-// to DumboDBFull as the fixing phase lands.
+// Behaviors W2 (Index_UpdateReindex_*), W3 (Index_DeleteUnindex_*),
+// T2 (Index_MixedNumeric_*), and T3 (Index_LossyTypes_*) of dumbodb
+// docs/design/secondary-index-structural-sharing.md.
 
 import (
 	"context"
@@ -24,8 +31,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// idxmFindIDs returns the sorted _id values matching filter, via an
-// _id-sorted, _id-projected find. Deterministic across both servers.
 func idxmFindIDs(ctx context.Context, col *mongo.Collection, filter interface{}) (bson.A, error) {
 	opts := options.Find().
 		SetSort(bson.D{{Key: "_id", Value: int32(1)}}).
@@ -49,8 +54,8 @@ func idxmFindIDs(ctx context.Context, col *mongo.Collection, filter interface{})
 	return ids, nil
 }
 
-// idxmCount runs the count command (not CountDocuments, which uses an
-// aggregate) so the backend's indexed-count fast path is exercised.
+// idxmCount uses the count command rather than CountDocuments (an
+// aggregate) so the indexed-count fast path is exercised.
 func idxmCount(ctx context.Context, col *mongo.Collection, filter interface{}) (int32, error) {
 	var res bson.M
 	err := col.Database().RunCommand(ctx, bson.D{
@@ -71,7 +76,6 @@ func idxmCount(ctx context.Context, col *mongo.Collection, filter interface{}) (
 	return 0, nil
 }
 
-// idxmProbe packages the find IDs and count for one filter.
 func idxmProbe(ctx context.Context, col *mongo.Collection, label string, filter interface{}) (bson.D, error) {
 	ids, err := idxmFindIDs(ctx, col, filter)
 	if err != nil {
@@ -102,10 +106,6 @@ func idxmSetupNamed(values bson.D, indexField string) func(context.Context, *mon
 		return err
 	}
 }
-
-// ---------------------------------------------------------------------------
-// W2: Index_UpdateReindex_*
-// ---------------------------------------------------------------------------
 
 func TestIndex_UpdateReindex_Set(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -275,7 +275,6 @@ func TestIndex_UpdateReindex_Upsert(t *testing.T) {
 			{Key: "u1", Value: "alpha"},
 		}, "field"),
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// Upsert that matches an existing doc behaves as an update.
 			if _, err := col.UpdateOne(ctx,
 				bson.D{{Key: "_id", Value: "u1"}},
 				bson.D{{Key: "$set", Value: bson.D{{Key: "field", Value: "victor"}}}},
@@ -300,10 +299,6 @@ func TestIndex_UpdateReindex_Upsert(t *testing.T) {
 		},
 	})
 }
-
-// ---------------------------------------------------------------------------
-// W3: Index_DeleteUnindex_*
-// ---------------------------------------------------------------------------
 
 func TestIndex_DeleteUnindex_DeleteOneByID(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -384,13 +379,6 @@ func TestIndex_DeleteUnindex_FindOneAndDelete(t *testing.T) {
 		},
 	})
 }
-
-// ---------------------------------------------------------------------------
-// T2: Index_MixedNumeric_*
-//
-// Docs span int32 and non-integer float64 values over one indexed field.
-// MongoDB compares numerics by value across representations.
-// ---------------------------------------------------------------------------
 
 func idxmMixedNumericSetup(ctx context.Context, col *mongo.Collection) error {
 	docs := []interface{}{
@@ -525,14 +513,6 @@ func TestIndex_MixedNumeric_SortAscending(t *testing.T) {
 	})
 }
 
-// ---------------------------------------------------------------------------
-// T3: Index_LossyTypes_*
-//
-// Values whose KeyString encoding is lossy (Decimal128, Timestamp, NaN,
-// embedded documents) must still produce MongoDB-identical find and
-// count results.
-// ---------------------------------------------------------------------------
-
 func TestIndex_LossyTypes_Decimal128(t *testing.T) {
 	d15, _ := primitive.ParseDecimal128("1.5")
 	d25, _ := primitive.ParseDecimal128("2.5")
@@ -620,8 +600,6 @@ func TestIndex_LossyTypes_NullCountExcludesLossy(t *testing.T) {
 			return err
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// MongoDB: {f: null} matches the explicit null and the
-			// missing-field doc only -- never Decimal128 or Timestamp.
 			return idxmProbe(ctx, col, "null", bson.D{{Key: "f", Value: nil}})
 		},
 	})

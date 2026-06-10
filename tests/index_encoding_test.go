@@ -1,14 +1,22 @@
+// Copyright 2026 Dolthub, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tests
 
-// Parity families for KeyString encoding soundness (Phase E of
-// dumbodb docs/design/secondary-index-structural-sharing.md):
-//
-//   Index_MixedTypeBrackets_* -- behavior T1 (queries never leak
-//                                across MongoDB type brackets)
-//   Index_RegexFilter_*       -- regex filters on indexed fields are
-//                                pattern matches, not equality probes
-//   Index_MultikeyMixedTypes_* / Index_Multikey_* -- behavior T4 and
-//                                multikey range dedup
+// Behaviors T1 (Index_MixedTypeBrackets_*) and T4 (Index_Multikey*)
+// of dumbodb docs/design/secondary-index-structural-sharing.md, plus
+// regex-filter and multikey range coverage.
 
 import (
 	"context"
@@ -22,7 +30,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// idxmMixedBracketSetup spans most type brackets over one indexed field.
 func idxmMixedBracketSetup(ctx context.Context, col *mongo.Collection) error {
 	docs := []interface{}{
 		bson.D{{Key: "_id", Value: "nul"}, {Key: "f", Value: nil}},
@@ -54,8 +61,6 @@ func TestIndex_MixedTypeBrackets_NumericRangeExcludesOthers(t *testing.T) {
 				label  string
 				filter interface{}
 			}{
-				// Open-ended numeric ranges: must match numbers only,
-				// never the null / string / bool / date / ts docs.
 				{"gt0", bson.D{{Key: "f", Value: bson.D{{Key: "$gt", Value: int32(0)}}}}},
 				{"lt10", bson.D{{Key: "f", Value: bson.D{{Key: "$lt", Value: int32(10)}}}}},
 			} {
@@ -123,8 +128,6 @@ func TestIndex_RegexFilter_OnIndexedField(t *testing.T) {
 			{Key: "nul", Value: nil},
 		}, "f"),
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// A bare regex filter is a pattern match. An index that
-			// treats it as an equality probe returns nothing.
 			ids, err := idxmFindIDs(ctx, col, bson.D{
 				{Key: "f", Value: primitive.Regex{Pattern: "^ap", Options: ""}},
 			})
@@ -155,9 +158,6 @@ func TestIndex_Multikey_RangeNoDuplicates(t *testing.T) {
 			return err
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// m1 has three elements > 4: it must appear once, not three
-			// times. Counts go through the count command; multikey range
-			// counts must match MongoDB (doc-level, not entry-level).
 			return idxmProbe(ctx, col, "gt4",
 				bson.D{{Key: "f", Value: bson.D{{Key: "$gt", Value: int32(4)}}}})
 		},
