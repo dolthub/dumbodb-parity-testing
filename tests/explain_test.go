@@ -7,6 +7,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
@@ -155,6 +156,14 @@ func insertExplainDocs(ctx context.Context, col *mongo.Collection) error {
 // createIndex is a tiny helper for tests that need to install an index before explain.
 func createIndex(ctx context.Context, col *mongo.Collection, keys bson.D) error {
 	_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: keys})
+	return err
+}
+
+func createPartialIndex(ctx context.Context, col *mongo.Collection, keys, pfe bson.D, name string) error {
+	_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    keys,
+		Options: options.Index().SetName(name).SetPartialFilterExpression(pfe),
+	})
 	return err
 }
 
@@ -778,6 +787,62 @@ func TestExplain_Hint_Natural(t *testing.T) {
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{{Key: "n", Value: int32(7)}}},
 				{Key: "hint", Value: bson.D{{Key: "$natural", Value: int32(1)}}},
+			}, "queryPlanner")
+			if err != nil {
+				return nil, err
+			}
+			return explainExtractCritical(doc), nil
+		},
+	})
+}
+
+// A query that includes the partial filter as an equality implies the
+// partial condition, so every matching doc is in the index and the
+// planner uses it. Guards the r1l fix (dumbodb 1254f8f).
+func TestExplain_Partial_IXSCAN_WhenFilterImplies(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Explain_Partial_IXSCAN_WhenFilterImplies",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if err := insertExplainDocs(ctx, col); err != nil {
+				return err
+			}
+			return createPartialIndex(ctx, col,
+				bson.D{{Key: "n", Value: 1}},
+				bson.D{{Key: "city", Value: "NYC"}}, "n_nyc_partial")
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			doc, err := explainRunExplain(ctx, col, bson.D{
+				{Key: "find", Value: col.Name()},
+				{Key: "filter", Value: bson.D{{Key: "n", Value: int32(4)}, {Key: "city", Value: "NYC"}}},
+			}, "queryPlanner")
+			if err != nil {
+				return nil, err
+			}
+			return explainExtractCritical(doc), nil
+		},
+	})
+}
+
+// The same partial index must NOT be used for a bare indexed-field query
+// that omits the partial condition: docs with that n but city != NYC live
+// outside the index, so using it would silently drop them. Plan is a scan.
+func TestExplain_Partial_COLLSCAN_WhenFilterDoesNotImply(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Explain_Partial_COLLSCAN_WhenFilterDoesNotImply",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if err := insertExplainDocs(ctx, col); err != nil {
+				return err
+			}
+			return createPartialIndex(ctx, col,
+				bson.D{{Key: "n", Value: 1}},
+				bson.D{{Key: "city", Value: "NYC"}}, "n_nyc_partial")
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			doc, err := explainRunExplain(ctx, col, bson.D{
+				{Key: "find", Value: col.Name()},
+				{Key: "filter", Value: bson.D{{Key: "n", Value: int32(4)}}},
 			}, "queryPlanner")
 			if err != nil {
 				return nil, err
