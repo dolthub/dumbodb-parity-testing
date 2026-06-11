@@ -2,7 +2,9 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"math"
+	"sort"
 	"testing"
 	"time"
 
@@ -12,6 +14,18 @@ import (
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
+
+// sortedArray returns a copy of arr sorted by each element's string form, so a
+// parity test can compare a set-valued result whose element order is not
+// guaranteed (e.g. $setUnion, $addToSet).
+func sortedArray(arr bson.A) bson.A {
+	out := make(bson.A, len(arr))
+	copy(out, arr)
+	sort.Slice(out, func(i, j int) bool {
+		return fmt.Sprintf("%v", out[i]) < fmt.Sprintf("%v", out[j])
+	})
+	return out
+}
 
 // exprProject is a helper that runs a single-document $project pipeline and
 // returns the result. The seed doc is inserted by the caller via Setup.
@@ -1065,11 +1079,17 @@ func TestAccum_stdDevPop(t *testing.T) {
 			if err := cursor.All(ctx, &results); err != nil {
 				return nil, err
 			}
-			// Return just the dept names and whether stdDev is > 0 (non-deterministic exact value)
+			// Assert the population std-dev value (deterministic), rounded to
+			// tolerate tiny float representation differences. The previous
+			// hasStdDev:true constant verified nothing about the computation.
 			var out []bson.D
 			for _, r := range results {
-				dept := r.Map()["_id"]
-				out = append(out, bson.D{{Key: "dept", Value: dept}, {Key: "hasStdDev", Value: true}})
+				m := r.Map()
+				sd, _ := m["stdDev"].(float64)
+				out = append(out, bson.D{
+					{Key: "dept", Value: m["_id"]},
+					{Key: "stdDev", Value: math.Round(sd*1e6) / 1e6},
+				})
 			}
 			return docsToSlice(out), nil
 		},
@@ -1310,7 +1330,8 @@ func TestExpr_setUnion(t *testing.T) {
 			// Size is deterministic even if order is not
 			if doc, ok := res.(bson.D); ok {
 				if arr, ok := doc.Map()["result"].(bson.A); ok {
-					return bson.D{{Key: "size", Value: int32(len(arr))}}, nil
+					// Assert the element set (sorted), not just its size.
+					return bson.D{{Key: "result", Value: sortedArray(arr)}}, nil
 				}
 			}
 			return res, nil
@@ -1333,7 +1354,8 @@ func TestExpr_setIntersection(t *testing.T) {
 			}
 			if doc, ok := res.(bson.D); ok {
 				if arr, ok := doc.Map()["result"].(bson.A); ok {
-					return bson.D{{Key: "size", Value: int32(len(arr))}}, nil
+					// Assert the element set (sorted), not just its size.
+					return bson.D{{Key: "result", Value: sortedArray(arr)}}, nil
 				}
 			}
 			return res, nil
@@ -1356,7 +1378,8 @@ func TestExpr_setDifference(t *testing.T) {
 			}
 			if doc, ok := res.(bson.D); ok {
 				if arr, ok := doc.Map()["result"].(bson.A); ok {
-					return bson.D{{Key: "size", Value: int32(len(arr))}}, nil
+					// Assert the element set (sorted), not just its size.
+					return bson.D{{Key: "result", Value: sortedArray(arr)}}, nil
 				}
 			}
 			return res, nil
