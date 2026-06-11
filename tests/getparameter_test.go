@@ -76,7 +76,7 @@ func TestGetParameter_KnownPlusUnknownSilentlyDropsUnknown(t *testing.T) {
 func TestGetParameter_NonAdminRejected(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetParameter_NonAdminRejected",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			result := col.Database().RunCommand(ctx, bson.D{
 				{Key: "getParameter", Value: int32(1)},
