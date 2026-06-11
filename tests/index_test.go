@@ -1020,23 +1020,16 @@ func TestIndex_Hint_Find_ByName(t *testing.T) {
 				return err
 			}
 			_, err := col.InsertMany(ctx, []interface{}{
-				bson.D{{Key: "score", Value: int32(1)}},
-				bson.D{{Key: "score", Value: int32(2)}},
-				bson.D{{Key: "score", Value: int32(3)}},
+				bson.D{{Key: "_id", Value: int32(1)}, {Key: "score", Value: int32(1)}},
+				bson.D{{Key: "_id", Value: int32(2)}, {Key: "score", Value: int32(2)}},
+				bson.D{{Key: "_id", Value: int32(3)}, {Key: "score", Value: int32(3)}},
 			})
 			return err
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			cur, err := col.Find(ctx, bson.D{},
-				options.Find().SetHint("score_1"))
-			if err != nil {
-				return nil, err
-			}
-			var results []bson.D
-			if err := cur.All(ctx, &results); err != nil {
-				return nil, err
-			}
-			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
+			// Return the matched _id set (not a count): a hinted query must
+			// return exactly the right documents.
+			return hintedFindIDs(ctx, col, bson.D{{Key: "score", Value: bson.D{{Key: "$gte", Value: int32(2)}}}}, "score_1")
 		},
 	})
 }
@@ -1051,22 +1044,13 @@ func TestIndex_Hint_Find_BySpec(t *testing.T) {
 				return err
 			}
 			_, err := col.InsertMany(ctx, []interface{}{
-				bson.D{{Key: "name", Value: "Alice"}},
-				bson.D{{Key: "name", Value: "Bob"}},
+				bson.D{{Key: "_id", Value: int32(1)}, {Key: "name", Value: "Alice"}},
+				bson.D{{Key: "_id", Value: int32(2)}, {Key: "name", Value: "Bob"}},
 			})
 			return err
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			cur, err := col.Find(ctx, bson.D{},
-				options.Find().SetHint(bson.D{{Key: "name", Value: 1}}))
-			if err != nil {
-				return nil, err
-			}
-			var results []bson.D
-			if err := cur.All(ctx, &results); err != nil {
-				return nil, err
-			}
-			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
+			return hintedFindIDs(ctx, col, bson.D{{Key: "name", Value: "Bob"}}, bson.D{{Key: "name", Value: 1}})
 		},
 	})
 }
@@ -1083,16 +1067,81 @@ func TestIndex_Hint_IdIndex(t *testing.T) {
 			return err
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			cur, err := col.Find(ctx, bson.D{},
-				options.Find().SetHint(bson.D{{Key: "_id", Value: 1}}))
-			if err != nil {
-				return nil, err
+			return hintedFindIDs(ctx, col, bson.D{}, bson.D{{Key: "_id", Value: 1}})
+		},
+	})
+}
+
+// hintedFindIDs runs find(filter).hint(hint) sorted by _id and returns the
+// matched _id sequence, so a parity test asserts the hinted query returns the
+// correct documents rather than only their count.
+func hintedFindIDs(ctx context.Context, col *mongo.Collection, filter bson.D, hint interface{}) (interface{}, error) {
+	cur, err := col.Find(ctx, filter, options.Find().SetHint(hint).SetSort(bson.D{{Key: "_id", Value: 1}}))
+	if err != nil {
+		return nil, err
+	}
+	var results []bson.D
+	if err := cur.All(ctx, &results); err != nil {
+		return nil, err
+	}
+	ids := bson.A{}
+	for _, d := range results {
+		ids = append(ids, d.Map()["_id"])
+	}
+	return bson.D{{Key: "ids", Value: ids}}, nil
+}
+
+// TestIndex_Hint_NonCoveringIndex_ReturnsCorrect guards that hinting an index
+// that does not cover the query's filter still returns the correct documents.
+// dumbodb restricts runtime selection to the hinted index and, when it cannot
+// produce a usable range for the filter, falls back to a collection scan --
+// the result set must be unaffected, matching MongoDB.
+func TestIndex_Hint_NonCoveringIndex_ReturnsCorrect(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_Hint_NonCoveringIndex_ReturnsCorrect",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			for _, m := range []mongo.IndexModel{
+				{Keys: bson.D{{Key: "a", Value: 1}}},
+				{Keys: bson.D{{Key: "b", Value: 1}}},
+			} {
+				if _, err := col.Indexes().CreateOne(ctx, m); err != nil {
+					return err
+				}
 			}
-			var results []bson.D
-			if err := cur.All(ctx, &results); err != nil {
-				return nil, err
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: int32(10)}, {Key: "b", Value: int32(1)}},
+				bson.D{{Key: "_id", Value: int32(2)}, {Key: "a", Value: int32(20)}, {Key: "b", Value: int32(2)}},
+				bson.D{{Key: "_id", Value: int32(3)}, {Key: "a", Value: int32(10)}, {Key: "b", Value: int32(3)}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			// Filter on a, but hint the b index (which does not cover a).
+			return hintedFindIDs(ctx, col, bson.D{{Key: "a", Value: int32(10)}}, "b_1")
+		},
+	})
+}
+
+// TestIndex_Hint_Natural_ReturnsCorrect guards that a {$natural} hint, which
+// forces a collection scan, still returns the filtered documents.
+func TestIndex_Hint_Natural_ReturnsCorrect(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_Hint_Natural_ReturnsCorrect",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}}}); err != nil {
+				return err
 			}
-			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: int32(10)}},
+				bson.D{{Key: "_id", Value: int32(2)}, {Key: "a", Value: int32(20)}},
+				bson.D{{Key: "_id", Value: int32(3)}, {Key: "a", Value: int32(10)}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return hintedFindIDs(ctx, col, bson.D{{Key: "a", Value: int32(10)}}, bson.D{{Key: "$natural", Value: int32(1)}})
 		},
 	})
 }
