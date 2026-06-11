@@ -46,6 +46,21 @@ func docsToSlice(docs []bson.D) []interface{} {
 	return out
 }
 
+// allDocsByID returns every document in the collection sorted by _id, so a
+// write test can assert the post-write state of the data (the actual values),
+// not only the write-result counts.
+func allDocsByID(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+	cur, err := col.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+	if err != nil {
+		return nil, err
+	}
+	var docs []bson.D
+	if err := cur.All(ctx, &docs); err != nil {
+		return nil, err
+	}
+	return docsToSlice(docs), nil
+}
+
 func TestInsertOne_acknowledged(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "InsertOne_acknowledged",
@@ -154,7 +169,13 @@ func TestInsertMany_ordered(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "count", Value: int32(len(res.InsertedIDs))}}, nil
+			all, allErr := allDocsByID(ctx, col)
+			if allErr != nil {
+				return nil, allErr
+			}
+			out := bson.D{{Key: "count", Value: int32(len(res.InsertedIDs))}}
+			out = append(out, bson.E{Key: "docs", Value: all})
+			return out, nil
 		},
 	})
 }
@@ -347,10 +368,16 @@ func TestUpdateOne_set(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{
+			all, allErr := allDocsByID(ctx, col)
+			if allErr != nil {
+				return nil, allErr
+			}
+			out := bson.D{
 				{Key: "matchedCount", Value: res.MatchedCount},
 				{Key: "modifiedCount", Value: res.ModifiedCount},
-			}, nil
+			}
+			out = append(out, bson.E{Key: "docs", Value: all})
+			return out, nil
 		},
 	})
 }
@@ -1290,10 +1317,16 @@ func TestUpdateMany_pipeline(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{
+			all, allErr := allDocsByID(ctx, col)
+			if allErr != nil {
+				return nil, allErr
+			}
+			out := bson.D{
 				{Key: "matchedCount", Value: res.MatchedCount},
 				{Key: "modifiedCount", Value: res.ModifiedCount},
-			}, nil
+			}
+			out = append(out, bson.E{Key: "docs", Value: all})
+			return out, nil
 		},
 	})
 }
@@ -1398,10 +1431,16 @@ func TestUpdateMany(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{
+			all, allErr := allDocsByID(ctx, col)
+			if allErr != nil {
+				return nil, allErr
+			}
+			out := bson.D{
 				{Key: "matchedCount", Value: res.MatchedCount},
 				{Key: "modifiedCount", Value: res.ModifiedCount},
-			}, nil
+			}
+			out = append(out, bson.E{Key: "docs", Value: all})
+			return out, nil
 		},
 	})
 }
@@ -1419,10 +1458,16 @@ func TestUpdateMany_unset(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{
+			all, allErr := allDocsByID(ctx, col)
+			if allErr != nil {
+				return nil, allErr
+			}
+			out := bson.D{
 				{Key: "matchedCount", Value: res.MatchedCount},
 				{Key: "modifiedCount", Value: res.ModifiedCount},
-			}, nil
+			}
+			out = append(out, bson.E{Key: "docs", Value: all})
+			return out, nil
 		},
 	})
 }
@@ -1756,7 +1801,7 @@ func TestDistinct_string_field(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
+			return bson.D{{Key: "values", Value: sortedArray(bson.A(results))}}, nil
 		},
 	})
 }
@@ -1778,7 +1823,7 @@ func TestDistinct_nested_field(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
+			return bson.D{{Key: "values", Value: sortedArray(bson.A(results))}}, nil
 		},
 	})
 }
@@ -1794,7 +1839,7 @@ func TestDistinct_array_field(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
+			return bson.D{{Key: "values", Value: sortedArray(bson.A(results))}}, nil
 		},
 	})
 }
@@ -1907,10 +1952,16 @@ func TestReplaceOne(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{
+			all, allErr := allDocsByID(ctx, col)
+			if allErr != nil {
+				return nil, allErr
+			}
+			out := bson.D{
 				{Key: "matchedCount", Value: res.MatchedCount},
 				{Key: "modifiedCount", Value: res.ModifiedCount},
-			}, nil
+			}
+			out = append(out, bson.E{Key: "docs", Value: all})
+			return out, nil
 		},
 	})
 }
@@ -1941,12 +1992,18 @@ func TestBulkWrite_mixed_ops(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{
+			all, allErr := allDocsByID(ctx, col)
+			if allErr != nil {
+				return nil, allErr
+			}
+			out := bson.D{
 				{Key: "insertedCount", Value: res.InsertedCount},
 				{Key: "matchedCount", Value: res.MatchedCount},
 				{Key: "modifiedCount", Value: res.ModifiedCount},
 				{Key: "deletedCount", Value: res.DeletedCount},
-			}, nil
+			}
+			out = append(out, bson.E{Key: "docs", Value: all})
+			return out, nil
 		},
 	})
 }
@@ -1965,7 +2022,13 @@ func TestBulkWrite_all_inserts(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "insertedCount", Value: res.InsertedCount}}, nil
+			all, allErr := allDocsByID(ctx, col)
+			if allErr != nil {
+				return nil, allErr
+			}
+			out := bson.D{{Key: "insertedCount", Value: res.InsertedCount}}
+			out = append(out, bson.E{Key: "docs", Value: all})
+			return out, nil
 		},
 	})
 }
@@ -1991,11 +2054,17 @@ func TestBulkWrite_unordered(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{
+			all, allErr := allDocsByID(ctx, col)
+			if allErr != nil {
+				return nil, allErr
+			}
+			out := bson.D{
 				{Key: "matchedCount", Value: res.MatchedCount},
 				{Key: "modifiedCount", Value: res.ModifiedCount},
 				{Key: "deletedCount", Value: res.DeletedCount},
-			}, nil
+			}
+			out = append(out, bson.E{Key: "docs", Value: all})
+			return out, nil
 		},
 	})
 }
@@ -2040,10 +2109,16 @@ func TestBulkWrite_replace_model(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{
+			all, allErr := allDocsByID(ctx, col)
+			if allErr != nil {
+				return nil, allErr
+			}
+			out := bson.D{
 				{Key: "matchedCount", Value: res.MatchedCount},
 				{Key: "modifiedCount", Value: res.ModifiedCount},
-			}, nil
+			}
+			out = append(out, bson.E{Key: "docs", Value: all})
+			return out, nil
 		},
 	})
 }
@@ -2063,10 +2138,16 @@ func TestBulkWrite_update_many_model(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{
+			all, allErr := allDocsByID(ctx, col)
+			if allErr != nil {
+				return nil, allErr
+			}
+			out := bson.D{
 				{Key: "matchedCount", Value: res.MatchedCount},
 				{Key: "modifiedCount", Value: res.ModifiedCount},
-			}, nil
+			}
+			out = append(out, bson.E{Key: "docs", Value: all})
+			return out, nil
 		},
 	})
 }
