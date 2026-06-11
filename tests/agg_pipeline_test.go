@@ -514,10 +514,11 @@ func TestAgg_group_addToSet(t *testing.T) {
 			}
 			if len(results) == 1 {
 				if cats, ok := results[0].Map()["categories"].(bson.A); ok {
-					return bson.D{{Key: "uniqueCount", Value: int32(len(cats))}}, nil
+					// Assert the deduped set (sorted), not just its size.
+					return bson.D{{Key: "categories", Value: sortedArray(cats)}}, nil
 				}
 			}
-			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
+			return docsToSlice(results), nil
 		},
 	})
 }
@@ -943,11 +944,17 @@ func TestAgg_merge_whenMatched_merge(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			count, err := mergeCol.CountDocuments(ctx, bson.D{})
+			// Read the target collection back: assert whenMatched=merge
+			// combined fields (m1: existing+val) rather than only the doc count.
+			cur, err := mergeCol.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "count", Value: count}}, nil
+			var merged []bson.D
+			if err := cur.All(ctx, &merged); err != nil {
+				return nil, err
+			}
+			return docsToSlice(merged), nil
 		},
 	})
 }
@@ -1058,7 +1065,7 @@ func TestAgg_bucketAuto_basic(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "bucketCount", Value: int32(len(results))}}, nil
+			return docsToSlice(results), nil
 		},
 	})
 }
@@ -1082,7 +1089,7 @@ func TestAgg_bucketAuto_with_output(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "bucketCount", Value: int32(len(results))}}, nil
+			return docsToSlice(results), nil
 		},
 	})
 }
@@ -1377,6 +1384,7 @@ func TestAgg_allowDiskUse(t *testing.T) {
 					{Key: "_id", Value: "$category"},
 					{Key: "count", Value: bson.D{{Key: "$sum", Value: int32(1)}}},
 				}}},
+				{{Key: "$sort", Value: bson.D{{Key: "_id", Value: int32(1)}}}},
 			}, opts)
 			if err != nil {
 				return nil, err
@@ -1385,7 +1393,8 @@ func TestAgg_allowDiskUse(t *testing.T) {
 			if err := cursor.All(ctx, &results); err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
+			// Assert the grouped counts per category, sorted, not the total.
+			return docsToSlice(results), nil
 		},
 	})
 }
@@ -1500,7 +1509,8 @@ func TestAgg_sort_by_multiple_fields(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
+			// Assert the ordered docs, not just the count: this is a sort test.
+			return docsToSlice(results), nil
 		},
 	})
 }
@@ -1522,7 +1532,8 @@ func TestAgg_group_by_category_min_max(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
+			// Assert the per-category min/max values, not the group count.
+			return docsToSlice(results), nil
 		},
 	})
 }
@@ -1539,13 +1550,15 @@ func TestAgg_unwind_then_group_count(t *testing.T) {
 					{Key: "_id", Value: "$tags"},
 					{Key: "count", Value: bson.D{{Key: "$sum", Value: int32(1)}}},
 				}}},
-				{{Key: "$sort", Value: bson.D{{Key: "count", Value: int32(-1)}}}},
+				{{Key: "$sort", Value: bson.D{{Key: "count", Value: int32(-1)}, {Key: "_id", Value: int32(1)}}}},
 				{{Key: "$limit", Value: int32(3)}},
 			})
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
+			// Assert the top tags and their counts (with an _id tiebreaker for
+			// determinism), not just how many groups came back.
+			return docsToSlice(results), nil
 		},
 	})
 }
@@ -1637,10 +1650,8 @@ func TestAgg_group_avg_price(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			if len(results) == 0 {
-				return bson.D{{Key: "avgPrice", Value: float64(0)}}, nil
-			}
-			return bson.D{{Key: "hasResult", Value: true}}, nil
+			// Assert the computed average, not a hasResult bool.
+			return docsToSlice(results), nil
 		},
 	})
 }
