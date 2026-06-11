@@ -31,6 +31,7 @@ func findProjExprSeed(ctx context.Context, col *mongo.Collection) error {
 		{Key: "x", Value: int32(1)},
 		{Key: "y", Value: "hello"},
 		{Key: "nested", Value: bson.D{{Key: "a", Value: int32(1)}}},
+		{Key: "nullField", Value: nil},
 	})
 	return err
 }
@@ -97,6 +98,36 @@ func TestFindProjExpr_FieldPath(t *testing.T) {
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return runFindProj(ctx, col, bson.D{
 				{Key: "copyOfY", Value: "$y"},
+				{Key: "_id", Value: int32(0)},
+			})
+		},
+	})
+}
+
+// Null-valued source fields must project as explicit null, not be omitted.
+// (Regression check for the missing-vs-null distinction.)
+func TestFindProjExpr_NullFieldProjectedAsNull(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "FindProjExpr_NullFieldProjectedAsNull",
+		Support: harness.DumboDBFull,
+		Setup:   findProjExprSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return runFindProj(ctx, col, bson.D{
+				{Key: "m", Value: "$nullField"},
+				{Key: "_id", Value: int32(0)},
+			})
+		},
+	})
+}
+
+func TestFindProjExpr_NullFieldViaRootDot(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "FindProjExpr_NullFieldViaRootDot",
+		Support: harness.DumboDBFull,
+		Setup:   findProjExprSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return runFindProj(ctx, col, bson.D{
+				{Key: "m", Value: "$$ROOT.nullField"},
 				{Key: "_id", Value: int32(0)},
 			})
 		},
