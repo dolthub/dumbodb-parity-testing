@@ -175,16 +175,37 @@ func TestAggDBLevel_DocumentsInline(t *testing.T) {
 	})
 }
 
-func TestAggDBLevel_CurrentOp(t *testing.T) {
+func TestAggDBLevel_CurrentOp_NonAdminRejected(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "AggDBLevel_CurrentOp",
-		Support: harness.DumboDBXFail,
+		Name:    "AggDBLevel_CurrentOp_NonAdminRejected",
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return runDBAggregate(ctx, col, bson.D{
 				{Key: "aggregate", Value: int32(1)},
 				{Key: "pipeline", Value: bson.A{bson.D{{Key: "$currentOp", Value: bson.D{}}}}},
 				{Key: "cursor", Value: bson.D{}},
 			})
+		},
+	})
+}
+
+// $currentOp's contents are runtime state (op list) so the totals differ
+// between servers; we only assert the request succeeds with ok=1.
+func TestAggDBLevel_CurrentOp_AdminOK(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AggDBLevel_CurrentOp_AdminOK",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			var doc bson.M
+			err := col.Database().Client().Database("admin").RunCommand(ctx, bson.D{
+				{Key: "aggregate", Value: int32(1)},
+				{Key: "pipeline", Value: bson.A{bson.D{{Key: "$currentOp", Value: bson.D{}}}}},
+				{Key: "cursor", Value: bson.D{}},
+			}).Decode(&doc)
+			if err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "ok", Value: doc["ok"]}}, nil
 		},
 	})
 }
