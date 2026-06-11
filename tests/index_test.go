@@ -2341,3 +2341,81 @@ func TestIndex_IndexStats_AfterInsert(t *testing.T) {
 		},
 	})
 }
+
+// TestIndex_LargeDouble_IndexedRange guards that an index over large-magnitude
+// doubles (beyond the int64/uint64-safe range) returns correct range-query
+// results. Previously the KeyString float encoding overflowed and the indexed
+// range query silently returned nothing.
+func TestIndex_LargeDouble_IndexedRange(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_LargeDouble_IndexedRange",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: int32(1)}, {Key: "v", Value: 1e30}},
+				bson.D{{Key: "_id", Value: int32(2)}, {Key: "v", Value: 5e19}},
+				bson.D{{Key: "_id", Value: int32(3)}, {Key: "v", Value: 1e25}},
+				bson.D{{Key: "_id", Value: int32(4)}, {Key: "v", Value: 9e18}},
+				bson.D{{Key: "_id", Value: int32(5)}, {Key: "v", Value: 2e30}},
+			}); err != nil {
+				return err
+			}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "v", Value: 1}}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Find(ctx, bson.D{{Key: "v", Value: bson.D{{Key: "$gt", Value: 1e20}}}},
+				options.Find().SetSort(bson.D{{Key: "v", Value: 1}}))
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cur.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			ids := bson.A{}
+			for _, d := range results {
+				ids = append(ids, d.Map()["_id"])
+			}
+			return bson.D{{Key: "ids", Value: ids}}, nil
+		},
+	})
+}
+
+// TestIndex_Hint_KeyPatternWrongDirection guards that a key-pattern hint whose
+// direction does not match any existing index is rejected (BadValue), matching
+// MongoDB's exact key-pattern requirement.
+func TestIndex_Hint_KeyPatternWrongDirection(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_Hint_KeyPatternWrongDirection",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: int32(1)}},
+				bson.D{{Key: "_id", Value: int32(2)}, {Key: "a", Value: int32(2)}},
+			}); err != nil {
+				return err
+			}
+			// Ascending index only.
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			// {a:-1} does not match the {a:1} index, so the hint is invalid.
+			cur, err := col.Find(ctx, bson.D{{Key: "a", Value: int32(1)}},
+				options.Find().SetHint(bson.D{{Key: "a", Value: -1}}))
+			if err == nil {
+				var r []bson.D
+				err = cur.All(ctx, &r)
+			}
+			var cmdErr mongo.CommandError
+			if errors.As(err, &cmdErr) {
+				return bson.D{{Key: "errored", Value: true}, {Key: "code", Value: cmdErr.Code}}, nil
+			}
+			if err != nil {
+				return bson.D{{Key: "errored", Value: true}, {Key: "code", Value: int32(-1)}}, nil
+			}
+			return bson.D{{Key: "errored", Value: false}}, nil
+		},
+	})
+}
