@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
@@ -11,6 +12,24 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+// tsCollOptions returns the reported options sub-document for a collection,
+// used by the time-series scenarios to assert collection metadata.
+func tsCollOptions(ctx context.Context, db *mongo.Database, name string) (bson.M, error) {
+	cur, err := db.ListCollections(ctx, bson.D{{Key: "name", Value: name}})
+	if err != nil {
+		return nil, err
+	}
+	var infos []bson.M
+	if err := cur.All(ctx, &infos); err != nil {
+		return nil, err
+	}
+	if len(infos) == 0 {
+		return nil, nil
+	}
+	opts, _ := infos[0]["options"].(bson.M)
+	return opts, nil
+}
 
 func TestCapped_CreateCollection_Basic(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -924,7 +943,7 @@ func TestTimeSeries_GroupAggregation(t *testing.T) {
 			if err := cur.All(ctx, &results); err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "group_count", Value: int32(len(results))}}, nil
+			return docsToSlice(results), nil
 		},
 	})
 }
@@ -1117,11 +1136,14 @@ func TestTimeSeries_Granularity_Seconds(t *testing.T) {
 			}); err != nil {
 				return nil, err
 			}
-			count, err := ts.CountDocuments(ctx, bson.D{})
+			// Assert the configured granularity is reported (a 1-doc count is
+			// invariant to granularity and proved nothing about it).
+			opts, err := tsCollOptions(ctx, db, tsName)
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "count", Value: count}}, nil
+			tso, _ := opts["timeseries"].(bson.M)
+			return bson.D{{Key: "granularity", Value: tso["granularity"]}}, nil
 		},
 	})
 }
@@ -1149,11 +1171,13 @@ func TestTimeSeries_Granularity_Minutes(t *testing.T) {
 			}); err != nil {
 				return nil, err
 			}
-			count, err := ts.CountDocuments(ctx, bson.D{})
+			// Assert the configured granularity is reported.
+			opts, err := tsCollOptions(ctx, db, tsName)
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "count", Value: count}}, nil
+			tso, _ := opts["timeseries"].(bson.M)
+			return bson.D{{Key: "granularity", Value: tso["granularity"]}}, nil
 		},
 	})
 }
@@ -1202,7 +1226,7 @@ func TestTimeSeries_MaxTimeField(t *testing.T) {
 			if err := cur.All(ctx, &results); err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "has_result", Value: len(results) > 0}}, nil
+			return docsToSlice(results), nil
 		},
 	})
 }
@@ -1248,7 +1272,7 @@ func TestTimeSeries_SumAggregation(t *testing.T) {
 			if err := cur.All(ctx, &results); err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "group_count", Value: int32(len(results))}}, nil
+			return docsToSlice(results), nil
 		},
 	})
 }
@@ -1368,8 +1392,11 @@ func TestView_OnCappedCollection(t *testing.T) {
 
 func TestTimeSeries_WithExpireAfterSeconds(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "TimeSeries_WithExpireAfterSeconds",
-		Support: harness.DumboDBFull,
+		Name: "TimeSeries_WithExpireAfterSeconds",
+		// XFail: dumbodb ignores expireAfterSeconds on create and does not
+		// report it in collection metadata (workspace-pni). MongoDB reports
+		// it; this asserts that divergence until the TTL feature lands.
+		Support: harness.DumboDBXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_expire"
@@ -1390,11 +1417,14 @@ func TestTimeSeries_WithExpireAfterSeconds(t *testing.T) {
 			}); err != nil {
 				return nil, err
 			}
-			count, err := ts.CountDocuments(ctx, bson.D{})
+			// Assert the TTL is reported in collection metadata. MongoDB
+			// returns expireAfterSeconds; dumbodb omits it (the divergence
+			// this XFail pins).
+			opts, err := tsCollOptions(ctx, db, tsName)
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "count", Value: count}}, nil
+			return bson.D{{Key: "expireAfterSeconds", Value: opts["expireAfterSeconds"]}}, nil
 		},
 	})
 }
@@ -1438,7 +1468,7 @@ func TestTimeSeries_AggregateAvg(t *testing.T) {
 			if err := cur.All(ctx, &results); err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "has_avg", Value: len(results) == 1}}, nil
+			return docsToSlice(results), nil
 		},
 	})
 }
@@ -1467,11 +1497,20 @@ func TestTimeSeries_MultipleMetaValues(t *testing.T) {
 			if _, err := ts.InsertMany(ctx, docs); err != nil {
 				return nil, err
 			}
-			count, err := ts.CountDocuments(ctx, bson.D{})
+			// Read the documents back (excluding the non-deterministic ts and
+			// _id) to assert the nested meta sub-document round-trips, not just
+			// that two rows exist.
+			cur, err := ts.Find(ctx, bson.D{},
+				options.Find().SetSort(bson.D{{Key: "val", Value: 1}}).
+					SetProjection(bson.D{{Key: "ts", Value: 0}, {Key: "_id", Value: 0}}))
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "count", Value: count}}, nil
+			var results []bson.D
+			if err := cur.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			return docsToSlice(results), nil
 		},
 	})
 }
@@ -1587,7 +1626,14 @@ func TestTimeSeries_DistinctOnMetaField(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "distinct_count", Value: int32(len(results))}}, nil
+			// Return the distinct value set, sorted: a count cannot tell the
+			// right set (s1, s2) from a wrong one of the same size.
+			vals := make([]string, 0, len(results))
+			for _, v := range results {
+				vals = append(vals, v.(string))
+			}
+			sort.Strings(vals)
+			return bson.D{{Key: "distinctSensors", Value: vals}}, nil
 		},
 	})
 }
@@ -1871,7 +1917,7 @@ func TestTimeSeries_MinAggregation(t *testing.T) {
 			if err := cur.All(ctx, &results); err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "has_result", Value: len(results) == 1}}, nil
+			return docsToSlice(results), nil
 		},
 	})
 }
