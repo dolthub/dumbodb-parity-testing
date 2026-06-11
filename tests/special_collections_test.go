@@ -1390,15 +1390,13 @@ func TestView_OnCappedCollection(t *testing.T) {
 	})
 }
 
-func TestTimeSeries_ExpireAfterSeconds_Rejected(t *testing.T) {
+func TestTimeSeries_WithExpireAfterSeconds(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name: "TimeSeries_ExpireAfterSeconds_Rejected",
-		// dumbodb rejects expireAfterSeconds on a time-series collection -- TTL
-		// is not supported by design, since a wall-clock sweeper conflicts with
-		// version control (workspace-pni). MongoDB accepts it, so this XFail
-		// asserts the intentional divergence (and guards against dumbodb
-		// silently accepting TTL again).
-		Support: harness.DumboDBXFail,
+		Name: "TimeSeries_WithExpireAfterSeconds",
+		// MongoOnly: TTL (expireAfterSeconds) is a MongoDB feature dumbodb does
+		// not support -- it rejects the request (workspace-pni). This documents
+		// MongoDB's behavior; the rejection itself is asserted in the dumbodb repo.
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_expire"

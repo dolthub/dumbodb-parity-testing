@@ -439,10 +439,10 @@ func TestIndex_Sparse_UniqueWithMissingField(t *testing.T) {
 func TestIndex_TTL_CreateOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_TTL_CreateOne",
-		// dumbodb rejects TTL (expireAfterSeconds) by design -- a wall-clock
-		// sweeper conflicts with version control (workspace-pni); MongoDB
-		// supports it, so this asserts the intentional divergence.
-		Support: harness.DumboDBXFail,
+		// MongoOnly: TTL (expireAfterSeconds) is a MongoDB feature dumbodb does
+		// not support -- it rejects the request (workspace-pni). This documents
+		// MongoDB's behavior; the rejection itself is asserted in the dumbodb repo.
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			expireAfter := int32(3600)
 			model := mongo.IndexModel{
@@ -461,10 +461,10 @@ func TestIndex_TTL_CreateOne(t *testing.T) {
 func TestIndex_TTL_ZeroSeconds(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_TTL_ZeroSeconds",
-		// dumbodb rejects TTL (expireAfterSeconds) by design -- a wall-clock
-		// sweeper conflicts with version control (workspace-pni); MongoDB
-		// supports it, so this asserts the intentional divergence.
-		Support: harness.DumboDBXFail,
+		// MongoOnly: TTL (expireAfterSeconds) is a MongoDB feature dumbodb does
+		// not support -- it rejects the request (workspace-pni). This documents
+		// MongoDB's behavior; the rejection itself is asserted in the dumbodb repo.
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			expireAfter := int32(0)
 			model := mongo.IndexModel{
@@ -483,10 +483,10 @@ func TestIndex_TTL_ZeroSeconds(t *testing.T) {
 func TestIndex_TTL_InsertAndVerifyNotExpiredYet(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_TTL_InsertAndVerifyNotExpiredYet",
-		// dumbodb rejects TTL (expireAfterSeconds) by design -- a wall-clock
-		// sweeper conflicts with version control (workspace-pni); MongoDB
-		// supports it, so this asserts the intentional divergence.
-		Support: harness.DumboDBXFail,
+		// MongoOnly: TTL (expireAfterSeconds) is a MongoDB feature dumbodb does
+		// not support -- it rejects the request (workspace-pni). This documents
+		// MongoDB's behavior; the rejection itself is asserted in the dumbodb repo.
+		Support: harness.DumboDBMongoOnly,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			expireAfter := int32(3600)
 			model := mongo.IndexModel{
@@ -1808,10 +1808,10 @@ func TestIndex_Sparse_Drop(t *testing.T) {
 func TestIndex_TTL_OnNestedDateField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_TTL_OnNestedDateField",
-		// dumbodb rejects TTL (expireAfterSeconds) by design -- a wall-clock
-		// sweeper conflicts with version control (workspace-pni); MongoDB
-		// supports it, so this asserts the intentional divergence.
-		Support: harness.DumboDBXFail,
+		// MongoOnly: TTL (expireAfterSeconds) is a MongoDB feature dumbodb does
+		// not support -- it rejects the request (workspace-pni). This documents
+		// MongoDB's behavior; the rejection itself is asserted in the dumbodb repo.
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			expireAfter := int32(86400)
 			model := mongo.IndexModel{
