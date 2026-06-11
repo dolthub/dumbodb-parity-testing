@@ -2179,12 +2179,28 @@ func TestAggStage_unsupportedErrors_indexStats(t *testing.T) {
 	})
 }
 
+// $search and $listSearchIndexes return SearchNotEnabled(31082) on both
+// servers, but DumboDB returns a DumboDB-native message rather than MongoDB's
+// Atlas-pointer wording. The message divergence is intentional, so we keep
+// MongoDB-only coverage here and pin DumboDB's exact response in a unit test
+// in the dumbodb repo (stages/agg_stages_test.go).
 func TestAggStage_unsupportedErrors_search(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggStage_unsupportedErrors_search",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.Aggregate(ctx, bson.A{bson.D{{Key: "$search", Value: bson.D{}}}})
+			return nil, err
+		},
+	})
+}
+
+func TestAggStage_unsupportedErrors_listSearchIndexes(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AggStage_unsupportedErrors_listSearchIndexes",
+		Support: harness.DumboDBMongoOnly,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			_, err := col.Aggregate(ctx, bson.A{bson.D{{Key: "$listSearchIndexes", Value: bson.D{}}}})
 			return nil, err
 		},
 	})
