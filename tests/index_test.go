@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -1100,17 +1101,34 @@ func TestIndex_Hint_NonExistentIndexError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Hint_NonExistentIndexError",
 		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			// A populated, existing collection is required: MongoDB validates a
+			// hint only when the collection exists. (An empty/no-Setup
+			// collection does not exist, and MongoDB skips validation there --
+			// which is why a count-only assertion was a false-green.)
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "city", Value: "NYC"}},
+				bson.D{{Key: "city", Value: "LA"}},
+			})
+			return err
+		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			cur, err := col.Find(ctx, bson.D{},
-				options.Find().SetHint("nonexistent_idx"))
+			cur, err := col.Find(ctx, bson.D{}, options.Find().SetHint("nonexistent_idx"))
+			if err == nil {
+				var results []bson.D
+				err = cur.All(ctx, &results)
+			}
+
+			// Assert the error CODE (BadValue): an exact-message comparison
+			// would be fragile across versions.
+			var cmdErr mongo.CommandError
+			if errors.As(err, &cmdErr) {
+				return bson.D{{Key: "errored", Value: true}, {Key: "code", Value: cmdErr.Code}}, nil
+			}
 			if err != nil {
-				return bson.D{{Key: "error", Value: true}}, nil
+				return bson.D{{Key: "errored", Value: true}, {Key: "code", Value: int32(-1)}}, nil
 			}
-			var results []bson.D
-			if err2 := cur.All(ctx, &results); err2 != nil {
-				return bson.D{{Key: "error", Value: true}}, nil
-			}
-			return bson.D{{Key: "error", Value: false}}, nil
+			return bson.D{{Key: "errored", Value: false}}, nil
 		},
 	})
 }
