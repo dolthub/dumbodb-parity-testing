@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"errors"
+	"sort"
 	"testing"
 	"time"
 
@@ -12,6 +13,38 @@ import (
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
+
+// indexSpecsByName lists the collection's indexes and returns, sorted by name,
+// a comparable view of each index's name, key pattern, and unique/sparse flags
+// -- so a parity test can assert the index definitions, not just how many.
+func indexSpecsByName(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+	cur, err := col.Indexes().List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var indexes []bson.D
+	if err := cur.All(ctx, &indexes); err != nil {
+		return nil, err
+	}
+	sort.Slice(indexes, func(i, j int) bool {
+		ni, _ := indexes[i].Map()["name"].(string)
+		nj, _ := indexes[j].Map()["name"].(string)
+		return ni < nj
+	})
+	out := bson.A{}
+	for _, idx := range indexes {
+		m := idx.Map()
+		unique, _ := m["unique"].(bool)
+		sparse, _ := m["sparse"].(bool)
+		out = append(out, bson.D{
+			{Key: "name", Value: m["name"]},
+			{Key: "key", Value: m["key"]},
+			{Key: "unique", Value: unique},
+			{Key: "sparse", Value: sparse},
+		})
+	}
+	return bson.D{{Key: "indexes", Value: out}}, nil
+}
 
 func TestIndex_CreateOne_SingleAscending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -181,7 +214,13 @@ func TestIndex_Compound_UsedByFind(t *testing.T) {
 			if err := cur.All(ctx, &results); err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
+			// Return the matched scores in sort order: a count of 2 cannot
+			// catch the wrong docs or a broken score-desc ordering.
+			scores := bson.A{}
+			for _, d := range results {
+				scores = append(scores, d.Map()["score"])
+			}
+			return bson.D{{Key: "scores", Value: scores}}, nil
 		},
 	})
 }
@@ -2093,15 +2132,9 @@ func TestIndex_ListIndexes_CheckKeys(t *testing.T) {
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
 				return nil, err
 			}
-			cur, err := col.Indexes().List(ctx)
-			if err != nil {
-				return nil, err
-			}
-			var indexes []bson.D
-			if err := cur.All(ctx, &indexes); err != nil {
-				return nil, err
-			}
-			return bson.D{{Key: "count", Value: int32(len(indexes))}}, nil
+			// Assert the actual key patterns (the name promises "CheckKeys"),
+			// not just the index count.
+			return indexSpecsByName(ctx, col)
 		},
 	})
 }
@@ -2124,11 +2157,12 @@ func TestIndex_CreateMany_MixedTypes(t *testing.T) {
 					Options: &options.IndexOptions{Unique: &unique},
 				},
 			}
-			names, err := col.Indexes().CreateMany(ctx, models)
-			if err != nil {
+			if _, err := col.Indexes().CreateMany(ctx, models); err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "count", Value: int32(len(names))}}, nil
+			// Assert each index's options survived (field_b sparse, field_c
+			// unique), not merely that three indexes were created.
+			return indexSpecsByName(ctx, col)
 		},
 	})
 }
