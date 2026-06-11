@@ -1390,41 +1390,26 @@ func TestView_OnCappedCollection(t *testing.T) {
 	})
 }
 
-func TestTimeSeries_WithExpireAfterSeconds(t *testing.T) {
+func TestTimeSeries_ExpireAfterSeconds_Rejected(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name: "TimeSeries_WithExpireAfterSeconds",
-		// XFail: dumbodb ignores expireAfterSeconds on create and does not
-		// report it in collection metadata (workspace-pni). MongoDB reports
-		// it; this asserts that divergence until the TTL feature lands.
+		Name: "TimeSeries_ExpireAfterSeconds_Rejected",
+		// dumbodb rejects expireAfterSeconds on a time-series collection -- TTL
+		// is not supported by design, since a wall-clock sweeper conflicts with
+		// version control (workspace-pni). MongoDB accepts it, so this XFail
+		// asserts the intentional divergence (and guards against dumbodb
+		// silently accepting TTL again).
 		Support: harness.DumboDBXFail,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			tsName := "ts_expire"
-			expireAfter := int64(3600) // 1 hour
 			tsOpts := options.CreateCollection().SetTimeSeriesOptions(
 				options.TimeSeries().SetTimeField("ts"),
-			).SetExpireAfterSeconds(expireAfter)
+			).SetExpireAfterSeconds(3600)
 			if err := db.CreateCollection(ctx, tsName, tsOpts); err != nil {
 				return nil, err
 			}
-			ts := db.Collection(tsName)
-			defer ts.Drop(ctx)
-
-			now := time.Now()
-			if _, err := ts.InsertOne(ctx, bson.D{
-				{Key: "ts", Value: now},
-				{Key: "value", Value: int32(1)},
-			}); err != nil {
-				return nil, err
-			}
-			// Assert the TTL is reported in collection metadata. MongoDB
-			// returns expireAfterSeconds; dumbodb omits it (the divergence
-			// this XFail pins).
-			opts, err := tsCollOptions(ctx, db, tsName)
-			if err != nil {
-				return nil, err
-			}
-			return bson.D{{Key: "expireAfterSeconds", Value: opts["expireAfterSeconds"]}}, nil
+			defer db.Collection(tsName).Drop(ctx)
+			return bson.D{{Key: "created", Value: true}}, nil
 		},
 	})
 }
