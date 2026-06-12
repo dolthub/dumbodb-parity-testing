@@ -140,11 +140,8 @@ func TestFindProjEdge_B4_RemoveUnresolved(t *testing.T) {
 		bson.D{{Key: "m", Value: "$$REMOVE"}, {Key: "_id", Value: int32(0)}}})
 }
 
-// MongoDB returns Location17276 "Use of undefined variable" for any
-// $$varname that wasn't bound by $let/$filter/$map. DumboDB silently
-// returns the literal string.
 func TestFindProjEdge_B5_UndefinedVariable(t *testing.T) {
-	runEdgeCase(t, edgeCase{"FindProjEdge_B5_UndefinedVariable", harness.DumboDBXFail,
+	runEdgeCase(t, edgeCase{"FindProjEdge_B5_UndefinedVariable", harness.DumboDBFull,
 		bson.D{{Key: "m", Value: "$$ROOT_TYPO"}, {Key: "_id", Value: int32(0)}}})
 }
 
