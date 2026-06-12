@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Parity coverage for $replaceRoot and $replaceWith when used with the
-// $$ROOT system variable, the most common Compass-shaped pattern.
-
 package tests
 
 import (

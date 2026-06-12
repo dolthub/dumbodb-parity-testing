@@ -12,11 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Parity coverage for $$this as the *default* variable name in $filter and
-// $map when the `as` option is omitted. Pre-existing $filter/$map tests in
-// this suite all set an explicit `as` (e.g. "$$n", "$$t"); none exercised
-// the implicit-$$this path that MongoDB uses when `as` is absent.
-
 package tests
 
 import (
@@ -80,7 +75,6 @@ func TestThisDefault_MapNoAs(t *testing.T) {
 	})
 }
 
-// $$this can appear as the entire `in` expression (no transformation).
 func TestThisDefault_MapInIsThisAlone(t *testing.T) {
 	runThisDefaultCase(t, "ThisDefault_MapInIsThisAlone", bson.D{
 		{Key: "result", Value: bson.D{{Key: "$map", Value: bson.D{
@@ -91,7 +85,6 @@ func TestThisDefault_MapInIsThisAlone(t *testing.T) {
 	})
 }
 
-// $$this.field traverses into the array element when it's a sub-document.
 func TestThisDefault_MapThisDotField(t *testing.T) {
 	runThisDefaultCase(t, "ThisDefault_MapThisDotField", bson.D{
 		{Key: "result", Value: bson.D{{Key: "$map", Value: bson.D{
@@ -112,8 +105,6 @@ func TestThisDefault_FilterThisDotField(t *testing.T) {
 	})
 }
 
-// Nested $map: the inner $$this must shadow the outer one. Verifies the
-// variable-binding stack works correctly for the default name.
 func TestThisDefault_NestedMapShadow(t *testing.T) {
 	runThisDefaultCase(t, "ThisDefault_NestedMapShadow", bson.D{
 		{Key: "result", Value: bson.D{{Key: "$map", Value: bson.D{
