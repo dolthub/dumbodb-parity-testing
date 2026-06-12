@@ -189,8 +189,6 @@ func TestAggDBLevel_CurrentOp_NonAdminRejected(t *testing.T) {
 	})
 }
 
-// $currentOp's contents are runtime state (op list) so the totals differ
-// between servers; we only assert the request succeeds with ok=1.
 func TestAggDBLevel_CurrentOp_AdminOK(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggDBLevel_CurrentOp_AdminOK",

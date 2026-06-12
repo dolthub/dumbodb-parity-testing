@@ -24,9 +24,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// TestTop_AdminOK pins error/no-error and ok=1 parity. DumboDB returns a
-// degenerate totals table (no per-collection counters), so we don't compare
-// the totals content; the shape and ok flag are what Compass renders against.
 func TestTop_AdminOK(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Top_AdminOK",

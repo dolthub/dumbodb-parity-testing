@@ -45,8 +45,6 @@ func runFindProj(ctx context.Context, col *mongo.Collection, projection bson.D) 
 	return results, cursor.All(ctx, &results)
 }
 
-// The full Compass-shape projection. This is the case that broke before --
-// __doc must come back as the source document, not the literal string "$$ROOT".
 func TestFindProjExpr_CompassFullProjection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindProjExpr_CompassFullProjection",
@@ -104,8 +102,6 @@ func TestFindProjExpr_FieldPath(t *testing.T) {
 	})
 }
 
-// Null-valued source fields must project as explicit null, not be omitted.
-// (Regression check for the missing-vs-null distinction.)
 func TestFindProjExpr_NullFieldProjectedAsNull(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindProjExpr_NullFieldProjectedAsNull",
@@ -162,11 +158,6 @@ func TestFindProjExpr_BareLiteralString(t *testing.T) {
 	})
 }
 
-// Operators not on the find-projection allowlist must still be rejected.
-// MongoDB returns code 31325 (Location31325) with "Unrecognized expression"
-// wrapping; DumboDB returns NotImplemented(238). Code differs intentionally
-// today -- this test pins our behavior and documents the divergence so a
-// future allowlist expansion has an explicit signal.
 func TestFindProjExpr_UnsupportedOperatorRejected(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindProjExpr_UnsupportedOperatorRejected",
