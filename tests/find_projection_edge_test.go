@@ -194,36 +194,30 @@ func TestFindProjEdge_D4_MultipleExpressions(t *testing.T) {
 		bson.D{{Key: "m", Value: "$$ROOT"}, {Key: "n", Value: "$x"}, {Key: "_id", Value: int32(0)}}})
 }
 
-// --- E: aggregation operators MongoDB allows but DumboDB doesn't (yet) -----
-//
-// Each is a separate XFail so expanding the allowlist is per-operator and
-// per-test-flip-to-Full. Pick whichever ones Compass or users actually need.
+// --- E: aggregation operators in find projection -------------------------
 
 func TestFindProjEdge_E1_Add(t *testing.T) {
-	runEdgeCase(t, edgeCase{"FindProjEdge_E1_Add", harness.DumboDBXFail,
+	runEdgeCase(t, edgeCase{"FindProjEdge_E1_Add", harness.DumboDBFull,
 		bson.D{{Key: "m", Value: bson.D{{Key: "$add", Value: bson.A{int32(1), int32(2)}}}}, {Key: "_id", Value: int32(0)}}})
 }
 
 func TestFindProjEdge_E2_ToString(t *testing.T) {
-	runEdgeCase(t, edgeCase{"FindProjEdge_E2_ToString", harness.DumboDBXFail,
+	runEdgeCase(t, edgeCase{"FindProjEdge_E2_ToString", harness.DumboDBFull,
 		bson.D{{Key: "m", Value: bson.D{{Key: "$toString", Value: "$x"}}}, {Key: "_id", Value: int32(0)}}})
 }
 
 func TestFindProjEdge_E3_Type(t *testing.T) {
-	runEdgeCase(t, edgeCase{"FindProjEdge_E3_Type", harness.DumboDBXFail,
+	runEdgeCase(t, edgeCase{"FindProjEdge_E3_Type", harness.DumboDBFull,
 		bson.D{{Key: "m", Value: bson.D{{Key: "$type", Value: "$x"}}}, {Key: "_id", Value: int32(0)}}})
 }
 
-// $literal is special: it should preserve the value as-is (no expression
-// evaluation). DumboDB rejects it because it's not on the find-projection
-// operator allowlist.
 func TestFindProjEdge_E4_LiteralPreservesString(t *testing.T) {
-	runEdgeCase(t, edgeCase{"FindProjEdge_E4_LiteralPreservesString", harness.DumboDBXFail,
+	runEdgeCase(t, edgeCase{"FindProjEdge_E4_LiteralPreservesString", harness.DumboDBFull,
 		bson.D{{Key: "m", Value: bson.D{{Key: "$literal", Value: "$$ROOT"}}}, {Key: "_id", Value: int32(0)}}})
 }
 
 func TestFindProjEdge_E5_IfNull(t *testing.T) {
-	runEdgeCase(t, edgeCase{"FindProjEdge_E5_IfNull", harness.DumboDBXFail,
+	runEdgeCase(t, edgeCase{"FindProjEdge_E5_IfNull", harness.DumboDBFull,
 		bson.D{{Key: "m", Value: bson.D{{Key: "$ifNull", Value: bson.A{"$missing", "fallback"}}}}, {Key: "_id", Value: int32(0)}}})
 }
 
