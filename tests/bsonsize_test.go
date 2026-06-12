@@ -138,14 +138,10 @@ func TestBsonSize_FindProjectionRoot(t *testing.T) {
 	})
 }
 
-// TestBsonSize_AggProjectScalarErrors: both servers return code 31393, but
-// MongoDB wraps the operator error with an executor-layer prefix
-// ("PlanExecutor error during aggregation :: caused by :: ...") that DumboDB
-// does not yet add. Tracked separately as a broader error-wrapping gap.
 func TestBsonSize_AggProjectScalarErrors(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BsonSize_AggProjectScalarErrors",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   bsonSizeSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
