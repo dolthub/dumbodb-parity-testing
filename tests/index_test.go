@@ -320,10 +320,9 @@ func TestIndex_Unique_DuplicateKeyError(t *testing.T) {
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "email", Value: "a@b.com"}})
-			if err != nil {
-				return bson.D{{Key: "duplicate_key_error", Value: true}}, nil
-			}
-			return bson.D{{Key: "duplicate_key_error", Value: false}}, nil
+			// Assert the exact duplicate-key code (11000), not just that an
+			// error occurred -- a differently-shaped error would otherwise pass.
+			return bson.D{{Key: "code", Value: dupKeyCode(err)}}, nil
 		},
 	})
 }
@@ -1539,12 +1538,14 @@ func TestIndex_Unique_NullValues(t *testing.T) {
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
 				return nil, err
 			}
-			// Two docs with null email — MongoDB allows only one null under unique
+			// Two docs with null email -- MongoDB allows exactly one null under
+			// unique: the first must succeed, the second must fail with E11000.
 			_, err1 := col.InsertOne(ctx, bson.D{{Key: "email", Value: nil}})
 			_, err2 := col.InsertOne(ctx, bson.D{{Key: "email", Value: nil}})
-			secondFailed := err2 != nil
-			_ = err1
-			return bson.D{{Key: "second_null_rejected", Value: secondFailed}}, nil
+			return bson.D{
+				{Key: "first_ok", Value: err1 == nil},
+				{Key: "second_code", Value: dupKeyCode(err2)},
+			}, nil
 		},
 	})
 }
