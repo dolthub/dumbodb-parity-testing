@@ -20,6 +20,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"testing"
 
@@ -72,8 +73,11 @@ func idxmCount(ctx context.Context, col *mongo.Collection, filter interface{}) (
 		return int32(n), nil
 	case float64:
 		return int32(n), nil
+	default:
+		// Fail loudly rather than masking a missing/unexpected n as a
+		// legitimate zero count (which would be a false-green).
+		return 0, fmt.Errorf("count response has missing or non-numeric n: %v (%T)", res["n"], res["n"])
 	}
-	return 0, nil
 }
 
 func idxmProbe(ctx context.Context, col *mongo.Collection, label string, filter interface{}) (bson.D, error) {

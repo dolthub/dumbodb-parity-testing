@@ -3,7 +3,9 @@ package tests
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +15,22 @@ import (
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
+
+// keyPatternString renders an index key pattern in field order (e.g.
+// "b:1,a:1"). The harness normalizes bson.D to an order-insensitive map, which
+// would hide field-order differences in compound keys -- semantically
+// significant for indexes -- so the order-sensitive string is compared instead.
+func keyPatternString(v any) string {
+	d, ok := v.(bson.D)
+	if !ok {
+		return fmt.Sprintf("%v", v)
+	}
+	parts := make([]string, 0, len(d))
+	for _, e := range d {
+		parts = append(parts, fmt.Sprintf("%s:%v", e.Key, e.Value))
+	}
+	return strings.Join(parts, ",")
+}
 
 // indexSpecsByName lists the collection's indexes and returns, sorted by name,
 // a comparable view of each index's name, key pattern, and unique/sparse flags
@@ -38,7 +56,7 @@ func indexSpecsByName(ctx context.Context, col *mongo.Collection) (interface{}, 
 		sparse, _ := m["sparse"].(bool)
 		out = append(out, bson.D{
 			{Key: "name", Value: m["name"]},
-			{Key: "key", Value: m["key"]},
+			{Key: "key", Value: keyPatternString(m["key"])},
 			{Key: "unique", Value: unique},
 			{Key: "sparse", Value: sparse},
 		})
@@ -2416,6 +2434,25 @@ func TestIndex_Hint_KeyPatternWrongDirection(t *testing.T) {
 				return bson.D{{Key: "errored", Value: true}, {Key: "code", Value: int32(-1)}}, nil
 			}
 			return bson.D{{Key: "errored", Value: false}}, nil
+		},
+	})
+}
+
+// TestIndex_ListIndexes_CompoundKeyOrder guards that a compound index's key
+// field order is preserved and parity-checked. The earlier helper compared the
+// key as an order-insensitive map, which could not distinguish {a:1,b:1} from
+// {b:1,a:1}; keyPatternString now makes the order observable.
+func TestIndex_ListIndexes_CompoundKeyOrder(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_ListIndexes_CompoundKeyOrder",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys: bson.D{{Key: "b", Value: 1}, {Key: "a", Value: -1}},
+			}); err != nil {
+				return nil, err
+			}
+			return indexSpecsByName(ctx, col)
 		},
 	})
 }
