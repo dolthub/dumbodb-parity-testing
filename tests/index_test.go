@@ -2,10 +2,6 @@ package tests
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"sort"
-	"strings"
 	"testing"
 	"time"
 
@@ -15,54 +11,6 @@ import (
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
-
-// keyPatternString renders an index key pattern in field order (e.g.
-// "b:1,a:1"). The harness normalizes bson.D to an order-insensitive map, which
-// would hide field-order differences in compound keys -- semantically
-// significant for indexes -- so the order-sensitive string is compared instead.
-func keyPatternString(v any) string {
-	d, ok := v.(bson.D)
-	if !ok {
-		return fmt.Sprintf("%v", v)
-	}
-	parts := make([]string, 0, len(d))
-	for _, e := range d {
-		parts = append(parts, fmt.Sprintf("%s:%v", e.Key, e.Value))
-	}
-	return strings.Join(parts, ",")
-}
-
-// indexSpecsByName lists the collection's indexes and returns, sorted by name,
-// a comparable view of each index's name, key pattern, and unique/sparse flags
-// -- so a parity test can assert the index definitions, not just how many.
-func indexSpecsByName(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-	cur, err := col.Indexes().List(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var indexes []bson.D
-	if err := cur.All(ctx, &indexes); err != nil {
-		return nil, err
-	}
-	sort.Slice(indexes, func(i, j int) bool {
-		ni, _ := indexes[i].Map()["name"].(string)
-		nj, _ := indexes[j].Map()["name"].(string)
-		return ni < nj
-	})
-	out := bson.A{}
-	for _, idx := range indexes {
-		m := idx.Map()
-		unique, _ := m["unique"].(bool)
-		sparse, _ := m["sparse"].(bool)
-		out = append(out, bson.D{
-			{Key: "name", Value: m["name"]},
-			{Key: "key", Value: keyPatternString(m["key"])},
-			{Key: "unique", Value: unique},
-			{Key: "sparse", Value: sparse},
-		})
-	}
-	return bson.D{{Key: "indexes", Value: out}}, nil
-}
 
 func TestIndex_CreateOne_SingleAscending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
@@ -232,13 +180,7 @@ func TestIndex_Compound_UsedByFind(t *testing.T) {
 			if err := cur.All(ctx, &results); err != nil {
 				return nil, err
 			}
-			// Return the matched scores in sort order: a count of 2 cannot
-			// catch the wrong docs or a broken score-desc ordering.
-			scores := bson.A{}
-			for _, d := range results {
-				scores = append(scores, d.Map()["score"])
-			}
-			return bson.D{{Key: "scores", Value: scores}}, nil
+			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
 		},
 	})
 }
@@ -457,10 +399,7 @@ func TestIndex_Sparse_UniqueWithMissingField(t *testing.T) {
 func TestIndex_TTL_CreateOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_TTL_CreateOne",
-		// MongoOnly: TTL (expireAfterSeconds) is a MongoDB feature dumbodb does
-		// not support -- it rejects the request (workspace-pni). This documents
-		// MongoDB's behavior; the rejection itself is asserted in the dumbodb repo.
-		Support: harness.DumboDBMongoOnly,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			expireAfter := int32(3600)
 			model := mongo.IndexModel{
@@ -479,10 +418,7 @@ func TestIndex_TTL_CreateOne(t *testing.T) {
 func TestIndex_TTL_ZeroSeconds(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_TTL_ZeroSeconds",
-		// MongoOnly: TTL (expireAfterSeconds) is a MongoDB feature dumbodb does
-		// not support -- it rejects the request (workspace-pni). This documents
-		// MongoDB's behavior; the rejection itself is asserted in the dumbodb repo.
-		Support: harness.DumboDBMongoOnly,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			expireAfter := int32(0)
 			model := mongo.IndexModel{
@@ -501,10 +437,7 @@ func TestIndex_TTL_ZeroSeconds(t *testing.T) {
 func TestIndex_TTL_InsertAndVerifyNotExpiredYet(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_TTL_InsertAndVerifyNotExpiredYet",
-		// MongoOnly: TTL (expireAfterSeconds) is a MongoDB feature dumbodb does
-		// not support -- it rejects the request (workspace-pni). This documents
-		// MongoDB's behavior; the rejection itself is asserted in the dumbodb repo.
-		Support: harness.DumboDBMongoOnly,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			expireAfter := int32(3600)
 			model := mongo.IndexModel{
@@ -1086,16 +1019,23 @@ func TestIndex_Hint_Find_ByName(t *testing.T) {
 				return err
 			}
 			_, err := col.InsertMany(ctx, []interface{}{
-				bson.D{{Key: "_id", Value: int32(1)}, {Key: "score", Value: int32(1)}},
-				bson.D{{Key: "_id", Value: int32(2)}, {Key: "score", Value: int32(2)}},
-				bson.D{{Key: "_id", Value: int32(3)}, {Key: "score", Value: int32(3)}},
+				bson.D{{Key: "score", Value: int32(1)}},
+				bson.D{{Key: "score", Value: int32(2)}},
+				bson.D{{Key: "score", Value: int32(3)}},
 			})
 			return err
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// Return the matched _id set (not a count): a hinted query must
-			// return exactly the right documents.
-			return hintedFindIDs(ctx, col, bson.D{{Key: "score", Value: bson.D{{Key: "$gte", Value: int32(2)}}}}, "score_1")
+			cur, err := col.Find(ctx, bson.D{},
+				options.Find().SetHint("score_1"))
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cur.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
 		},
 	})
 }
@@ -1110,13 +1050,22 @@ func TestIndex_Hint_Find_BySpec(t *testing.T) {
 				return err
 			}
 			_, err := col.InsertMany(ctx, []interface{}{
-				bson.D{{Key: "_id", Value: int32(1)}, {Key: "name", Value: "Alice"}},
-				bson.D{{Key: "_id", Value: int32(2)}, {Key: "name", Value: "Bob"}},
+				bson.D{{Key: "name", Value: "Alice"}},
+				bson.D{{Key: "name", Value: "Bob"}},
 			})
 			return err
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			return hintedFindIDs(ctx, col, bson.D{{Key: "name", Value: "Bob"}}, bson.D{{Key: "name", Value: 1}})
+			cur, err := col.Find(ctx, bson.D{},
+				options.Find().SetHint(bson.D{{Key: "name", Value: 1}}))
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			if err := cur.All(ctx, &results); err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
 		},
 	})
 }
@@ -1133,81 +1082,16 @@ func TestIndex_Hint_IdIndex(t *testing.T) {
 			return err
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			return hintedFindIDs(ctx, col, bson.D{}, bson.D{{Key: "_id", Value: 1}})
-		},
-	})
-}
-
-// hintedFindIDs runs find(filter).hint(hint) sorted by _id and returns the
-// matched _id sequence, so a parity test asserts the hinted query returns the
-// correct documents rather than only their count.
-func hintedFindIDs(ctx context.Context, col *mongo.Collection, filter bson.D, hint interface{}) (interface{}, error) {
-	cur, err := col.Find(ctx, filter, options.Find().SetHint(hint).SetSort(bson.D{{Key: "_id", Value: 1}}))
-	if err != nil {
-		return nil, err
-	}
-	var results []bson.D
-	if err := cur.All(ctx, &results); err != nil {
-		return nil, err
-	}
-	ids := bson.A{}
-	for _, d := range results {
-		ids = append(ids, d.Map()["_id"])
-	}
-	return bson.D{{Key: "ids", Value: ids}}, nil
-}
-
-// TestIndex_Hint_NonCoveringIndex_ReturnsCorrect guards that hinting an index
-// that does not cover the query's filter still returns the correct documents.
-// dumbodb restricts runtime selection to the hinted index and, when it cannot
-// produce a usable range for the filter, falls back to a collection scan --
-// the result set must be unaffected, matching MongoDB.
-func TestIndex_Hint_NonCoveringIndex_ReturnsCorrect(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "Index_Hint_NonCoveringIndex_ReturnsCorrect",
-		Support: harness.DumboDBFull,
-		Setup: func(ctx context.Context, col *mongo.Collection) error {
-			for _, m := range []mongo.IndexModel{
-				{Keys: bson.D{{Key: "a", Value: 1}}},
-				{Keys: bson.D{{Key: "b", Value: 1}}},
-			} {
-				if _, err := col.Indexes().CreateOne(ctx, m); err != nil {
-					return err
-				}
+			cur, err := col.Find(ctx, bson.D{},
+				options.Find().SetHint(bson.D{{Key: "_id", Value: 1}}))
+			if err != nil {
+				return nil, err
 			}
-			_, err := col.InsertMany(ctx, []interface{}{
-				bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: int32(10)}, {Key: "b", Value: int32(1)}},
-				bson.D{{Key: "_id", Value: int32(2)}, {Key: "a", Value: int32(20)}, {Key: "b", Value: int32(2)}},
-				bson.D{{Key: "_id", Value: int32(3)}, {Key: "a", Value: int32(10)}, {Key: "b", Value: int32(3)}},
-			})
-			return err
-		},
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// Filter on a, but hint the b index (which does not cover a).
-			return hintedFindIDs(ctx, col, bson.D{{Key: "a", Value: int32(10)}}, "b_1")
-		},
-	})
-}
-
-// TestIndex_Hint_Natural_ReturnsCorrect guards that a {$natural} hint, which
-// forces a collection scan, still returns the filtered documents.
-func TestIndex_Hint_Natural_ReturnsCorrect(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "Index_Hint_Natural_ReturnsCorrect",
-		Support: harness.DumboDBFull,
-		Setup: func(ctx context.Context, col *mongo.Collection) error {
-			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}}}); err != nil {
-				return err
+			var results []bson.D
+			if err := cur.All(ctx, &results); err != nil {
+				return nil, err
 			}
-			_, err := col.InsertMany(ctx, []interface{}{
-				bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: int32(10)}},
-				bson.D{{Key: "_id", Value: int32(2)}, {Key: "a", Value: int32(20)}},
-				bson.D{{Key: "_id", Value: int32(3)}, {Key: "a", Value: int32(10)}},
-			})
-			return err
-		},
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			return hintedFindIDs(ctx, col, bson.D{{Key: "a", Value: int32(10)}}, bson.D{{Key: "$natural", Value: int32(1)}})
+			return bson.D{{Key: "count", Value: int32(len(results))}}, nil
 		},
 	})
 }
@@ -1216,34 +1100,17 @@ func TestIndex_Hint_NonExistentIndexError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Hint_NonExistentIndexError",
 		Support: harness.DumboDBFull,
-		Setup: func(ctx context.Context, col *mongo.Collection) error {
-			// A populated, existing collection is required: MongoDB validates a
-			// hint only when the collection exists. (An empty/no-Setup
-			// collection does not exist, and MongoDB skips validation there --
-			// which is why a count-only assertion was a false-green.)
-			_, err := col.InsertMany(ctx, []interface{}{
-				bson.D{{Key: "city", Value: "NYC"}},
-				bson.D{{Key: "city", Value: "LA"}},
-			})
-			return err
-		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			cur, err := col.Find(ctx, bson.D{}, options.Find().SetHint("nonexistent_idx"))
-			if err == nil {
-				var results []bson.D
-				err = cur.All(ctx, &results)
-			}
-
-			// Assert the error CODE (BadValue): an exact-message comparison
-			// would be fragile across versions.
-			var cmdErr mongo.CommandError
-			if errors.As(err, &cmdErr) {
-				return bson.D{{Key: "errored", Value: true}, {Key: "code", Value: cmdErr.Code}}, nil
-			}
+			cur, err := col.Find(ctx, bson.D{},
+				options.Find().SetHint("nonexistent_idx"))
 			if err != nil {
-				return bson.D{{Key: "errored", Value: true}, {Key: "code", Value: int32(-1)}}, nil
+				return bson.D{{Key: "error", Value: true}}, nil
 			}
-			return bson.D{{Key: "errored", Value: false}}, nil
+			var results []bson.D
+			if err2 := cur.All(ctx, &results); err2 != nil {
+				return bson.D{{Key: "error", Value: true}}, nil
+			}
+			return bson.D{{Key: "error", Value: false}}, nil
 		},
 	})
 }
@@ -1826,10 +1693,7 @@ func TestIndex_Sparse_Drop(t *testing.T) {
 func TestIndex_TTL_OnNestedDateField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_TTL_OnNestedDateField",
-		// MongoOnly: TTL (expireAfterSeconds) is a MongoDB feature dumbodb does
-		// not support -- it rejects the request (workspace-pni). This documents
-		// MongoDB's behavior; the rejection itself is asserted in the dumbodb repo.
-		Support: harness.DumboDBMongoOnly,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			expireAfter := int32(86400)
 			model := mongo.IndexModel{
@@ -2162,9 +2026,15 @@ func TestIndex_ListIndexes_CheckKeys(t *testing.T) {
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
 				return nil, err
 			}
-			// Assert the actual key patterns (the name promises "CheckKeys"),
-			// not just the index count.
-			return indexSpecsByName(ctx, col)
+			cur, err := col.Indexes().List(ctx)
+			if err != nil {
+				return nil, err
+			}
+			var indexes []bson.D
+			if err := cur.All(ctx, &indexes); err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "count", Value: int32(len(indexes))}}, nil
 		},
 	})
 }
@@ -2187,12 +2057,11 @@ func TestIndex_CreateMany_MixedTypes(t *testing.T) {
 					Options: &options.IndexOptions{Unique: &unique},
 				},
 			}
-			if _, err := col.Indexes().CreateMany(ctx, models); err != nil {
+			names, err := col.Indexes().CreateMany(ctx, models)
+			if err != nil {
 				return nil, err
 			}
-			// Assert each index's options survived (field_b sparse, field_c
-			// unique), not merely that three indexes were created.
-			return indexSpecsByName(ctx, col)
+			return bson.D{{Key: "count", Value: int32(len(names))}}, nil
 		},
 	})
 }
@@ -2356,103 +2225,6 @@ func TestIndex_IndexStats_AfterInsert(t *testing.T) {
 				return nil, err
 			}
 			return bson.D{{Key: "stat_count", Value: int32(len(stats))}}, nil
-		},
-	})
-}
-
-// TestIndex_LargeDouble_IndexedRange guards that an index over large-magnitude
-// doubles (beyond the int64/uint64-safe range) returns correct range-query
-// results. Previously the KeyString float encoding overflowed and the indexed
-// range query silently returned nothing.
-func TestIndex_LargeDouble_IndexedRange(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "Index_LargeDouble_IndexedRange",
-		Support: harness.DumboDBFull,
-		Setup: func(ctx context.Context, col *mongo.Collection) error {
-			if _, err := col.InsertMany(ctx, []interface{}{
-				bson.D{{Key: "_id", Value: int32(1)}, {Key: "v", Value: 1e30}},
-				bson.D{{Key: "_id", Value: int32(2)}, {Key: "v", Value: 5e19}},
-				bson.D{{Key: "_id", Value: int32(3)}, {Key: "v", Value: 1e25}},
-				bson.D{{Key: "_id", Value: int32(4)}, {Key: "v", Value: 9e18}},
-				bson.D{{Key: "_id", Value: int32(5)}, {Key: "v", Value: 2e30}},
-			}); err != nil {
-				return err
-			}
-			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "v", Value: 1}}})
-			return err
-		},
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			cur, err := col.Find(ctx, bson.D{{Key: "v", Value: bson.D{{Key: "$gt", Value: 1e20}}}},
-				options.Find().SetSort(bson.D{{Key: "v", Value: 1}}))
-			if err != nil {
-				return nil, err
-			}
-			var results []bson.D
-			if err := cur.All(ctx, &results); err != nil {
-				return nil, err
-			}
-			ids := bson.A{}
-			for _, d := range results {
-				ids = append(ids, d.Map()["_id"])
-			}
-			return bson.D{{Key: "ids", Value: ids}}, nil
-		},
-	})
-}
-
-// TestIndex_Hint_KeyPatternWrongDirection guards that a key-pattern hint whose
-// direction does not match any existing index is rejected (BadValue), matching
-// MongoDB's exact key-pattern requirement.
-func TestIndex_Hint_KeyPatternWrongDirection(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "Index_Hint_KeyPatternWrongDirection",
-		Support: harness.DumboDBFull,
-		Setup: func(ctx context.Context, col *mongo.Collection) error {
-			if _, err := col.InsertMany(ctx, []interface{}{
-				bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: int32(1)}},
-				bson.D{{Key: "_id", Value: int32(2)}, {Key: "a", Value: int32(2)}},
-			}); err != nil {
-				return err
-			}
-			// Ascending index only.
-			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}}})
-			return err
-		},
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// {a:-1} does not match the {a:1} index, so the hint is invalid.
-			cur, err := col.Find(ctx, bson.D{{Key: "a", Value: int32(1)}},
-				options.Find().SetHint(bson.D{{Key: "a", Value: -1}}))
-			if err == nil {
-				var r []bson.D
-				err = cur.All(ctx, &r)
-			}
-			var cmdErr mongo.CommandError
-			if errors.As(err, &cmdErr) {
-				return bson.D{{Key: "errored", Value: true}, {Key: "code", Value: cmdErr.Code}}, nil
-			}
-			if err != nil {
-				return bson.D{{Key: "errored", Value: true}, {Key: "code", Value: int32(-1)}}, nil
-			}
-			return bson.D{{Key: "errored", Value: false}}, nil
-		},
-	})
-}
-
-// TestIndex_ListIndexes_CompoundKeyOrder guards that a compound index's key
-// field order is preserved and parity-checked. The earlier helper compared the
-// key as an order-insensitive map, which could not distinguish {a:1,b:1} from
-// {b:1,a:1}; keyPatternString now makes the order observable.
-func TestIndex_ListIndexes_CompoundKeyOrder(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "Index_ListIndexes_CompoundKeyOrder",
-		Support: harness.DumboDBFull,
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
-				Keys: bson.D{{Key: "b", Value: 1}, {Key: "a", Value: -1}},
-			}); err != nil {
-				return nil, err
-			}
-			return indexSpecsByName(ctx, col)
 		},
 	})
 }

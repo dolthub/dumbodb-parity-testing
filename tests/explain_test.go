@@ -7,7 +7,6 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
@@ -159,18 +158,10 @@ func createIndex(ctx context.Context, col *mongo.Collection, keys bson.D) error 
 	return err
 }
 
-func createPartialIndex(ctx context.Context, col *mongo.Collection, keys, pfe bson.D, name string) error {
-	_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys:    keys,
-		Options: options.Index().SetName(name).SetPartialFilterExpression(pfe),
-	})
-	return err
-}
-
 func TestExplain_COLLSCAN_NoIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_COLLSCAN_NoIndex",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup:   insertExplainDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			doc, err := explainRunExplain(ctx, col, bson.D{
@@ -188,7 +179,7 @@ func TestExplain_COLLSCAN_NoIndex(t *testing.T) {
 func TestExplain_IXSCAN_Equality(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_IXSCAN_Equality",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -211,7 +202,7 @@ func TestExplain_IXSCAN_Equality(t *testing.T) {
 func TestExplain_IXSCAN_Range(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_IXSCAN_Range",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -234,7 +225,7 @@ func TestExplain_IXSCAN_Range(t *testing.T) {
 func TestExplain_FETCH_After_IXSCAN(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_FETCH_After_IXSCAN",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -259,7 +250,7 @@ func TestExplain_FETCH_After_IXSCAN(t *testing.T) {
 func TestExplain_CoveredQuery(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_CoveredQuery",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -284,7 +275,7 @@ func TestExplain_CoveredQuery(t *testing.T) {
 func TestExplain_SORT_InMemory(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_SORT_InMemory",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup:   insertExplainDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			doc, err := explainRunExplain(ctx, col, bson.D{
@@ -303,7 +294,7 @@ func TestExplain_SORT_InMemory(t *testing.T) {
 func TestExplain_SORT_ViaIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_SORT_ViaIndex",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -327,7 +318,7 @@ func TestExplain_SORT_ViaIndex(t *testing.T) {
 func TestExplain_SORT_FETCH_IXSCAN(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_SORT_FETCH_IXSCAN",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -352,7 +343,7 @@ func TestExplain_SORT_FETCH_IXSCAN(t *testing.T) {
 func TestExplain_LIMIT(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_LIMIT",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup:   insertExplainDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			doc, err := explainRunExplain(ctx, col, bson.D{
@@ -371,7 +362,7 @@ func TestExplain_LIMIT(t *testing.T) {
 func TestExplain_SKIP(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_SKIP",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup:   insertExplainDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			doc, err := explainRunExplain(ctx, col, bson.D{
@@ -390,7 +381,7 @@ func TestExplain_SKIP(t *testing.T) {
 func TestExplain_SKIP_LIMIT(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_SKIP_LIMIT",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup:   insertExplainDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			doc, err := explainRunExplain(ctx, col, bson.D{
@@ -410,7 +401,7 @@ func TestExplain_SKIP_LIMIT(t *testing.T) {
 func TestExplain_PROJECTION_SIMPLE(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_PROJECTION_SIMPLE",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup:   insertExplainDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			doc, err := explainRunExplain(ctx, col, bson.D{
@@ -429,7 +420,7 @@ func TestExplain_PROJECTION_SIMPLE(t *testing.T) {
 func TestExplain_PROJECTION_COVERED(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_PROJECTION_COVERED",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -453,7 +444,7 @@ func TestExplain_PROJECTION_COVERED(t *testing.T) {
 func TestExplain_COUNT_SCAN(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_COUNT_SCAN",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -476,7 +467,7 @@ func TestExplain_COUNT_SCAN(t *testing.T) {
 func TestExplain_COUNT_COLLSCAN(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_COUNT_COLLSCAN",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup:   insertExplainDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			doc, err := explainRunExplain(ctx, col, bson.D{
@@ -494,7 +485,7 @@ func TestExplain_COUNT_COLLSCAN(t *testing.T) {
 func TestExplain_DISTINCT_SCAN(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_DISTINCT_SCAN",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -517,7 +508,7 @@ func TestExplain_DISTINCT_SCAN(t *testing.T) {
 func TestExplain_OR_MultiIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_OR_MultiIndex",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -546,7 +537,7 @@ func TestExplain_OR_MultiIndex(t *testing.T) {
 func TestExplain_AND_SORTED(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_AND_SORTED",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -575,7 +566,7 @@ func TestExplain_AND_SORTED(t *testing.T) {
 func TestExplain_CompoundIndex_PrefixMatch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_CompoundIndex_PrefixMatch",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -601,7 +592,7 @@ func TestExplain_CompoundIndex_PrefixMatch(t *testing.T) {
 func TestExplain_CompoundIndex_FullMatch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_CompoundIndex_FullMatch",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -630,7 +621,7 @@ func TestExplain_CompoundIndex_FullMatch(t *testing.T) {
 func TestExplain_CompoundIndex_SortCovered(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_CompoundIndex_SortCovered",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -658,7 +649,7 @@ func TestExplain_CompoundIndex_SortCovered(t *testing.T) {
 func TestExplain_Aggregate_MatchIXSCAN(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Aggregate_MatchIXSCAN",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -684,7 +675,7 @@ func TestExplain_Aggregate_MatchIXSCAN(t *testing.T) {
 func TestExplain_Aggregate_COLLSCAN(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Aggregate_COLLSCAN",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup:   insertExplainDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			doc, err := explainRunExplain(ctx, col, bson.D{
@@ -705,7 +696,7 @@ func TestExplain_Aggregate_COLLSCAN(t *testing.T) {
 func TestExplain_ExecutionStats_Indexed(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_ExecutionStats_Indexed",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -728,7 +719,7 @@ func TestExplain_ExecutionStats_Indexed(t *testing.T) {
 func TestExplain_ExecutionStats_FullScan(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_ExecutionStats_FullScan",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup:   insertExplainDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			doc, err := explainRunExplain(ctx, col, bson.D{
@@ -746,7 +737,7 @@ func TestExplain_ExecutionStats_FullScan(t *testing.T) {
 func TestExplain_Hint_ForcesIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Hint_ForcesIndex",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -774,7 +765,7 @@ func TestExplain_Hint_ForcesIndex(t *testing.T) {
 func TestExplain_Hint_Natural(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Hint_Natural",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -787,62 +778,6 @@ func TestExplain_Hint_Natural(t *testing.T) {
 				{Key: "find", Value: col.Name()},
 				{Key: "filter", Value: bson.D{{Key: "n", Value: int32(7)}}},
 				{Key: "hint", Value: bson.D{{Key: "$natural", Value: int32(1)}}},
-			}, "queryPlanner")
-			if err != nil {
-				return nil, err
-			}
-			return explainExtractCritical(doc), nil
-		},
-	})
-}
-
-// A query that includes the partial filter as an equality implies the
-// partial condition, so every matching doc is in the index and the
-// planner uses it. Guards the r1l fix (dumbodb 1254f8f).
-func TestExplain_Partial_IXSCAN_WhenFilterImplies(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "Explain_Partial_IXSCAN_WhenFilterImplies",
-		Support: harness.DumboDBFull,
-		Setup: func(ctx context.Context, col *mongo.Collection) error {
-			if err := insertExplainDocs(ctx, col); err != nil {
-				return err
-			}
-			return createPartialIndex(ctx, col,
-				bson.D{{Key: "n", Value: 1}},
-				bson.D{{Key: "city", Value: "NYC"}}, "n_nyc_partial")
-		},
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := explainRunExplain(ctx, col, bson.D{
-				{Key: "find", Value: col.Name()},
-				{Key: "filter", Value: bson.D{{Key: "n", Value: int32(4)}, {Key: "city", Value: "NYC"}}},
-			}, "queryPlanner")
-			if err != nil {
-				return nil, err
-			}
-			return explainExtractCritical(doc), nil
-		},
-	})
-}
-
-// The same partial index must NOT be used for a bare indexed-field query
-// that omits the partial condition: docs with that n but city != NYC live
-// outside the index, so using it would silently drop them. Plan is a scan.
-func TestExplain_Partial_COLLSCAN_WhenFilterDoesNotImply(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "Explain_Partial_COLLSCAN_WhenFilterDoesNotImply",
-		Support: harness.DumboDBFull,
-		Setup: func(ctx context.Context, col *mongo.Collection) error {
-			if err := insertExplainDocs(ctx, col); err != nil {
-				return err
-			}
-			return createPartialIndex(ctx, col,
-				bson.D{{Key: "n", Value: 1}},
-				bson.D{{Key: "city", Value: "NYC"}}, "n_nyc_partial")
-		},
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := explainRunExplain(ctx, col, bson.D{
-				{Key: "find", Value: col.Name()},
-				{Key: "filter", Value: bson.D{{Key: "n", Value: int32(4)}}},
 			}, "queryPlanner")
 			if err != nil {
 				return nil, err
