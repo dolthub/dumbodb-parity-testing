@@ -130,17 +130,13 @@ func TestFindProjEdge_B2_CurrentDotField(t *testing.T) {
 		bson.D{{Key: "m", Value: "$$CURRENT.x"}, {Key: "_id", Value: int32(0)}}})
 }
 
-// $$NOW should resolve to the current datetime. DumboDB returns the literal
-// string "$$NOW". Same gap for $$DESCEND/$$KEEP/$$PRUNE.
 func TestFindProjEdge_B3_NowUnresolved(t *testing.T) {
-	runEdgeCase(t, edgeCase{"FindProjEdge_B3_NowUnresolved", harness.DumboDBXFail,
+	runEdgeCase(t, edgeCase{"FindProjEdge_B3_NowUnresolved", harness.DumboDBFull,
 		bson.D{{Key: "m", Value: "$$NOW"}, {Key: "_id", Value: int32(0)}}})
 }
 
-// $$REMOVE is a sentinel that should cause the field to be omitted.
-// DumboDB returns the literal string "$$REMOVE" instead.
 func TestFindProjEdge_B4_RemoveUnresolved(t *testing.T) {
-	runEdgeCase(t, edgeCase{"FindProjEdge_B4_RemoveUnresolved", harness.DumboDBXFail,
+	runEdgeCase(t, edgeCase{"FindProjEdge_B4_RemoveUnresolved", harness.DumboDBFull,
 		bson.D{{Key: "m", Value: "$$REMOVE"}, {Key: "_id", Value: int32(0)}}})
 }
 
