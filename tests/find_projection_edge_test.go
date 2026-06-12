@@ -241,10 +241,8 @@ func TestFindProjEdge_F1_EmptyString(t *testing.T) {
 		bson.D{{Key: "m", Value: ""}, {Key: "_id", Value: int32(0)}}})
 }
 
-// MongoDB returns Location16872 "'$' by itself is not a valid FieldPath".
-// DumboDB returns InternalError(1) wrapping the internal ErrEmptyFieldPath.
 func TestFindProjEdge_F2_BareDollarRejected(t *testing.T) {
-	runEdgeCase(t, edgeCase{"FindProjEdge_F2_BareDollarRejected", harness.DumboDBXFail,
+	runEdgeCase(t, edgeCase{"FindProjEdge_F2_BareDollarRejected", harness.DumboDBFull,
 		bson.D{{Key: "m", Value: "$"}, {Key: "_id", Value: int32(0)}}})
 }
 
