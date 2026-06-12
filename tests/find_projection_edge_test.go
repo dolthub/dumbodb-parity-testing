@@ -246,10 +246,8 @@ func TestFindProjEdge_F2_BareDollarRejected(t *testing.T) {
 		bson.D{{Key: "m", Value: "$"}, {Key: "_id", Value: int32(0)}}})
 }
 
-// MongoDB returns FailedToParse(9) "empty variable names are not allowed".
-// DumboDB silently stores "$$" as a literal string.
 func TestFindProjEdge_F3_BareDoubleDollarRejected(t *testing.T) {
-	runEdgeCase(t, edgeCase{"FindProjEdge_F3_BareDoubleDollarRejected", harness.DumboDBXFail,
+	runEdgeCase(t, edgeCase{"FindProjEdge_F3_BareDoubleDollarRejected", harness.DumboDBFull,
 		bson.D{{Key: "m", Value: "$$"}, {Key: "_id", Value: int32(0)}}})
 }
 
