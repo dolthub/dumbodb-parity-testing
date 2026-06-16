@@ -109,3 +109,81 @@ func TestAggGroupEdge_EmptyInput(t *testing.T) {
 		},
 	})
 }
+
+func insertGroupStdDevSeed(ctx context.Context, col *mongo.Collection) error {
+	docs := []interface{}{}
+	add := func(id, g string, v int32) {
+		docs = append(docs, bson.D{{Key: "_id", Value: id}, {Key: "g", Value: g}, {Key: "v", Value: v}})
+	}
+	for i, v := range []int32{2, 4, 4, 4, 5, 5, 7, 9} {
+		add("a"+string(rune('0'+i)), "a", v)
+	}
+	for i, v := range []int32{1, 2, 3, 4, 5} {
+		add("b"+string(rune('0'+i)), "b", v)
+	}
+	add("c0", "c", 42)
+
+	_, err := col.InsertMany(ctx, docs)
+
+	return err
+}
+
+// stdDevRounded groups by g, applies the given accumulator over the groups with
+// more than one value, and rounds to 10 places so the comparison tolerates the
+// last-ULP difference between the two-pass and online variance algorithms.
+func stdDevRounded(op string) func(context.Context, *mongo.Collection) (interface{}, error) {
+	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		results, err := runPipeline(ctx, col, []bson.D{
+			{{Key: "$match", Value: bson.D{{Key: "g", Value: bson.D{{Key: "$in", Value: bson.A{"a", "b"}}}}}}},
+			{{Key: "$group", Value: bson.D{
+				{Key: "_id", Value: "$g"},
+				{Key: "sd", Value: bson.D{{Key: op, Value: "$v"}}},
+			}}},
+			{{Key: "$project", Value: bson.D{
+				{Key: "_id", Value: 1},
+				{Key: "sd", Value: bson.D{{Key: "$round", Value: bson.A{"$sd", 10}}}},
+			}}},
+			{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+		})
+
+		return docsToSlice(results), err
+	}
+}
+
+func TestAggGroupEdge_StdDevPop(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AggGroupEdge_StdDevPop",
+		Support: harness.DumboDBFull,
+		Setup:   insertGroupStdDevSeed,
+		Run:     stdDevRounded("$stdDevPop"),
+	})
+}
+
+func TestAggGroupEdge_StdDevSamp(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AggGroupEdge_StdDevSamp",
+		Support: harness.DumboDBFull,
+		Setup:   insertGroupStdDevSeed,
+		Run:     stdDevRounded("$stdDevSamp"),
+	})
+}
+
+func TestAggGroupEdge_StdDevSingleValue(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "AggGroupEdge_StdDevSingleValue",
+		Support: harness.DumboDBFull,
+		Setup:   insertGroupStdDevSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$match", Value: bson.D{{Key: "g", Value: "c"}}}},
+				{{Key: "$group", Value: bson.D{
+					{Key: "_id", Value: "$g"},
+					{Key: "pop", Value: bson.D{{Key: "$stdDevPop", Value: "$v"}}},
+					{Key: "samp", Value: bson.D{{Key: "$stdDevSamp", Value: "$v"}}},
+				}}},
+			})
+
+			return docsToSlice(results), err
+		},
+	})
+}
