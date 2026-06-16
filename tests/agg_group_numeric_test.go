@@ -79,11 +79,10 @@ func TestAggGroupNum_DecimalSum(t *testing.T) {
 	})
 }
 
-// XFail: $avg over Decimal128 returns 0 for non-terminating averages (workspace-pff).
 func TestAggGroupNum_DecimalAvg(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggGroupNum_DecimalAvg",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertGroupDecimalSeed,
 		Run:     groupByGAvgAmount,
 	})
