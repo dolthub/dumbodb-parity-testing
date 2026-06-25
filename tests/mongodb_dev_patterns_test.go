@@ -127,7 +127,10 @@ func TestDevPatterns_TTL_ExpireAfterSeconds(t *testing.T) {
 	// Documents with createdAt older than 3600 seconds are removed by the TTL monitor.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DevPatterns_TTL_ExpireAfterSeconds",
-		Support: harness.DumboDBFull,
+		// MongoOnly: TTL (expireAfterSeconds) is a MongoDB feature dumbodb does
+		// not support -- it rejects the request (workspace-pni). This documents
+		// MongoDB's behavior; the rejection itself is asserted in the dumbodb repo.
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			expireAfter := int32(3600)
 			model := mongo.IndexModel{
@@ -164,7 +167,10 @@ func TestDevPatterns_TTL_ExpireAtSpecificTime(t *testing.T) {
 	// Document expires at the exact datetime stored in the expireAt field.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DevPatterns_TTL_ExpireAtSpecificTime",
-		Support: harness.DumboDBFull,
+		// MongoOnly: TTL (expireAfterSeconds) is a MongoDB feature dumbodb does
+		// not support -- it rejects the request (workspace-pni). This documents
+		// MongoDB's behavior; the rejection itself is asserted in the dumbodb repo.
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			expireAfter := int32(0)
 			model := mongo.IndexModel{
