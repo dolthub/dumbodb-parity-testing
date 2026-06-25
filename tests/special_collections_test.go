@@ -25,9 +25,12 @@ func tsCollOptions(ctx context.Context, db *mongo.Database, name string) (bson.M
 		return nil, err
 	}
 	if len(infos) == 0 {
-		return nil, nil
+		return nil, fmt.Errorf("collection %q not found via ListCollections", name)
 	}
-	opts, _ := infos[0]["options"].(bson.M)
+	opts, ok := infos[0]["options"].(bson.M)
+	if !ok {
+		return nil, fmt.Errorf("collection %q has no options document", name)
+	}
 	return opts, nil
 }
 
