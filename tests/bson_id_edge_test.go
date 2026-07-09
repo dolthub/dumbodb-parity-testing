@@ -188,3 +188,26 @@ func TestBSON_id_doc_dotted_key_allowed(t *testing.T) {
 		Run:     insertIDCode(bson.D{{Key: "a.b", Value: int32(1)}}),
 	})
 }
+
+// A null _id is a valid, single-valued _id: MongoDB stores it, finds it by
+// {_id: null}, and rejects a second null _id as a duplicate key. A raw insert
+// command is used because the driver would replace a null _id with a generated
+// ObjectId.
+func TestBSON_id_null_accepted(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_null_accepted",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			insert := bson.D{
+				{Key: "insert", Value: col.Name()},
+				{Key: "documents", Value: bson.A{bson.D{{Key: "_id", Value: nil}, {Key: "v", Value: int32(1)}}}},
+			}
+			var res bson.D
+			if err := col.Database().RunCommand(ctx, insert).Decode(&res); err != nil {
+				return nil, err
+			}
+			found := col.FindOne(ctx, bson.D{{Key: "_id", Value: nil}}).Err() == nil
+			return bson.D{{Key: "n", Value: res.Map()["n"]}, {Key: "found", Value: found}}, nil
+		},
+	})
+}
