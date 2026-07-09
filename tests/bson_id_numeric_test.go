@@ -174,7 +174,7 @@ func TestBSON_id_double_stored_query_decimal(t *testing.T) {
 func TestBSON_id_double_stored_query_decimal_half(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_double_stored_query_decimal_half",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run:     idCrossTypeCount(float64(0.5), decID(t, "0.5")),
 	})
 }
@@ -182,7 +182,7 @@ func TestBSON_id_double_stored_query_decimal_half(t *testing.T) {
 func TestBSON_id_decimal_stored_query_double_half(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_decimal_stored_query_double_half",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run:     idCrossTypeCount(decID(t, "0.5"), float64(0.5)),
 	})
 }
@@ -190,7 +190,7 @@ func TestBSON_id_decimal_stored_query_double_half(t *testing.T) {
 func TestBSON_id_double_stored_query_decimal_425(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_double_stored_query_decimal_425",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run:     idCrossTypeCount(float64(42.5), decID(t, "42.5")),
 	})
 }
@@ -198,7 +198,7 @@ func TestBSON_id_double_stored_query_decimal_425(t *testing.T) {
 func TestBSON_id_decimal_scale_tenths(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_decimal_scale_tenths",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run:     idCrossTypeCount(decID(t, "0.10"), decID(t, "0.1")),
 	})
 }
@@ -206,7 +206,7 @@ func TestBSON_id_decimal_scale_tenths(t *testing.T) {
 func TestBSON_id_decimal_scale_25(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_decimal_scale_25",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run:     idCrossTypeCount(decID(t, "2.50"), decID(t, "2.5")),
 	})
 }
@@ -214,7 +214,7 @@ func TestBSON_id_decimal_scale_25(t *testing.T) {
 func TestBSON_id_double_inf_vs_decimal_inf(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_double_inf_vs_decimal_inf",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run:     idCrossTypeCount(math.Inf(1), decID(t, "Infinity")),
 	})
 }
@@ -222,7 +222,7 @@ func TestBSON_id_double_inf_vs_decimal_inf(t *testing.T) {
 func TestBSON_id_double_nan_vs_decimal_nan(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_double_nan_vs_decimal_nan",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run:     idCrossTypeCount(math.NaN(), decID(t, "NaN")),
 	})
 }
@@ -232,7 +232,7 @@ func TestBSON_id_double_nan_vs_decimal_nan(t *testing.T) {
 func TestBSON_id_doc_nested_long_vs_double(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_doc_nested_long_vs_double",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: idCrossTypeCount(
 			bson.D{{Key: "x", Value: int64(42)}},
 			bson.D{{Key: "x", Value: float64(42)}},
