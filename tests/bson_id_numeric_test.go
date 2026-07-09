@@ -291,7 +291,7 @@ func TestBSON_id_doc_field_order_distinct(t *testing.T) {
 func TestBSON_id_doc_nested_double_half_vs_decimal(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_doc_nested_double_half_vs_decimal",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: idCrossTypeCount(
 			bson.D{{Key: "a", Value: float64(0.5)}},
 			bson.D{{Key: "a", Value: decID(t, "0.5")}},
@@ -302,7 +302,7 @@ func TestBSON_id_doc_nested_double_half_vs_decimal(t *testing.T) {
 func TestBSON_id_doc_nested_decimal_scale(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_doc_nested_decimal_scale",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: idCrossTypeCount(
 			bson.D{{Key: "a", Value: decID(t, "0.10")}},
 			bson.D{{Key: "a", Value: decID(t, "0.1")}},
