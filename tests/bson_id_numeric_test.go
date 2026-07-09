@@ -239,3 +239,73 @@ func TestBSON_id_doc_nested_long_vs_double(t *testing.T) {
 		),
 	})
 }
+
+func TestBSON_id_doc_nested_int32_vs_int64(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_doc_nested_int32_vs_int64",
+		Support: harness.DumboDBFull,
+		Run: idCrossTypeCount(
+			bson.D{{Key: "a", Value: int32(42)}},
+			bson.D{{Key: "a", Value: int64(42)}},
+		),
+	})
+}
+
+func TestBSON_id_doc_nested_int32_vs_decimal(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_doc_nested_int32_vs_decimal",
+		Support: harness.DumboDBFull,
+		Run: idCrossTypeCount(
+			bson.D{{Key: "a", Value: int32(42)}},
+			bson.D{{Key: "a", Value: decID(t, "42")}},
+		),
+	})
+}
+
+func TestBSON_id_doc_deep_nested_int32_vs_int64(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_doc_deep_nested_int32_vs_int64",
+		Support: harness.DumboDBFull,
+		Run: idCrossTypeCount(
+			bson.D{{Key: "a", Value: bson.D{{Key: "b", Value: int32(42)}}}},
+			bson.D{{Key: "a", Value: bson.D{{Key: "b", Value: int64(42)}}}},
+		),
+	})
+}
+
+// MongoDB embedded-document _id equality is field-order sensitive: {a,b} and
+// {b,a} are distinct _ids, so a query for one must not match the other.
+func TestBSON_id_doc_field_order_distinct(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_doc_field_order_distinct",
+		Support: harness.DumboDBFull,
+		Run: idCrossTypeCount(
+			bson.D{{Key: "a", Value: int32(1)}, {Key: "b", Value: int32(2)}},
+			bson.D{{Key: "b", Value: int32(2)}, {Key: "a", Value: int32(1)}},
+		),
+	})
+}
+
+// Non-integer numeric values nested in a composite _id must also match by
+// exact value, as they do at the top level.
+func TestBSON_id_doc_nested_double_half_vs_decimal(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_doc_nested_double_half_vs_decimal",
+		Support: harness.DumboDBXFail,
+		Run: idCrossTypeCount(
+			bson.D{{Key: "a", Value: float64(0.5)}},
+			bson.D{{Key: "a", Value: decID(t, "0.5")}},
+		),
+	})
+}
+
+func TestBSON_id_doc_nested_decimal_scale(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_doc_nested_decimal_scale",
+		Support: harness.DumboDBXFail,
+		Run: idCrossTypeCount(
+			bson.D{{Key: "a", Value: decID(t, "0.10")}},
+			bson.D{{Key: "a", Value: decID(t, "0.1")}},
+		),
+	})
+}
