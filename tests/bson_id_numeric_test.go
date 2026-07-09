@@ -16,6 +16,7 @@ package tests
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -161,5 +162,80 @@ func TestBSON_id_double_stored_query_decimal(t *testing.T) {
 		Name:    "BSON_id_double_stored_query_decimal",
 		Support: harness.DumboDBFull,
 		Run:     idCrossTypeCount(float64(42), decID(t, "42")),
+	})
+}
+
+// Non-integer numeric _id equality. MongoDB compares by exact value, so a
+// double and a decimal that represent the same value (0.5, 42.5 - both exactly
+// representable in binary and decimal) are equal, and decimals differing only
+// in scale (0.10 vs 0.1) are equal. double 0.1 and decimal 0.1 are NOT equal
+// (0.1 is inexact in binary), which both servers already agree on.
+
+func TestBSON_id_double_stored_query_decimal_half(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_double_stored_query_decimal_half",
+		Support: harness.DumboDBXFail,
+		Run:     idCrossTypeCount(float64(0.5), decID(t, "0.5")),
+	})
+}
+
+func TestBSON_id_decimal_stored_query_double_half(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_decimal_stored_query_double_half",
+		Support: harness.DumboDBXFail,
+		Run:     idCrossTypeCount(decID(t, "0.5"), float64(0.5)),
+	})
+}
+
+func TestBSON_id_double_stored_query_decimal_425(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_double_stored_query_decimal_425",
+		Support: harness.DumboDBXFail,
+		Run:     idCrossTypeCount(float64(42.5), decID(t, "42.5")),
+	})
+}
+
+func TestBSON_id_decimal_scale_tenths(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_decimal_scale_tenths",
+		Support: harness.DumboDBXFail,
+		Run:     idCrossTypeCount(decID(t, "0.10"), decID(t, "0.1")),
+	})
+}
+
+func TestBSON_id_decimal_scale_25(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_decimal_scale_25",
+		Support: harness.DumboDBXFail,
+		Run:     idCrossTypeCount(decID(t, "2.50"), decID(t, "2.5")),
+	})
+}
+
+func TestBSON_id_double_inf_vs_decimal_inf(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_double_inf_vs_decimal_inf",
+		Support: harness.DumboDBXFail,
+		Run:     idCrossTypeCount(math.Inf(1), decID(t, "Infinity")),
+	})
+}
+
+func TestBSON_id_double_nan_vs_decimal_nan(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_double_nan_vs_decimal_nan",
+		Support: harness.DumboDBXFail,
+		Run:     idCrossTypeCount(math.NaN(), decID(t, "NaN")),
+	})
+}
+
+// Composite _id: MongoDB matches embedded-document _ids field by field with
+// value-based numeric equality, so {x: NumberLong(42)} equals {x: 42.0}.
+func TestBSON_id_doc_nested_long_vs_double(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_doc_nested_long_vs_double",
+		Support: harness.DumboDBXFail,
+		Run: idCrossTypeCount(
+			bson.D{{Key: "x", Value: int64(42)}},
+			bson.D{{Key: "x", Value: float64(42)}},
+		),
 	})
 }
