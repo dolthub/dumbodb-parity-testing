@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
@@ -111,5 +112,54 @@ func TestBSON_id_int64_stored_findone_double(t *testing.T) {
 			err := col.FindOne(ctx, bson.D{{Key: "_id", Value: float64(0)}}).Decode(&result)
 			return result, err
 		},
+	})
+}
+
+func decID(t *testing.T, s string) primitive.Decimal128 {
+	t.Helper()
+	d, err := primitive.ParseDecimal128(s)
+	if err != nil {
+		t.Fatalf("parse decimal %q: %v", s, err)
+	}
+	return d
+}
+
+func TestBSON_id_decimal_stored_query_int32(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_decimal_stored_query_int32",
+		Support: harness.DumboDBXFail,
+		Run:     idCrossTypeCount(decID(t, "42"), int32(42)),
+	})
+}
+
+func TestBSON_id_decimal_stored_query_int64(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_decimal_stored_query_int64",
+		Support: harness.DumboDBXFail,
+		Run:     idCrossTypeCount(decID(t, "42"), int64(42)),
+	})
+}
+
+func TestBSON_id_decimal_stored_query_double(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_decimal_stored_query_double",
+		Support: harness.DumboDBXFail,
+		Run:     idCrossTypeCount(decID(t, "42"), float64(42)),
+	})
+}
+
+func TestBSON_id_int64_stored_query_decimal(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_int64_stored_query_decimal",
+		Support: harness.DumboDBXFail,
+		Run:     idCrossTypeCount(int64(42), decID(t, "42")),
+	})
+}
+
+func TestBSON_id_double_stored_query_decimal(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_double_stored_query_decimal",
+		Support: harness.DumboDBXFail,
+		Run:     idCrossTypeCount(float64(42), decID(t, "42")),
 	})
 }
