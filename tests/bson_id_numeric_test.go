@@ -309,3 +309,16 @@ func TestBSON_id_doc_nested_decimal_scale(t *testing.T) {
 		),
 	})
 }
+
+// NaN nested in a document _id must match across double and decimal, as it does
+// at the top level; NaN sorts as the lowest number regardless of subtype.
+func TestBSON_id_doc_nested_nan(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_doc_nested_nan",
+		Support: harness.DumboDBFull,
+		Run: idCrossTypeCount(
+			bson.D{{Key: "a", Value: math.NaN()}},
+			bson.D{{Key: "a", Value: decID(t, "NaN")}},
+		),
+	})
+}
