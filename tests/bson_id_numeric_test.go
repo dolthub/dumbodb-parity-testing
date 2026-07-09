@@ -28,8 +28,8 @@ import (
 // matches a stored _id regardless of whether it was written as int32, int64,
 // or double, including through the _id index. TestBSON_int32_vs_int64_equality
 // asserts this on a regular field. These tests assert the same equivalence on
-// _id, where DumboDB currently requires an exact numeric-subtype match and so
-// misses the document. They are XFail until DumboDB matches by value on _id.
+// _id, which DumboDB matches by value once numeric _id values are normalised
+// to a canonical form before hashing. Full mode: divergence fails CI.
 
 // idCrossTypeCount stores one document whose _id is stored, then counts
 // documents matching {_id: query}. MongoDB returns 1 for any value-equal
@@ -50,7 +50,7 @@ func idCrossTypeCount(stored, query interface{}) func(context.Context, *mongo.Co
 func TestBSON_id_int32_stored_query_int64(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_int32_stored_query_int64",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run:     idCrossTypeCount(int32(42), int64(42)),
 	})
 }
@@ -58,7 +58,7 @@ func TestBSON_id_int32_stored_query_int64(t *testing.T) {
 func TestBSON_id_int32_stored_query_double(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_int32_stored_query_double",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run:     idCrossTypeCount(int32(42), float64(42)),
 	})
 }
@@ -66,7 +66,7 @@ func TestBSON_id_int32_stored_query_double(t *testing.T) {
 func TestBSON_id_int64_stored_query_int32(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_int64_stored_query_int32",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run:     idCrossTypeCount(int64(42), int32(42)),
 	})
 }
@@ -74,7 +74,7 @@ func TestBSON_id_int64_stored_query_int32(t *testing.T) {
 func TestBSON_id_int64_stored_query_double(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_int64_stored_query_double",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run:     idCrossTypeCount(int64(42), float64(42)),
 	})
 }
@@ -82,7 +82,7 @@ func TestBSON_id_int64_stored_query_double(t *testing.T) {
 func TestBSON_id_double_stored_query_int32(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_double_stored_query_int32",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run:     idCrossTypeCount(float64(42), int32(42)),
 	})
 }
@@ -90,7 +90,7 @@ func TestBSON_id_double_stored_query_int32(t *testing.T) {
 func TestBSON_id_double_stored_query_int64(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_double_stored_query_int64",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run:     idCrossTypeCount(float64(42), int64(42)),
 	})
 }
@@ -102,7 +102,7 @@ func TestBSON_id_double_stored_query_int64(t *testing.T) {
 func TestBSON_id_int64_stored_findone_double(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_int64_stored_findone_double",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int64(0)}, {Key: "label", Value: "zero"}}); err != nil {
 				return nil, err
