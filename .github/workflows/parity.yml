@@ -68,14 +68,24 @@ jobs:
 
       - name: Build DumboDB
         env:
-          DUMBODB_COMMIT: ${{ vars.DUMBODB_COMMIT || 'main' }}
+          # This PR/push branch; when a same-named dumbodb branch exists (a
+          # parallel PR) build from it, otherwise build from main.
+          CANDIDATE: ${{ github.head_ref || github.ref_name }}
         run: |
           git clone --depth 1 https://x:${{ secrets.DUMBODB_READ_TOKEN }}@github.com/dolthub/dumbodb.git /tmp/dumbodb
           cd /tmp/dumbodb
-          if [ -n "$DUMBODB_COMMIT" ] && [ "$DUMBODB_COMMIT" != "main" ]; then
-            git fetch --depth 1 origin "$DUMBODB_COMMIT"
-            git checkout "$DUMBODB_COMMIT"
+
+          if [ -n "$CANDIDATE" ] && [ "$CANDIDATE" != "main" ] && \
+             git ls-remote --exit-code --heads origin "refs/heads/${CANDIDATE}" >/dev/null 2>&1; then
+            echo "Building dumbodb from matching branch: ${CANDIDATE}"
+            git fetch --depth 1 origin "$CANDIDATE"
+            # The shallow clone has no local ref for the fetched branch, so
+            # check out the fetched commit directly.
+            git checkout FETCH_HEAD
+          else
+            echo "Building dumbodb from: main"
           fi
+
           # Build the dumbodb binary (adjust path if the repo layout differs)
           go build -o /usr/local/bin/dumbodb ./cmd/dumbodb
 
