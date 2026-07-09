@@ -127,7 +127,7 @@ func decID(t *testing.T, s string) primitive.Decimal128 {
 func TestBSON_id_decimal_stored_query_int32(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_decimal_stored_query_int32",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run:     idCrossTypeCount(decID(t, "42"), int32(42)),
 	})
 }
@@ -135,7 +135,7 @@ func TestBSON_id_decimal_stored_query_int32(t *testing.T) {
 func TestBSON_id_decimal_stored_query_int64(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_decimal_stored_query_int64",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run:     idCrossTypeCount(decID(t, "42"), int64(42)),
 	})
 }
@@ -143,7 +143,7 @@ func TestBSON_id_decimal_stored_query_int64(t *testing.T) {
 func TestBSON_id_decimal_stored_query_double(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_decimal_stored_query_double",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run:     idCrossTypeCount(decID(t, "42"), float64(42)),
 	})
 }
@@ -151,7 +151,7 @@ func TestBSON_id_decimal_stored_query_double(t *testing.T) {
 func TestBSON_id_int64_stored_query_decimal(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_int64_stored_query_decimal",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run:     idCrossTypeCount(int64(42), decID(t, "42")),
 	})
 }
@@ -159,7 +159,7 @@ func TestBSON_id_int64_stored_query_decimal(t *testing.T) {
 func TestBSON_id_double_stored_query_decimal(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_double_stored_query_decimal",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run:     idCrossTypeCount(float64(42), decID(t, "42")),
 	})
 }
