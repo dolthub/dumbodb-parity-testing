@@ -24,8 +24,8 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// Matrix area D: connectionStatus, logout, and pre-auth connection state.
-// See docs/auth-parity-matrix.md (CONN-01..08). All start XFail.
+// Auth parity area D: connectionStatus, logout, and pre-auth connection state
+// (CONN-01..08). All start XFail.
 
 // authInfoCounts runs connectionStatus on c and returns the counts of
 // authenticatedUsers and authenticatedUserRoles, plus whether a privileges

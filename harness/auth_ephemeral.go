@@ -25,7 +25,7 @@ import (
 
 // EphemeralServers is a throwaway, access-control-enabled MongoDB + DumboDB
 // pair with fresh data directories and NO users. It exists for the
-// localhost-exception matrix (area A), whose tests depend on a server that
+// localhost-exception cases (area A), whose tests depend on a server that
 // starts with --auth and zero users, where creating the first user permanently
 // changes global state and so cannot share the isolated-DB model of the shared
 // servers. Each test gets its own pair, torn down via t.Cleanup.

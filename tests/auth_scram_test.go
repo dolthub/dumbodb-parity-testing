@@ -24,9 +24,9 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// Matrix area B: the SCRAM handshake, driver-expressible cases. Protocol-level
-// cases that require crafting raw SASL frames (SCRAM-07, 11-17, 20) are tracked
-// separately; the driver hides that layer. See docs/auth-parity-matrix.md.
+// Auth parity area B: the SCRAM handshake, driver-expressible cases.
+// Protocol-level cases that require crafting raw SASL frames (SCRAM-07, 11-17,
+// 20) are tracked separately (the driver hides that layer).
 
 // createUserMech creates a user with an explicit mechanisms list (nil = server
 // default of both SCRAM mechanisms).
