@@ -31,6 +31,17 @@ func ConnectAs(ctx context.Context, baseURI, user, password, authSource string) 
 	return connect(ctx, baseURI, &cred)
 }
 
+// ConnectAsMech is ConnectAs with an explicit SCRAM mechanism (e.g.
+// "SCRAM-SHA-1" or "SCRAM-SHA-256"). An empty mechanism lets the driver
+// negotiate. Used by handshake tests that pin a specific mechanism.
+func ConnectAsMech(ctx context.Context, baseURI, user, password, authSource, mechanism string) (*mongo.Client, error) {
+	cred := options.Credential{Username: user, Password: password, AuthSource: authSource}
+	if mechanism != "" {
+		cred.AuthMechanism = mechanism
+	}
+	return connect(ctx, baseURI, &cred)
+}
+
 // ConnectNoAuth dials baseURI without credentials and pings, for exercising the
 // pre-authentication state of an access-control-enabled server. The caller owns
 // the returned client and must Disconnect it.
