@@ -25,7 +25,8 @@ import (
 )
 
 // Auth parity area D: connectionStatus, logout, and pre-auth connection state
-// (CONN-01..08). All start XFail.
+// (CONN-01..08). CONN-01/04/07 are DumboDBFull (DumboDB already matches the
+// anonymous/pre-auth behavior); the rest are XFail pending auth enforcement.
 
 // authInfoCounts runs connectionStatus on c and returns the counts of
 // authenticatedUsers and authenticatedUserRoles, plus whether a privileges
@@ -50,7 +51,7 @@ func TestAuthConnectionStatusPreAuth(t *testing.T) {
 	// CONN-01: pre-auth connectionStatus reports empty user/role sets.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "CONN-01-connectionStatus-preauth-empty",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			c, err := harness.ConnectNoAuth(ctx, tgt.BaseURI)
 			if err != nil {
@@ -64,7 +65,7 @@ func TestAuthConnectionStatusPreAuth(t *testing.T) {
 	// CONN-04: connectionStatus is allowed pre-auth (anonymous).
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "CONN-04-connectionStatus-anonymous-allowed",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			c, err := harness.ConnectNoAuth(ctx, tgt.BaseURI)
 			if err != nil {
@@ -173,7 +174,7 @@ func TestAuthPreAuthState(t *testing.T) {
 	// CONN-07: ping is allowed pre-auth (anonymous).
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "CONN-07-ping-anonymous",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			c, err := harness.ConnectNoAuth(ctx, tgt.BaseURI)
 			if err != nil {

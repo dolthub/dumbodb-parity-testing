@@ -116,15 +116,20 @@ func TestAuthSpeculativeNegotiation(t *testing.T) {
 	}))
 
 	// SPEC-08: hello is allowed pre-authentication (anonymous handshake).
-	harness.AuthPairTest(t, authCase("SPEC-08-hello-anonymous", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
-		c, err := harness.ConnectNoAuth(ctx, tgt.BaseURI)
-		if err != nil {
-			return nil, err
-		}
-		defer func() { _ = c.Disconnect(ctx) }()
-		var res bson.M
-		err = c.Database("admin").RunCommand(ctx, bson.D{{Key: "hello", Value: 1}}).Decode(&res)
-		_, hasPrimaryField := res["isWritablePrimary"]
-		return bson.M{"ok": err == nil, "hasPrimaryField": hasPrimaryField}, err
-	}))
+	// Promoted to DumboDBFull: DumboDB already matches MongoDB here.
+	harness.AuthPairTest(t, harness.AuthCase{
+		Name:    "SPEC-08-hello-anonymous",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+			c, err := harness.ConnectNoAuth(ctx, tgt.BaseURI)
+			if err != nil {
+				return nil, err
+			}
+			defer func() { _ = c.Disconnect(ctx) }()
+			var res bson.M
+			err = c.Database("admin").RunCommand(ctx, bson.D{{Key: "hello", Value: 1}}).Decode(&res)
+			_, hasPrimaryField := res["isWritablePrimary"]
+			return bson.M{"ok": err == nil, "hasPrimaryField": hasPrimaryField}, err
+		},
+	})
 }
