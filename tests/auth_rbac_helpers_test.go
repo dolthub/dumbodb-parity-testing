@@ -136,3 +136,64 @@ func dbScopedRoleProbe(t *testing.T, id, role string, wantAllowed bool, op rbacO
 		return bson.M{"allowed": allowed, "code": code}, nil
 	})
 }
+
+// Additional operations for admin-scoped (AnyDatabase, cluster, backup/restore,
+// root) role enforcement.
+var (
+	opGetParameter        = rbacOp{name: "getParameter", fn: func(ctx context.Context, c *mongo.Client, db string) error { return cmdErr(ctx, c, "admin", bson.D{{Key: "getParameter", Value: "*"}}) }}
+	opSetParameter        = rbacOp{name: "setParameter", fn: func(ctx context.Context, c *mongo.Client, db string) error { return cmdErr(ctx, c, "admin", bson.D{{Key: "setParameter", Value: 1}, {Key: "logLevel", Value: 0}}) }}
+	opHostInfo            = rbacOp{name: "hostInfo", fn: func(ctx context.Context, c *mongo.Client, db string) error { return cmdErr(ctx, c, "admin", bson.D{{Key: "hostInfo", Value: 1}}) }}
+	opLogRotate           = rbacOp{name: "logRotate", fn: func(ctx context.Context, c *mongo.Client, db string) error { return cmdErr(ctx, c, "admin", bson.D{{Key: "logRotate", Value: 1}}) }}
+	opGetClusterParameter = rbacOp{name: "getClusterParameter", fn: func(ctx context.Context, c *mongo.Client, db string) error { return cmdErr(ctx, c, "admin", bson.D{{Key: "getClusterParameter", Value: "*"}}) }}
+	opInsertSystemUsers   = rbacOp{name: "insert-system.users", fn: func(ctx context.Context, c *mongo.Client, db string) error {
+		return cmdErr(ctx, c, "admin", bson.D{{Key: "insert", Value: "system.users"}, {Key: "documents", Value: bson.A{bson.D{{Key: "x", Value: 1}}}}})
+	}}
+)
+
+// adminScopedRoleProbe grants an admin-database role (an *AnyDatabase, cluster,
+// backup/restore, or root role) and runs one operation as the holder. Data ops
+// target an arbitrary non-admin database; cluster ops target admin internally.
+// Like dbScopedRoleProbe it validates the outcome against real MongoDB.
+func adminScopedRoleProbe(t *testing.T, id, role string, wantAllowed bool, op rbacOp) harness.AuthCase {
+	return authCase(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+		db := "rbacany_" + tgt.NS
+		user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
+		defer func() {
+			_ = harness.DropUser(ctx, tgt.Admin, "admin", user)
+			_ = harness.DropUser(ctx, tgt.Admin, db, "probeuser")
+			_ = harness.DropRole(ctx, tgt.Admin, db, "proberole")
+			_ = tgt.Admin.Database(db).Drop(ctx)
+		}()
+		if _, err := tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}); err != nil {
+			return nil, err
+		}
+		if err := harness.CreateUser(ctx, tgt.Admin, "admin", user, pwd, []harness.RoleRef{{Role: role, DB: "admin"}}); err != nil {
+			return nil, err
+		}
+		c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, "admin")
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = c.Disconnect(ctx) }()
+
+		opErr := op.fn(ctx, c, db)
+		allowed := opErr == nil
+		code, _, _ := harness.CommandErrorCode(opErr)
+		if tgt.BaseURI == harness.AuthMongoBaseURI() {
+			if allowed != wantAllowed {
+				t.Errorf("%s [%s]: MongoDB allowed=%v (code=%d), want allowed=%v", id, op.name, allowed, code, wantAllowed)
+			}
+			if !allowed && code != 13 {
+				t.Errorf("%s [%s]: MongoDB denial code=%d, want Unauthorized(13)", id, op.name, code)
+			}
+		}
+		return bson.M{"allowed": allowed, "code": code}, nil
+	})
+}
+
+func runAdminRbacRows(t *testing.T, role string, rows []rbacRow) {
+	t.Helper()
+	for _, r := range rows {
+		harness.AuthPairTest(t, adminScopedRoleProbe(t, r.id, role, r.allowed, r.op))
+	}
+}
