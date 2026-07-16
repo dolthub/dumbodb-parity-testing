@@ -31,6 +31,13 @@ func ConnectAs(ctx context.Context, baseURI, user, password, authSource string) 
 	return connect(ctx, baseURI, &cred)
 }
 
+// ConnectNoAuth dials baseURI without credentials and pings, for exercising the
+// pre-authentication state of an access-control-enabled server. The caller owns
+// the returned client and must Disconnect it.
+func ConnectNoAuth(ctx context.Context, baseURI string) (*mongo.Client, error) {
+	return connect(ctx, baseURI, nil)
+}
+
 // CommandErrorCode extracts the MongoDB error code and codeName from err, if it
 // is a driver CommandError. The bool is false for non-command errors.
 func CommandErrorCode(err error) (code int32, name string, ok bool) {
