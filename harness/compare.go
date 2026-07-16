@@ -113,6 +113,18 @@ func compareErrors(mongoErr, dumboDBErr error) Comparison {
 			Diff:   fmt.Sprintf("error code mismatch: mongo=%d dumbodb=%d", mCode, dCode),
 		}
 	}
+	// codeName is the stable, human-readable identity of an error. Compare it
+	// when both sides provide one; a mismatch here (e.g. same numeric code but
+	// different codeName) is a real divergence and yields a clearer diagnostic
+	// than the raw message comparison below.
+	mName := errorName(mongoErr)
+	dName := errorName(dumboDBErr)
+	if mName != "" && dName != "" && mName != dName {
+		return Comparison{
+			Result: Diverge,
+			Diff:   fmt.Sprintf("error codeName mismatch: mongo=%q dumbodb=%q (code=%d)", mName, dName, mCode),
+		}
+	}
 	mMsg := mongoErr.Error()
 	dMsg := dumboDBErr.Error()
 	if mMsg != dMsg {
@@ -137,6 +149,19 @@ func errorCode(err error) int32 {
 		return int32(writeExc.WriteErrors[0].Code)
 	}
 	return 0
+}
+
+// errorName returns the MongoDB codeName of err when it is a CommandError, or
+// the empty string otherwise (WriteError carries no codeName).
+func errorName(err error) string {
+	if err == nil {
+		return ""
+	}
+	var cmdErr mongo.CommandError
+	if errors.As(err, &cmdErr) {
+		return cmdErr.Name
+	}
+	return ""
 }
 
 // normalize converts any value to a stable, comparable representation.
