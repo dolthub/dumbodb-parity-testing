@@ -70,6 +70,7 @@ var (
 		return cmdErr(ctx, c, db, bson.D{{Key: "createUser", Value: "probeuser"}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: bson.A{}}})
 	}}
 	opUsersInfo      = rbacOp{name: "usersInfo", fn: func(ctx context.Context, c *mongo.Client, db string) error { return cmdErr(ctx, c, db, bson.D{{Key: "usersInfo", Value: 1}}) }}
+	opRolesInfo      = rbacOp{name: "rolesInfo", fn: func(ctx context.Context, c *mongo.Client, db string) error { return cmdErr(ctx, c, db, bson.D{{Key: "rolesInfo", Value: 1}}) }}
 	opCreateRole     = rbacOp{name: "createRole", fn: func(ctx context.Context, c *mongo.Client, db string) error {
 		return cmdErr(ctx, c, db, bson.D{{Key: "createRole", Value: "proberole"}, {Key: "privileges", Value: bson.A{}}, {Key: "roles", Value: bson.A{}}})
 	}}
