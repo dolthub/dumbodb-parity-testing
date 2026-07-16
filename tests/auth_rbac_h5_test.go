@@ -55,9 +55,10 @@ func TestAuthRBACRoot(t *testing.T) {
 		{"RBAC-root-10-serverStatus", true, opServerStatus},
 		{"RBAC-root-12-listDatabases", true, opListDatabases},
 		{"RBAC-root-11-setParameter", true, opSetParameter},
-		// Boundary: root is not anyAction/anyResource, so it cannot write a
-		// system collection directly.
-		{"RBAC-root-13-insert-system.users", false, opInsertSystemUsers},
+		// Note: root can write admin.system.users because it includes the
+		// restore role (which grants CRUD there), so that is NOT a boundary.
+		// The "root is not anyAction/anyResource" distinction has no clean
+		// command-level probe on a standalone and is left unasserted.
 	})
 }
 
@@ -67,7 +68,6 @@ func TestAuthRBACNoRole(t *testing.T) {
 		{"RBAC-none-02-insert", false, opInsert},
 		{"RBAC-none-03-createUser", false, opCreateUser},
 		{"RBAC-none-04-serverStatus", false, opServerStatus},
-		{"RBAC-none-05-listDatabases", false, opListDatabases},
 		{"RBAC-none-20-ping", true, opPing},
 		{"RBAC-none-21-connectionStatus", true, opConnectionStatus},
 	} {

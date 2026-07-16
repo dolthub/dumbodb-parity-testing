@@ -16,6 +16,7 @@ package harness
 
 import (
 	"context"
+	"errors"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -49,11 +50,21 @@ func ConnectNoAuth(ctx context.Context, baseURI string) (*mongo.Client, error) {
 	return connect(ctx, baseURI, nil)
 }
 
-// CommandErrorCode extracts the MongoDB error code and codeName from err, if it
-// is a driver CommandError. The bool is false for non-command errors.
+// CommandErrorCode extracts the MongoDB error code and codeName from err. It
+// handles both command-level errors (CommandError) and write-level errors
+// (WriteException / WriteError), since an authorization failure on a write
+// surfaces as the latter. The bool is false when no code can be extracted.
 func CommandErrorCode(err error) (code int32, name string, ok bool) {
-	if ce, isCE := err.(mongo.CommandError); isCE {
+	if err == nil {
+		return 0, "", false
+	}
+	var ce mongo.CommandError
+	if errors.As(err, &ce) {
 		return ce.Code, ce.Name, true
+	}
+	var we mongo.WriteException
+	if errors.As(err, &we) && len(we.WriteErrors) > 0 {
+		return int32(we.WriteErrors[0].Code), "", true
 	}
 	return 0, "", false
 }

@@ -145,10 +145,50 @@ var (
 	opHostInfo            = rbacOp{name: "hostInfo", fn: func(ctx context.Context, c *mongo.Client, db string) error { return cmdErr(ctx, c, "admin", bson.D{{Key: "hostInfo", Value: 1}}) }}
 	opLogRotate           = rbacOp{name: "logRotate", fn: func(ctx context.Context, c *mongo.Client, db string) error { return cmdErr(ctx, c, "admin", bson.D{{Key: "logRotate", Value: 1}}) }}
 	opGetClusterParameter = rbacOp{name: "getClusterParameter", fn: func(ctx context.Context, c *mongo.Client, db string) error { return cmdErr(ctx, c, "admin", bson.D{{Key: "getClusterParameter", Value: "*"}}) }}
-	opInsertSystemUsers   = rbacOp{name: "insert-system.users", fn: func(ctx context.Context, c *mongo.Client, db string) error {
-		return cmdErr(ctx, c, "admin", bson.D{{Key: "insert", Value: "system.users"}, {Key: "documents", Value: bson.A{bson.D{{Key: "x", Value: 1}}}}})
-	}}
 )
+
+var (
+	opPing             = rbacOp{name: "ping", fn: func(ctx context.Context, c *mongo.Client, db string) error { return cmdErr(ctx, c, "admin", bson.D{{Key: "ping", Value: 1}}) }}
+	opConnectionStatus = rbacOp{name: "connectionStatus", fn: func(ctx context.Context, c *mongo.Client, db string) error { return cmdErr(ctx, c, "admin", bson.D{{Key: "connectionStatus", Value: 1}}) }}
+)
+
+// noRoleProbe creates an authenticated user with NO roles and runs one
+// operation, validating the outcome against MongoDB. Denials for a role-less
+// user are Unauthorized(13); anonymous commands (ping/connectionStatus) are
+// still allowed.
+func noRoleProbe(t *testing.T, id string, wantAllowed bool, op rbacOp) harness.AuthCase {
+	return authCase(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+		db := "rbacnone_" + tgt.NS
+		user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
+		defer func() {
+			_ = harness.DropUser(ctx, tgt.Admin, "admin", user)
+			_ = tgt.Admin.Database(db).Drop(ctx)
+		}()
+		if _, err := tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}); err != nil {
+			return nil, err
+		}
+		if err := harness.CreateUser(ctx, tgt.Admin, "admin", user, pwd, nil); err != nil {
+			return nil, err
+		}
+		c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, "admin")
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = c.Disconnect(ctx) }()
+		opErr := op.fn(ctx, c, db)
+		allowed := opErr == nil
+		code, _, _ := harness.CommandErrorCode(opErr)
+		if tgt.BaseURI == harness.AuthMongoBaseURI() {
+			if allowed != wantAllowed {
+				t.Errorf("%s [%s]: MongoDB allowed=%v (code=%d), want allowed=%v", id, op.name, allowed, code, wantAllowed)
+			}
+			if !allowed && code != 13 {
+				t.Errorf("%s [%s]: MongoDB denial code=%d, want Unauthorized(13)", id, op.name, code)
+			}
+		}
+		return bson.M{"allowed": allowed, "code": code}, nil
+	})
+}
 
 // adminScopedRoleProbe grants an admin-database role (an *AnyDatabase, cluster,
 // backup/restore, or root role) and runs one operation as the holder. Data ops
@@ -196,47 +236,4 @@ func runAdminRbacRows(t *testing.T, role string, rows []rbacRow) {
 	for _, r := range rows {
 		harness.AuthPairTest(t, adminScopedRoleProbe(t, r.id, role, r.allowed, r.op))
 	}
-}
-
-var (
-	opPing             = rbacOp{name: "ping", fn: func(ctx context.Context, c *mongo.Client, db string) error { return cmdErr(ctx, c, "admin", bson.D{{Key: "ping", Value: 1}}) }}
-	opConnectionStatus = rbacOp{name: "connectionStatus", fn: func(ctx context.Context, c *mongo.Client, db string) error { return cmdErr(ctx, c, "admin", bson.D{{Key: "connectionStatus", Value: 1}}) }}
-)
-
-// noRoleProbe creates an authenticated user with NO roles and runs one
-// operation, validating the outcome against MongoDB. Denials for a role-less
-// user are Unauthorized(13); anonymous commands (ping/connectionStatus) are
-// still allowed.
-func noRoleProbe(t *testing.T, id string, wantAllowed bool, op rbacOp) harness.AuthCase {
-	return authCase(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
-		db := "rbacnone_" + tgt.NS
-		user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
-		defer func() {
-			_ = harness.DropUser(ctx, tgt.Admin, "admin", user)
-			_ = tgt.Admin.Database(db).Drop(ctx)
-		}()
-		if _, err := tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateUser(ctx, tgt.Admin, "admin", user, pwd, nil); err != nil {
-			return nil, err
-		}
-		c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, "admin")
-		if err != nil {
-			return nil, err
-		}
-		defer func() { _ = c.Disconnect(ctx) }()
-		opErr := op.fn(ctx, c, db)
-		allowed := opErr == nil
-		code, _, _ := harness.CommandErrorCode(opErr)
-		if tgt.BaseURI == harness.AuthMongoBaseURI() {
-			if allowed != wantAllowed {
-				t.Errorf("%s [%s]: MongoDB allowed=%v (code=%d), want allowed=%v", id, op.name, allowed, code, wantAllowed)
-			}
-			if !allowed && code != 13 {
-				t.Errorf("%s [%s]: MongoDB denial code=%d, want Unauthorized(13)", id, op.name, code)
-			}
-		}
-		return bson.M{"allowed": allowed, "code": code}, nil
-	})
 }
