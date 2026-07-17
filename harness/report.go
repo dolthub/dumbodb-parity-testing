@@ -28,8 +28,6 @@ const (
 	StatusFail
 	StatusSkip
 	StatusXFail
-	// StatusDeviate: DumboDB intentionally behaves differently from MongoDB, and
-	// both servers met their own expected behavior.
 	StatusDeviate
 )
 

@@ -23,13 +23,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// Auth parity area SYS: direct client access to the reserved admin database,
-// which holds the auth store. MongoDB-root permits raw insert/update/delete on
-// admin.system.users and arbitrary collections in admin, denying only drop
-// (IllegalOperation) and create of system.* (Unauthorized). DumboDB deviates: it
-// forbids all direct client mutation of the admin database, so its contents
-// change only through the user management commands.
-
 func allowedOnMongo(t *testing.T, _ interface{}, err error) {
 	t.Helper()
 	if err != nil {
@@ -96,8 +89,6 @@ func TestAuthSystemCollectionRowWritesDeviate(t *testing.T) {
 		DumboExpect: deniedWith(13),
 	})
 
-	// The whole admin database is reserved: a non-system collection there is also
-	// blocked by DumboDB, though MongoDB permits it.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "SYS-06-raw-insert-admin-nonsystem",
 		Support: harness.DumboDBDeviates,
@@ -113,7 +104,6 @@ func TestAuthSystemCollectionRowWritesDeviate(t *testing.T) {
 }
 
 func TestAuthSystemCollectionStructuralDenied(t *testing.T) {
-	// Both servers deny these; DumboDB matches MongoDB's denial codes.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "SYS-04-drop-system-users",
 		Support: harness.DumboDBDeviates,

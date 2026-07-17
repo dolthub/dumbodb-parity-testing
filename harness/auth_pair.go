@@ -33,9 +33,6 @@ type AuthCase struct {
 	Support DumboDBSupport
 	Run     func(ctx context.Context, admin AuthTarget) (interface{}, error)
 
-	// MongoExpect and DumboExpect are used only with DumboDBDeviates: they
-	// assert each server's own outcome, since MongoDB and DumboDB intentionally
-	// differ and cannot be compared for equality.
 	MongoExpect func(t *testing.T, res interface{}, err error)
 	DumboExpect func(t *testing.T, res interface{}, err error)
 }
