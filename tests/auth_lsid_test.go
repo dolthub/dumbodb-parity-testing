@@ -24,28 +24,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/wire"
 )
 
-// Auth parity, wire level: logical-session ownership. Authentication is a
-// property of the physical connection, and an lsid `id` is NOT a bearer token.
-//
-// Empirically, MongoDB does NOT reject a second user that presents the same
-// lsid `id`: it scopes every logical session by (id, uid), where uid is a hash
-// of the authenticated user. So user B presenting A's `id` transparently gets
-// its OWN session (id, uid_B), distinct from A's (id, uid_A) -- both commands
-// succeed, and neither can touch the other's session. The `id` alone is
-// harmless precisely because the server binds sessions to the authenticated
-// user.
-//
-// This is the boundary DumboDB's span-connections SessionRegistry must respect:
-// it must key sessions by (id, authenticated-user), NOT by `id` alone -- else B
-// presenting A's `id` would resume A's working-set overlay (a cross-user leak).
-// That deeper property is a DumboDB-internal invariant best tested in the
-// dumbodb repo (session-isolation mode, where the overlay is observable); this
-// wire test pins only the observable parity fact: same `id`, different user is
-// accepted and user-scoped, not rejected. Starts XFail (DumboDB does not yet
-// persist users).
-
-// findWithLsid runs a find carrying the given lsid over conn (already
-// authenticated).
 func findWithLsid(conn *wire.Conn, db string, lsid bson.D) (bson.M, error) {
 	return conn.RunCommand(bson.D{
 		{Key: "find", Value: "c"},
@@ -75,7 +53,6 @@ func TestAuthLsidCrossUserScoped(t *testing.T) {
 
 		lsid := bson.D{{Key: "id", Value: wire.NewLsid()}}
 
-		// Connection 1: authenticate as A, use the logical session, disconnect.
 		conn1, err := wire.Dial(tgt.BaseURI)
 		if err != nil {
 			return nil, err
@@ -92,7 +69,6 @@ func TestAuthLsidCrossUserScoped(t *testing.T) {
 		}
 		_ = conn1.Close()
 
-		// Connection 2: authenticate as B, present A's lsid.
 		conn2, err := wire.Dial(tgt.BaseURI)
 		if err != nil {
 			return nil, err
@@ -122,9 +98,6 @@ func TestAuthLsidCrossUserScoped(t *testing.T) {
 			if res["asA_ok"] != true {
 				t.Errorf("LSID-01: user A should use its own logical session, got %v", res)
 			}
-			// MongoDB scopes sessions by (id, user), so B is NOT rejected: it
-			// gets its own session under the same id. Presenting another user's
-			// id is accepted, not shared.
 			if res["asB_ok"] != true {
 				t.Errorf("LSID-01: user B presenting A's id should be accepted (user-scoped), got %v", res)
 			}

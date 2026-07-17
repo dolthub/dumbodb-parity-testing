@@ -24,13 +24,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// Auth parity area F: user management command semantics (USER-01..32). DumboDB
-// implements createUser/updateUser/dropUser/usersInfo/dropAllUsersFromDatabase
-// and persists users with stored (unenforced) roles, so most cases are
-// DumboDBFull (authCaseFull). The remainder stay XFail (authCase): role
-// validation and grantRolesToUser/revokeRolesFromUser (RBAC, deferred to M2),
-// customData storage, and the admin-only local-database user rule.
-
 func runCmd(ctx context.Context, admin *mongo.Client, db string, cmd bson.D) error {
 	return admin.Database(db).RunCommand(ctx, cmd).Err()
 }
@@ -47,13 +40,10 @@ func usersCount(res bson.M) int {
 	return len(users)
 }
 
-// authCase is the XFail default for auth parity cases that DumboDB does not yet
-// match (e.g. RBAC/role management, deferred to Milestone 2).
 func authCase(name string, run func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error)) harness.AuthCase {
 	return harness.AuthCase{Name: name, Support: harness.DumboDBXFail, Run: run}
 }
 
-// authCaseFull marks a case DumboDB matches in Milestone 1.
 func authCaseFull(name string, run func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error)) harness.AuthCase {
 	return harness.AuthCase{Name: name, Support: harness.DumboDBFull, Run: run}
 }

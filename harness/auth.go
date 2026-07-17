@@ -40,10 +40,10 @@ import (
 // specific non-admin identity use ConnectAs (see auth_user.go).
 
 const (
-	defaultAuthMongoURI  = "mongodb://localhost:27017"
+	defaultAuthMongoURI   = "mongodb://localhost:27017"
 	defaultAuthDumboDBURI = "mongodb://localhost:27018"
-	defaultAdminUser     = "admin"
-	defaultAdminPassword = "admin-pw"
+	defaultAdminUser      = "admin"
+	defaultAdminPassword  = "admin-pw"
 )
 
 var (
@@ -109,8 +109,6 @@ func GetAuthClients(ctx context.Context) (*AuthClients, error) {
 			authClientsErr = fmt.Errorf("connect mongo admin: %w", err)
 			return
 		}
-		// DumboDB now enforces --auth, so bootstrap its admin via the localhost
-		// exception exactly like MongoDB and connect with those credentials.
 		if err := bootstrapAdmin(ctx, AuthDumboDBBaseURI()); err != nil {
 			_ = mc.Disconnect(ctx)
 			authClientsErr = fmt.Errorf("bootstrap dumbodb admin: %w", err)
@@ -150,9 +148,8 @@ func connect(ctx context.Context, uri string, cred *options.Credential) (*mongo.
 }
 
 // bootstrapAdmin creates the admin super-user on the server at baseURI via the
-// localhost exception. It is idempotent: if the admin already exists, createUser
-// fails (the exception is consumed once a user exists) and we treat that as
-// success after confirming we can authenticate as the admin.
+// localhost exception. It is idempotent: an already-bootstrapped server is
+// treated as success once we confirm we can authenticate as the admin.
 func bootstrapAdmin(ctx context.Context, baseURI string) error {
 	noAuth, err := connect(ctx, baseURI, nil)
 	if err != nil {
@@ -169,9 +166,6 @@ func bootstrapAdmin(ctx context.Context, baseURI string) error {
 	if createErr == nil {
 		return nil
 	}
-	// Already-bootstrapped: the localhost exception is gone once any user
-	// exists, so createUser comes back Unauthorized (13) or the admin is a
-	// duplicate. Confirm by authenticating as the admin.
 	if !isAlreadyBootstrapped(createErr) {
 		return createErr
 	}

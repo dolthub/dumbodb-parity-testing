@@ -109,7 +109,6 @@ func wireCase(t *testing.T, name string, needUser bool,
 	return wireCaseSupport(authCase, t, name, needUser, fn, mongoCheck)
 }
 
-// wireCaseFull is wireCase for cases DumboDB matches in Milestone 1.
 func wireCaseFull(t *testing.T, name string, needUser bool,
 	fn func(conn *wire.Conn, db, user, pwd string) (bson.M, error),
 	mongoCheck func(t *testing.T, res bson.M)) harness.AuthCase {

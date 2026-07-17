@@ -55,16 +55,11 @@ func TestAuthHarnessBootstrap(t *testing.T) {
 	}
 	t.Logf("MongoDB connectionStatus.authInfo = %v", cs["authInfo"])
 
-	// DumboDB admin connection is usable and authenticated: a privileged command
-	// succeeds.
 	if err := ac.DumboDBAdmin.Database("admin").
 		RunCommand(ctx, bson.D{{Key: "listDatabases", Value: 1}}).Err(); err != nil {
 		t.Fatalf("admin listDatabases on DumboDB: %v", err)
 	}
 
-	// Confirm both servers actually enforce auth: an unauthenticated privileged
-	// command must be rejected. If this passes, --auth is not really on and the
-	// whole auth suite would be meaningless.
 	for _, srv := range []struct {
 		name string
 		uri  string
