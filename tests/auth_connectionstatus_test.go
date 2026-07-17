@@ -82,7 +82,7 @@ func TestAuthConnectionStatusAuthenticated(t *testing.T) {
 	// CONN-02: after auth, connectionStatus lists the user and its roles.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "CONN-02-connectionStatus-after-auth",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "conn02_" + tgt.NS
 			user := "u_" + tgt.NS
@@ -147,7 +147,7 @@ func TestAuthLogout(t *testing.T) {
 	// CONN-05: logout after authenticating succeeds.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "CONN-05-logout-after-auth",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "conn05_" + tgt.NS
 			user := "u_" + tgt.NS
@@ -189,7 +189,7 @@ func TestAuthPreAuthState(t *testing.T) {
 	// CONN-08: a privileged command pre-auth is rejected (Unauthorized 13).
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "CONN-08-privileged-command-preauth-denied",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			c, err := harness.ConnectNoAuth(ctx, tgt.BaseURI)
 			if err != nil {
