@@ -21,10 +21,13 @@ const (
 type TestStatus int
 
 const (
-	StatusPass  TestStatus = iota
+	StatusPass TestStatus = iota
 	StatusFail
 	StatusSkip
 	StatusXFail
+	// StatusDeviate: DumboDB intentionally behaves differently from MongoDB, and
+	// both servers met their own expected behavior.
+	StatusDeviate
 )
 
 func (s TestStatus) String() string {
@@ -37,6 +40,8 @@ func (s TestStatus) String() string {
 		return "SKIP"
 	case StatusXFail:
 		return "XFAIL"
+	case StatusDeviate:
+		return "DEVIATE"
 	default:
 		return "UNKNOWN"
 	}
@@ -54,6 +59,7 @@ type Summary struct {
 	Diverging int
 	MongoOnly int
 	XFail     int
+	Deviating int
 }
 
 func (s *Summary) Add(r TestResult) {
@@ -66,6 +72,8 @@ func (s *Summary) Add(r TestResult) {
 		s.MongoOnly++
 	case StatusXFail:
 		s.XFail++
+	case StatusDeviate:
+		s.Deviating++
 	}
 }
 
@@ -80,7 +88,8 @@ func (s *Summary) Print(w io.Writer) {
 	fmt.Fprintf(w, "  Diverging:  %d\n", s.Diverging)
 	fmt.Fprintf(w, "  Mongo-only: %d\n", s.MongoOnly)
 	fmt.Fprintf(w, "  XFail:      %d\n", s.XFail)
-	total := s.Matching + s.Diverging + s.MongoOnly + s.XFail
+	fmt.Fprintf(w, "  Deviating:  %d\n", s.Deviating)
+	total := s.Matching + s.Diverging + s.MongoOnly + s.XFail + s.Deviating
 	fmt.Fprintf(w, "  Total:      %d\n", total)
 }
 
