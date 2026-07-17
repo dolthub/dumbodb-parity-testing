@@ -55,29 +55,38 @@ func TestAuthHarnessBootstrap(t *testing.T) {
 	}
 	t.Logf("MongoDB connectionStatus.authInfo = %v", cs["authInfo"])
 
-	// DumboDB admin connection is usable (--auth is a no-op today).
+	// DumboDB admin connection is usable and authenticated: a privileged command
+	// succeeds.
 	if err := ac.DumboDBAdmin.Database("admin").
-		RunCommand(ctx, bson.D{{Key: "ping", Value: 1}}).Err(); err != nil {
-		t.Fatalf("ping DumboDB as admin: %v", err)
+		RunCommand(ctx, bson.D{{Key: "listDatabases", Value: 1}}).Err(); err != nil {
+		t.Fatalf("admin listDatabases on DumboDB: %v", err)
 	}
 
-	// Confirm MongoDB actually enforces auth: an unauthenticated privileged
-	// command must be rejected. If this passes, --auth is not really on and
-	// the whole auth suite would be meaningless.
-	noAuth, err := mongo.Connect(ctx, options.Client().ApplyURI(harness.AuthMongoBaseURI()))
-	if err != nil {
-		t.Fatalf("connect no-auth client: %v", err)
+	// Confirm both servers actually enforce auth: an unauthenticated privileged
+	// command must be rejected. If this passes, --auth is not really on and the
+	// whole auth suite would be meaningless.
+	for _, srv := range []struct {
+		name string
+		uri  string
+	}{
+		{"MongoDB", harness.AuthMongoBaseURI()},
+		{"DumboDB", harness.AuthDumboDBBaseURI()},
+	} {
+		noAuth, err := mongo.Connect(ctx, options.Client().ApplyURI(srv.uri))
+		if err != nil {
+			t.Fatalf("connect no-auth client to %s: %v", srv.name, err)
+		}
+		err = noAuth.Database("admin").RunCommand(ctx, bson.D{{Key: "listDatabases", Value: 1}}).Err()
+		_ = noAuth.Disconnect(ctx)
+		if err == nil {
+			t.Fatalf("unauthenticated listDatabases on %s succeeded; --auth is not enforced", srv.name)
+		}
+		var ce mongo.CommandError
+		if !mongoErrorHasCode(err, &ce, 13) {
+			t.Fatalf("unauthenticated listDatabases on %s: want Unauthorized(13), got %v", srv.name, err)
+		}
+		t.Logf("%s unauthenticated listDatabases correctly rejected: %v", srv.name, err)
 	}
-	defer func() { _ = noAuth.Disconnect(ctx) }()
-	err = noAuth.Database("admin").RunCommand(ctx, bson.D{{Key: "listDatabases", Value: 1}}).Err()
-	if err == nil {
-		t.Fatal("unauthenticated listDatabases succeeded; MongoDB is not enforcing --auth")
-	}
-	var ce mongo.CommandError
-	if !mongoErrorHasCode(err, &ce, 13) {
-		t.Fatalf("unauthenticated listDatabases: want Unauthorized(13), got %v", err)
-	}
-	t.Logf("unauthenticated listDatabases correctly rejected: %v", err)
 }
 
 // mongoErrorHasCode reports whether err is a CommandError with the given code.

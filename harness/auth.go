@@ -33,11 +33,11 @@ import (
 // and starting both servers with access control on:
 //
 //	mongod --auth ...            (MongoDB)
-//	dumbodb --auth ...           (DumboDB; --auth is a no-op until enforcement lands)
+//	dumbodb --auth ...           (DumboDB)
 //
-// The harness bootstraps the MongoDB admin via the localhost exception on first
-// use, then connects to both servers as that admin. Tests that need a specific
-// non-admin identity use ConnectAs (see auth_user.go).
+// The harness bootstraps each server's admin via the localhost exception on
+// first use, then connects to both servers as that admin. Tests that need a
+// specific non-admin identity use ConnectAs (see auth_user.go).
 
 const (
 	defaultAuthMongoURI  = "mongodb://localhost:27017"
@@ -93,7 +93,7 @@ func envOr(key, def string) string {
 // connecting (and bootstrapping the MongoDB admin) on first call.
 func GetAuthClients(ctx context.Context) (*AuthClients, error) {
 	authClientsOnce.Do(func() {
-		if err := bootstrapMongoAdmin(ctx); err != nil {
+		if err := bootstrapAdmin(ctx, AuthMongoBaseURI()); err != nil {
 			authClientsErr = fmt.Errorf("bootstrap mongo admin: %w", err)
 			return
 		}
@@ -109,15 +109,18 @@ func GetAuthClients(ctx context.Context) (*AuthClients, error) {
 			authClientsErr = fmt.Errorf("connect mongo admin: %w", err)
 			return
 		}
-		// DumboDB's SCRAM handshake is live but user management is stubbed, so
-		// no admin user exists to authenticate as; and enforcement is off, so an
-		// unauthenticated connection has full access. Connect without
-		// credentials. Once DumboDB implements createUser this becomes an
-		// admin-credentialed connection like MongoDB's.
-		dc, err := connect(ctx, AuthDumboDBBaseURI(), nil)
+		// DumboDB now enforces --auth, so bootstrap its admin via the localhost
+		// exception exactly like MongoDB and connect with those credentials.
+		if err := bootstrapAdmin(ctx, AuthDumboDBBaseURI()); err != nil {
+			_ = mc.Disconnect(ctx)
+			authClientsErr = fmt.Errorf("bootstrap dumbodb admin: %w", err)
+			return
+		}
+
+		dc, err := connect(ctx, AuthDumboDBBaseURI(), &cred)
 		if err != nil {
 			_ = mc.Disconnect(ctx)
-			authClientsErr = fmt.Errorf("connect dumbodb (no auth): %w", err)
+			authClientsErr = fmt.Errorf("connect dumbodb admin: %w", err)
 			return
 		}
 
@@ -146,12 +149,12 @@ func connect(ctx context.Context, uri string, cred *options.Credential) (*mongo.
 	return c, nil
 }
 
-// bootstrapMongoAdmin creates the admin super-user via the localhost exception.
-// It is idempotent: if the admin already exists, createUser fails (the
-// exception is consumed once a user exists) and we treat that as success after
-// confirming we can authenticate as the admin.
-func bootstrapMongoAdmin(ctx context.Context) error {
-	noAuth, err := connect(ctx, AuthMongoBaseURI(), nil)
+// bootstrapAdmin creates the admin super-user on the server at baseURI via the
+// localhost exception. It is idempotent: if the admin already exists, createUser
+// fails (the exception is consumed once a user exists) and we treat that as
+// success after confirming we can authenticate as the admin.
+func bootstrapAdmin(ctx context.Context, baseURI string) error {
+	noAuth, err := connect(ctx, baseURI, nil)
 	if err != nil {
 		return err
 	}
@@ -173,7 +176,7 @@ func bootstrapMongoAdmin(ctx context.Context) error {
 		return createErr
 	}
 	cred := options.Credential{Username: AdminUser(), Password: AdminPassword(), AuthSource: "admin"}
-	c, err := connect(ctx, AuthMongoBaseURI(), &cred)
+	c, err := connect(ctx, baseURI, &cred)
 	if err != nil {
 		return fmt.Errorf("admin already present but auth failed: %w (createUser: %v)", err, createErr)
 	}
