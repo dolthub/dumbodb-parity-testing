@@ -23,11 +23,12 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// Auth parity area SYS: direct client access to the auth store,
-// admin.system.users. MongoDB-root permits raw insert/update/delete on it while
-// denying drop (IllegalOperation) and create of system.* (Unauthorized). DumboDB
-// deviates: it forbids all direct client mutation of admin.system.*, so the auth
-// store changes only through the user management commands.
+// Auth parity area SYS: direct client access to the reserved admin database,
+// which holds the auth store. MongoDB-root permits raw insert/update/delete on
+// admin.system.users and arbitrary collections in admin, denying only drop
+// (IllegalOperation) and create of system.* (Unauthorized). DumboDB deviates: it
+// forbids all direct client mutation of the admin database, so its contents
+// change only through the user management commands.
 
 func allowedOnMongo(t *testing.T, _ interface{}, err error) {
 	t.Helper()
@@ -89,6 +90,21 @@ func TestAuthSystemCollectionRowWritesDeviate(t *testing.T) {
 			defer func() { _ = harness.DropUser(ctx, tgt.Admin, db, u) }()
 			_, err := tgt.Admin.Database("admin").Collection("system.users").
 				DeleteOne(ctx, bson.D{{Key: "user", Value: u}})
+			return nil, err
+		},
+		MongoExpect: allowedOnMongo,
+		DumboExpect: deniedWith(13),
+	})
+
+	// The whole admin database is reserved: a non-system collection there is also
+	// blocked by DumboDB, though MongoDB permits it.
+	harness.AuthPairTest(t, harness.AuthCase{
+		Name:    "SYS-06-raw-insert-admin-nonsystem",
+		Support: harness.DumboDBDeviates,
+		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+			coll := tgt.Admin.Database("admin").Collection("appdata_" + tgt.NS)
+			_, err := coll.InsertOne(ctx, bson.D{{Key: "anything", Value: "goes"}})
+			_ = coll.Drop(ctx)
 			return nil, err
 		},
 		MongoExpect: allowedOnMongo,
