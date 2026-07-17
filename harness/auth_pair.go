@@ -32,6 +32,12 @@ type AuthCase struct {
 	Name    string
 	Support DumboDBSupport
 	Run     func(ctx context.Context, admin AuthTarget) (interface{}, error)
+
+	// MongoExpect and DumboExpect are used only with DumboDBDeviates: they
+	// assert each server's own outcome, since MongoDB and DumboDB intentionally
+	// differ and cannot be compared for equality.
+	MongoExpect func(t *testing.T, res interface{}, err error)
+	DumboExpect func(t *testing.T, res interface{}, err error)
 }
 
 // AuthTarget bundles what an AuthCase.Run needs to exercise one server.
@@ -95,6 +101,21 @@ func AuthPairTest(t *testing.T, tc AuthCase) TestResult {
 		}
 		t.Logf("XFAIL %s: diverged as expected\n%s", tc.Name, cmp.Diff)
 		return TestResult{Name: tc.Name, Status: StatusXFail, Diff: cmp.Diff}
+
+	case DumboDBDeviates:
+		mRes, mErr := tc.Run(ctx, mongoTarget)
+		if tc.MongoExpect != nil {
+			tc.MongoExpect(t, mRes, mErr)
+		}
+		dRes, dErr := tc.Run(ctx, dumboTarget)
+		if tc.DumboExpect != nil {
+			tc.DumboExpect(t, dRes, dErr)
+		}
+		if t.Failed() {
+			return TestResult{Name: tc.Name, Status: StatusFail}
+		}
+		t.Logf("DEVIATE %s: MongoDB and DumboDB behave as intended", tc.Name)
+		return TestResult{Name: tc.Name, Status: StatusDeviate}
 
 	default:
 		t.Fatalf("AuthPairTest %s: unknown DumboDBSupport level %d", tc.Name, tc.Support)

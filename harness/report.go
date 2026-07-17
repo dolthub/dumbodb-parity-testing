@@ -16,6 +16,9 @@ const (
 	DumboDBMongoOnly
 	// DumboDBXFail: run both, record DumboDB failure but do not fail CI.
 	DumboDBXFail
+	// DumboDBDeviates: DumboDB intentionally differs from MongoDB. Run both and
+	// assert each server's own outcome via AuthCase.MongoExpect/DumboExpect.
+	DumboDBDeviates
 )
 
 type TestStatus int

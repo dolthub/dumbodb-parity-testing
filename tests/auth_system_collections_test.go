@@ -26,8 +26,8 @@ import (
 // Auth parity area SYS: direct client access to the auth store,
 // admin.system.users. MongoDB-root permits raw insert/update/delete on it while
 // denying drop (IllegalOperation) and create of system.* (Unauthorized). DumboDB
-// deviates: it forbids all direct client mutation of system.* namespaces, so the
-// auth store changes only through the user management commands.
+// deviates: it forbids all direct client mutation of admin.system.*, so the auth
+// store changes only through the user management commands.
 
 func allowedOnMongo(t *testing.T, _ interface{}, err error) {
 	t.Helper()
@@ -51,8 +51,9 @@ func deniedWith(code int32) func(t *testing.T, res interface{}, err error) {
 }
 
 func TestAuthSystemCollectionRowWritesDeviate(t *testing.T) {
-	harness.AuthDeviationTest(t, harness.AuthDeviationCase{
-		Name: "SYS-01-raw-insert-system-users",
+	harness.AuthPairTest(t, harness.AuthCase{
+		Name:    "SYS-01-raw-insert-system-users",
+		Support: harness.DumboDBDeviates,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			users := tgt.Admin.Database("admin").Collection("system.users")
 			id := "sysdev_" + tgt.NS + ".ghost"
@@ -60,12 +61,13 @@ func TestAuthSystemCollectionRowWritesDeviate(t *testing.T) {
 			_, _ = users.DeleteOne(ctx, bson.D{{Key: "_id", Value: id}})
 			return nil, err
 		},
-		Mongo: allowedOnMongo,
-		Dumbo: deniedWith(13),
+		MongoExpect: allowedOnMongo,
+		DumboExpect: deniedWith(13),
 	})
 
-	harness.AuthDeviationTest(t, harness.AuthDeviationCase{
-		Name: "SYS-02-raw-update-system-users",
+	harness.AuthPairTest(t, harness.AuthCase{
+		Name:    "SYS-02-raw-update-system-users",
+		Support: harness.DumboDBDeviates,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db, u := "sysdev_"+tgt.NS, "v_"+tgt.NS
 			_ = harness.CreateUser(ctx, tgt.Admin, db, u, "pw", nil)
@@ -74,12 +76,13 @@ func TestAuthSystemCollectionRowWritesDeviate(t *testing.T) {
 				UpdateOne(ctx, bson.D{{Key: "user", Value: u}}, bson.D{{Key: "$set", Value: bson.D{{Key: "customData", Value: bson.D{{Key: "x", Value: 1}}}}}})
 			return nil, err
 		},
-		Mongo: allowedOnMongo,
-		Dumbo: deniedWith(13),
+		MongoExpect: allowedOnMongo,
+		DumboExpect: deniedWith(13),
 	})
 
-	harness.AuthDeviationTest(t, harness.AuthDeviationCase{
-		Name: "SYS-03-raw-delete-system-users",
+	harness.AuthPairTest(t, harness.AuthCase{
+		Name:    "SYS-03-raw-delete-system-users",
+		Support: harness.DumboDBDeviates,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db, u := "sysdev_"+tgt.NS, "v_"+tgt.NS
 			_ = harness.CreateUser(ctx, tgt.Admin, db, u, "pw", nil)
@@ -88,27 +91,30 @@ func TestAuthSystemCollectionRowWritesDeviate(t *testing.T) {
 				DeleteOne(ctx, bson.D{{Key: "user", Value: u}})
 			return nil, err
 		},
-		Mongo: allowedOnMongo,
-		Dumbo: deniedWith(13),
+		MongoExpect: allowedOnMongo,
+		DumboExpect: deniedWith(13),
 	})
 }
 
 func TestAuthSystemCollectionStructuralDenied(t *testing.T) {
-	harness.AuthDeviationTest(t, harness.AuthDeviationCase{
-		Name: "SYS-04-drop-system-users",
+	// Both servers deny these; DumboDB matches MongoDB's denial codes.
+	harness.AuthPairTest(t, harness.AuthCase{
+		Name:    "SYS-04-drop-system-users",
+		Support: harness.DumboDBDeviates,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			return nil, tgt.Admin.Database("admin").Collection("system.users").Drop(ctx)
 		},
-		Mongo: deniedWith(20),
-		Dumbo: deniedWith(20),
+		MongoExpect: deniedWith(20),
+		DumboExpect: deniedWith(20),
 	})
 
-	harness.AuthDeviationTest(t, harness.AuthDeviationCase{
-		Name: "SYS-05-create-system-collection",
+	harness.AuthPairTest(t, harness.AuthCase{
+		Name:    "SYS-05-create-system-collection",
+		Support: harness.DumboDBDeviates,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			return nil, tgt.Admin.Database("admin").RunCommand(ctx, bson.D{{Key: "create", Value: "system.foobar"}}).Err()
 		},
-		Mongo: deniedWith(13),
-		Dumbo: deniedWith(13),
+		MongoExpect: deniedWith(13),
+		DumboExpect: deniedWith(13),
 	})
 }
