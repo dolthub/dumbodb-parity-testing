@@ -106,7 +106,22 @@ func scramClient(user, pwd string) (*scram.ClientConversation, string, error) {
 func wireCase(t *testing.T, name string, needUser bool,
 	fn func(conn *wire.Conn, db, user, pwd string) (bson.M, error),
 	mongoCheck func(t *testing.T, res bson.M)) harness.AuthCase {
-	return authCase(name, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	return wireCaseSupport(authCase, t, name, needUser, fn, mongoCheck)
+}
+
+// wireCaseFull is wireCase for cases DumboDB matches in Milestone 1.
+func wireCaseFull(t *testing.T, name string, needUser bool,
+	fn func(conn *wire.Conn, db, user, pwd string) (bson.M, error),
+	mongoCheck func(t *testing.T, res bson.M)) harness.AuthCase {
+	return wireCaseSupport(authCaseFull, t, name, needUser, fn, mongoCheck)
+}
+
+func wireCaseSupport(
+	mk func(string, func(context.Context, harness.AuthTarget) (interface{}, error)) harness.AuthCase,
+	t *testing.T, name string, needUser bool,
+	fn func(conn *wire.Conn, db, user, pwd string) (bson.M, error),
+	mongoCheck func(t *testing.T, res bson.M)) harness.AuthCase {
+	return mk(name, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, user, pwd := "wire_"+tgt.NS, "u_"+tgt.NS, "pw-"+tgt.NS
 		if needUser {
 			defer cleanupUser(ctx, tgt, db, user)
@@ -132,7 +147,7 @@ func wireCase(t *testing.T, name string, needUser bool,
 
 func TestAuthScramWire(t *testing.T) {
 	// SCRAM-07: an unsupported mechanism -> MechanismUnavailable (334).
-	harness.AuthPairTest(t, wireCase(t, "SCRAM-07-unsupported-mechanism", false,
+	harness.AuthPairTest(t, wireCaseFull(t, "SCRAM-07-unsupported-mechanism", false,
 		func(conn *wire.Conn, db, user, pwd string) (bson.M, error) {
 			r, err := saslStart(conn, "SCRAM-SHA-999", "n,,n=x,r=abc", "admin", nil)
 			return bson.M{"ok": replyOK(r), "code": replyCode(r)}, err
@@ -144,7 +159,7 @@ func TestAuthScramWire(t *testing.T) {
 		}))
 
 	// SCRAM-11: a malformed client-first payload is rejected.
-	harness.AuthPairTest(t, wireCase(t, "SCRAM-11-malformed-client-first", false,
+	harness.AuthPairTest(t, wireCaseFull(t, "SCRAM-11-malformed-client-first", false,
 		func(conn *wire.Conn, db, user, pwd string) (bson.M, error) {
 			r, err := saslStart(conn, "SCRAM-SHA-256", "this is not scram", "admin", nil)
 			return bson.M{"ok": replyOK(r)}, err
@@ -156,7 +171,7 @@ func TestAuthScramWire(t *testing.T) {
 		}))
 
 	// SCRAM-13: saslContinue with no prior saslStart is rejected.
-	harness.AuthPairTest(t, wireCase(t, "SCRAM-13-continue-without-start", false,
+	harness.AuthPairTest(t, wireCaseFull(t, "SCRAM-13-continue-without-start", false,
 		func(conn *wire.Conn, db, user, pwd string) (bson.M, error) {
 			r, err := saslContinue(conn, int32(1), "", "admin")
 			return bson.M{"ok": replyOK(r)}, err
@@ -168,7 +183,7 @@ func TestAuthScramWire(t *testing.T) {
 		}))
 
 	// SCRAM-12: saslContinue with the wrong conversationId is rejected.
-	harness.AuthPairTest(t, wireCase(t, "SCRAM-12-wrong-conversationId", true,
+	harness.AuthPairTest(t, wireCaseFull(t, "SCRAM-12-wrong-conversationId", true,
 		func(conn *wire.Conn, db, user, pwd string) (bson.M, error) {
 			_, first, err := scramClient(user, pwd)
 			if err != nil {
@@ -187,7 +202,7 @@ func TestAuthScramWire(t *testing.T) {
 		}))
 
 	// SCRAM-14: a tampered nonce in client-final is rejected.
-	harness.AuthPairTest(t, wireCase(t, "SCRAM-14-tampered-nonce", true,
+	harness.AuthPairTest(t, wireCaseFull(t, "SCRAM-14-tampered-nonce", true,
 		func(conn *wire.Conn, db, user, pwd string) (bson.M, error) {
 			_, first, err := scramClient(user, pwd)
 			if err != nil {
@@ -208,7 +223,7 @@ func TestAuthScramWire(t *testing.T) {
 
 	// SCRAM-17: server-first echoes the stored iterationCount (i=15000 for
 	// SCRAM-SHA-256).
-	harness.AuthPairTest(t, wireCase(t, "SCRAM-17-iterationCount-in-server-first", true,
+	harness.AuthPairTest(t, wireCaseFull(t, "SCRAM-17-iterationCount-in-server-first", true,
 		func(conn *wire.Conn, db, user, pwd string) (bson.M, error) {
 			_, first, err := scramClient(user, pwd)
 			if err != nil {
@@ -228,7 +243,7 @@ func TestAuthScramWire(t *testing.T) {
 
 	// SCRAM-15: a full handshake with skipEmptyExchange authenticates and
 	// completes with done:true in a single saslContinue.
-	harness.AuthPairTest(t, wireCase(t, "SCRAM-15-skipEmptyExchange", true,
+	harness.AuthPairTest(t, wireCaseFull(t, "SCRAM-15-skipEmptyExchange", true,
 		func(conn *wire.Conn, db, user, pwd string) (bson.M, error) {
 			res, err := fullHandshake(conn, db, user, pwd, true)
 			return res, err
@@ -241,7 +256,7 @@ func TestAuthScramWire(t *testing.T) {
 
 	// SCRAM-16: a full handshake without skipEmptyExchange still authenticates
 	// (via the classic exchange).
-	harness.AuthPairTest(t, wireCase(t, "SCRAM-16-classic-exchange", true,
+	harness.AuthPairTest(t, wireCaseFull(t, "SCRAM-16-classic-exchange", true,
 		func(conn *wire.Conn, db, user, pwd string) (bson.M, error) {
 			res, err := fullHandshake(conn, db, user, pwd, false)
 			return res, err
@@ -402,7 +417,7 @@ func TestAuthSpeculativeWire(t *testing.T) {
 // TestAuthScramReauthWire covers SCRAM-20: starting a new SASL conversation for
 // a second user on a connection already authenticated as another user.
 func TestAuthScramReauthWire(t *testing.T) {
-	harness.AuthPairTest(t, authCase("SCRAM-20-reauth-second-user", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("SCRAM-20-reauth-second-user", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "wire_" + tgt.NS
 		u1, u2, pw := "u1_"+tgt.NS, "u2_"+tgt.NS, "pw"
 		defer func() {

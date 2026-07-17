@@ -59,7 +59,7 @@ func TestAuthScramSuccess(t *testing.T) {
 		mech := mech
 		harness.AuthPairTest(t, harness.AuthCase{
 			Name:    mech.id + "-correct-password-" + mech.name,
-			Support: harness.DumboDBXFail,
+			Support: harness.DumboDBFull,
 			Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 				db := "scram_" + tgt.NS
 				user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
@@ -80,7 +80,7 @@ func TestAuthScramSuccess(t *testing.T) {
 	// SCRAM-09: a user created with only SCRAM-SHA-256 authenticates via SHA-256.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "SCRAM-09-sha256-only-authenticates",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "scram_" + tgt.NS
 			user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
@@ -102,7 +102,7 @@ func TestAuthScramSuccess(t *testing.T) {
 	// 7-bit ASCII.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "SCRAM-18-saslprep-unicode-password",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "scram_" + tgt.NS
 			user, pwd := "u_"+tgt.NS, "p\u00e9\u00dfw\u00f6rd-"+tgt.NS
@@ -129,7 +129,7 @@ func TestAuthScramFailure(t *testing.T) {
 		mech := mech
 		harness.AuthPairTest(t, harness.AuthCase{
 			Name:    mech.id + "-wrong-password-" + mech.name,
-			Support: harness.DumboDBXFail,
+			Support: harness.DumboDBFull,
 			Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 				db := "scram_" + tgt.NS
 				user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
@@ -183,7 +183,7 @@ func TestAuthScramFailure(t *testing.T) {
 	// the client insists on SCRAM-SHA-1.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "SCRAM-08-sha256-only-rejects-sha1",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "scram_" + tgt.NS
 			user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
@@ -204,7 +204,7 @@ func TestAuthScramCreateValidation(t *testing.T) {
 	// SCRAM-19: createUser with an empty username is rejected.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "SCRAM-19-empty-username-rejected",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "scram_" + tgt.NS
 			return nil, createUserMech(ctx, tgt.Admin, db, "", "pw", rwRole(db), nil)

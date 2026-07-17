@@ -27,7 +27,7 @@ import (
 // Auth parity area F: user management command semantics (USER-01..32). DumboDB
 // implements createUser/updateUser/dropUser/usersInfo/dropAllUsersFromDatabase
 // and persists users with stored (unenforced) roles, so most cases are
-// DumboDBFull (authCase). The remainder stay XFail (authCaseXFail): role
+// DumboDBFull (authCaseFull). The remainder stay XFail (authCase): role
 // validation and grantRolesToUser/revokeRolesFromUser (RBAC, deferred to M2),
 // customData storage, and the admin-only local-database user rule.
 
@@ -47,22 +47,20 @@ func usersCount(res bson.M) int {
 	return len(users)
 }
 
-// authCase marks a user-management case as DumboDBFull: DumboDB persists users
-// and stores (unenforced) roles, so these match MongoDB in Milestone 1.
+// authCase is the XFail default for auth parity cases that DumboDB does not yet
+// match (e.g. RBAC/role management, deferred to Milestone 2).
 func authCase(name string, run func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error)) harness.AuthCase {
-	return harness.AuthCase{Name: name, Support: harness.DumboDBFull, Run: run}
+	return harness.AuthCase{Name: name, Support: harness.DumboDBXFail, Run: run}
 }
 
-// authCaseXFail marks a case that still diverges in Milestone 1: role validation
-// and grant/revoke (RBAC, deferred to M2), customData storage, and the
-// admin-database local-user rule.
-func authCaseXFail(name string, run func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error)) harness.AuthCase {
-	return harness.AuthCase{Name: name, Support: harness.DumboDBXFail, Run: run}
+// authCaseFull marks a case DumboDB matches in Milestone 1.
+func authCaseFull(name string, run func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error)) harness.AuthCase {
+	return harness.AuthCase{Name: name, Support: harness.DumboDBFull, Run: run}
 }
 
 func TestAuthUserCreate(t *testing.T) {
 	// USER-01: minimal createUser succeeds.
-	harness.AuthPairTest(t, authCase("USER-01-create-minimal", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-01-create-minimal", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "createUser", Value: u}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: bson.A{}}})
@@ -70,7 +68,7 @@ func TestAuthUserCreate(t *testing.T) {
 	}))
 
 	// USER-02: roles shorthand string resolves to {role, currentDb}.
-	harness.AuthPairTest(t, authCase("USER-02-create-role-string-form", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-02-create-role-string-form", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		if err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "createUser", Value: u}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: bson.A{"readWrite"}}}); err != nil {
@@ -88,7 +86,7 @@ func TestAuthUserCreate(t *testing.T) {
 	}))
 
 	// USER-04: duplicate createUser is DuplicateKey (11000).
-	harness.AuthPairTest(t, authCase("USER-04-create-duplicate", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-04-create-duplicate", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		mk := bson.D{{Key: "createUser", Value: u}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: bson.A{}}}
@@ -99,14 +97,14 @@ func TestAuthUserCreate(t *testing.T) {
 	}))
 
 	// USER-05: createUser referencing a non-existent role is RoleNotFound (31).
-	harness.AuthPairTest(t, authCaseXFail("USER-05-create-missing-role", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCase("USER-05-create-missing-role", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		return nil, runCmd(ctx, tgt.Admin, db, bson.D{{Key: "createUser", Value: u}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: bson.A{"nosuchrole_" + tgt.NS}}})
 	}))
 
 	// USER-06: explicit mechanisms yields only that credential (visible via usersInfo).
-	harness.AuthPairTest(t, authCase("USER-06-create-explicit-mechanisms", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-06-create-explicit-mechanisms", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		if err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "createUser", Value: u}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: bson.A{}}, {Key: "mechanisms", Value: bson.A{"SCRAM-SHA-256"}}}); err != nil {
@@ -123,7 +121,7 @@ func TestAuthUserCreate(t *testing.T) {
 	}))
 
 	// USER-07: customData is stored and returned by usersInfo.
-	harness.AuthPairTest(t, authCaseXFail("USER-07-create-customData", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCase("USER-07-create-customData", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		if err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "createUser", Value: u}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: bson.A{}}, {Key: "customData", Value: bson.D{{Key: "team", Value: "eng"}}}}); err != nil {
@@ -140,21 +138,21 @@ func TestAuthUserCreate(t *testing.T) {
 	}))
 
 	// USER-08: createUser without pwd (non-$external) is rejected.
-	harness.AuthPairTest(t, authCase("USER-08-create-no-pwd", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-08-create-no-pwd", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		return nil, runCmd(ctx, tgt.Admin, db, bson.D{{Key: "createUser", Value: u}, {Key: "roles", Value: bson.A{}}})
 	}))
 
 	// USER-09: createUser on the reserved local database is rejected.
-	harness.AuthPairTest(t, authCaseXFail("USER-09-create-on-local", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCase("USER-09-create-on-local", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		u := "u_" + tgt.NS
 		defer func() { _ = harness.DropUser(ctx, tgt.Admin, "local", u) }()
 		return nil, runCmd(ctx, tgt.Admin, "local", bson.D{{Key: "createUser", Value: u}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: bson.A{}}})
 	}))
 
 	// USER-32: createUser on a database with no collections succeeds.
-	harness.AuthPairTest(t, authCase("USER-32-create-on-empty-db", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-32-create-on-empty-db", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_empty_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "createUser", Value: u}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: bson.A{}}})
@@ -164,7 +162,7 @@ func TestAuthUserCreate(t *testing.T) {
 
 func TestAuthUserUpdate(t *testing.T) {
 	// USER-10: updateUser changes the password (old fails, new works).
-	harness.AuthPairTest(t, authCase("USER-10-update-password", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-10-update-password", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		if err := harness.CreateUser(ctx, tgt.Admin, db, u, "old", []harness.RoleRef{{Role: "readWrite", DB: db}}); err != nil {
@@ -185,7 +183,7 @@ func TestAuthUserUpdate(t *testing.T) {
 	}))
 
 	// USER-11: updateUser replaces the roles array wholesale.
-	harness.AuthPairTest(t, authCase("USER-11-update-roles-replace", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-11-update-roles-replace", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		if err := harness.CreateUser(ctx, tgt.Admin, db, u, "pw", []harness.RoleRef{{Role: "readWrite", DB: db}}); err != nil {
@@ -206,7 +204,7 @@ func TestAuthUserUpdate(t *testing.T) {
 	}))
 
 	// USER-13: updateUser on a missing user is UserNotFound (11).
-	harness.AuthPairTest(t, authCase("USER-13-update-missing-user", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-13-update-missing-user", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "userf_" + tgt.NS
 		return nil, runCmd(ctx, tgt.Admin, db, bson.D{{Key: "updateUser", Value: "ghost_" + tgt.NS}, {Key: "pwd", Value: "x"}})
 	}))
@@ -214,7 +212,7 @@ func TestAuthUserUpdate(t *testing.T) {
 
 func TestAuthUserDrop(t *testing.T) {
 	// USER-15: dropUser removes an existing user.
-	harness.AuthPairTest(t, authCase("USER-15-drop-existing", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-15-drop-existing", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		if err := harness.CreateUser(ctx, tgt.Admin, db, u, "pw", nil); err != nil {
@@ -225,13 +223,13 @@ func TestAuthUserDrop(t *testing.T) {
 	}))
 
 	// USER-16: dropUser on a missing user is UserNotFound (11).
-	harness.AuthPairTest(t, authCase("USER-16-drop-missing", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-16-drop-missing", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "userf_" + tgt.NS
 		return nil, runCmd(ctx, tgt.Admin, db, bson.D{{Key: "dropUser", Value: "ghost_" + tgt.NS}})
 	}))
 
 	// USER-17: dropAllUsersFromDatabase returns the count removed.
-	harness.AuthPairTest(t, authCase("USER-17-drop-all-nonzero", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-17-drop-all-nonzero", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "userf_dropall_" + tgt.NS
 		defer func() { _ = tgt.Admin.Database(db).Drop(ctx) }()
 		for i, name := range []string{"a_" + tgt.NS, "b_" + tgt.NS} {
@@ -248,7 +246,7 @@ func TestAuthUserDrop(t *testing.T) {
 	}))
 
 	// USER-18: dropAllUsersFromDatabase with no users returns n:0 (no error).
-	harness.AuthPairTest(t, authCase("USER-18-drop-all-zero", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-18-drop-all-zero", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "userf_dropall0_" + tgt.NS
 		var res bson.M
 		if err := tgt.Admin.Database(db).RunCommand(ctx, bson.D{{Key: "dropAllUsersFromDatabase", Value: 1}}).Decode(&res); err != nil {
@@ -260,7 +258,7 @@ func TestAuthUserDrop(t *testing.T) {
 
 func TestAuthUserGrantRevoke(t *testing.T) {
 	// USER-19: grantRolesToUser unions roles.
-	harness.AuthPairTest(t, authCaseXFail("USER-19-grant-roles-union", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCase("USER-19-grant-roles-union", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		if err := harness.CreateUser(ctx, tgt.Admin, db, u, "pw", []harness.RoleRef{{Role: "read", DB: db}}); err != nil {
@@ -280,7 +278,7 @@ func TestAuthUserGrantRevoke(t *testing.T) {
 	}))
 
 	// USER-20: grantRolesToUser with a missing role is RoleNotFound (31).
-	harness.AuthPairTest(t, authCaseXFail("USER-20-grant-missing-role", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCase("USER-20-grant-missing-role", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		if err := harness.CreateUser(ctx, tgt.Admin, db, u, "pw", nil); err != nil {
@@ -290,7 +288,7 @@ func TestAuthUserGrantRevoke(t *testing.T) {
 	}))
 
 	// USER-21: revokeRolesFromUser removes a role.
-	harness.AuthPairTest(t, authCaseXFail("USER-21-revoke-role", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCase("USER-21-revoke-role", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		if err := harness.CreateUser(ctx, tgt.Admin, db, u, "pw", []harness.RoleRef{{Role: "read", DB: db}, {Role: "dbAdmin", DB: db}}); err != nil {
@@ -312,7 +310,7 @@ func TestAuthUserGrantRevoke(t *testing.T) {
 
 func TestAuthUsersInfo(t *testing.T) {
 	// USER-27: usersInfo for a missing user returns an empty list (not an error).
-	harness.AuthPairTest(t, authCase("USER-27-usersInfo-missing", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-27-usersInfo-missing", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "userf_" + tgt.NS
 		res, err := usersInfoCmd(ctx, tgt.Admin, db, bson.D{{Key: "usersInfo", Value: "ghost_" + tgt.NS}})
 		if err != nil {
@@ -322,7 +320,7 @@ func TestAuthUsersInfo(t *testing.T) {
 	}))
 
 	// USER-22: usersInfo:1 lists all users on the database.
-	harness.AuthPairTest(t, authCase("USER-22-usersInfo-all", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-22-usersInfo-all", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "userf_all_" + tgt.NS
 		defer func() { _ = tgt.Admin.Database(db).Drop(ctx) }()
 		for _, name := range []string{"a_" + tgt.NS, "b_" + tgt.NS} {
@@ -342,7 +340,7 @@ func TestAuthUsersInfo(t *testing.T) {
 	}))
 
 	// USER-28 / USER-29: showCredentials toggles the credentials field.
-	harness.AuthPairTest(t, authCase("USER-28-usersInfo-showCredentials", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-28-usersInfo-showCredentials", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		if err := harness.CreateUser(ctx, tgt.Admin, db, u, "pw", nil); err != nil {
@@ -366,7 +364,7 @@ func TestAuthUsersInfo(t *testing.T) {
 	}))
 
 	// USER-30: usersInfo derives the mechanisms array from stored credentials.
-	harness.AuthPairTest(t, authCase("USER-30-usersInfo-mechanisms", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-30-usersInfo-mechanisms", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		if err := harness.CreateUser(ctx, tgt.Admin, db, u, "pw", nil); err != nil {
