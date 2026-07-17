@@ -34,7 +34,7 @@ func findWithLsid(conn *wire.Conn, db string, lsid bson.D) (bson.M, error) {
 }
 
 func TestAuthLsidCrossUserScoped(t *testing.T) {
-	harness.AuthPairTest(t, authCase("LSID-01-same-id-different-user-is-user-scoped", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("LSID-01-same-id-different-user-is-user-scoped", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "lsid_" + tgt.NS
 		userA, userB, pw := "a_"+tgt.NS, "b_"+tgt.NS, "pw"
 		defer func() {
