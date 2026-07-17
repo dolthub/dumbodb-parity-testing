@@ -434,19 +434,25 @@ func TestAuthScramReauthWire(t *testing.T) {
 			return nil, err
 		}
 		defer func() { _ = conn.Close() }()
-		// Authenticate fully as u1.
 		if _, err := fullHandshake(conn, db, u1, pw, true); err != nil {
 			return nil, err
 		}
-		// Begin a fresh SASL conversation for u2 on the same connection.
-		_, first, err := scramClient(u2, pw)
+		second, err := fullHandshake(conn, db, u2, pw, true)
 		if err != nil {
 			return nil, err
 		}
-		start, err := saslStart(conn, "SCRAM-SHA-256", first, db, bson.D{{Key: "skipEmptyExchange", Value: true}})
+		cs, err := conn.RunCommand(bson.D{{Key: "connectionStatus", Value: 1}, {Key: "$db", Value: "admin"}})
 		if err != nil {
 			return nil, err
 		}
-		return bson.M{"secondStartOK": replyOK(start)}, nil
+		authInfo, _ := cs["authInfo"].(bson.M)
+		users, _ := authInfo["authenticatedUsers"].(bson.A)
+		who := ""
+		if len(users) == 1 {
+			if u0, ok := users[0].(bson.M); ok {
+				who, _ = u0["user"].(string)
+			}
+		}
+		return bson.M{"secondAuthOK": second["authOK"], "authedCount": len(users), "authedUser": who}, nil
 	}))
 }
