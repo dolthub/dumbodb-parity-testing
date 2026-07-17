@@ -346,7 +346,7 @@ func TestAuthSpeculativeWire(t *testing.T) {
 
 	// SPEC-02: a speculativeAuthenticate for a mechanism the user lacks is
 	// swallowed; the hello still succeeds without the field.
-	harness.AuthPairTest(t, wireCase(t, "SPEC-02-wrong-mechanism-swallowed", true,
+	harness.AuthPairTest(t, wireCaseFull(t, "SPEC-02-wrong-mechanism-swallowed", true,
 		func(conn *wire.Conn, db, user, pwd string) (bson.M, error) {
 			r, err := helloSpec(conn, "SCRAM-SHA-1", "n,,n="+user+",r=abcdefgh", db)
 			if err != nil {
@@ -362,7 +362,7 @@ func TestAuthSpeculativeWire(t *testing.T) {
 		}))
 
 	// SPEC-03: a speculativeAuthenticate for an unknown user is swallowed.
-	harness.AuthPairTest(t, wireCase(t, "SPEC-03-unknown-user-swallowed", false,
+	harness.AuthPairTest(t, wireCaseFull(t, "SPEC-03-unknown-user-swallowed", false,
 		func(conn *wire.Conn, db, user, pwd string) (bson.M, error) {
 			_, first, err := scramClient("nobody_x", "whatever")
 			if err != nil {

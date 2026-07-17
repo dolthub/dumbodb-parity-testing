@@ -63,7 +63,7 @@ func containsStr(ss []string, want string) bool {
 func TestAuthSpeculativeNegotiation(t *testing.T) {
 	// SPEC-04 / SPEC-06: for a user with both mechanisms, saslSupportedMechs
 	// lists both, with SCRAM-SHA-256 present (the preferred mechanism).
-	harness.AuthPairTest(t, authCase("SPEC-04-saslSupportedMechs-both", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("SPEC-04-saslSupportedMechs-both", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "spec_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		if err := createUserMech(ctx, tgt.Admin, db, u, "pw", rwRole(db), []string{"SCRAM-SHA-1", "SCRAM-SHA-256"}); err != nil {
@@ -82,7 +82,7 @@ func TestAuthSpeculativeNegotiation(t *testing.T) {
 	}))
 
 	// SPEC-06b: a SHA-256-only user reports only SCRAM-SHA-256.
-	harness.AuthPairTest(t, authCase("SPEC-06-saslSupportedMechs-sha256-only", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("SPEC-06-saslSupportedMechs-sha256-only", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "spec_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		if err := createUserMech(ctx, tgt.Admin, db, u, "pw", rwRole(db), []string{"SCRAM-SHA-256"}); err != nil {
