@@ -437,9 +437,25 @@ func TestAuthScramReauthWire(t *testing.T) {
 		if _, err := fullHandshake(conn, db, u1, pw, true); err != nil {
 			return nil, err
 		}
-		second, err := fullHandshake(conn, db, u2, pw, true)
+		conv2, first2, err := scramClient(u2, pw)
 		if err != nil {
 			return nil, err
+		}
+		start2, err := saslStart(conn, "SCRAM-SHA-256", first2, db, bson.D{{Key: "skipEmptyExchange", Value: true}})
+		if err != nil {
+			return nil, err
+		}
+		secondStartOK := replyOK(start2)
+		secondAuthOK := false
+		if secondStartOK {
+			final2, ferr := conv2.Step(payloadStr(start2))
+			if ferr == nil {
+				cont2, cerr := saslContinue(conn, start2["conversationId"], final2, db)
+				if cerr != nil {
+					return nil, cerr
+				}
+				secondAuthOK = replyOK(cont2) && replyBool(cont2, "done")
+			}
 		}
 		cs, err := conn.RunCommand(bson.D{{Key: "connectionStatus", Value: 1}, {Key: "$db", Value: "admin"}})
 		if err != nil {
@@ -453,6 +469,6 @@ func TestAuthScramReauthWire(t *testing.T) {
 				who, _ = u0["user"].(string)
 			}
 		}
-		return bson.M{"secondAuthOK": second["authOK"], "authedCount": len(users), "authedUser": who}, nil
+		return bson.M{"secondStartOK": secondStartOK, "secondAuthOK": secondAuthOK, "authedCount": len(users), "authedUser": who}, nil
 	}))
 }
