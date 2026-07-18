@@ -106,7 +106,7 @@ func TestAuthConnectionStatusAuthenticated(t *testing.T) {
 	// CONN-03: showPrivileges adds authenticatedUserPrivileges.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "CONN-03-connectionStatus-showPrivileges",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "conn03_" + tgt.NS
 			user := "u_" + tgt.NS
