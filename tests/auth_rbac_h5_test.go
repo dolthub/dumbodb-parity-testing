@@ -71,6 +71,6 @@ func TestAuthRBACNoRole(t *testing.T) {
 		{"RBAC-none-20-ping", true, opPing},
 		{"RBAC-none-21-connectionStatus", true, opConnectionStatus},
 	} {
-		harness.AuthPairTest(t, noRoleProbe(t, r.id, r.allowed, r.op))
+		harness.AuthPairTest(t, noRoleProbe(t, r.id, r.allowed, r.op, rbacSupport(r.id)))
 	}
 }
