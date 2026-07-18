@@ -51,6 +51,31 @@ func errCase(t *testing.T, id string, wantCode int32, wantName string,
 // errCaseMsg is for failures the driver surfaces as an auth-handshake error
 // (not a CommandError with an extractable code): it asserts the MongoDB error
 // is non-nil and its message contains msgSubstr (case-insensitive).
+// errCodeCase is like errCase but compares only the error code and codeName
+// across servers, not the full message. It fits failures whose MongoDB message
+// echoes the offending command document (including the connection's lsid),
+// which cannot match across the two servers' independent sessions.
+func errCodeCase(t *testing.T, id string, wantCode int32, wantName string,
+	do func(ctx context.Context, tgt harness.AuthTarget) error) harness.AuthCase {
+	return authCaseFull(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+		err := do(ctx, tgt)
+		code, name, _ := harness.CommandErrorCode(err)
+		if tgt.BaseURI == harness.AuthMongoBaseURI() {
+			if code != wantCode {
+				t.Errorf("%s: MongoDB code=%d, want %d (err=%v)", id, code, wantCode, err)
+			}
+			if wantName != "" && name != "" && name != wantName {
+				t.Errorf("%s: MongoDB codeName=%q, want %q", id, name, wantName)
+			}
+		}
+		return bson.M{"code": code, "codeName": name}, nil
+	})
+}
+
+// errCaseMsg asserts that MongoDB's client-visible error contains msgSubstr, and
+// compares only the pass/fail outcome across servers. The full handshake-failure
+// message names the negotiated SCRAM mechanism, which differs between the two
+// servers and is not meaningfully comparable.
 func errCaseMsg(t *testing.T, id, msgSubstr string, do func(ctx context.Context, tgt harness.AuthTarget) error) harness.AuthCase {
 	return authCase(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		err := do(ctx, tgt)
@@ -59,7 +84,7 @@ func errCaseMsg(t *testing.T, id, msgSubstr string, do func(ctx context.Context,
 				t.Errorf("%s: MongoDB error=%v, want message containing %q", id, err, msgSubstr)
 			}
 		}
-		return nil, err
+		return bson.M{"failed": err != nil}, nil
 	})
 }
 
@@ -98,7 +123,10 @@ func TestAuthErrorFidelity(t *testing.T) {
 		})))
 
 	// ERR-03: authenticated but insufficient privilege -> Unauthorized (13).
-	harness.AuthPairTest(t, errCase(t, "ERR-03-insufficient-privilege", 13, "Unauthorized",
+	// Compared on code and codeName only: MongoDB's message echoes the offending
+	// command document, which includes the connection's lsid UUID and therefore
+	// never matches across the two servers' independent sessions.
+	harness.AuthPairTest(t, errCodeCase(t, "ERR-03-insufficient-privilege", 13, "Unauthorized",
 		func(ctx context.Context, tgt harness.AuthTarget) error {
 			db, u := "errk_"+tgt.NS, "u_"+tgt.NS
 			defer cleanupUser(ctx, tgt, db, u)
@@ -120,10 +148,10 @@ func TestAuthErrorFidelity(t *testing.T) {
 		})))
 
 	// ERR-05: dropRole on a missing role -> RoleNotFound (31).
-	harness.AuthPairTest(t, errCase(t, "ERR-05-role-not-found", 31, "RoleNotFound",
+	harness.AuthPairTest(t, full(errCase(t, "ERR-05-role-not-found", 31, "RoleNotFound",
 		func(ctx context.Context, tgt harness.AuthTarget) error {
 			return harness.DropRole(ctx, tgt.Admin, "errk_"+tgt.NS, "ghost_"+tgt.NS)
-		}))
+		})))
 
 	// ERR-06: duplicate createUser -> MongoDB 8.0 reports location 51003
 	// ("User already exists"), not the underlying DuplicateKey 11000.
@@ -140,7 +168,7 @@ func TestAuthErrorFidelity(t *testing.T) {
 	// ERR-08: an unmet authenticationRestriction is reported server-side as
 	// AuthenticationRestrictionUnmet(214) but masked to the client as a generic
 	// auth failure, so assert on the client-visible message.
-	harness.AuthPairTest(t, errCaseMsg(t, "ERR-08-auth-restriction-unmet", "authentication failed",
+	harness.AuthPairTest(t, full(errCaseMsg(t, "ERR-08-auth-restriction-unmet", "authentication failed",
 		func(ctx context.Context, tgt harness.AuthTarget) error {
 			db, u := "errk_"+tgt.NS, "u_"+tgt.NS
 			defer cleanupUser(ctx, tgt, db, u)
@@ -158,5 +186,5 @@ func TestAuthErrorFidelity(t *testing.T) {
 				_ = c.Disconnect(ctx)
 			}
 			return err
-		}))
+		})))
 }

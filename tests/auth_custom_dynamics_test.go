@@ -33,7 +33,7 @@ import (
 func dynEnforce(t *testing.T, id string, wantBefore, wantAfter bool, op rbacOp,
 	initialPrivs func(db string) []harness.Privilege,
 	change func(ctx context.Context, tgt harness.AuthTarget, db, role, user string) error) harness.AuthCase {
-	return authCase(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	return authCaseFull(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "dyn_" + tgt.NS
 		role, user, pwd := "role_"+tgt.NS, "u_"+tgt.NS, "pw-"+tgt.NS
 		defer func() {
@@ -138,7 +138,7 @@ func TestAuthDynamics(t *testing.T) {
 func TestAuthDynamicsUserRoles(t *testing.T) {
 	// DYN-06: grantRolesToUser makes the new role's privileges effective.
 	// DYN-07: revokeRolesFromUser removes them.
-	harness.AuthPairTest(t, authCase("DYN-06-07-grant-revoke-role-to-user", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("DYN-06-07-grant-revoke-role-to-user", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "dynur_" + tgt.NS
 		reader, user, pwd := "reader_"+tgt.NS, "u_"+tgt.NS, "pw-"+tgt.NS
 		defer func() {
@@ -183,7 +183,7 @@ func TestAuthDynamicsUserRoles(t *testing.T) {
 	}))
 
 	// DYN-09: dropRole removes it from an inheriting role's roles array.
-	harness.AuthPairTest(t, authCase("DYN-09-dropRole-cascades-to-role", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("DYN-09-dropRole-cascades-to-role", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "dynir_" + tgt.NS
 		base, top := "base_"+tgt.NS, "top_"+tgt.NS
 		defer func() {
@@ -211,7 +211,7 @@ func TestAuthDynamicsUserRoles(t *testing.T) {
 	}))
 
 	// DYN-10: the unauthorized error names the operation ("not authorized").
-	harness.AuthPairTest(t, authCase("DYN-10-unauthorized-message-shape", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("DYN-10-unauthorized-message-shape", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "dynmsg_" + tgt.NS
 		user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
 		defer func() {

@@ -41,7 +41,7 @@ type inhCase struct {
 }
 
 func runInhCase(t *testing.T, tc inhCase) {
-	harness.AuthPairTest(t, authCase(tc.id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull(tc.id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "inh_" + tgt.NS
 		user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
 		if _, err := tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}); err != nil {
@@ -196,7 +196,7 @@ func buildOverlap(ctx context.Context, tgt harness.AuthTarget, db string) (strin
 // TestAuthInheritanceMore covers the cross-db, cycle, and showPrivileges cases.
 func TestAuthInheritanceMore(t *testing.T) {
 	// INH-06: an admin-defined role inherits a role in another database.
-	harness.AuthPairTest(t, authCase("INH-06-cross-db-inheritance", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("INH-06-cross-db-inheritance", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		xdb := "inhx_" + tgt.NS
 		base, top, user, pwd := "base_"+tgt.NS, "top_"+tgt.NS, "u_"+tgt.NS, "pw-"+tgt.NS
 		defer func() {
@@ -231,7 +231,7 @@ func TestAuthInheritanceMore(t *testing.T) {
 
 	// INH-04: a role inheritance cycle is handled (MongoDB rejects creating it).
 	// We capture the outcome; the point is the server must not hang.
-	harness.AuthPairTest(t, authCase("INH-04-cycle", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("INH-04-cycle", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "inhcyc_" + tgt.NS
 		a, b := "a_"+tgt.NS, "b_"+tgt.NS
 		defer func() {
@@ -251,7 +251,7 @@ func TestAuthInheritanceMore(t *testing.T) {
 	}))
 
 	// INH-09: rolesInfo showPrivileges reports inheritedPrivileges (closure).
-	harness.AuthPairTest(t, authCase("INH-09-rolesInfo-inheritedPrivileges", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("INH-09-rolesInfo-inheritedPrivileges", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "inhri_" + tgt.NS
 		base, top := "base_"+tgt.NS, "top_"+tgt.NS
 		defer func() {
@@ -276,7 +276,7 @@ func TestAuthInheritanceMore(t *testing.T) {
 	}))
 
 	// INH-10: usersInfo showPrivileges reports the flattened effective set.
-	harness.AuthPairTest(t, authCase("INH-10-usersInfo-inheritedPrivileges", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("INH-10-usersInfo-inheritedPrivileges", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "inhui_" + tgt.NS
 		base, top, user := "base_"+tgt.NS, "top_"+tgt.NS, "u_"+tgt.NS
 		defer func() {

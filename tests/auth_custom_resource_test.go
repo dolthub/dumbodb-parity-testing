@@ -49,7 +49,7 @@ type resRow struct {
 // test database, or on admin when adminScoped) and runs one operation as the
 // holder, validating the outcome against MongoDB.
 func customResourceProbe(t *testing.T, r resRow) harness.AuthCase {
-	return authCase(r.id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	return authCaseFull(r.id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "resm_" + tgt.NS
 		other := "resmo_" + tgt.NS
 		roleDB := db
@@ -170,7 +170,7 @@ func TestAuthCustomResourceMatching(t *testing.T) {
 // resources on a non-admin-database role.
 func TestAuthCustomResourceCreateErrors(t *testing.T) {
 	// RES-13: a non-admin role naming a cluster resource is rejected.
-	harness.AuthPairTest(t, authCase("RES-13-nonadmin-cluster-resource", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("RES-13-nonadmin-cluster-resource", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, role := "resm_"+tgt.NS, "role_"+tgt.NS
 		defer func() { _ = harness.DropRole(ctx, tgt.Admin, db, role); _ = tgt.Admin.Database(db).Drop(ctx) }()
 		return nil, runCmd(ctx, tgt.Admin, db, bson.D{
@@ -181,7 +181,7 @@ func TestAuthCustomResourceCreateErrors(t *testing.T) {
 	}))
 
 	// RES-14: a non-admin role naming a resource in another database is rejected.
-	harness.AuthPairTest(t, authCase("RES-14-nonadmin-crossdb-resource", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("RES-14-nonadmin-crossdb-resource", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, other, role := "resm_"+tgt.NS, "resmo_"+tgt.NS, "role_"+tgt.NS
 		defer func() { _ = harness.DropRole(ctx, tgt.Admin, db, role); _ = tgt.Admin.Database(db).Drop(ctx) }()
 		return nil, runCmd(ctx, tgt.Admin, db, bson.D{

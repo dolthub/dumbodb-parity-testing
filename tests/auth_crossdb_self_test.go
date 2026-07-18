@@ -28,7 +28,7 @@ import (
 
 func TestAuthCrossDatabase(t *testing.T) {
 	// XDB-01 / XDB-02: a user on db X with a role on db Y can read Y but not X.
-	harness.AuthPairTest(t, authCase("XDB-01-02-role-on-other-db", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("XDB-01-02-role-on-other-db", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		x, y := "xdbx_"+tgt.NS, "xdby_"+tgt.NS
 		user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
 		defer func() {
@@ -65,7 +65,7 @@ func TestAuthCrossDatabase(t *testing.T) {
 	}))
 
 	// XDB-03: authenticating against the wrong authSource fails.
-	harness.AuthPairTest(t, authCase("XDB-03-wrong-authsource", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("XDB-03-wrong-authsource", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		x, y := "xdbx_"+tgt.NS, "xdby_"+tgt.NS
 		user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
 		defer func() { _ = harness.DropUser(ctx, tgt.Admin, x, user); _ = tgt.Admin.Database(x).Drop(ctx) }()
@@ -76,14 +76,16 @@ func TestAuthCrossDatabase(t *testing.T) {
 		if err == nil {
 			_ = c.Disconnect(ctx)
 		}
-		return nil, err
+		// Compare success-vs-failure only: a failed auth's driver message names
+		// the negotiated SCRAM mechanism, which differs across the two servers.
+		return bson.M{"authOK": err == nil}, nil
 	}))
 }
 
 func TestAuthSelfService(t *testing.T) {
 	// SELF-01 / SELF-02: changeOwnPassword lets a user change its own password
 	// but not another user's.
-	harness.AuthPairTest(t, authCase("SELF-01-02-changeOwnPassword", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("SELF-01-02-changeOwnPassword", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "self_" + tgt.NS
 		role, user, pwd := "role_"+tgt.NS, "u_"+tgt.NS, "pw-"+tgt.NS
 		other := "other_" + tgt.NS
@@ -124,7 +126,7 @@ func TestAuthSelfService(t *testing.T) {
 
 	// SELF-03: a user may view itself via usersInfo without viewUser, but not
 	// other users.
-	harness.AuthPairTest(t, authCase("SELF-03-usersInfo-self-vs-others", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("SELF-03-usersInfo-self-vs-others", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "self_" + tgt.NS
 		user, pwd, other := "u_"+tgt.NS, "pw-"+tgt.NS, "other_"+tgt.NS
 		defer func() {

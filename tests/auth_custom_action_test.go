@@ -37,7 +37,7 @@ type actRow struct {
 }
 
 func customActionProbe(t *testing.T, r actRow) harness.AuthCase {
-	return authCase(r.id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	return authCaseFull(r.id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "acta_" + tgt.NS
 		roleDB := db
 		var resource bson.D
@@ -127,7 +127,7 @@ func TestAuthCustomActionGranularity(t *testing.T) {
 func victimActionProbe(t *testing.T, id, action string,
 	allowedFn func(ctx context.Context, c *mongo.Client, db, victim string) error,
 	deniedFn func(ctx context.Context, c *mongo.Client, db string) error) harness.AuthCase {
-	return authCase(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	return authCaseFull(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "actv_" + tgt.NS
 		role, user, pwd := "role_"+tgt.NS, "u_"+tgt.NS, "pw-"+tgt.NS
 		victim := "victim_" + tgt.NS
