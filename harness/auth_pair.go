@@ -50,10 +50,8 @@ type AuthTarget struct {
 }
 
 // AuthPairTest runs tc against both servers as admin, comparing per Support.
-// It skips when the auth suite is disabled (PARITY_AUTH unset).
 func AuthPairTest(t *testing.T, tc AuthCase) TestResult {
 	t.Helper()
-	RequireAuth(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -100,14 +98,14 @@ func AuthPairTest(t *testing.T, tc AuthCase) TestResult {
 		return TestResult{Name: tc.Name, Status: StatusXFail, Diff: cmp.Diff}
 
 	case DumboDBDeviates:
+		if tc.MongoExpect == nil || tc.DumboExpect == nil {
+			t.Fatalf("DEVIATE %s: a deviating case must set both MongoExpect and DumboExpect, else it asserts nothing", tc.Name)
+			return TestResult{Name: tc.Name, Status: StatusFail}
+		}
 		mRes, mErr := tc.Run(ctx, mongoTarget)
-		if tc.MongoExpect != nil {
-			tc.MongoExpect(t, mRes, mErr)
-		}
+		tc.MongoExpect(t, mRes, mErr)
 		dRes, dErr := tc.Run(ctx, dumboTarget)
-		if tc.DumboExpect != nil {
-			tc.DumboExpect(t, dRes, dErr)
-		}
+		tc.DumboExpect(t, dRes, dErr)
 		if t.Failed() {
 			return TestResult{Name: tc.Name, Status: StatusFail}
 		}

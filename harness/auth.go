@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"testing"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -29,21 +28,14 @@ import (
 )
 
 // Auth parity tests run against a SEPARATE, access-control-enabled server pair
-// so the existing non-auth suites are unaffected. Enable by setting PARITY_AUTH=1
-// and starting both servers with access control on:
-//
-//	mongod --auth ...            (MongoDB)
-//	dumbodb --auth ...           (DumboDB)
-//
-// The harness bootstraps each server's admin via the localhost exception on
-// first use, then connects to both servers as that admin. Tests that need a
-// specific non-admin identity use ConnectAs (see auth_user.go).
+// (see servers.go) so the non-auth suites are unaffected. The harness bootstraps
+// each server's admin via the localhost exception on first use, then connects to
+// both servers as that admin. Tests that need a specific non-admin identity use
+// ConnectAs (see auth_user.go).
 
 const (
-	defaultAuthMongoURI   = "mongodb://localhost:27017"
-	defaultAuthDumboDBURI = "mongodb://localhost:27018"
-	defaultAdminUser      = "admin"
-	defaultAdminPassword  = "admin-pw"
+	defaultAdminUser     = "admin"
+	defaultAdminPassword = "admin-pw"
 )
 
 var (
@@ -58,24 +50,13 @@ type AuthClients struct {
 	DumboDBAdmin *mongo.Client
 }
 
-// AuthConfigured reports whether the auth parity suite should run. It is
-// opt-in (PARITY_AUTH=1) so ordinary `go test ./...` runs skip auth tests
-// rather than failing when no access-control-enabled servers are present.
-func AuthConfigured() bool { return os.Getenv("PARITY_AUTH") == "1" }
+// AuthMongoBaseURI is the credential-free base URI of the auth-enabled MongoDB
+// provisioned for the suite.
+func AuthMongoBaseURI() string { return provisioned.authMongoURI }
 
-// RequireAuth skips the calling test unless the auth parity suite is enabled.
-func RequireAuth(t *testing.T) {
-	t.Helper()
-	if !AuthConfigured() {
-		t.Skip("auth parity suite disabled; set PARITY_AUTH=1 and start both servers with access control")
-	}
-}
-
-// AuthMongoBaseURI is the credential-free base URI of the auth-enabled MongoDB.
-func AuthMongoBaseURI() string { return envOr("MONGO_AUTH_URI", defaultAuthMongoURI) }
-
-// AuthDumboDBBaseURI is the credential-free base URI of the auth-enabled DumboDB.
-func AuthDumboDBBaseURI() string { return envOr("DUMBODB_AUTH_URI", defaultAuthDumboDBURI) }
+// AuthDumboDBBaseURI is the credential-free base URI of the auth-enabled DumboDB
+// provisioned for the suite.
+func AuthDumboDBBaseURI() string { return provisioned.authDumboURI }
 
 // AdminUser and AdminPassword are the bootstrap super-user credentials the
 // harness creates and connects as.

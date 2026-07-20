@@ -31,8 +31,6 @@ import (
 // servers as that admin, and that MongoDB is genuinely enforcing access
 // control (an unauthenticated privileged command is rejected).
 func TestAuthHarnessBootstrap(t *testing.T) {
-	harness.RequireAuth(t)
-
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 

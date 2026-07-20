@@ -46,10 +46,7 @@ type Clients struct {
 }
 
 func mongoURI() string {
-	if v := os.Getenv("MONGO_URI"); v != "" {
-		return v
-	}
-	return "mongodb://localhost:27017"
+	return provisioned.mongoURI
 }
 
 // mongoRSURI returns the optional MongoDB replica-set URI. Empty when the
@@ -59,10 +56,7 @@ func mongoRSURI() string {
 }
 
 func dumboDBURI() string {
-	if v := os.Getenv("DUMBODB_URI"); v != "" {
-		return v
-	}
-	return "mongodb://localhost:27018"
+	return provisioned.dumboURI
 }
 
 // MongoURI is the exported view of the MongoDB connection URI used by the
