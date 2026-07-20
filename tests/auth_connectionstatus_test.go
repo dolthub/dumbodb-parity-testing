@@ -91,9 +91,7 @@ func TestAuthConnectionStatusAuthenticated(t *testing.T) {
 				_ = harness.DropUser(ctx, tgt.Admin, db, user)
 				_ = tgt.Admin.Database(db).Drop(ctx)
 			}()
-			if err := harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: "readWrite", DB: db}}); err != nil {
-				return nil, err
-			}
+			tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: "readWrite", DB: db}}))
 			c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, db)
 			if err != nil {
 				return nil, err
@@ -115,9 +113,7 @@ func TestAuthConnectionStatusAuthenticated(t *testing.T) {
 				_ = harness.DropUser(ctx, tgt.Admin, db, user)
 				_ = tgt.Admin.Database(db).Drop(ctx)
 			}()
-			if err := harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: "readWrite", DB: db}}); err != nil {
-				return nil, err
-			}
+			tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: "readWrite", DB: db}}))
 			c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, db)
 			if err != nil {
 				return nil, err
@@ -156,9 +152,7 @@ func TestAuthLogout(t *testing.T) {
 				_ = harness.DropUser(ctx, tgt.Admin, db, user)
 				_ = tgt.Admin.Database(db).Drop(ctx)
 			}()
-			if err := harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: "readWrite", DB: db}}); err != nil {
-				return nil, err
-			}
+			tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: "readWrite", DB: db}}))
 			c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, db)
 			if err != nil {
 				return nil, err

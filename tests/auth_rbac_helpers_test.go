@@ -124,17 +124,11 @@ func dbScopedRoleProbe(t *testing.T, id, role string, wantAllowed bool, op rbacO
 		}()
 		// Seed both databases with a document so read-style operations have
 		// something to act on.
-		if _, err := tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup1(tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}))
 		if op.onOtherDB {
-			if _, err := tgt.Admin.Database(other).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}); err != nil {
-				return nil, err
-			}
+			tgt.Setup1(tgt.Admin.Database(other).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}))
 		}
-		if err := harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: role, DB: db}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: role, DB: db}}))
 		c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, db)
 		if err != nil {
 			return nil, err
@@ -192,12 +186,8 @@ func noRoleProbe(t *testing.T, id string, wantAllowed bool, op rbacOp, support h
 			_ = harness.DropUser(ctx, tgt.Admin, "admin", user)
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
-		if _, err := tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateUser(ctx, tgt.Admin, "admin", user, pwd, nil); err != nil {
-			return nil, err
-		}
+		tgt.Setup1(tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}))
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, "admin", user, pwd, nil))
 		c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, "admin")
 		if err != nil {
 			return nil, err
@@ -234,12 +224,8 @@ func adminScopedRoleProbe(t *testing.T, id, role string, wantAllowed bool, op rb
 			_ = harness.DropRole(ctx, tgt.Admin, db, "proberole")
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
-		if _, err := tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateUser(ctx, tgt.Admin, "admin", user, pwd, []harness.RoleRef{{Role: role, DB: "admin"}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup1(tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}))
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, "admin", user, pwd, []harness.RoleRef{{Role: role, DB: "admin"}}))
 		c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, "admin")
 		if err != nil {
 			return nil, err

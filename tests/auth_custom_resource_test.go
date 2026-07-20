@@ -65,16 +65,10 @@ func customResourceProbe(t *testing.T, r resRow) harness.AuthCase {
 		}()
 		// Seed collections the ops read.
 		for _, s := range []struct{ d, coll string }{{db, "c1"}, {db, "c2"}, {db, "logs"}, {db, "events"}, {other, "c1"}, {other, "logs"}} {
-			if _, err := tgt.Admin.Database(s.d).Collection(s.coll).InsertOne(ctx, bson.D{{Key: "x", Value: 1}}); err != nil {
-				return nil, err
-			}
+			tgt.Setup1(tgt.Admin.Database(s.d).Collection(s.coll).InsertOne(ctx, bson.D{{Key: "x", Value: 1}}))
 		}
-		if err := harness.CreateRole(ctx, tgt.Admin, roleDB, role, r.privs(db, other), nil); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateUser(ctx, tgt.Admin, roleDB, user, pwd, []harness.RoleRef{{Role: role, DB: roleDB}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, roleDB, role, r.privs(db, other), nil))
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, roleDB, user, pwd, []harness.RoleRef{{Role: role, DB: roleDB}}))
 		c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, roleDB)
 		if err != nil {
 			return nil, err

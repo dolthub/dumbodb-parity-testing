@@ -64,9 +64,7 @@ func TestAuthScramSuccess(t *testing.T) {
 				db := "scram_" + tgt.NS
 				user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
 				defer cleanupUser(ctx, tgt, db, user)
-				if err := createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), nil); err != nil {
-					return nil, err
-				}
+				tgt.Setup(createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), nil))
 				c, err := harness.ConnectAsMech(ctx, tgt.BaseURI, user, pwd, db, mech.name)
 				if err != nil {
 					return nil, err
@@ -85,9 +83,7 @@ func TestAuthScramSuccess(t *testing.T) {
 			db := "scram_" + tgt.NS
 			user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
 			defer cleanupUser(ctx, tgt, db, user)
-			if err := createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), []string{"SCRAM-SHA-256"}); err != nil {
-				return nil, err
-			}
+			tgt.Setup(createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), []string{"SCRAM-SHA-256"}))
 			c, err := harness.ConnectAsMech(ctx, tgt.BaseURI, user, pwd, db, "SCRAM-SHA-256")
 			if err != nil {
 				return nil, err
@@ -107,9 +103,7 @@ func TestAuthScramSuccess(t *testing.T) {
 			db := "scram_" + tgt.NS
 			user, pwd := "u_"+tgt.NS, "p\u00e9\u00dfw\u00f6rd-"+tgt.NS
 			defer cleanupUser(ctx, tgt, db, user)
-			if err := createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), []string{"SCRAM-SHA-256"}); err != nil {
-				return nil, err
-			}
+			tgt.Setup(createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), []string{"SCRAM-SHA-256"}))
 			c, err := harness.ConnectAsMech(ctx, tgt.BaseURI, user, pwd, db, "SCRAM-SHA-256")
 			if err != nil {
 				return nil, err
@@ -134,9 +128,7 @@ func TestAuthScramFailure(t *testing.T) {
 				db := "scram_" + tgt.NS
 				user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
 				defer cleanupUser(ctx, tgt, db, user)
-				if err := createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), nil); err != nil {
-					return nil, err
-				}
+				tgt.Setup(createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), nil))
 				c, err := harness.ConnectAsMech(ctx, tgt.BaseURI, user, "wrong-"+pwd, db, mech.name)
 				if err == nil {
 					_ = c.Disconnect(ctx)
@@ -168,9 +160,7 @@ func TestAuthScramFailure(t *testing.T) {
 			db := "scram_" + tgt.NS
 			user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
 			defer cleanupUser(ctx, tgt, db, user)
-			if err := createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), nil); err != nil {
-				return nil, err
-			}
+			tgt.Setup(createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), nil))
 			c, err := harness.ConnectAsMech(ctx, tgt.BaseURI, user, pwd, "admin", "SCRAM-SHA-256")
 			if err == nil {
 				_ = c.Disconnect(ctx)
@@ -188,9 +178,7 @@ func TestAuthScramFailure(t *testing.T) {
 			db := "scram_" + tgt.NS
 			user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
 			defer cleanupUser(ctx, tgt, db, user)
-			if err := createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), []string{"SCRAM-SHA-256"}); err != nil {
-				return nil, err
-			}
+			tgt.Setup(createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), []string{"SCRAM-SHA-256"}))
 			c, err := harness.ConnectAsMech(ctx, tgt.BaseURI, user, pwd, db, "SCRAM-SHA-1")
 			if err == nil {
 				_ = c.Disconnect(ctx)

@@ -66,9 +66,7 @@ func TestAuthSpeculativeNegotiation(t *testing.T) {
 	harness.AuthPairTest(t, authCaseFull("SPEC-04-saslSupportedMechs-both", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "spec_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
-		if err := createUserMech(ctx, tgt.Admin, db, u, "pw", rwRole(db), []string{"SCRAM-SHA-1", "SCRAM-SHA-256"}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(createUserMech(ctx, tgt.Admin, db, u, "pw", rwRole(db), []string{"SCRAM-SHA-1", "SCRAM-SHA-256"}))
 		c, err := harness.ConnectNoAuth(ctx, tgt.BaseURI)
 		if err != nil {
 			return nil, err
@@ -85,9 +83,7 @@ func TestAuthSpeculativeNegotiation(t *testing.T) {
 	harness.AuthPairTest(t, authCaseFull("SPEC-06-saslSupportedMechs-sha256-only", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "spec_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
-		if err := createUserMech(ctx, tgt.Admin, db, u, "pw", rwRole(db), []string{"SCRAM-SHA-256"}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(createUserMech(ctx, tgt.Admin, db, u, "pw", rwRole(db), []string{"SCRAM-SHA-256"}))
 		c, err := harness.ConnectNoAuth(ctx, tgt.BaseURI)
 		if err != nil {
 			return nil, err

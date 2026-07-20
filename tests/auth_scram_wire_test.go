@@ -124,9 +124,7 @@ func wireCaseSupport(
 		db, user, pwd := "wire_"+tgt.NS, "u_"+tgt.NS, "pw-"+tgt.NS
 		if needUser {
 			defer cleanupUser(ctx, tgt, db, user)
-			if err := createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), []string{"SCRAM-SHA-256"}); err != nil {
-				return nil, err
-			}
+			tgt.Setup(createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), []string{"SCRAM-SHA-256"}))
 		}
 		conn, err := wire.Dial(tgt.BaseURI)
 		if err != nil {
@@ -425,9 +423,7 @@ func TestAuthScramReauthWire(t *testing.T) {
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
 		for _, u := range []string{u1, u2} {
-			if err := createUserMech(ctx, tgt.Admin, db, u, pw, rwRole(db), []string{"SCRAM-SHA-256"}); err != nil {
-				return nil, err
-			}
+			tgt.Setup(createUserMech(ctx, tgt.Admin, db, u, pw, rwRole(db), []string{"SCRAM-SHA-256"}))
 		}
 		conn, err := wire.Dial(tgt.BaseURI)
 		if err != nil {

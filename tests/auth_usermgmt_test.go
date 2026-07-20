@@ -61,9 +61,7 @@ func TestAuthUserCreate(t *testing.T) {
 	harness.AuthPairTest(t, authCaseFull("USER-02-create-role-string-form", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
-		if err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "createUser", Value: u}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: bson.A{"readWrite"}}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(runCmd(ctx, tgt.Admin, db, bson.D{{Key: "createUser", Value: u}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: bson.A{"readWrite"}}}))
 		res, err := usersInfoCmd(ctx, tgt.Admin, db, bson.D{{Key: "usersInfo", Value: u}})
 		if err != nil {
 			return nil, err
@@ -80,9 +78,7 @@ func TestAuthUserCreate(t *testing.T) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		mk := bson.D{{Key: "createUser", Value: u}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: bson.A{}}}
-		if err := runCmd(ctx, tgt.Admin, db, mk); err != nil {
-			return nil, err
-		}
+		tgt.Setup(runCmd(ctx, tgt.Admin, db, mk))
 		return nil, runCmd(ctx, tgt.Admin, db, mk)
 	}))
 
@@ -97,9 +93,7 @@ func TestAuthUserCreate(t *testing.T) {
 	harness.AuthPairTest(t, authCaseFull("USER-06-create-explicit-mechanisms", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
-		if err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "createUser", Value: u}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: bson.A{}}, {Key: "mechanisms", Value: bson.A{"SCRAM-SHA-256"}}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(runCmd(ctx, tgt.Admin, db, bson.D{{Key: "createUser", Value: u}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: bson.A{}}, {Key: "mechanisms", Value: bson.A{"SCRAM-SHA-256"}}}))
 		res, err := usersInfoCmd(ctx, tgt.Admin, db, bson.D{{Key: "usersInfo", Value: u}})
 		if err != nil {
 			return nil, err
@@ -155,12 +149,8 @@ func TestAuthUserUpdate(t *testing.T) {
 	harness.AuthPairTest(t, authCaseFull("USER-10-update-password", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
-		if err := harness.CreateUser(ctx, tgt.Admin, db, u, "old", []harness.RoleRef{{Role: "readWrite", DB: db}}); err != nil {
-			return nil, err
-		}
-		if err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "updateUser", Value: u}, {Key: "pwd", Value: "new"}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, u, "old", []harness.RoleRef{{Role: "readWrite", DB: db}}))
+		tgt.Setup(runCmd(ctx, tgt.Admin, db, bson.D{{Key: "updateUser", Value: u}, {Key: "pwd", Value: "new"}}))
 		oldC, oldErr := harness.ConnectAs(ctx, tgt.BaseURI, u, "old", db)
 		if oldErr == nil {
 			_ = oldC.Disconnect(ctx)
@@ -176,12 +166,8 @@ func TestAuthUserUpdate(t *testing.T) {
 	harness.AuthPairTest(t, authCaseFull("USER-11-update-roles-replace", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
-		if err := harness.CreateUser(ctx, tgt.Admin, db, u, "pw", []harness.RoleRef{{Role: "readWrite", DB: db}}); err != nil {
-			return nil, err
-		}
-		if err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "updateUser", Value: u}, {Key: "roles", Value: bson.A{"read"}}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, u, "pw", []harness.RoleRef{{Role: "readWrite", DB: db}}))
+		tgt.Setup(runCmd(ctx, tgt.Admin, db, bson.D{{Key: "updateUser", Value: u}, {Key: "roles", Value: bson.A{"read"}}}))
 		res, err := usersInfoCmd(ctx, tgt.Admin, db, bson.D{{Key: "usersInfo", Value: u}})
 		if err != nil {
 			return nil, err
@@ -205,9 +191,7 @@ func TestAuthUserDrop(t *testing.T) {
 	harness.AuthPairTest(t, authCaseFull("USER-15-drop-existing", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
-		if err := harness.CreateUser(ctx, tgt.Admin, db, u, "pw", nil); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, u, "pw", nil))
 		err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "dropUser", Value: u}})
 		return bson.M{"ok": err == nil}, err
 	}))
@@ -224,14 +208,10 @@ func TestAuthUserDrop(t *testing.T) {
 		defer func() { _ = tgt.Admin.Database(db).Drop(ctx) }()
 		for i, name := range []string{"a_" + tgt.NS, "b_" + tgt.NS} {
 			_ = i
-			if err := harness.CreateUser(ctx, tgt.Admin, db, name, "pw", nil); err != nil {
-				return nil, err
-			}
+			tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, name, "pw", nil))
 		}
 		var res bson.M
-		if err := tgt.Admin.Database(db).RunCommand(ctx, bson.D{{Key: "dropAllUsersFromDatabase", Value: 1}}).Decode(&res); err != nil {
-			return nil, err
-		}
+		tgt.Setup(tgt.Admin.Database(db).RunCommand(ctx, bson.D{{Key: "dropAllUsersFromDatabase", Value: 1}}).Decode(&res))
 		return bson.M{"n": res["n"]}, nil
 	}))
 
@@ -239,9 +219,7 @@ func TestAuthUserDrop(t *testing.T) {
 	harness.AuthPairTest(t, authCaseFull("USER-18-drop-all-zero", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "userf_dropall0_" + tgt.NS
 		var res bson.M
-		if err := tgt.Admin.Database(db).RunCommand(ctx, bson.D{{Key: "dropAllUsersFromDatabase", Value: 1}}).Decode(&res); err != nil {
-			return nil, err
-		}
+		tgt.Setup(tgt.Admin.Database(db).RunCommand(ctx, bson.D{{Key: "dropAllUsersFromDatabase", Value: 1}}).Decode(&res))
 		return bson.M{"n": res["n"]}, nil
 	}))
 }
@@ -251,12 +229,8 @@ func TestAuthUserGrantRevoke(t *testing.T) {
 	harness.AuthPairTest(t, authCase("USER-19-grant-roles-union", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
-		if err := harness.CreateUser(ctx, tgt.Admin, db, u, "pw", []harness.RoleRef{{Role: "read", DB: db}}); err != nil {
-			return nil, err
-		}
-		if err := harness.GrantRolesToUser(ctx, tgt.Admin, db, u, []harness.RoleRef{{Role: "dbAdmin", DB: db}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, u, "pw", []harness.RoleRef{{Role: "read", DB: db}}))
+		tgt.Setup(harness.GrantRolesToUser(ctx, tgt.Admin, db, u, []harness.RoleRef{{Role: "dbAdmin", DB: db}}))
 		res, err := usersInfoCmd(ctx, tgt.Admin, db, bson.D{{Key: "usersInfo", Value: u}})
 		if err != nil {
 			return nil, err
@@ -271,9 +245,7 @@ func TestAuthUserGrantRevoke(t *testing.T) {
 	harness.AuthPairTest(t, authCase("USER-20-grant-missing-role", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
-		if err := harness.CreateUser(ctx, tgt.Admin, db, u, "pw", nil); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, u, "pw", nil))
 		return nil, harness.GrantRolesToUser(ctx, tgt.Admin, db, u, []harness.RoleRef{{Role: "nosuch_" + tgt.NS, DB: db}})
 	}))
 
@@ -281,12 +253,8 @@ func TestAuthUserGrantRevoke(t *testing.T) {
 	harness.AuthPairTest(t, authCase("USER-21-revoke-role", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
-		if err := harness.CreateUser(ctx, tgt.Admin, db, u, "pw", []harness.RoleRef{{Role: "read", DB: db}, {Role: "dbAdmin", DB: db}}); err != nil {
-			return nil, err
-		}
-		if err := harness.RevokeRolesFromUser(ctx, tgt.Admin, db, u, []harness.RoleRef{{Role: "dbAdmin", DB: db}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, u, "pw", []harness.RoleRef{{Role: "read", DB: db}, {Role: "dbAdmin", DB: db}}))
+		tgt.Setup(harness.RevokeRolesFromUser(ctx, tgt.Admin, db, u, []harness.RoleRef{{Role: "dbAdmin", DB: db}}))
 		res, err := usersInfoCmd(ctx, tgt.Admin, db, bson.D{{Key: "usersInfo", Value: u}})
 		if err != nil {
 			return nil, err
@@ -314,9 +282,7 @@ func TestAuthUsersInfo(t *testing.T) {
 		db := "userf_all_" + tgt.NS
 		defer func() { _ = tgt.Admin.Database(db).Drop(ctx) }()
 		for _, name := range []string{"a_" + tgt.NS, "b_" + tgt.NS} {
-			if err := harness.CreateUser(ctx, tgt.Admin, db, name, "pw", nil); err != nil {
-				return nil, err
-			}
+			tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, name, "pw", nil))
 		}
 		defer func() {
 			_ = harness.DropUser(ctx, tgt.Admin, db, "a_"+tgt.NS)
@@ -333,9 +299,7 @@ func TestAuthUsersInfo(t *testing.T) {
 	harness.AuthPairTest(t, authCaseFull("USER-28-usersInfo-showCredentials", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
-		if err := harness.CreateUser(ctx, tgt.Admin, db, u, "pw", nil); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, u, "pw", nil))
 		with, err := usersInfoCmd(ctx, tgt.Admin, db, bson.D{{Key: "usersInfo", Value: u}, {Key: "showCredentials", Value: true}})
 		if err != nil {
 			return nil, err
@@ -357,9 +321,7 @@ func TestAuthUsersInfo(t *testing.T) {
 	harness.AuthPairTest(t, authCaseFull("USER-30-usersInfo-mechanisms", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
-		if err := harness.CreateUser(ctx, tgt.Admin, db, u, "pw", nil); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, u, "pw", nil))
 		res, err := usersInfoCmd(ctx, tgt.Admin, db, bson.D{{Key: "usersInfo", Value: u}})
 		if err != nil {
 			return nil, err

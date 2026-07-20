@@ -42,13 +42,9 @@ func TestAuthLsidCrossUserScoped(t *testing.T) {
 			_ = harness.DropUser(ctx, tgt.Admin, db, userB)
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
-		if _, err := tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup1(tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}))
 		for _, u := range []string{userA, userB} {
-			if err := createUserMech(ctx, tgt.Admin, db, u, pw, rwRole(db), []string{"SCRAM-SHA-256"}); err != nil {
-				return nil, err
-			}
+			tgt.Setup(createUserMech(ctx, tgt.Admin, db, u, pw, rwRole(db), []string{"SCRAM-SHA-256"}))
 		}
 
 		lsid := bson.D{{Key: "id", Value: wire.NewLsid()}}

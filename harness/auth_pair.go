@@ -47,6 +47,29 @@ type AuthTarget struct {
 	BaseURI string
 	// NS is a unique-per-test token for naming databases/users/roles.
 	NS string
+
+	t *testing.T
+}
+
+// Setup asserts that a precondition step (creating a user/role, seeding data)
+// succeeded. On failure it fails the test immediately instead of letting the
+// error flow back into the response comparison, where an identical setup failure
+// on both servers would otherwise "match" and pass having exercised nothing.
+func (tgt AuthTarget) Setup(err error) {
+	tgt.t.Helper()
+	if err != nil {
+		tgt.t.Fatalf("setup failed on %s: %v", tgt.BaseURI, err)
+	}
+}
+
+// Setup1 is Setup for a setup call that also returns a value (e.g. InsertOne);
+// it returns that value so the call can be used inline.
+func (tgt AuthTarget) Setup1(v interface{}, err error) interface{} {
+	tgt.t.Helper()
+	if err != nil {
+		tgt.t.Fatalf("setup failed on %s: %v", tgt.BaseURI, err)
+	}
+	return v
 }
 
 // AuthPairTest runs tc against both servers as admin, comparing per Support.
@@ -62,8 +85,8 @@ func AuthPairTest(t *testing.T, tc AuthCase) TestResult {
 	}
 
 	ns := authNS(tc.Name)
-	mongoTarget := AuthTarget{Admin: ac.MongoAdmin, BaseURI: AuthMongoBaseURI(), NS: ns}
-	dumboTarget := AuthTarget{Admin: ac.DumboDBAdmin, BaseURI: AuthDumboDBBaseURI(), NS: ns}
+	mongoTarget := AuthTarget{Admin: ac.MongoAdmin, BaseURI: AuthMongoBaseURI(), NS: ns, t: t}
+	dumboTarget := AuthTarget{Admin: ac.DumboDBAdmin, BaseURI: AuthDumboDBBaseURI(), NS: ns, t: t}
 
 	switch tc.Support {
 	case DumboDBMongoOnly:
