@@ -25,6 +25,10 @@ jobs:
       MONGO_URI: mongodb://localhost:27017
       MONGO_RS_URI: mongodb://localhost:27019/?replicaSet=rs0
       DUMBODB_URI: mongodb://localhost:27018
+      # The harness spawns the access-control-enabled pair from these binaries;
+      # the servers above cover the non-auth and replica-set roles.
+      MONGOD_BIN: /usr/bin/mongod
+      DUMBODB_BIN: /usr/local/bin/dumbodb
       DUMBODB_DATA_DIR: /tmp/dumbodb-data
       DOLT_URI: "root:@tcp(localhost:3306)/"
       DOLT_DATA_DIR: /tmp/dolt-data
@@ -34,7 +38,7 @@ jobs:
       STORAGE_PARITY_MAX_DOCS: "100000"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Start replica-set MongoDB on :27019
         run: |
@@ -61,7 +65,7 @@ jobs:
             sleep 2
           done
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.22"
           cache: true
@@ -88,6 +92,17 @@ jobs:
 
           # Build the dumbodb binary (adjust path if the repo layout differs)
           go build -o /usr/local/bin/dumbodb ./cmd/dumbodb
+
+      - name: Install mongod binary
+        run: |
+          codename=$(. /etc/os-release && echo "$VERSION_CODENAME")
+          curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc \
+            | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg
+          echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu ${codename}/mongodb-org/8.0 multiverse" \
+            | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+          sudo apt-get update
+          sudo apt-get install -y mongodb-org-server
+          mongod --version
 
       - name: Start DumboDB
         run: |
@@ -168,7 +183,7 @@ jobs:
 
       - name: Upload results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: parity-results
           path: results/
