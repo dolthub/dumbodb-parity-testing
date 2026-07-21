@@ -2,7 +2,6 @@ package harness
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -71,10 +70,6 @@ func PairTest(t *testing.T, tc TestCase) TestResult {
 
 	mongoCol, dumboDBCol, cleanup, err := clients.TestDBForTopology(ctx, tc.Name, tc.Topology)
 	if err != nil {
-		if errors.Is(err, ErrTopologyUnavailable) {
-			t.Skipf("PairTest %s: %v", tc.Name, err)
-			return TestResult{Name: tc.Name, Status: StatusSkip}
-		}
 		t.Fatalf("PairTest %s: could not allocate test DB: %v", tc.Name, err)
 	}
 	defer cleanup()

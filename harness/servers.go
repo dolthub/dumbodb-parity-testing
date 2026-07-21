@@ -15,12 +15,18 @@
 package harness
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // The parity suite needs two server pairs: a plain pair for the non-auth suites
@@ -43,6 +49,7 @@ type serverSet struct {
 	dumboURI     string
 	authMongoURI string
 	authDumboURI string
+	rsURI        string
 }
 
 // ProvisionServers starts every server the suite needs that is not already
@@ -80,8 +87,103 @@ func (s *serverSet) start() error {
 	if s.authDumboURI, err = resolveServer("DUMBODB_AUTH_URI", "dumbodb-auth-", dumbodbArgs(true)); err != nil {
 		return fmt.Errorf("auth dumbodb: %w", err)
 	}
+	if s.rsURI, err = resolveReplicaSet(); err != nil {
+		return fmt.Errorf("replica-set mongod: %w", err)
+	}
 
 	return nil
+}
+
+// replicaSetName is the id of the single-node replica set the harness starts for
+// transaction/replica-set-topology tests.
+const replicaSetName = "rs0"
+
+// resolveReplicaSet returns the URI of a single-node MongoDB replica set: the
+// MONGO_RS_URI override if set (verifying reachability), otherwise a freshly
+// spawned mongod --replSet that this function initiates and waits to elect a
+// primary.
+func resolveReplicaSet() (string, error) {
+	if uri := os.Getenv("MONGO_RS_URI"); uri != "" {
+		if !waitPort(hostPort(uri), 10*time.Second) {
+			return "", fmt.Errorf("MONGO_RS_URI=%s is not reachable", uri)
+		}
+		return uri, nil
+	}
+
+	bin := findMongodBin()
+	if bin == "" {
+		return "", fmt.Errorf("mongod binary not found (set MONGOD_BIN or MONGO_RS_URI)")
+	}
+
+	port, err := freePort()
+	if err != nil {
+		return "", err
+	}
+	dir, err := os.MkdirTemp("", "mongod-rs-")
+	if err != nil {
+		return "", err
+	}
+
+	cmd := exec.Command(bin,
+		"--replSet", replicaSetName,
+		"--port", fmt.Sprintf("%d", port),
+		"--dbpath", dir,
+		"--bind_ip", "127.0.0.1",
+		"--nounixsocket",
+	)
+	proc, err := startProc(cmd, "mongod-rs", dir)
+	if err != nil {
+		_ = os.RemoveAll(dir)
+		return "", err
+	}
+
+	provisionalMu.Lock()
+	spawnedServers = append(spawnedServers, proc)
+	provisionalMu.Unlock()
+
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	if !waitPort(addr, 25*time.Second) {
+		return "", fmt.Errorf("mongod --replSet did not become ready on %s", addr)
+	}
+	if err := initiateReplicaSet(addr); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("mongodb://%s/?replicaSet=%s", addr, replicaSetName), nil
+}
+
+// initiateReplicaSet configures the single-node replica set at addr and waits
+// until it has elected a writable primary.
+func initiateReplicaSet(addr string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
+	defer cancel()
+
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://"+addr+"/?directConnection=true"))
+	if err != nil {
+		return fmt.Errorf("connect for replSetInitiate: %w", err)
+	}
+	defer func() { _ = client.Disconnect(context.Background()) }()
+
+	initiate := bson.D{{Key: "replSetInitiate", Value: bson.D{
+		{Key: "_id", Value: replicaSetName},
+		{Key: "members", Value: bson.A{bson.D{{Key: "_id", Value: 0}, {Key: "host", Value: addr}}}},
+	}}}
+	if err := client.Database("admin").RunCommand(ctx, initiate).Err(); err != nil &&
+		!strings.Contains(err.Error(), "already initialized") {
+		return fmt.Errorf("replSetInitiate: %w", err)
+	}
+
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		var res bson.M
+		if err := client.Database("admin").RunCommand(ctx, bson.D{{Key: "hello", Value: 1}}).Decode(&res); err == nil {
+			if primary, _ := res["isWritablePrimary"].(bool); primary {
+				return nil
+			}
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
+	return fmt.Errorf("replica set %s did not elect a primary", replicaSetName)
 }
 
 // serverArgs describes how to launch one server and which binary it needs.

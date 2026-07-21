@@ -17,7 +17,6 @@ package harness
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -37,10 +36,9 @@ type Clients struct {
 	// allowed on primary, validate {repair:true} allowed, $changeStream
 	// unsupported).
 	Mongo *mongo.Client
-	// MongoRS is a connection to a single-node MongoDB replica set. Used
-	// for tests that require multi-document transaction semantics. Nil
-	// when MONGO_RS_URI is not configured; tests that request
-	// TopologyReplicaSet then skip with a clear message.
+	// MongoRS is a connection to the single-node MongoDB replica set the
+	// harness provisions, used for tests that require multi-document
+	// transaction semantics.
 	MongoRS *mongo.Client
 	DumboDB *mongo.Client
 }
@@ -52,7 +50,7 @@ func mongoURI() string {
 // mongoRSURI returns the optional MongoDB replica-set URI. Empty when the
 // env var is not set; the harness then skips ReplicaSet-topology tests.
 func mongoRSURI() string {
-	return os.Getenv("MONGO_RS_URI")
+	return provisioned.rsURI
 }
 
 func dumboDBURI() string {
@@ -72,10 +70,9 @@ func MongoRSURI() string { return mongoRSURI() }
 // DumboDBURI is the exported view of the DumboDB connection URI. See MongoURI.
 func DumboDBURI() string { return dumboDBURI() }
 
-// GetClients returns the shared Mongo+DumboDB client trio, connecting on
-// first call. The replica-set Mongo client is connected only when
-// MONGO_RS_URI is set; otherwise Clients.MongoRS is nil and tests that
-// request TopologyReplicaSet skip.
+// GetClients returns the shared Mongo+DumboDB client trio, connecting on first
+// call to the servers provisioned by ProvisionServers, including the single-node
+// replica set used by transaction/replica-set-topology tests.
 func GetClients(ctx context.Context) (*Clients, error) {
 	clientsOnce.Do(func() {
 		mc, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURI()))
@@ -88,17 +85,17 @@ func GetClients(ctx context.Context) (*Clients, error) {
 			return
 		}
 
-		var rsc *mongo.Client
-		if uri := mongoRSURI(); uri != "" {
-			rsc, err = mongo.Connect(ctx, options.Client().ApplyURI(uri))
-			if err != nil {
-				// Don't fail the whole suite; just leave RS unavailable
-				// and tests requiring it will skip.
-				rsc = nil
-			} else if err := rsc.Ping(ctx, nil); err != nil {
-				_ = rsc.Disconnect(ctx)
-				rsc = nil
-			}
+		rsc, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoRSURI()))
+		if err != nil {
+			_ = mc.Disconnect(ctx)
+			clientsErr = fmt.Errorf("connect mongo replica set: %w", err)
+			return
+		}
+		if err := rsc.Ping(ctx, nil); err != nil {
+			_ = mc.Disconnect(ctx)
+			_ = rsc.Disconnect(ctx)
+			clientsErr = fmt.Errorf("ping mongo replica set: %w", err)
+			return
 		}
 
 		dc, err := mongo.Connect(ctx, options.Client().ApplyURI(dumboDBURI()))
