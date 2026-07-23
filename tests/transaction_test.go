@@ -310,8 +310,15 @@ func TestTransaction_doc_lock_conflict(t *testing.T) {
 
 func TestTransaction_non_conflicting_succeed(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "non_conflicting_succeed",
-		Support: harness.DumboDBXFail,
+		Name: "non_conflicting_succeed",
+		// XFail: fundamental concurrency-control divergence. Two concurrent
+		// transactions insert different _ids into the same collection. MongoDB
+		// (WiredTiger optimistic concurrency) aborts the second commit with
+		// WriteConflict (112), so only one insert survives. DumboDB's
+		// Dolt/prolly-tree transactions merge the non-conflicting writes, so
+		// both commit. Neither is wrong; the models differ and will not
+		// converge.
+		Support:  harness.DumboDBXFail,
 		Topology: harness.TopologyReplicaSet,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			clientA := col.Database().Client()

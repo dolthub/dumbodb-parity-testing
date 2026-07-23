@@ -12,8 +12,11 @@ import (
 // TestTransactionSmoke verifies basic startTransaction / insert / commitTransaction.
 func TestTransactionSmoke(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "transaction-smoke",
-		Support: harness.DumboDBXFail,
+		Name: "transaction-smoke",
+		// Transactions require a replica set in MongoDB, so compare against the
+		// RS topology (DumboDB runs single-node either way).
+		Support:  harness.DumboDBFull,
+		Topology: harness.TopologyReplicaSet,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			session, err := col.Database().Client().StartSession()
 			if err != nil {
