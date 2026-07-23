@@ -128,7 +128,7 @@ func TestAuthLogout(t *testing.T) {
 	// CONN-06: logout when not authenticated is a harmless ok.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "CONN-06-logout-unauthenticated",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			c, err := harness.ConnectNoAuth(ctx, tgt.BaseURI)
 			if err != nil {

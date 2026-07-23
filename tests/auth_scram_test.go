@@ -142,7 +142,7 @@ func TestAuthScramFailure(t *testing.T) {
 	// same vague message, so user existence is not leaked).
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "SCRAM-05-unknown-user",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			c, err := harness.ConnectAsMech(ctx, tgt.BaseURI, "nobody_"+tgt.NS, "whatever", "admin", "SCRAM-SHA-256")
 			if err == nil {
@@ -155,7 +155,7 @@ func TestAuthScramFailure(t *testing.T) {
 	// SCRAM-06: authenticating against the wrong authSource fails.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "SCRAM-06-wrong-authsource",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "scram_" + tgt.NS
 			user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
