@@ -315,7 +315,7 @@ func TestIndex_IdenticalCollatedIndex_Idempotent(t *testing.T) {
 func TestIndex_CollatedUnique_EnforcesCaseInsensitive(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_CollatedUnique_EnforcesCaseInsensitive",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			unique := true
 			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
