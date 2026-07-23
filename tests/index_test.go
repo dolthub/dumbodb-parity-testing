@@ -185,6 +185,43 @@ func TestIndex_CreateOne_IdempotentSameSpec(t *testing.T) {
 	})
 }
 
+func TestIndex_SecondIndexSameKeyDifferentCollation(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_SecondIndexSameKeyDifferentCollation",
+		Support: harness.DumboDBXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "seed"}}); err != nil {
+				return err
+			}
+			unique := true
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "username", Value: 1}},
+				Options: &options.IndexOptions{Unique: &unique},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys: bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().
+					SetName("case_insensitive_username").
+					SetCollation(&options.Collation{Locale: "en", Strength: 2}),
+			})
+			if err != nil {
+				code, _, _ := harness.CommandErrorCode(err)
+				return bson.D{
+					{Key: "second_index_created", Value: false},
+					{Key: "error_code", Value: code},
+				}, nil
+			}
+			return bson.D{
+				{Key: "second_index_created", Value: true},
+				{Key: "error_code", Value: int32(0)},
+			}, nil
+		},
+	})
+}
+
 func TestIndex_CreateOne_Compound(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_CreateOne_Compound",
