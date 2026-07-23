@@ -58,7 +58,7 @@ func TestAuthUserCreateMore(t *testing.T) {
 
 func TestAuthUserUpdateMore(t *testing.T) {
 	// USER-12: updateUser replaces customData entirely.
-	harness.AuthPairTest(t, authCase("USER-12-update-customData-replace", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-12-update-customData-replace", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		if err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "createUser", Value: u}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: bson.A{}}, {Key: "customData", Value: bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 2}}}}); err != nil {
@@ -80,7 +80,7 @@ func TestAuthUserUpdateMore(t *testing.T) {
 	}))
 
 	// USER-14: updateUser may narrow mechanisms (to a subset) without a new pwd.
-	harness.AuthPairTest(t, authCase("USER-14-update-narrow-mechanisms", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-14-update-narrow-mechanisms", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		tgt.Setup(runCmd(ctx, tgt.Admin, db, bson.D{{Key: "createUser", Value: u}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: bson.A{}}, {Key: "mechanisms", Value: bson.A{"SCRAM-SHA-1", "SCRAM-SHA-256"}}}))

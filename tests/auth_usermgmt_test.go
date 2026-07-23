@@ -105,7 +105,7 @@ func TestAuthUserCreate(t *testing.T) {
 	}))
 
 	// USER-07: customData is stored and returned by usersInfo.
-	harness.AuthPairTest(t, authCase("USER-07-create-customData", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-07-create-customData", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		if err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "createUser", Value: u}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: bson.A{}}, {Key: "customData", Value: bson.D{{Key: "team", Value: "eng"}}}}); err != nil {
@@ -129,7 +129,7 @@ func TestAuthUserCreate(t *testing.T) {
 	}))
 
 	// USER-09: createUser on the reserved local database is rejected.
-	harness.AuthPairTest(t, authCase("USER-09-create-on-local", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-09-create-on-local", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		u := "u_" + tgt.NS
 		defer func() { _ = harness.DropUser(ctx, tgt.Admin, "local", u) }()
 		return nil, runCmd(ctx, tgt.Admin, "local", bson.D{{Key: "createUser", Value: u}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: bson.A{}}})
