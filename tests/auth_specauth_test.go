@@ -98,7 +98,7 @@ func TestAuthSpeculativeNegotiation(t *testing.T) {
 
 	// SPEC-05: saslSupportedMechs for an unknown user does not error the hello
 	// and reports no mechanisms.
-	harness.AuthPairTest(t, authCase("SPEC-05-saslSupportedMechs-unknown-user", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("SPEC-05-saslSupportedMechs-unknown-user", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		c, err := harness.ConnectNoAuth(ctx, tgt.BaseURI)
 		if err != nil {
 			return nil, err

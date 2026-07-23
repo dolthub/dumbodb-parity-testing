@@ -322,7 +322,7 @@ func helloSpec(conn *wire.Conn, mechanism, clientFirst, authDb string) (bson.M, 
 
 func TestAuthSpeculativeWire(t *testing.T) {
 	// SPEC-01: a valid speculativeAuthenticate is answered in the hello reply.
-	harness.AuthPairTest(t, wireCase(t, "SPEC-01-valid-speculative", true,
+	harness.AuthPairTest(t, wireCaseFull(t, "SPEC-01-valid-speculative", true,
 		func(conn *wire.Conn, db, user, pwd string) (bson.M, error) {
 			_, first, err := scramClient(user, pwd)
 			if err != nil {
@@ -380,7 +380,7 @@ func TestAuthSpeculativeWire(t *testing.T) {
 
 	// SPEC-07: continue the conversation started speculatively in hello and
 	// complete authentication.
-	harness.AuthPairTest(t, wireCase(t, "SPEC-07-speculative-then-continue", true,
+	harness.AuthPairTest(t, wireCaseFull(t, "SPEC-07-speculative-then-continue", true,
 		func(conn *wire.Conn, db, user, pwd string) (bson.M, error) {
 			conv, first, err := scramClient(user, pwd)
 			if err != nil {
