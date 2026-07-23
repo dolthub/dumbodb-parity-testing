@@ -96,9 +96,7 @@ func TestWriteConcern_insert_w0_fire_and_forget(t *testing.T) {
 func TestWriteConcern_update_w1(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name: "WriteConcern_update_w1",
-		// XFail: update returns "database response does not contain a cursor"
-		// against DumboDB — update/delete/bulkWrite acks don't yet emit a cursor.
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "u1"}, {Key: "v", Value: int32(1)}})
 			return err
@@ -128,8 +126,7 @@ func TestWriteConcern_update_w1(t *testing.T) {
 func TestWriteConcern_delete_w1(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name: "WriteConcern_delete_w1",
-		// XFail: same cursor-shape issue as WriteConcern_update_w1.
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "d1"}})
 			return err
@@ -156,9 +153,7 @@ func TestWriteConcern_delete_w1(t *testing.T) {
 func TestWriteConcern_bulkWrite_w1(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name: "WriteConcern_bulkWrite_w1",
-		// XFail: same cursor-shape issue as WriteConcern_update_w1; the
-		// per-op bulkWrite tests in bulk_write_test.go pass without a writeConcern.
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			wc := writeconcern.New(writeconcern.W(1), writeconcern.J(false))
 			colWC := wcCollection(col, wc)
@@ -191,11 +186,7 @@ func TestWriteConcern_bulkWrite_w1(t *testing.T) {
 func TestGetLastError_after_insert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name: "GetLastError_after_insert",
-		// XFail: passes against DumboDB in isolation, but the still-XFail
-		// WriteConcern_{update,delete,bulkWrite}_w1 tests above leave session
-		// state that makes the subsequent runCommand return nil instead of
-		// the expected CommandNotFound. Re-evaluate when those XFails clear.
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "gle-1"}}); err != nil {
 				return nil, err
@@ -208,8 +199,7 @@ func TestGetLastError_after_insert(t *testing.T) {
 func TestGetLastError_with_j_true(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name: "GetLastError_with_j_true",
-		// XFail: same session-state interference as GetLastError_after_insert.
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "gle-j"}}); err != nil {
 				return nil, err
@@ -228,8 +218,7 @@ func TestGetLastError_with_j_true(t *testing.T) {
 func TestGetLastError_return_value(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name: "GetLastError_return_value",
-		// XFail: same session-state interference as GetLastError_after_insert.
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "gle-ret"}}); err != nil {
 				return nil, err

@@ -133,8 +133,8 @@ func runXFail(t *testing.T, ctx context.Context, tc TestCase, mongoCol, dumboDBC
 
 	cmp := CompareResponses(mongoResult, mongoErr, dumboDBResult, dumboDBErr)
 	if cmp.Result == Match {
-		t.Logf("XFAIL %s: PASS (DumboDB matched)", tc.Name)
-		return TestResult{Name: tc.Name, Status: StatusPass}
+		t.Errorf("XPASS %s: DumboDB now matches MongoDB -- promote to DumboDBFull", tc.Name)
+		return TestResult{Name: tc.Name, Status: StatusXPass}
 	}
 	t.Logf("XFAIL %s: diverged as expected\n%s", tc.Name, cmp.Diff)
 	return TestResult{Name: tc.Name, Status: StatusXFail, Diff: cmp.Diff}

@@ -114,8 +114,8 @@ func AuthPairTest(t *testing.T, tc AuthCase) TestResult {
 		dRes, dErr := tc.Run(ctx, dumboTarget)
 		cmp := CompareResponses(mRes, mErr, dRes, dErr)
 		if cmp.Result == Match {
-			t.Logf("XFAIL %s: PASS (DumboDB matched) -- consider promoting to DumboDBFull", tc.Name)
-			return TestResult{Name: tc.Name, Status: StatusPass}
+			t.Errorf("XPASS %s: DumboDB now matches MongoDB -- promote to DumboDBFull", tc.Name)
+			return TestResult{Name: tc.Name, Status: StatusXPass}
 		}
 		t.Logf("XFAIL %s: diverged as expected\n%s", tc.Name, cmp.Diff)
 		return TestResult{Name: tc.Name, Status: StatusXFail, Diff: cmp.Diff}

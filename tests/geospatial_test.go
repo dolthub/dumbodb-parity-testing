@@ -800,7 +800,7 @@ func TestGeo_DocType_GeometryCollection(t *testing.T) {
 	// Fix exists in WIP local dumbodb. Re-graduate once fix lands in GitHub main.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_DocType_GeometryCollection",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys: bson.D{{Key: "geo", Value: "2dsphere"}},
@@ -927,7 +927,7 @@ func TestGeo_Legacy_NearSphere_2d(t *testing.T) {
 	// Fix exists in WIP local dumbodb. Re-graduate once fix lands in GitHub main.
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Geo_Legacy_NearSphere_2d",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertLegacy,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// $nearSphere on 2d index uses spherical distance, radius in radians.

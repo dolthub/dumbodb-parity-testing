@@ -30,7 +30,7 @@ import (
 func TestAuthFixtures(t *testing.T) {
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "R3-fixture-custom-role-boundary",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "authr3_" + tgt.NS
 			role := "reader_" + tgt.NS

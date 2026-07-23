@@ -31,7 +31,7 @@ import (
 func TestAuthConnectAs(t *testing.T) {
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "R2-connect-as-created-user",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "authr2_" + tgt.NS
 			user := "u_" + tgt.NS

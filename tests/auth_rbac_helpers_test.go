@@ -32,16 +32,11 @@ import (
 // allow/deny.
 
 // rbacXFail lists the built-in-role enforcement cases that still diverge from
-// MongoDB because the command they exercise is not yet implemented (createRole,
-// getClusterParameter, logRotate) or is rejected before authorization runs
+// MongoDB because the command they exercise is not yet implemented
+// (getClusterParameter, logRotate) or is rejected before authorization runs
 // (setParameter). Every other case is DumboDBFull: DumboDB's built-in-role
 // privilege model matches MongoDB. These flip as the commands land.
 var rbacXFail = map[string]struct{}{
-	"RBAC-do-08-createRole":            {},
-	"RBAC-root-08-createRole":          {},
-	"RBAC-rw-24-createRole":            {},
-	"RBAC-ua-06-createRole":            {},
-	"RBAC-uaad-02-createRole":          {},
 	"RBAC-cmgr-01-getClusterParameter": {},
 	"RBAC-hm-02-logRotate":             {},
 	"RBAC-ca-02-setParameter":          {},

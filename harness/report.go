@@ -29,6 +29,7 @@ const (
 	StatusSkip
 	StatusXFail
 	StatusDeviate
+	StatusXPass
 )
 
 func (s TestStatus) String() string {
@@ -43,6 +44,8 @@ func (s TestStatus) String() string {
 		return "XFAIL"
 	case StatusDeviate:
 		return "DEVIATE"
+	case StatusXPass:
+		return "XPASS"
 	default:
 		return "UNKNOWN"
 	}
@@ -61,6 +64,7 @@ type Summary struct {
 	MongoOnly int
 	XFail     int
 	Deviating int
+	XPass     int
 }
 
 func (s *Summary) Add(r TestResult) {
@@ -75,12 +79,15 @@ func (s *Summary) Add(r TestResult) {
 		s.XFail++
 	case StatusDeviate:
 		s.Deviating++
+	case StatusXPass:
+		s.XPass++
 	}
 }
 
-// HasUnexpectedFailures returns true if there are FULL-mode divergences.
+// HasUnexpectedFailures returns true for FULL-mode divergences or strict-XPASS
+// cases (a DumboDBXFail that now matches and must be promoted).
 func (s *Summary) HasUnexpectedFailures() bool {
-	return s.Diverging > 0
+	return s.Diverging > 0 || s.XPass > 0
 }
 
 func (s *Summary) Print(w io.Writer) {
@@ -90,7 +97,8 @@ func (s *Summary) Print(w io.Writer) {
 	fmt.Fprintf(w, "  Mongo-only: %d\n", s.MongoOnly)
 	fmt.Fprintf(w, "  XFail:      %d\n", s.XFail)
 	fmt.Fprintf(w, "  Deviating:  %d\n", s.Deviating)
-	total := s.Matching + s.Diverging + s.MongoOnly + s.XFail + s.Deviating
+	fmt.Fprintf(w, "  XPass:      %d\n", s.XPass)
+	total := s.Matching + s.Diverging + s.MongoOnly + s.XFail + s.Deviating + s.XPass
 	fmt.Fprintf(w, "  Total:      %d\n", total)
 }
 

@@ -83,7 +83,7 @@ func TestAuthUserCreate(t *testing.T) {
 	}))
 
 	// USER-05: createUser referencing a non-existent role is RoleNotFound (31).
-	harness.AuthPairTest(t, authCase("USER-05-create-missing-role", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-05-create-missing-role", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		return nil, runCmd(ctx, tgt.Admin, db, bson.D{{Key: "createUser", Value: u}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: bson.A{"nosuchrole_" + tgt.NS}}})
@@ -226,7 +226,7 @@ func TestAuthUserDrop(t *testing.T) {
 
 func TestAuthUserGrantRevoke(t *testing.T) {
 	// USER-19: grantRolesToUser unions roles.
-	harness.AuthPairTest(t, authCase("USER-19-grant-roles-union", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-19-grant-roles-union", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, u, "pw", []harness.RoleRef{{Role: "read", DB: db}}))
@@ -242,7 +242,7 @@ func TestAuthUserGrantRevoke(t *testing.T) {
 	}))
 
 	// USER-20: grantRolesToUser with a missing role is RoleNotFound (31).
-	harness.AuthPairTest(t, authCase("USER-20-grant-missing-role", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-20-grant-missing-role", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, u, "pw", nil))
@@ -250,7 +250,7 @@ func TestAuthUserGrantRevoke(t *testing.T) {
 	}))
 
 	// USER-21: revokeRolesFromUser removes a role.
-	harness.AuthPairTest(t, authCase("USER-21-revoke-role", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("USER-21-revoke-role", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "userf_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, u, "pw", []harness.RoleRef{{Role: "read", DB: db}, {Role: "dbAdmin", DB: db}}))
