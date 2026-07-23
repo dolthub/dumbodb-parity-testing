@@ -1450,7 +1450,11 @@ func TestQuery_sort_desc(t *testing.T) {
 func TestQuery_sort_natural_asc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_sort_natural_asc",
-		Support: harness.DumboDBXFail, // prolly trees do not preserve insertion order
+		// XFail: DumboDB keys documents by hash(_id), so a $natural scan
+		// walks the prolly tree in hash order, not MongoDB's insertion/disk
+		// order. Fundamental storage difference; not reconcilable without
+		// tracking an insertion sequence (meaningless in a versioned store).
+		Support: harness.DumboDBXFail,
 		Setup:   insertQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return findSortedIDs(ctx, col, bson.D{}, bson.D{{Key: "$natural", Value: 1}})
@@ -1461,7 +1465,11 @@ func TestQuery_sort_natural_asc(t *testing.T) {
 func TestQuery_sort_natural_desc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_sort_natural_desc",
-		Support: harness.DumboDBXFail, // prolly trees do not preserve insertion order
+		// XFail: DumboDB keys documents by hash(_id), so a $natural scan
+		// walks the prolly tree in hash order, not MongoDB's insertion/disk
+		// order. Fundamental storage difference; not reconcilable without
+		// tracking an insertion sequence (meaningless in a versioned store).
+		Support: harness.DumboDBXFail,
 		Setup:   insertQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return findSortedIDs(ctx, col, bson.D{}, bson.D{{Key: "$natural", Value: -1}})

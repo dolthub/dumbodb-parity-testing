@@ -744,7 +744,11 @@ func TestSort_ArrayField_Descending(t *testing.T) {
 func TestSort_Natural_Ascending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_Natural_Ascending",
-		Support: harness.DumboDBXFail, // prolly trees do not preserve insertion order
+		// XFail: DumboDB keys documents by hash(_id), so a $natural scan
+		// walks the prolly tree in hash order, not MongoDB's insertion/disk
+		// order. Fundamental storage difference; not reconcilable without
+		// tracking an insertion sequence (meaningless in a versioned store).
+		Support: harness.DumboDBXFail,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -758,7 +762,11 @@ func TestSort_Natural_Ascending(t *testing.T) {
 func TestSort_Natural_Descending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_Natural_Descending",
-		Support: harness.DumboDBXFail, // prolly trees do not preserve insertion order
+		// XFail: DumboDB keys documents by hash(_id), so a $natural scan
+		// walks the prolly tree in hash order, not MongoDB's insertion/disk
+		// order. Fundamental storage difference; not reconcilable without
+		// tracking an insertion sequence (meaningless in a versioned store).
+		Support: harness.DumboDBXFail,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
