@@ -460,7 +460,7 @@ func TestIndex_ListIndexes_EchoesHidden(t *testing.T) {
 func TestIndex_ListIndexes_CollationResolvedSpec(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_ListIndexes_CollationResolvedSpec",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "seed"}}); err != nil {
 				return err
