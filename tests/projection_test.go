@@ -779,7 +779,12 @@ func TestSort_Natural_Descending(t *testing.T) {
 
 func TestSort_MetaTextScore(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "Sort_MetaTextScore",
+		Name: "Sort_MetaTextScore",
+		// XFail: text-relevance scoring is unimplemented ($meta:"textScore"
+		// stubbed to 0). This case also surfaces a secondary gap: DumboDB
+		// rejects the {"$text": {$meta: "textScore"}} sort key with Location16410
+		// (field name starts with '$'), whereas MongoDB ignores the field name
+		// when the value is a $meta expression.
 		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			// Create a text index required for $meta textScore sort.

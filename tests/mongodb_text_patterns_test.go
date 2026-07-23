@@ -264,7 +264,12 @@ func TestTextPatterns_Aggregation_SortByScore(t *testing.T) {
 	// ])
 	// Expected: documents in descending relevance order; subject "coffee" ranks highest.
 	harness.PairTest(t, harness.TestCase{
-		Name:    "TextPatterns_Aggregation_SortByScore",
+		Name: "TextPatterns_Aggregation_SortByScore",
+		// XFail: text-relevance scoring is unimplemented. This case also
+		// surfaces a secondary gap: $meta in an aggregation $project stage
+		// returns NotImplemented ("The operator $meta is not implemented yet"),
+		// whereas find-level $meta projection is stubbed to 0. Reaching parity
+		// requires reproducing MongoDB's FTS scoring to float precision.
 		Support: harness.DumboDBXFail,
 		Setup:   textPatternsCreateArticlesIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
