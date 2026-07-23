@@ -451,9 +451,10 @@ func TestDB_ListDatabaseNames(t *testing.T) {
 func TestDB_ListDatabases(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name: "DB_ListDatabases",
-		// XFail: DumboDB closes the connection (EOF) when listDatabases is
-		// invoked at the client level. Re-evaluate when the listDatabases
-		// command is implemented.
+		// XFail: structural divergence. MongoDB reports the config and local
+		// system databases (which DumboDB intentionally does not implement)
+		// and storage-engine-specific sizeondisk/empty values. DumboDB lists
+		// only real user databases plus admin, with its own sizes.
 		Support: harness.DumboDBXFail,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
@@ -503,15 +504,18 @@ func TestDB_RunCommand_Ping(t *testing.T) {
 func TestDB_RunCommand_Hello(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_Hello",
-		Support: harness.DumboDBXFail, // maxWireVersion mismatch: mongo=25, dumbodb=21
+		Support: harness.DumboDBFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// connectionId is server-assigned and differs between instances; omit it.
+			// connectionId is server-assigned and differs between instances.
+			// topologyVersion is deliberately omitted by DumboDB: advertising
+			// it implies awaitable ("streaming") hello monitoring, which
+			// DumboDB does not implement. Omit both.
 			doc, err := runCommandDoc(ctx, col, bson.D{{Key: "hello", Value: 1}})
 			if err != nil {
 				return nil, err
 			}
-			return omitFields(doc.(bson.D), "connectionId"), nil
+			return omitFields(doc.(bson.D), "connectionId", "topologyVersion"), nil
 		},
 	})
 }
@@ -519,15 +523,18 @@ func TestDB_RunCommand_Hello(t *testing.T) {
 func TestDB_RunCommand_IsMaster(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_IsMaster",
-		Support: harness.DumboDBXFail, // maxWireVersion mismatch: mongo=25, dumbodb=21
+		Support: harness.DumboDBFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// connectionId is server-assigned and differs between instances; omit it.
+			// connectionId is server-assigned and differs between instances.
+			// topologyVersion is deliberately omitted by DumboDB: advertising
+			// it implies awaitable ("streaming") hello monitoring, which
+			// DumboDB does not implement. Omit both.
 			doc, err := runCommandDoc(ctx, col, bson.D{{Key: "isMaster", Value: 1}})
 			if err != nil {
 				return nil, err
 			}
-			return omitFields(doc.(bson.D), "connectionId"), nil
+			return omitFields(doc.(bson.D), "connectionId", "topologyVersion"), nil
 		},
 	})
 }
@@ -535,7 +542,7 @@ func TestDB_RunCommand_IsMaster(t *testing.T) {
 func TestDB_RunCommand_BuildInfo(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_BuildInfo",
-		Support: harness.DumboDBXFail, // version string diverges: mongo=8.0.20, dumbodb=7.0.42
+		Support: harness.DumboDBFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Omit MongoDB-internal fields: allocator, javascriptEngine, openssl,
