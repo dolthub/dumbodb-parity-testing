@@ -41,12 +41,10 @@ type inhCase struct {
 }
 
 func runInhCase(t *testing.T, tc inhCase) {
-	harness.AuthPairTest(t, authCase(tc.id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull(tc.id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "inh_" + tgt.NS
 		user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
-		if _, err := tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup1(tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}))
 		topRole, cleanup, err := tc.build(ctx, tgt, db)
 		defer func() {
 			_ = harness.DropUser(ctx, tgt.Admin, db, user)
@@ -58,9 +56,7 @@ func runInhCase(t *testing.T, tc inhCase) {
 		if err != nil {
 			return nil, err
 		}
-		if err := harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: topRole, DB: db}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: topRole, DB: db}}))
 		c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, db)
 		if err != nil {
 			return nil, err
@@ -196,7 +192,7 @@ func buildOverlap(ctx context.Context, tgt harness.AuthTarget, db string) (strin
 // TestAuthInheritanceMore covers the cross-db, cycle, and showPrivileges cases.
 func TestAuthInheritanceMore(t *testing.T) {
 	// INH-06: an admin-defined role inherits a role in another database.
-	harness.AuthPairTest(t, authCase("INH-06-cross-db-inheritance", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("INH-06-cross-db-inheritance", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		xdb := "inhx_" + tgt.NS
 		base, top, user, pwd := "base_"+tgt.NS, "top_"+tgt.NS, "u_"+tgt.NS, "pw-"+tgt.NS
 		defer func() {
@@ -205,18 +201,10 @@ func TestAuthInheritanceMore(t *testing.T) {
 			_ = harness.DropRole(ctx, tgt.Admin, xdb, base)
 			_ = tgt.Admin.Database(xdb).Drop(ctx)
 		}()
-		if _, err := tgt.Admin.Database(xdb).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateRole(ctx, tgt.Admin, xdb, base, findPriv(xdb), nil); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateRole(ctx, tgt.Admin, "admin", top, nil, []harness.RoleRef{{Role: base, DB: xdb}}); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateUser(ctx, tgt.Admin, "admin", user, pwd, []harness.RoleRef{{Role: top, DB: "admin"}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup1(tgt.Admin.Database(xdb).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}))
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, xdb, base, findPriv(xdb), nil))
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, "admin", top, nil, []harness.RoleRef{{Role: base, DB: xdb}}))
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, "admin", user, pwd, []harness.RoleRef{{Role: top, DB: "admin"}}))
 		c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, "admin")
 		if err != nil {
 			return nil, err
@@ -231,7 +219,7 @@ func TestAuthInheritanceMore(t *testing.T) {
 
 	// INH-04: a role inheritance cycle is handled (MongoDB rejects creating it).
 	// We capture the outcome; the point is the server must not hang.
-	harness.AuthPairTest(t, authCase("INH-04-cycle", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("INH-04-cycle", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "inhcyc_" + tgt.NS
 		a, b := "a_"+tgt.NS, "b_"+tgt.NS
 		defer func() {
@@ -239,19 +227,15 @@ func TestAuthInheritanceMore(t *testing.T) {
 			_ = harness.DropRole(ctx, tgt.Admin, db, b)
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
-		if err := harness.CreateRole(ctx, tgt.Admin, db, a, nil, nil); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateRole(ctx, tgt.Admin, db, b, nil, []harness.RoleRef{{Role: a, DB: db}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, a, nil, nil))
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, b, nil, []harness.RoleRef{{Role: a, DB: db}}))
 		// Close the cycle: a -> b (b already -> a).
 		cycleErr := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "grantRolesToRole", Value: a}, {Key: "roles", Value: bson.A{b}}})
 		return bson.M{"cycleRejected": cycleErr != nil}, cycleErr
 	}))
 
 	// INH-09: rolesInfo showPrivileges reports inheritedPrivileges (closure).
-	harness.AuthPairTest(t, authCase("INH-09-rolesInfo-inheritedPrivileges", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("INH-09-rolesInfo-inheritedPrivileges", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "inhri_" + tgt.NS
 		base, top := "base_"+tgt.NS, "top_"+tgt.NS
 		defer func() {
@@ -259,12 +243,8 @@ func TestAuthInheritanceMore(t *testing.T) {
 			_ = harness.DropRole(ctx, tgt.Admin, db, base)
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
-		if err := harness.CreateRole(ctx, tgt.Admin, db, base, findPriv(db), nil); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateRole(ctx, tgt.Admin, db, top, nil, []harness.RoleRef{{Role: base, DB: db}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, base, findPriv(db), nil))
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, top, nil, []harness.RoleRef{{Role: base, DB: db}}))
 		res, err := decodeCmd(ctx, tgt.Admin, db, bson.D{{Key: "rolesInfo", Value: top}, {Key: "showPrivileges", Value: true}})
 		if err != nil {
 			return nil, err
@@ -276,7 +256,7 @@ func TestAuthInheritanceMore(t *testing.T) {
 	}))
 
 	// INH-10: usersInfo showPrivileges reports the flattened effective set.
-	harness.AuthPairTest(t, authCase("INH-10-usersInfo-inheritedPrivileges", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("INH-10-usersInfo-inheritedPrivileges", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "inhui_" + tgt.NS
 		base, top, user := "base_"+tgt.NS, "top_"+tgt.NS, "u_"+tgt.NS
 		defer func() {
@@ -285,15 +265,9 @@ func TestAuthInheritanceMore(t *testing.T) {
 			_ = harness.DropRole(ctx, tgt.Admin, db, base)
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
-		if err := harness.CreateRole(ctx, tgt.Admin, db, base, findPriv(db), nil); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateRole(ctx, tgt.Admin, db, top, nil, []harness.RoleRef{{Role: base, DB: db}}); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateUser(ctx, tgt.Admin, db, user, "pw", []harness.RoleRef{{Role: top, DB: db}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, base, findPriv(db), nil))
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, top, nil, []harness.RoleRef{{Role: base, DB: db}}))
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, user, "pw", []harness.RoleRef{{Role: top, DB: db}}))
 		res, err := decodeCmd(ctx, tgt.Admin, db, bson.D{{Key: "usersInfo", Value: user}, {Key: "showPrivileges", Value: true}})
 		if err != nil {
 			return nil, err

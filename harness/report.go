@@ -16,15 +16,20 @@ const (
 	DumboDBMongoOnly
 	// DumboDBXFail: run both, record DumboDB failure but do not fail CI.
 	DumboDBXFail
+	// DumboDBDeviates: DumboDB intentionally differs from MongoDB. Run both and
+	// assert each server's own outcome via AuthCase.MongoExpect/DumboExpect.
+	DumboDBDeviates
 )
 
 type TestStatus int
 
 const (
-	StatusPass  TestStatus = iota
+	StatusPass TestStatus = iota
 	StatusFail
 	StatusSkip
 	StatusXFail
+	StatusDeviate
+	StatusXPass
 )
 
 func (s TestStatus) String() string {
@@ -37,6 +42,10 @@ func (s TestStatus) String() string {
 		return "SKIP"
 	case StatusXFail:
 		return "XFAIL"
+	case StatusDeviate:
+		return "DEVIATE"
+	case StatusXPass:
+		return "XPASS"
 	default:
 		return "UNKNOWN"
 	}
@@ -54,6 +63,8 @@ type Summary struct {
 	Diverging int
 	MongoOnly int
 	XFail     int
+	Deviating int
+	XPass     int
 }
 
 func (s *Summary) Add(r TestResult) {
@@ -66,12 +77,17 @@ func (s *Summary) Add(r TestResult) {
 		s.MongoOnly++
 	case StatusXFail:
 		s.XFail++
+	case StatusDeviate:
+		s.Deviating++
+	case StatusXPass:
+		s.XPass++
 	}
 }
 
-// HasUnexpectedFailures returns true if there are FULL-mode divergences.
+// HasUnexpectedFailures returns true for FULL-mode divergences or strict-XPASS
+// cases (a DumboDBXFail that now matches and must be promoted).
 func (s *Summary) HasUnexpectedFailures() bool {
-	return s.Diverging > 0
+	return s.Diverging > 0 || s.XPass > 0
 }
 
 func (s *Summary) Print(w io.Writer) {
@@ -80,7 +96,9 @@ func (s *Summary) Print(w io.Writer) {
 	fmt.Fprintf(w, "  Diverging:  %d\n", s.Diverging)
 	fmt.Fprintf(w, "  Mongo-only: %d\n", s.MongoOnly)
 	fmt.Fprintf(w, "  XFail:      %d\n", s.XFail)
-	total := s.Matching + s.Diverging + s.MongoOnly + s.XFail
+	fmt.Fprintf(w, "  Deviating:  %d\n", s.Deviating)
+	fmt.Fprintf(w, "  XPass:      %d\n", s.XPass)
+	total := s.Matching + s.Diverging + s.MongoOnly + s.XFail + s.Deviating + s.XPass
 	fmt.Fprintf(w, "  Total:      %d\n", total)
 }
 

@@ -37,7 +37,7 @@ type actRow struct {
 }
 
 func customActionProbe(t *testing.T, r actRow) harness.AuthCase {
-	return authCase(r.id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	return authCaseFull(r.id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "acta_" + tgt.NS
 		roleDB := db
 		var resource bson.D
@@ -55,15 +55,9 @@ func customActionProbe(t *testing.T, r actRow) harness.AuthCase {
 			_ = harness.DropRole(ctx, tgt.Admin, roleDB, role)
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
-		if _, err := tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateRole(ctx, tgt.Admin, roleDB, role, []harness.Privilege{{Resource: resource, Actions: []string{r.action}}}, nil); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateUser(ctx, tgt.Admin, roleDB, user, pwd, []harness.RoleRef{{Role: role, DB: roleDB}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup1(tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}))
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, roleDB, role, []harness.Privilege{{Resource: resource, Actions: []string{r.action}}}, nil))
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, roleDB, user, pwd, []harness.RoleRef{{Role: role, DB: roleDB}}))
 		c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, roleDB)
 		if err != nil {
 			return nil, err
@@ -127,7 +121,7 @@ func TestAuthCustomActionGranularity(t *testing.T) {
 func victimActionProbe(t *testing.T, id, action string,
 	allowedFn func(ctx context.Context, c *mongo.Client, db, victim string) error,
 	deniedFn func(ctx context.Context, c *mongo.Client, db string) error) harness.AuthCase {
-	return authCase(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	return authCaseFull(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "actv_" + tgt.NS
 		role, user, pwd := "role_"+tgt.NS, "u_"+tgt.NS, "pw-"+tgt.NS
 		victim := "victim_" + tgt.NS
@@ -138,18 +132,10 @@ func victimActionProbe(t *testing.T, id, action string,
 			_ = harness.DropRole(ctx, tgt.Admin, db, "grantme_"+tgt.NS)
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
-		if err := harness.CreateUser(ctx, tgt.Admin, db, victim, "pw", []harness.RoleRef{{Role: "read", DB: db}}); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateRole(ctx, tgt.Admin, db, "grantme_"+tgt.NS, nil, nil); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateRole(ctx, tgt.Admin, db, role, []harness.Privilege{{Resource: collResource(db, ""), Actions: []string{action}}}, nil); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: role, DB: db}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, victim, "pw", []harness.RoleRef{{Role: "read", DB: db}}))
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, "grantme_"+tgt.NS, nil, nil))
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, role, []harness.Privilege{{Resource: collResource(db, ""), Actions: []string{action}}}, nil))
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: role, DB: db}}))
 		c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, db)
 		if err != nil {
 			return nil, err

@@ -30,7 +30,7 @@ import (
 func TestAuthFixtures(t *testing.T) {
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "R3-fixture-custom-role-boundary",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "authr3_" + tgt.NS
 			role := "reader_" + tgt.NS
@@ -48,12 +48,8 @@ func TestAuthFixtures(t *testing.T) {
 				Resource: bson.D{{Key: "db", Value: db}, {Key: "collection", Value: ""}},
 				Actions:  []string{"find"},
 			}}
-			if err := harness.CreateRole(ctx, tgt.Admin, db, role, readOnly, nil); err != nil {
-				return nil, err
-			}
-			if err := harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: role, DB: db}}); err != nil {
-				return nil, err
-			}
+			tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, role, readOnly, nil))
+			tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: role, DB: db}}))
 
 			uc, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, db)
 			if err != nil {

@@ -59,14 +59,12 @@ func TestAuthScramSuccess(t *testing.T) {
 		mech := mech
 		harness.AuthPairTest(t, harness.AuthCase{
 			Name:    mech.id + "-correct-password-" + mech.name,
-			Support: harness.DumboDBXFail,
+			Support: harness.DumboDBFull,
 			Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 				db := "scram_" + tgt.NS
 				user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
 				defer cleanupUser(ctx, tgt, db, user)
-				if err := createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), nil); err != nil {
-					return nil, err
-				}
+				tgt.Setup(createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), nil))
 				c, err := harness.ConnectAsMech(ctx, tgt.BaseURI, user, pwd, db, mech.name)
 				if err != nil {
 					return nil, err
@@ -80,14 +78,12 @@ func TestAuthScramSuccess(t *testing.T) {
 	// SCRAM-09: a user created with only SCRAM-SHA-256 authenticates via SHA-256.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "SCRAM-09-sha256-only-authenticates",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "scram_" + tgt.NS
 			user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
 			defer cleanupUser(ctx, tgt, db, user)
-			if err := createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), []string{"SCRAM-SHA-256"}); err != nil {
-				return nil, err
-			}
+			tgt.Setup(createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), []string{"SCRAM-SHA-256"}))
 			c, err := harness.ConnectAsMech(ctx, tgt.BaseURI, user, pwd, db, "SCRAM-SHA-256")
 			if err != nil {
 				return nil, err
@@ -102,14 +98,12 @@ func TestAuthScramSuccess(t *testing.T) {
 	// 7-bit ASCII.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "SCRAM-18-saslprep-unicode-password",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "scram_" + tgt.NS
 			user, pwd := "u_"+tgt.NS, "p\u00e9\u00dfw\u00f6rd-"+tgt.NS
 			defer cleanupUser(ctx, tgt, db, user)
-			if err := createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), []string{"SCRAM-SHA-256"}); err != nil {
-				return nil, err
-			}
+			tgt.Setup(createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), []string{"SCRAM-SHA-256"}))
 			c, err := harness.ConnectAsMech(ctx, tgt.BaseURI, user, pwd, db, "SCRAM-SHA-256")
 			if err != nil {
 				return nil, err
@@ -129,14 +123,12 @@ func TestAuthScramFailure(t *testing.T) {
 		mech := mech
 		harness.AuthPairTest(t, harness.AuthCase{
 			Name:    mech.id + "-wrong-password-" + mech.name,
-			Support: harness.DumboDBXFail,
+			Support: harness.DumboDBFull,
 			Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 				db := "scram_" + tgt.NS
 				user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
 				defer cleanupUser(ctx, tgt, db, user)
-				if err := createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), nil); err != nil {
-					return nil, err
-				}
+				tgt.Setup(createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), nil))
 				c, err := harness.ConnectAsMech(ctx, tgt.BaseURI, user, "wrong-"+pwd, db, mech.name)
 				if err == nil {
 					_ = c.Disconnect(ctx)
@@ -150,7 +142,7 @@ func TestAuthScramFailure(t *testing.T) {
 	// same vague message, so user existence is not leaked).
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "SCRAM-05-unknown-user",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			c, err := harness.ConnectAsMech(ctx, tgt.BaseURI, "nobody_"+tgt.NS, "whatever", "admin", "SCRAM-SHA-256")
 			if err == nil {
@@ -163,14 +155,12 @@ func TestAuthScramFailure(t *testing.T) {
 	// SCRAM-06: authenticating against the wrong authSource fails.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "SCRAM-06-wrong-authsource",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "scram_" + tgt.NS
 			user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
 			defer cleanupUser(ctx, tgt, db, user)
-			if err := createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), nil); err != nil {
-				return nil, err
-			}
+			tgt.Setup(createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), nil))
 			c, err := harness.ConnectAsMech(ctx, tgt.BaseURI, user, pwd, "admin", "SCRAM-SHA-256")
 			if err == nil {
 				_ = c.Disconnect(ctx)
@@ -183,14 +173,12 @@ func TestAuthScramFailure(t *testing.T) {
 	// the client insists on SCRAM-SHA-1.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "SCRAM-08-sha256-only-rejects-sha1",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "scram_" + tgt.NS
 			user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
 			defer cleanupUser(ctx, tgt, db, user)
-			if err := createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), []string{"SCRAM-SHA-256"}); err != nil {
-				return nil, err
-			}
+			tgt.Setup(createUserMech(ctx, tgt.Admin, db, user, pwd, rwRole(db), []string{"SCRAM-SHA-256"}))
 			c, err := harness.ConnectAsMech(ctx, tgt.BaseURI, user, pwd, db, "SCRAM-SHA-1")
 			if err == nil {
 				_ = c.Disconnect(ctx)
@@ -204,7 +192,7 @@ func TestAuthScramCreateValidation(t *testing.T) {
 	// SCRAM-19: createUser with an empty username is rejected.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "SCRAM-19-empty-username-rejected",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "scram_" + tgt.NS
 			return nil, createUserMech(ctx, tgt.Admin, db, "", "pw", rwRole(db), nil)

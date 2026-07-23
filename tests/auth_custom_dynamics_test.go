@@ -33,7 +33,7 @@ import (
 func dynEnforce(t *testing.T, id string, wantBefore, wantAfter bool, op rbacOp,
 	initialPrivs func(db string) []harness.Privilege,
 	change func(ctx context.Context, tgt harness.AuthTarget, db, role, user string) error) harness.AuthCase {
-	return authCase(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	return authCaseFull(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "dyn_" + tgt.NS
 		role, user, pwd := "role_"+tgt.NS, "u_"+tgt.NS, "pw-"+tgt.NS
 		defer func() {
@@ -41,23 +41,15 @@ func dynEnforce(t *testing.T, id string, wantBefore, wantAfter bool, op rbacOp,
 			_ = harness.DropRole(ctx, tgt.Admin, db, role)
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
-		if _, err := tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateRole(ctx, tgt.Admin, db, role, initialPrivs(db), nil); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: role, DB: db}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup1(tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}))
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, role, initialPrivs(db), nil))
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: role, DB: db}}))
 
 		before, err := probeOnce(ctx, tgt, db, user, pwd, op)
 		if err != nil {
 			return nil, err
 		}
-		if err := change(ctx, tgt, db, role, user); err != nil {
-			return nil, err
-		}
+		tgt.Setup(change(ctx, tgt, db, role, user))
 		after, err := probeOnce(ctx, tgt, db, user, pwd, op)
 		if err != nil {
 			return nil, err
@@ -138,7 +130,7 @@ func TestAuthDynamics(t *testing.T) {
 func TestAuthDynamicsUserRoles(t *testing.T) {
 	// DYN-06: grantRolesToUser makes the new role's privileges effective.
 	// DYN-07: revokeRolesFromUser removes them.
-	harness.AuthPairTest(t, authCase("DYN-06-07-grant-revoke-role-to-user", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("DYN-06-07-grant-revoke-role-to-user", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "dynur_" + tgt.NS
 		reader, user, pwd := "reader_"+tgt.NS, "u_"+tgt.NS, "pw-"+tgt.NS
 		defer func() {
@@ -146,30 +138,20 @@ func TestAuthDynamicsUserRoles(t *testing.T) {
 			_ = harness.DropRole(ctx, tgt.Admin, db, reader)
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
-		if _, err := tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateRole(ctx, tgt.Admin, db, reader, findPriv(db), nil); err != nil {
-			return nil, err
-		}
+		tgt.Setup1(tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}))
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, reader, findPriv(db), nil))
 		// User starts with no roles.
-		if err := harness.CreateUser(ctx, tgt.Admin, db, user, pwd, nil); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, user, pwd, nil))
 		beforeGrant, err := probeOnce(ctx, tgt, db, user, pwd, opFind)
 		if err != nil {
 			return nil, err
 		}
-		if err := harness.GrantRolesToUser(ctx, tgt.Admin, db, user, []harness.RoleRef{{Role: reader, DB: db}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.GrantRolesToUser(ctx, tgt.Admin, db, user, []harness.RoleRef{{Role: reader, DB: db}}))
 		afterGrant, err := probeOnce(ctx, tgt, db, user, pwd, opFind)
 		if err != nil {
 			return nil, err
 		}
-		if err := harness.RevokeRolesFromUser(ctx, tgt.Admin, db, user, []harness.RoleRef{{Role: reader, DB: db}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.RevokeRolesFromUser(ctx, tgt.Admin, db, user, []harness.RoleRef{{Role: reader, DB: db}}))
 		afterRevoke, err := probeOnce(ctx, tgt, db, user, pwd, opFind)
 		if err != nil {
 			return nil, err
@@ -183,7 +165,7 @@ func TestAuthDynamicsUserRoles(t *testing.T) {
 	}))
 
 	// DYN-09: dropRole removes it from an inheriting role's roles array.
-	harness.AuthPairTest(t, authCase("DYN-09-dropRole-cascades-to-role", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("DYN-09-dropRole-cascades-to-role", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "dynir_" + tgt.NS
 		base, top := "base_"+tgt.NS, "top_"+tgt.NS
 		defer func() {
@@ -191,15 +173,9 @@ func TestAuthDynamicsUserRoles(t *testing.T) {
 			_ = harness.DropRole(ctx, tgt.Admin, db, base)
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
-		if err := harness.CreateRole(ctx, tgt.Admin, db, base, findPriv(db), nil); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateRole(ctx, tgt.Admin, db, top, nil, []harness.RoleRef{{Role: base, DB: db}}); err != nil {
-			return nil, err
-		}
-		if err := harness.DropRole(ctx, tgt.Admin, db, base); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, base, findPriv(db), nil))
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, top, nil, []harness.RoleRef{{Role: base, DB: db}}))
+		tgt.Setup(harness.DropRole(ctx, tgt.Admin, db, base))
 		res, err := decodeCmd(ctx, tgt.Admin, db, bson.D{{Key: "rolesInfo", Value: top}})
 		if err != nil {
 			return nil, err
@@ -211,16 +187,14 @@ func TestAuthDynamicsUserRoles(t *testing.T) {
 	}))
 
 	// DYN-10: the unauthorized error names the operation ("not authorized").
-	harness.AuthPairTest(t, authCase("DYN-10-unauthorized-message-shape", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("DYN-10-unauthorized-message-shape", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "dynmsg_" + tgt.NS
 		user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
 		defer func() {
 			_ = harness.DropUser(ctx, tgt.Admin, db, user)
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
-		if err := harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: "read", DB: db}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: "read", DB: db}}))
 		c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, db)
 		if err != nil {
 			return nil, err

@@ -82,7 +82,7 @@ func TestAuthConnectionStatusAuthenticated(t *testing.T) {
 	// CONN-02: after auth, connectionStatus lists the user and its roles.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "CONN-02-connectionStatus-after-auth",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "conn02_" + tgt.NS
 			user := "u_" + tgt.NS
@@ -91,9 +91,7 @@ func TestAuthConnectionStatusAuthenticated(t *testing.T) {
 				_ = harness.DropUser(ctx, tgt.Admin, db, user)
 				_ = tgt.Admin.Database(db).Drop(ctx)
 			}()
-			if err := harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: "readWrite", DB: db}}); err != nil {
-				return nil, err
-			}
+			tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: "readWrite", DB: db}}))
 			c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, db)
 			if err != nil {
 				return nil, err
@@ -106,7 +104,7 @@ func TestAuthConnectionStatusAuthenticated(t *testing.T) {
 	// CONN-03: showPrivileges adds authenticatedUserPrivileges.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "CONN-03-connectionStatus-showPrivileges",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "conn03_" + tgt.NS
 			user := "u_" + tgt.NS
@@ -115,9 +113,7 @@ func TestAuthConnectionStatusAuthenticated(t *testing.T) {
 				_ = harness.DropUser(ctx, tgt.Admin, db, user)
 				_ = tgt.Admin.Database(db).Drop(ctx)
 			}()
-			if err := harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: "readWrite", DB: db}}); err != nil {
-				return nil, err
-			}
+			tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: "readWrite", DB: db}}))
 			c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, db)
 			if err != nil {
 				return nil, err
@@ -132,7 +128,7 @@ func TestAuthLogout(t *testing.T) {
 	// CONN-06: logout when not authenticated is a harmless ok.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "CONN-06-logout-unauthenticated",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			c, err := harness.ConnectNoAuth(ctx, tgt.BaseURI)
 			if err != nil {
@@ -147,7 +143,7 @@ func TestAuthLogout(t *testing.T) {
 	// CONN-05: logout after authenticating succeeds.
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "CONN-05-logout-after-auth",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "conn05_" + tgt.NS
 			user := "u_" + tgt.NS
@@ -156,9 +152,7 @@ func TestAuthLogout(t *testing.T) {
 				_ = harness.DropUser(ctx, tgt.Admin, db, user)
 				_ = tgt.Admin.Database(db).Drop(ctx)
 			}()
-			if err := harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: "readWrite", DB: db}}); err != nil {
-				return nil, err
-			}
+			tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: "readWrite", DB: db}}))
 			c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, db)
 			if err != nil {
 				return nil, err
@@ -189,7 +183,7 @@ func TestAuthPreAuthState(t *testing.T) {
 	// CONN-08: a privileged command pre-auth is rejected (Unauthorized 13).
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "CONN-08-privileged-command-preauth-denied",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			c, err := harness.ConnectNoAuth(ctx, tgt.BaseURI)
 			if err != nil {

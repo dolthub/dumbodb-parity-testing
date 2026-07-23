@@ -161,7 +161,7 @@ func TestFindProjExpr_BareLiteralString(t *testing.T) {
 func TestFindProjExpr_UnsupportedOperatorRejected(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindProjExpr_UnsupportedOperatorRejected",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   findProjExprSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return runFindProj(ctx, col, bson.D{

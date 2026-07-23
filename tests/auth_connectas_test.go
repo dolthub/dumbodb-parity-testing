@@ -31,7 +31,7 @@ import (
 func TestAuthConnectAs(t *testing.T) {
 	harness.AuthPairTest(t, harness.AuthCase{
 		Name:    "R2-connect-as-created-user",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 			db := "authr2_" + tgt.NS
 			user := "u_" + tgt.NS
@@ -61,13 +61,9 @@ func TestAuthConnectAs(t *testing.T) {
 			defer func() { _ = uc.Disconnect(ctx) }()
 
 			coll := uc.Database(db).Collection("c")
-			if _, err := coll.InsertOne(ctx, bson.D{{Key: "_id", Value: 1}, {Key: "v", Value: "hi"}}); err != nil {
-				return nil, err
-			}
+			tgt.Setup1(coll.InsertOne(ctx, bson.D{{Key: "_id", Value: 1}, {Key: "v", Value: "hi"}}))
 			var got bson.M
-			if err := coll.FindOne(ctx, bson.D{{Key: "_id", Value: 1}}).Decode(&got); err != nil {
-				return nil, err
-			}
+			tgt.Setup(coll.FindOne(ctx, bson.D{{Key: "_id", Value: 1}}).Decode(&got))
 			return got["v"], nil
 		},
 	})

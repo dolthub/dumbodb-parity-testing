@@ -64,7 +64,7 @@ func anyBuiltin(res bson.M) bool {
 
 func TestAuthRoleCreate(t *testing.T) {
 	// ROLE-01: createRole with privileges and inherited roles succeeds.
-	harness.AuthPairTest(t, authCase("ROLE-01-create", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-01-create", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, role := "roleg_"+tgt.NS, "r_"+tgt.NS
 		defer func() { _ = harness.DropRole(ctx, tgt.Admin, db, role); _ = tgt.Admin.Database(db).Drop(ctx) }()
 		err := runCmd(ctx, tgt.Admin, db, bson.D{
@@ -76,18 +76,16 @@ func TestAuthRoleCreate(t *testing.T) {
 	}))
 
 	// ROLE-02: duplicate createRole is DuplicateKey (11000).
-	harness.AuthPairTest(t, authCase("ROLE-02-create-duplicate", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-02-create-duplicate", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, role := "roleg_"+tgt.NS, "r_"+tgt.NS
 		defer func() { _ = harness.DropRole(ctx, tgt.Admin, db, role); _ = tgt.Admin.Database(db).Drop(ctx) }()
 		mk := bson.D{{Key: "createRole", Value: role}, {Key: "privileges", Value: bson.A{}}, {Key: "roles", Value: bson.A{}}}
-		if err := runCmd(ctx, tgt.Admin, db, mk); err != nil {
-			return nil, err
-		}
+		tgt.Setup(runCmd(ctx, tgt.Admin, db, mk))
 		return nil, runCmd(ctx, tgt.Admin, db, mk)
 	}))
 
 	// ROLE-03: inheriting a non-existent role is RoleNotFound (31).
-	harness.AuthPairTest(t, authCase("ROLE-03-create-missing-inherited", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-03-create-missing-inherited", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, role := "roleg_"+tgt.NS, "r_"+tgt.NS
 		defer func() { _ = harness.DropRole(ctx, tgt.Admin, db, role); _ = tgt.Admin.Database(db).Drop(ctx) }()
 		return nil, runCmd(ctx, tgt.Admin, db, bson.D{
@@ -98,7 +96,7 @@ func TestAuthRoleCreate(t *testing.T) {
 	}))
 
 	// ROLE-04: a non-admin-db role naming a cluster resource is BadValue (2).
-	harness.AuthPairTest(t, authCase("ROLE-04-nonadmin-cluster-resource", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-04-nonadmin-cluster-resource", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, role := "roleg_"+tgt.NS, "r_"+tgt.NS
 		defer func() { _ = harness.DropRole(ctx, tgt.Admin, db, role); _ = tgt.Admin.Database(db).Drop(ctx) }()
 		return nil, runCmd(ctx, tgt.Admin, db, bson.D{
@@ -109,7 +107,7 @@ func TestAuthRoleCreate(t *testing.T) {
 	}))
 
 	// ROLE-05: an admin-db role may use the anyResource resource.
-	harness.AuthPairTest(t, authCase("ROLE-05-admin-anyResource", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-05-admin-anyResource", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		role := "r_" + tgt.NS
 		defer func() { _ = harness.DropRole(ctx, tgt.Admin, "admin", role) }()
 		err := runCmd(ctx, tgt.Admin, "admin", bson.D{
@@ -121,7 +119,7 @@ func TestAuthRoleCreate(t *testing.T) {
 	}))
 
 	// ROLE-06: createRole stores authenticationRestrictions.
-	harness.AuthPairTest(t, authCase("ROLE-06-create-authRestrictions", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-06-create-authRestrictions", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, role := "roleg_"+tgt.NS, "r_"+tgt.NS
 		defer func() { _ = harness.DropRole(ctx, tgt.Admin, db, role); _ = tgt.Admin.Database(db).Drop(ctx) }()
 		err := runCmd(ctx, tgt.Admin, db, bson.D{
@@ -136,15 +134,11 @@ func TestAuthRoleCreate(t *testing.T) {
 
 func TestAuthRoleUpdateDrop(t *testing.T) {
 	// ROLE-07: updateRole replaces privileges wholesale.
-	harness.AuthPairTest(t, authCase("ROLE-07-update-privileges-replace", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-07-update-privileges-replace", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, role := "roleg_"+tgt.NS, "r_"+tgt.NS
 		defer func() { _ = harness.DropRole(ctx, tgt.Admin, db, role); _ = tgt.Admin.Database(db).Drop(ctx) }()
-		if err := harness.CreateRole(ctx, tgt.Admin, db, role, []harness.Privilege{{Resource: collResource(db, ""), Actions: []string{"find"}}}, nil); err != nil {
-			return nil, err
-		}
-		if err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "updateRole", Value: role}, {Key: "privileges", Value: bson.A{priv(collResource(db, ""), "insert")}}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, role, []harness.Privilege{{Resource: collResource(db, ""), Actions: []string{"find"}}}, nil))
+		tgt.Setup(runCmd(ctx, tgt.Admin, db, bson.D{{Key: "updateRole", Value: role}, {Key: "privileges", Value: bson.A{priv(collResource(db, ""), "insert")}}}))
 		res, err := decodeCmd(ctx, tgt.Admin, db, bson.D{{Key: "rolesInfo", Value: role}, {Key: "showPrivileges", Value: true}})
 		if err != nil {
 			return nil, err
@@ -156,42 +150,38 @@ func TestAuthRoleUpdateDrop(t *testing.T) {
 	}))
 
 	// ROLE-09: updateRole on a missing role is RoleNotFound (31).
-	harness.AuthPairTest(t, authCase("ROLE-09-update-missing", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-09-update-missing", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "roleg_" + tgt.NS
 		return nil, runCmd(ctx, tgt.Admin, db, bson.D{{Key: "updateRole", Value: "ghost_" + tgt.NS}, {Key: "roles", Value: bson.A{}}})
 	}))
 
 	// ROLE-10: dropRole removes an existing user-defined role.
-	harness.AuthPairTest(t, authCase("ROLE-10-drop-existing", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-10-drop-existing", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, role := "roleg_"+tgt.NS, "r_"+tgt.NS
 		defer func() { _ = tgt.Admin.Database(db).Drop(ctx) }()
-		if err := harness.CreateRole(ctx, tgt.Admin, db, role, nil, nil); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, role, nil, nil))
 		err := harness.DropRole(ctx, tgt.Admin, db, role)
 		return bson.M{"ok": err == nil}, err
 	}))
 
 	// ROLE-11: dropRole on a missing role is RoleNotFound (31).
-	harness.AuthPairTest(t, authCase("ROLE-11-drop-missing", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-11-drop-missing", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "roleg_" + tgt.NS
 		return nil, harness.DropRole(ctx, tgt.Admin, db, "ghost_"+tgt.NS)
 	}))
 
 	// ROLE-12: dropping a built-in role fails (built-ins are not user-defined).
-	harness.AuthPairTest(t, authCase("ROLE-12-drop-builtin", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-12-drop-builtin", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "roleg_" + tgt.NS
 		return nil, harness.DropRole(ctx, tgt.Admin, db, "read")
 	}))
 
 	// ROLE-13: dropAllRolesFromDatabase returns the count removed.
-	harness.AuthPairTest(t, authCase("ROLE-13-drop-all", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-13-drop-all", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "roleg_dropall_" + tgt.NS
 		defer func() { _ = tgt.Admin.Database(db).Drop(ctx) }()
 		for _, r := range []string{"a_" + tgt.NS, "b_" + tgt.NS} {
-			if err := harness.CreateRole(ctx, tgt.Admin, db, r, nil, nil); err != nil {
-				return nil, err
-			}
+			tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, r, nil, nil))
 		}
 		res, err := decodeCmd(ctx, tgt.Admin, db, bson.D{{Key: "dropAllRolesFromDatabase", Value: 1}})
 		if err != nil {
@@ -204,20 +194,14 @@ func TestAuthRoleUpdateDrop(t *testing.T) {
 func TestAuthRoleGrantRevoke(t *testing.T) {
 	// ROLE-14: grantPrivilegesToRole appends a new-resource privilege.
 	// ROLE-15: granting an existing resource unions the actions.
-	harness.AuthPairTest(t, authCase("ROLE-14-15-grant-privileges", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-14-15-grant-privileges", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, role := "roleg_"+tgt.NS, "r_"+tgt.NS
 		defer func() { _ = harness.DropRole(ctx, tgt.Admin, db, role); _ = tgt.Admin.Database(db).Drop(ctx) }()
-		if err := harness.CreateRole(ctx, tgt.Admin, db, role, []harness.Privilege{{Resource: collResource(db, "c1"), Actions: []string{"find"}}}, nil); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, role, []harness.Privilege{{Resource: collResource(db, "c1"), Actions: []string{"find"}}}, nil))
 		// New resource -> appended.
-		if err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "grantPrivilegesToRole", Value: role}, {Key: "privileges", Value: bson.A{priv(collResource(db, "c2"), "insert")}}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(runCmd(ctx, tgt.Admin, db, bson.D{{Key: "grantPrivilegesToRole", Value: role}, {Key: "privileges", Value: bson.A{priv(collResource(db, "c2"), "insert")}}}))
 		// Existing resource -> action unioned.
-		if err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "grantPrivilegesToRole", Value: role}, {Key: "privileges", Value: bson.A{priv(collResource(db, "c1"), "insert")}}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(runCmd(ctx, tgt.Admin, db, bson.D{{Key: "grantPrivilegesToRole", Value: role}, {Key: "privileges", Value: bson.A{priv(collResource(db, "c1"), "insert")}}}))
 		res, err := decodeCmd(ctx, tgt.Admin, db, bson.D{{Key: "rolesInfo", Value: role}, {Key: "showPrivileges", Value: true}})
 		if err != nil {
 			return nil, err
@@ -229,15 +213,11 @@ func TestAuthRoleGrantRevoke(t *testing.T) {
 	}))
 
 	// ROLE-16: revokePrivilegesFromRole removes an exactly-matching action.
-	harness.AuthPairTest(t, authCase("ROLE-16-revoke-privilege-exact", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-16-revoke-privilege-exact", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, role := "roleg_"+tgt.NS, "r_"+tgt.NS
 		defer func() { _ = harness.DropRole(ctx, tgt.Admin, db, role); _ = tgt.Admin.Database(db).Drop(ctx) }()
-		if err := harness.CreateRole(ctx, tgt.Admin, db, role, []harness.Privilege{{Resource: collResource(db, ""), Actions: []string{"find", "insert"}}}, nil); err != nil {
-			return nil, err
-		}
-		if err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "revokePrivilegesFromRole", Value: role}, {Key: "privileges", Value: bson.A{priv(collResource(db, ""), "insert")}}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, role, []harness.Privilege{{Resource: collResource(db, ""), Actions: []string{"find", "insert"}}}, nil))
+		tgt.Setup(runCmd(ctx, tgt.Admin, db, bson.D{{Key: "revokePrivilegesFromRole", Value: role}, {Key: "privileges", Value: bson.A{priv(collResource(db, ""), "insert")}}}))
 		res, err := decodeCmd(ctx, tgt.Admin, db, bson.D{{Key: "rolesInfo", Value: role}, {Key: "showPrivileges", Value: true}})
 		if err != nil {
 			return nil, err
@@ -251,15 +231,11 @@ func TestAuthRoleGrantRevoke(t *testing.T) {
 	}))
 
 	// ROLE-18: revoking all actions of a privilege drops the privilege entry.
-	harness.AuthPairTest(t, authCase("ROLE-18-revoke-privilege-empties", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-18-revoke-privilege-empties", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, role := "roleg_"+tgt.NS, "r_"+tgt.NS
 		defer func() { _ = harness.DropRole(ctx, tgt.Admin, db, role); _ = tgt.Admin.Database(db).Drop(ctx) }()
-		if err := harness.CreateRole(ctx, tgt.Admin, db, role, []harness.Privilege{{Resource: collResource(db, ""), Actions: []string{"find"}}}, nil); err != nil {
-			return nil, err
-		}
-		if err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "revokePrivilegesFromRole", Value: role}, {Key: "privileges", Value: bson.A{priv(collResource(db, ""), "find")}}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, role, []harness.Privilege{{Resource: collResource(db, ""), Actions: []string{"find"}}}, nil))
+		tgt.Setup(runCmd(ctx, tgt.Admin, db, bson.D{{Key: "revokePrivilegesFromRole", Value: role}, {Key: "privileges", Value: bson.A{priv(collResource(db, ""), "find")}}}))
 		res, err := decodeCmd(ctx, tgt.Admin, db, bson.D{{Key: "rolesInfo", Value: role}, {Key: "showPrivileges", Value: true}})
 		if err != nil {
 			return nil, err
@@ -272,7 +248,7 @@ func TestAuthRoleGrantRevoke(t *testing.T) {
 
 	// ROLE-19: grantRolesToRole adds an inherited role.
 	// ROLE-20: revokeRolesFromRole removes it.
-	harness.AuthPairTest(t, authCase("ROLE-19-20-grant-revoke-roles", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-19-20-grant-revoke-roles", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "roleg_" + tgt.NS
 		base, derived := "base_"+tgt.NS, "derived_"+tgt.NS
 		defer func() {
@@ -280,15 +256,9 @@ func TestAuthRoleGrantRevoke(t *testing.T) {
 			_ = harness.DropRole(ctx, tgt.Admin, db, base)
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
-		if err := harness.CreateRole(ctx, tgt.Admin, db, base, []harness.Privilege{{Resource: collResource(db, ""), Actions: []string{"find"}}}, nil); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateRole(ctx, tgt.Admin, db, derived, nil, nil); err != nil {
-			return nil, err
-		}
-		if err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "grantRolesToRole", Value: derived}, {Key: "roles", Value: bson.A{base}}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, base, []harness.Privilege{{Resource: collResource(db, ""), Actions: []string{"find"}}}, nil))
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, derived, nil, nil))
+		tgt.Setup(runCmd(ctx, tgt.Admin, db, bson.D{{Key: "grantRolesToRole", Value: derived}, {Key: "roles", Value: bson.A{base}}}))
 		afterGrant, err := decodeCmd(ctx, tgt.Admin, db, bson.D{{Key: "rolesInfo", Value: derived}})
 		if err != nil {
 			return nil, err
@@ -296,9 +266,7 @@ func TestAuthRoleGrantRevoke(t *testing.T) {
 		rg, _ := afterGrant["roles"].(bson.A)
 		g0, _ := rg[0].(bson.M)
 		inheritedAfterGrant, _ := g0["roles"].(bson.A)
-		if err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "revokeRolesFromRole", Value: derived}, {Key: "roles", Value: bson.A{base}}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(runCmd(ctx, tgt.Admin, db, bson.D{{Key: "revokeRolesFromRole", Value: derived}, {Key: "roles", Value: bson.A{base}}}))
 		afterRevoke, err := decodeCmd(ctx, tgt.Admin, db, bson.D{{Key: "rolesInfo", Value: derived}})
 		if err != nil {
 			return nil, err
@@ -312,12 +280,10 @@ func TestAuthRoleGrantRevoke(t *testing.T) {
 
 func TestAuthRolesInfo(t *testing.T) {
 	// ROLE-21: rolesInfo on a user-defined role reports isBuiltin:false.
-	harness.AuthPairTest(t, authCase("ROLE-21-rolesInfo-single", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-21-rolesInfo-single", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, role := "roleg_"+tgt.NS, "r_"+tgt.NS
 		defer func() { _ = harness.DropRole(ctx, tgt.Admin, db, role); _ = tgt.Admin.Database(db).Drop(ctx) }()
-		if err := harness.CreateRole(ctx, tgt.Admin, db, role, nil, nil); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, role, nil, nil))
 		res, err := decodeCmd(ctx, tgt.Admin, db, bson.D{{Key: "rolesInfo", Value: role}})
 		if err != nil {
 			return nil, err
@@ -328,13 +294,11 @@ func TestAuthRolesInfo(t *testing.T) {
 	}))
 
 	// ROLE-22: rolesInfo:1 lists user-defined roles on the database.
-	harness.AuthPairTest(t, authCase("ROLE-22-rolesInfo-all", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-22-rolesInfo-all", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "roleg_all_" + tgt.NS
 		defer func() { _ = tgt.Admin.Database(db).Drop(ctx) }()
 		for _, r := range []string{"a_" + tgt.NS, "b_" + tgt.NS} {
-			if err := harness.CreateRole(ctx, tgt.Admin, db, r, nil, nil); err != nil {
-				return nil, err
-			}
+			tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, r, nil, nil))
 		}
 		defer func() {
 			_ = harness.DropRole(ctx, tgt.Admin, db, "a_"+tgt.NS)
@@ -348,7 +312,7 @@ func TestAuthRolesInfo(t *testing.T) {
 	}))
 
 	// ROLE-23: rolesInfo:1 showBuiltinRoles includes built-ins (isBuiltin:true).
-	harness.AuthPairTest(t, authCase("ROLE-23-rolesInfo-showBuiltin", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-23-rolesInfo-showBuiltin", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "roleg_" + tgt.NS
 		res, err := decodeCmd(ctx, tgt.Admin, db, bson.D{{Key: "rolesInfo", Value: 1}, {Key: "showBuiltinRoles", Value: true}})
 		if err != nil {
@@ -358,7 +322,7 @@ func TestAuthRolesInfo(t *testing.T) {
 	}))
 
 	// ROLE-25: rolesInfo on a missing role returns an empty list (not an error).
-	harness.AuthPairTest(t, authCase("ROLE-25-rolesInfo-missing", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-25-rolesInfo-missing", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "roleg_" + tgt.NS
 		res, err := decodeCmd(ctx, tgt.Admin, db, bson.D{{Key: "rolesInfo", Value: "ghost_" + tgt.NS}})
 		if err != nil {
@@ -370,7 +334,7 @@ func TestAuthRolesInfo(t *testing.T) {
 
 func TestAuthRoleMore(t *testing.T) {
 	// ROLE-08: updateRole replaces the inherited-roles array wholesale.
-	harness.AuthPairTest(t, authCase("ROLE-08-update-roles-replace", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-08-update-roles-replace", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "roleg_" + tgt.NS
 		base, other, role := "base_"+tgt.NS, "other_"+tgt.NS, "r_"+tgt.NS
 		defer func() {
@@ -380,16 +344,10 @@ func TestAuthRoleMore(t *testing.T) {
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
 		for _, r := range []string{base, other} {
-			if err := harness.CreateRole(ctx, tgt.Admin, db, r, nil, nil); err != nil {
-				return nil, err
-			}
+			tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, r, nil, nil))
 		}
-		if err := harness.CreateRole(ctx, tgt.Admin, db, role, nil, []harness.RoleRef{{Role: base, DB: db}}); err != nil {
-			return nil, err
-		}
-		if err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "updateRole", Value: role}, {Key: "roles", Value: bson.A{other}}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, role, nil, []harness.RoleRef{{Role: base, DB: db}}))
+		tgt.Setup(runCmd(ctx, tgt.Admin, db, bson.D{{Key: "updateRole", Value: role}, {Key: "roles", Value: bson.A{other}}}))
 		res, err := decodeCmd(ctx, tgt.Admin, db, bson.D{{Key: "rolesInfo", Value: role}})
 		if err != nil {
 			return nil, err
@@ -406,16 +364,12 @@ func TestAuthRoleMore(t *testing.T) {
 	}))
 
 	// ROLE-17: revokePrivilegesFromRole with a non-matching resource is a no-op.
-	harness.AuthPairTest(t, authCase("ROLE-17-revoke-privilege-nonexact-noop", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-17-revoke-privilege-nonexact-noop", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, role := "roleg_"+tgt.NS, "r_"+tgt.NS
 		defer func() { _ = harness.DropRole(ctx, tgt.Admin, db, role); _ = tgt.Admin.Database(db).Drop(ctx) }()
-		if err := harness.CreateRole(ctx, tgt.Admin, db, role, []harness.Privilege{{Resource: collResource(db, ""), Actions: []string{"find", "insert"}}}, nil); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, role, []harness.Privilege{{Resource: collResource(db, ""), Actions: []string{"find", "insert"}}}, nil))
 		// Different resource (specific collection) than the stored db-wide grant.
-		if err := runCmd(ctx, tgt.Admin, db, bson.D{{Key: "revokePrivilegesFromRole", Value: role}, {Key: "privileges", Value: bson.A{priv(collResource(db, "c1"), "find")}}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(runCmd(ctx, tgt.Admin, db, bson.D{{Key: "revokePrivilegesFromRole", Value: role}, {Key: "privileges", Value: bson.A{priv(collResource(db, "c1"), "find")}}}))
 		res, err := decodeCmd(ctx, tgt.Admin, db, bson.D{{Key: "rolesInfo", Value: role}, {Key: "showPrivileges", Value: true}})
 		if err != nil {
 			return nil, err
@@ -429,7 +383,7 @@ func TestAuthRoleMore(t *testing.T) {
 	}))
 
 	// ROLE-24: rolesInfo showPrivileges reports privileges and inheritedPrivileges.
-	harness.AuthPairTest(t, authCase("ROLE-24-rolesInfo-showPrivileges", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("ROLE-24-rolesInfo-showPrivileges", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "roleg_" + tgt.NS
 		base, role := "base_"+tgt.NS, "r_"+tgt.NS
 		defer func() {
@@ -437,12 +391,8 @@ func TestAuthRoleMore(t *testing.T) {
 			_ = harness.DropRole(ctx, tgt.Admin, db, base)
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
-		if err := harness.CreateRole(ctx, tgt.Admin, db, base, []harness.Privilege{{Resource: collResource(db, ""), Actions: []string{"insert"}}}, nil); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateRole(ctx, tgt.Admin, db, role, []harness.Privilege{{Resource: collResource(db, ""), Actions: []string{"find"}}}, []harness.RoleRef{{Role: base, DB: db}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, base, []harness.Privilege{{Resource: collResource(db, ""), Actions: []string{"insert"}}}, nil))
+		tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, role, []harness.Privilege{{Resource: collResource(db, ""), Actions: []string{"find"}}}, []harness.RoleRef{{Role: base, DB: db}}))
 		res, err := decodeCmd(ctx, tgt.Admin, db, bson.D{{Key: "rolesInfo", Value: role}, {Key: "showPrivileges", Value: true}})
 		if err != nil {
 			return nil, err

@@ -31,6 +31,26 @@ import (
 // DumboDB diverges from MongoDB, which this suite pins to the correct
 // allow/deny.
 
+// rbacXFail lists the built-in-role enforcement cases that still diverge from
+// MongoDB because the command they exercise is not yet implemented
+// (getClusterParameter, logRotate) or is rejected before authorization runs
+// (setParameter). Every other case is DumboDBFull: DumboDB's built-in-role
+// privilege model matches MongoDB. These flip as the commands land.
+var rbacXFail = map[string]struct{}{
+	"RBAC-cmgr-01-getClusterParameter": {},
+	"RBAC-hm-02-logRotate":             {},
+	"RBAC-ca-02-setParameter":          {},
+	"RBAC-hm-01-setParameter":          {},
+	"RBAC-root-11-setParameter":        {},
+}
+
+func rbacSupport(id string) harness.DumboDBSupport {
+	if _, ok := rbacXFail[id]; ok {
+		return harness.DumboDBXFail
+	}
+	return harness.DumboDBFull
+}
+
 // rbacOp is a single operation attempted as the role-holder. fn runs a command
 // against the given database and returns the driver error (nil = allowed).
 type rbacOp struct {
@@ -85,8 +105,8 @@ var (
 // MongoDB-vs-DumboDB comparison, it asserts (on the MongoDB run) that the
 // outcome matches wantAllowed and that denials use Unauthorized(13), so a wrong
 // expectation in the table fails loudly against real MongoDB.
-func dbScopedRoleProbe(t *testing.T, id, role string, wantAllowed bool, op rbacOp) harness.AuthCase {
-	return authCase(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+func dbScopedRoleProbe(t *testing.T, id, role string, wantAllowed bool, op rbacOp, support harness.DumboDBSupport) harness.AuthCase {
+	c := authCase(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "rbac_" + tgt.NS
 		other := "rbacother_" + tgt.NS
 		user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
@@ -99,17 +119,11 @@ func dbScopedRoleProbe(t *testing.T, id, role string, wantAllowed bool, op rbacO
 		}()
 		// Seed both databases with a document so read-style operations have
 		// something to act on.
-		if _, err := tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup1(tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}))
 		if op.onOtherDB {
-			if _, err := tgt.Admin.Database(other).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}); err != nil {
-				return nil, err
-			}
+			tgt.Setup1(tgt.Admin.Database(other).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}))
 		}
-		if err := harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: role, DB: db}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: role, DB: db}}))
 		c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, db)
 		if err != nil {
 			return nil, err
@@ -136,6 +150,8 @@ func dbScopedRoleProbe(t *testing.T, id, role string, wantAllowed bool, op rbacO
 		}
 		return bson.M{"allowed": allowed, "code": code}, nil
 	})
+	c.Support = support
+	return c
 }
 
 // Additional operations for admin-scoped (AnyDatabase, cluster, backup/restore,
@@ -157,20 +173,16 @@ var (
 // operation, validating the outcome against MongoDB. Denials for a role-less
 // user are Unauthorized(13); anonymous commands (ping/connectionStatus) are
 // still allowed.
-func noRoleProbe(t *testing.T, id string, wantAllowed bool, op rbacOp) harness.AuthCase {
-	return authCase(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+func noRoleProbe(t *testing.T, id string, wantAllowed bool, op rbacOp, support harness.DumboDBSupport) harness.AuthCase {
+	c := authCase(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "rbacnone_" + tgt.NS
 		user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
 		defer func() {
 			_ = harness.DropUser(ctx, tgt.Admin, "admin", user)
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
-		if _, err := tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateUser(ctx, tgt.Admin, "admin", user, pwd, nil); err != nil {
-			return nil, err
-		}
+		tgt.Setup1(tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}))
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, "admin", user, pwd, nil))
 		c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, "admin")
 		if err != nil {
 			return nil, err
@@ -189,14 +201,16 @@ func noRoleProbe(t *testing.T, id string, wantAllowed bool, op rbacOp) harness.A
 		}
 		return bson.M{"allowed": allowed, "code": code}, nil
 	})
+	c.Support = support
+	return c
 }
 
 // adminScopedRoleProbe grants an admin-database role (an *AnyDatabase, cluster,
 // backup/restore, or root role) and runs one operation as the holder. Data ops
 // target an arbitrary non-admin database; cluster ops target admin internally.
 // Like dbScopedRoleProbe it validates the outcome against real MongoDB.
-func adminScopedRoleProbe(t *testing.T, id, role string, wantAllowed bool, op rbacOp) harness.AuthCase {
-	return authCase(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+func adminScopedRoleProbe(t *testing.T, id, role string, wantAllowed bool, op rbacOp, support harness.DumboDBSupport) harness.AuthCase {
+	c := authCase(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "rbacany_" + tgt.NS
 		user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
 		defer func() {
@@ -205,12 +219,8 @@ func adminScopedRoleProbe(t *testing.T, id, role string, wantAllowed bool, op rb
 			_ = harness.DropRole(ctx, tgt.Admin, db, "proberole")
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
-		if _, err := tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}); err != nil {
-			return nil, err
-		}
-		if err := harness.CreateUser(ctx, tgt.Admin, "admin", user, pwd, []harness.RoleRef{{Role: role, DB: "admin"}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup1(tgt.Admin.Database(db).Collection("c").InsertOne(ctx, bson.D{{Key: "x", Value: 1}}))
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, "admin", user, pwd, []harness.RoleRef{{Role: role, DB: "admin"}}))
 		c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, "admin")
 		if err != nil {
 			return nil, err
@@ -230,11 +240,13 @@ func adminScopedRoleProbe(t *testing.T, id, role string, wantAllowed bool, op rb
 		}
 		return bson.M{"allowed": allowed, "code": code}, nil
 	})
+	c.Support = support
+	return c
 }
 
 func runAdminRbacRows(t *testing.T, role string, rows []rbacRow) {
 	t.Helper()
 	for _, r := range rows {
-		harness.AuthPairTest(t, adminScopedRoleProbe(t, r.id, role, r.allowed, r.op))
+		harness.AuthPairTest(t, adminScopedRoleProbe(t, r.id, role, r.allowed, r.op, rbacSupport(r.id)))
 	}
 }

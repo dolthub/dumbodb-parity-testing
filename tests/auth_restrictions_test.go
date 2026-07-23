@@ -30,7 +30,7 @@ import (
 // restrictionCase creates a user with the given authenticationRestrictions and
 // attempts to authenticate, asserting success or an auth failure on MongoDB.
 func restrictionCase(t *testing.T, id string, wantSuccess bool, restrictions bson.A) harness.AuthCase {
-	return authCase(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	return authCaseFull(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "authr_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		if err := runCmd(ctx, tgt.Admin, db, bson.D{
@@ -53,7 +53,9 @@ func restrictionCase(t *testing.T, id string, wantSuccess bool, restrictions bso
 				t.Errorf("%s: auth should fail with authentication failed, got %v", id, err)
 			}
 		}
-		return bson.M{"authOK": err == nil}, err
+		// Compare success-vs-failure only: a failed auth's driver message names
+		// the negotiated SCRAM mechanism, which differs across the two servers.
+		return bson.M{"authOK": err == nil}, nil
 	})
 }
 
@@ -87,7 +89,7 @@ func TestAuthRestrictions(t *testing.T) {
 		bson.A{clientSource("10.0.0.1"), clientSource("127.0.0.1")}))
 
 	// AUTHR-06: usersInfo showAuthenticationRestrictions echoes the restriction.
-	harness.AuthPairTest(t, authCase("AUTHR-06-usersInfo-shows-restrictions", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("AUTHR-06-usersInfo-shows-restrictions", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db, u := "authr_"+tgt.NS, "u_"+tgt.NS
 		defer cleanupUser(ctx, tgt, db, u)
 		if err := runCmd(ctx, tgt.Admin, db, bson.D{

@@ -32,7 +32,7 @@ type rbacRow struct {
 func runRbacRows(t *testing.T, role string, rows []rbacRow) {
 	t.Helper()
 	for _, r := range rows {
-		harness.AuthPairTest(t, dbScopedRoleProbe(t, r.id, role, r.allowed, r.op))
+		harness.AuthPairTest(t, dbScopedRoleProbe(t, r.id, role, r.allowed, r.op, rbacSupport(r.id)))
 	}
 }
 

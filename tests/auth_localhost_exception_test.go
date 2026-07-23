@@ -26,16 +26,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// Auth parity area A: server enablement and the localhost exception
-// (ENABLE-01..12). These assert MongoDB's behavior on a fresh, access-control-
-// enabled server with zero users, using the ephemeral-server primitive.
-//
-// DumboDB has no localhost exception and stubs createUser, so it diverges on
-// every case; that divergence is confirmed at the end. Cases needing a
-// non-localhost client, an --auth-off server, or enableLocalhostAuthBypass=0
-// (ENABLE-01/02/09/11) require setups not available from the test host and are
-// left for a dedicated deployment harness.
-
 func mkCreateAdmin(name string) bson.D {
 	return bson.D{
 		{Key: "createUser", Value: name},
@@ -44,66 +34,50 @@ func mkCreateAdmin(name string) bson.D {
 	}
 }
 
-// TestAuthLocalhostExceptionWalk walks the localhost-exception state machine on
-// one fresh MongoDB server: the exception is narrow (only user/role creation),
-// and is consumed by the first createUser.
-func TestAuthLocalhostExceptionWalk(t *testing.T) {
-	srv := harness.StartEphemeralServers(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+func walkLocalhostException(t *testing.T, ctx context.Context, uri, server string) {
+	t.Helper()
 
-	noauth, err := mongo.Connect(ctx, options.Client().ApplyURI(srv.MongoURI))
+	noauth, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
-		t.Fatalf("connect: %v", err)
+		t.Fatalf("%s connect: %v", server, err)
 	}
 	defer func() { _ = noauth.Disconnect(ctx) }()
 	admin := noauth.Database("admin")
 
 	code := func(err error) int32 { c, _, _ := harness.CommandErrorCode(err); return c }
 
-	// ENABLE-03: before any user, the exception does NOT grant arbitrary reads.
 	if err := admin.RunCommand(ctx, bson.D{{Key: "find", Value: "c"}, {Key: "filter", Value: bson.D{}}}).Err(); err == nil {
-		t.Errorf("ENABLE-03: unauthenticated find should be denied under the (narrow) localhost exception")
+		t.Errorf("%s ENABLE-03: unauthenticated find should be denied under the (narrow) localhost exception", server)
 	}
-	// ENABLE-06: nor arbitrary admin commands like serverStatus.
 	if err := admin.RunCommand(ctx, bson.D{{Key: "serverStatus", Value: 1}}).Err(); err == nil {
-		t.Errorf("ENABLE-06: unauthenticated serverStatus should be denied under the localhost exception")
+		t.Errorf("%s ENABLE-06: unauthenticated serverStatus should be denied under the localhost exception", server)
 	}
-	// ENABLE-04: the exception DOES permit creating the first user.
 	if err := admin.RunCommand(ctx, mkCreateAdmin("root")).Err(); err != nil {
-		t.Fatalf("ENABLE-04: first createUser under localhost exception should succeed: %v", err)
+		t.Fatalf("%s ENABLE-04: first createUser under localhost exception should succeed: %v", server, err)
 	}
-	// ENABLE-07: the exception is now consumed; unauthenticated ops are denied.
 	if c := code(admin.RunCommand(ctx, bson.D{{Key: "listDatabases", Value: 1}}).Err()); c != 13 {
-		t.Errorf("ENABLE-07: after first user, unauthenticated command should be Unauthorized(13), got %d", c)
+		t.Errorf("%s ENABLE-07: after first user, unauthenticated command should be Unauthorized(13), got %d", server, c)
 	}
-	// ENABLE-08: a second unauthenticated createUser is denied.
 	if c := code(admin.RunCommand(ctx, mkCreateAdmin("root2")).Err()); c != 13 {
-		t.Errorf("ENABLE-08: second unauthenticated createUser should be Unauthorized(13), got %d", c)
+		t.Errorf("%s ENABLE-08: second unauthenticated createUser should be Unauthorized(13), got %d", server, c)
 	}
-	// ENABLE-10: the bootstrapped admin can authenticate and create more users.
-	ac, err := harness.ConnectAs(ctx, srv.MongoURI, "root", "rootpw", "admin")
+	ac, err := harness.ConnectAs(ctx, uri, "root", "rootpw", "admin")
 	if err != nil {
-		t.Fatalf("ENABLE-10: bootstrapped admin should authenticate: %v", err)
+		t.Fatalf("%s ENABLE-10: bootstrapped admin should authenticate: %v", server, err)
 	}
 	defer func() { _ = ac.Disconnect(ctx) }()
 	if err := ac.Database("admin").RunCommand(ctx, mkCreateAdmin("root2")).Err(); err != nil {
-		t.Errorf("ENABLE-10: authenticated admin should create another user: %v", err)
+		t.Errorf("%s ENABLE-10: authenticated admin should create another user: %v", server, err)
 	}
+}
 
-	// DumboDB divergence: on a fresh ephemeral DumboDB, createUser is stubbed,
-	// so the bootstrap that MongoDB permits fails.
-	dnoauth, err := mongo.Connect(ctx, options.Client().ApplyURI(srv.DumboDBURI))
-	if err != nil {
-		t.Fatalf("connect dumbodb: %v", err)
-	}
-	defer func() { _ = dnoauth.Disconnect(ctx) }()
-	dErr := dnoauth.Database("admin").RunCommand(ctx, mkCreateAdmin("root")).Err()
-	if dErr == nil {
-		t.Logf("note: DumboDB accepted createUser (implementation may have advanced)")
-	} else {
-		t.Logf("confirmed DumboDB divergence: createUser not supported: %v", dErr)
-	}
+func TestAuthLocalhostExceptionWalk(t *testing.T) {
+	srv := harness.StartEphemeralServers(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	walkLocalhostException(t, ctx, srv.MongoURI, "MongoDB")
+	walkLocalhostException(t, ctx, srv.DumboDBURI, "DumboDB")
 }
 
 // TestAuthLocalhostExceptionCreateRole checks ENABLE-05 on its own fresh server.

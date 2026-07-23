@@ -1802,7 +1802,7 @@ func TestBSON_null_field_update_set(t *testing.T) {
 func TestBSON_double_zero_negative_zero(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_double_zero_negative_zero",
-		Support: harness.DumboDBXFail, // BSON comparison does not treat +0.0 and -0.0 as equal
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "pos0"}, {Key: "v", Value: 0.0}},

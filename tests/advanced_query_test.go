@@ -935,7 +935,7 @@ func TestAdvancedQuery_JsonSchema_Count(t *testing.T) {
 func TestAdvancedQuery_JsonSchema_NoMatch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AdvancedQuery_JsonSchema_NoMatch",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertJsonSchemaDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Impossible constraint: age must be int AND string simultaneously

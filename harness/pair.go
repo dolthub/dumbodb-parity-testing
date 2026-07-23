@@ -2,7 +2,6 @@ package harness
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -71,10 +70,6 @@ func PairTest(t *testing.T, tc TestCase) TestResult {
 
 	mongoCol, dumboDBCol, cleanup, err := clients.TestDBForTopology(ctx, tc.Name, tc.Topology)
 	if err != nil {
-		if errors.Is(err, ErrTopologyUnavailable) {
-			t.Skipf("PairTest %s: %v", tc.Name, err)
-			return TestResult{Name: tc.Name, Status: StatusSkip}
-		}
 		t.Fatalf("PairTest %s: could not allocate test DB: %v", tc.Name, err)
 	}
 	defer cleanup()
@@ -98,7 +93,7 @@ func runMongoOnly(t *testing.T, ctx context.Context, tc TestCase, mongoCol *mong
 	t.Helper()
 	if tc.Setup != nil {
 		if err := tc.Setup(ctx, mongoCol); err != nil {
-			t.Logf("MONGO_ONLY %s: setup error: %v", tc.Name, err)
+			t.Errorf("MONGO_ONLY %s: mongo setup failed: %v", tc.Name, err)
 			return TestResult{Name: tc.Name, Status: StatusFail, Diff: fmt.Sprintf("mongo setup: %v", err)}
 		}
 	}
@@ -113,7 +108,9 @@ func runMongoOnly(t *testing.T, ctx context.Context, tc TestCase, mongoCol *mong
 
 func runFull(t *testing.T, ctx context.Context, tc TestCase, mongoCol, dumboDBCol *mongo.Collection, mongoURIForTest string) TestResult {
 	t.Helper()
-	setup(t, ctx, tc, mongoCol, dumboDBCol)
+	if !setup(t, ctx, tc, mongoCol, dumboDBCol) {
+		return TestResult{Name: tc.Name, Status: StatusFail, Diff: "setup failed"}
+	}
 	mongoResult, mongoErr := tc.Run(withServerURI(ctx, mongoURIForTest), mongoCol)
 	dumboDBResult, dumboDBErr := tc.Run(withServerURI(ctx, dumboDBURI()), dumboDBCol)
 
@@ -128,29 +125,37 @@ func runFull(t *testing.T, ctx context.Context, tc TestCase, mongoCol, dumboDBCo
 
 func runXFail(t *testing.T, ctx context.Context, tc TestCase, mongoCol, dumboDBCol *mongo.Collection, mongoURIForTest string) TestResult {
 	t.Helper()
-	setup(t, ctx, tc, mongoCol, dumboDBCol)
+	if !setup(t, ctx, tc, mongoCol, dumboDBCol) {
+		return TestResult{Name: tc.Name, Status: StatusFail, Diff: "setup failed"}
+	}
 	mongoResult, mongoErr := tc.Run(withServerURI(ctx, mongoURIForTest), mongoCol)
 	dumboDBResult, dumboDBErr := tc.Run(withServerURI(ctx, dumboDBURI()), dumboDBCol)
 
 	cmp := CompareResponses(mongoResult, mongoErr, dumboDBResult, dumboDBErr)
 	if cmp.Result == Match {
-		t.Logf("XFAIL %s: PASS (DumboDB matched)", tc.Name)
-		return TestResult{Name: tc.Name, Status: StatusPass}
+		t.Errorf("XPASS %s: DumboDB now matches MongoDB -- promote to DumboDBFull", tc.Name)
+		return TestResult{Name: tc.Name, Status: StatusXPass}
 	}
 	t.Logf("XFAIL %s: diverged as expected\n%s", tc.Name, cmp.Diff)
 	return TestResult{Name: tc.Name, Status: StatusXFail, Diff: cmp.Diff}
 }
 
-// setup runs tc.Setup against both collections (if non-nil), logging errors but not failing.
-func setup(t *testing.T, ctx context.Context, tc TestCase, mongoCol, dumboDBCol *mongo.Collection) {
+// setup runs tc.Setup against both collections (if non-nil). A setup failure
+// fails the test loudly and returns false: a missing precondition must not flow
+// into the response comparison, where an identical setup failure on both servers
+// would "match" and pass having exercised nothing.
+func setup(t *testing.T, ctx context.Context, tc TestCase, mongoCol, dumboDBCol *mongo.Collection) bool {
 	t.Helper()
 	if tc.Setup == nil {
-		return
+		return true
 	}
 	if err := tc.Setup(ctx, mongoCol); err != nil {
-		t.Logf("%s: mongo setup error: %v", tc.Name, err)
+		t.Errorf("%s: mongo setup failed: %v", tc.Name, err)
+		return false
 	}
 	if err := tc.Setup(ctx, dumboDBCol); err != nil {
-		t.Logf("%s: dumbodb setup error: %v", tc.Name, err)
+		t.Errorf("%s: dumbodb setup failed: %v", tc.Name, err)
+		return false
 	}
+	return true
 }

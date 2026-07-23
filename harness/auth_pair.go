@@ -32,6 +32,9 @@ type AuthCase struct {
 	Name    string
 	Support DumboDBSupport
 	Run     func(ctx context.Context, admin AuthTarget) (interface{}, error)
+
+	MongoExpect func(t *testing.T, res interface{}, err error)
+	DumboExpect func(t *testing.T, res interface{}, err error)
 }
 
 // AuthTarget bundles what an AuthCase.Run needs to exercise one server.
@@ -44,13 +47,34 @@ type AuthTarget struct {
 	BaseURI string
 	// NS is a unique-per-test token for naming databases/users/roles.
 	NS string
+
+	t *testing.T
+}
+
+// Setup asserts that a precondition step (creating a user/role, seeding data)
+// succeeded. On failure it fails the test immediately instead of letting the
+// error flow back into the response comparison, where an identical setup failure
+// on both servers would otherwise "match" and pass having exercised nothing.
+func (tgt AuthTarget) Setup(err error) {
+	tgt.t.Helper()
+	if err != nil {
+		tgt.t.Fatalf("setup failed on %s: %v", tgt.BaseURI, err)
+	}
+}
+
+// Setup1 is Setup for a setup call that also returns a value (e.g. InsertOne);
+// it returns that value so the call can be used inline.
+func (tgt AuthTarget) Setup1(v interface{}, err error) interface{} {
+	tgt.t.Helper()
+	if err != nil {
+		tgt.t.Fatalf("setup failed on %s: %v", tgt.BaseURI, err)
+	}
+	return v
 }
 
 // AuthPairTest runs tc against both servers as admin, comparing per Support.
-// It skips when the auth suite is disabled (PARITY_AUTH unset).
 func AuthPairTest(t *testing.T, tc AuthCase) TestResult {
 	t.Helper()
-	RequireAuth(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -61,8 +85,8 @@ func AuthPairTest(t *testing.T, tc AuthCase) TestResult {
 	}
 
 	ns := authNS(tc.Name)
-	mongoTarget := AuthTarget{Admin: ac.MongoAdmin, BaseURI: AuthMongoBaseURI(), NS: ns}
-	dumboTarget := AuthTarget{Admin: ac.DumboDBAdmin, BaseURI: AuthDumboDBBaseURI(), NS: ns}
+	mongoTarget := AuthTarget{Admin: ac.MongoAdmin, BaseURI: AuthMongoBaseURI(), NS: ns, t: t}
+	dumboTarget := AuthTarget{Admin: ac.DumboDBAdmin, BaseURI: AuthDumboDBBaseURI(), NS: ns, t: t}
 
 	switch tc.Support {
 	case DumboDBMongoOnly:
@@ -90,11 +114,26 @@ func AuthPairTest(t *testing.T, tc AuthCase) TestResult {
 		dRes, dErr := tc.Run(ctx, dumboTarget)
 		cmp := CompareResponses(mRes, mErr, dRes, dErr)
 		if cmp.Result == Match {
-			t.Logf("XFAIL %s: PASS (DumboDB matched) -- consider promoting to DumboDBFull", tc.Name)
-			return TestResult{Name: tc.Name, Status: StatusPass}
+			t.Errorf("XPASS %s: DumboDB now matches MongoDB -- promote to DumboDBFull", tc.Name)
+			return TestResult{Name: tc.Name, Status: StatusXPass}
 		}
 		t.Logf("XFAIL %s: diverged as expected\n%s", tc.Name, cmp.Diff)
 		return TestResult{Name: tc.Name, Status: StatusXFail, Diff: cmp.Diff}
+
+	case DumboDBDeviates:
+		if tc.MongoExpect == nil || tc.DumboExpect == nil {
+			t.Fatalf("DEVIATE %s: a deviating case must set both MongoExpect and DumboExpect, else it asserts nothing", tc.Name)
+			return TestResult{Name: tc.Name, Status: StatusFail}
+		}
+		mRes, mErr := tc.Run(ctx, mongoTarget)
+		tc.MongoExpect(t, mRes, mErr)
+		dRes, dErr := tc.Run(ctx, dumboTarget)
+		tc.DumboExpect(t, dRes, dErr)
+		if t.Failed() {
+			return TestResult{Name: tc.Name, Status: StatusFail}
+		}
+		t.Logf("DEVIATE %s: MongoDB and DumboDB behave as intended", tc.Name)
+		return TestResult{Name: tc.Name, Status: StatusDeviate}
 
 	default:
 		t.Fatalf("AuthPairTest %s: unknown DumboDBSupport level %d", tc.Name, tc.Support)

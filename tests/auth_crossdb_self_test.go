@@ -28,7 +28,7 @@ import (
 
 func TestAuthCrossDatabase(t *testing.T) {
 	// XDB-01 / XDB-02: a user on db X with a role on db Y can read Y but not X.
-	harness.AuthPairTest(t, authCase("XDB-01-02-role-on-other-db", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("XDB-01-02-role-on-other-db", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		x, y := "xdbx_"+tgt.NS, "xdby_"+tgt.NS
 		user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
 		defer func() {
@@ -37,14 +37,10 @@ func TestAuthCrossDatabase(t *testing.T) {
 			_ = tgt.Admin.Database(y).Drop(ctx)
 		}()
 		for _, d := range []string{x, y} {
-			if _, err := tgt.Admin.Database(d).Collection("c").InsertOne(ctx, bson.D{{Key: "v", Value: 1}}); err != nil {
-				return nil, err
-			}
+			tgt.Setup1(tgt.Admin.Database(d).Collection("c").InsertOne(ctx, bson.D{{Key: "v", Value: 1}}))
 		}
 		// User belongs to X, but is granted read on Y.
-		if err := harness.CreateUser(ctx, tgt.Admin, x, user, pwd, []harness.RoleRef{{Role: "read", DB: y}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, x, user, pwd, []harness.RoleRef{{Role: "read", DB: y}}))
 		c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, x)
 		if err != nil {
 			return nil, err
@@ -65,25 +61,25 @@ func TestAuthCrossDatabase(t *testing.T) {
 	}))
 
 	// XDB-03: authenticating against the wrong authSource fails.
-	harness.AuthPairTest(t, authCase("XDB-03-wrong-authsource", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("XDB-03-wrong-authsource", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		x, y := "xdbx_"+tgt.NS, "xdby_"+tgt.NS
 		user, pwd := "u_"+tgt.NS, "pw-"+tgt.NS
 		defer func() { _ = harness.DropUser(ctx, tgt.Admin, x, user); _ = tgt.Admin.Database(x).Drop(ctx) }()
-		if err := harness.CreateUser(ctx, tgt.Admin, x, user, pwd, []harness.RoleRef{{Role: "read", DB: x}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, x, user, pwd, []harness.RoleRef{{Role: "read", DB: x}}))
 		c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, y) // wrong authSource
 		if err == nil {
 			_ = c.Disconnect(ctx)
 		}
-		return nil, err
+		// Compare success-vs-failure only: a failed auth's driver message names
+		// the negotiated SCRAM mechanism, which differs across the two servers.
+		return bson.M{"authOK": err == nil}, nil
 	}))
 }
 
 func TestAuthSelfService(t *testing.T) {
 	// SELF-01 / SELF-02: changeOwnPassword lets a user change its own password
 	// but not another user's.
-	harness.AuthPairTest(t, authCase("SELF-01-02-changeOwnPassword", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("SELF-01-02-changeOwnPassword", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "self_" + tgt.NS
 		role, user, pwd := "role_"+tgt.NS, "u_"+tgt.NS, "pw-"+tgt.NS
 		other := "other_" + tgt.NS
@@ -93,16 +89,12 @@ func TestAuthSelfService(t *testing.T) {
 			_ = harness.DropRole(ctx, tgt.Admin, db, role)
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
-		if err := harness.CreateUser(ctx, tgt.Admin, db, other, "pw", nil); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, other, "pw", nil))
 		if err := harness.CreateRole(ctx, tgt.Admin, db, role,
 			[]harness.Privilege{{Resource: collResource(db, ""), Actions: []string{"changeOwnPassword", "changeOwnCustomData"}}}, nil); err != nil {
 			return nil, err
 		}
-		if err := harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: role, DB: db}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: role, DB: db}}))
 		c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, db)
 		if err != nil {
 			return nil, err
@@ -124,7 +116,7 @@ func TestAuthSelfService(t *testing.T) {
 
 	// SELF-03: a user may view itself via usersInfo without viewUser, but not
 	// other users.
-	harness.AuthPairTest(t, authCase("SELF-03-usersInfo-self-vs-others", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("SELF-03-usersInfo-self-vs-others", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		db := "self_" + tgt.NS
 		user, pwd, other := "u_"+tgt.NS, "pw-"+tgt.NS, "other_"+tgt.NS
 		defer func() {
@@ -132,13 +124,9 @@ func TestAuthSelfService(t *testing.T) {
 			_ = harness.DropUser(ctx, tgt.Admin, db, other)
 			_ = tgt.Admin.Database(db).Drop(ctx)
 		}()
-		if err := harness.CreateUser(ctx, tgt.Admin, db, other, "pw", nil); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, other, "pw", nil))
 		// User has read (no viewUser).
-		if err := harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: "read", DB: db}}); err != nil {
-			return nil, err
-		}
+		tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: "read", DB: db}}))
 		c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, db)
 		if err != nil {
 			return nil, err
