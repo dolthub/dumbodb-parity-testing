@@ -744,11 +744,11 @@ func TestSort_ArrayField_Descending(t *testing.T) {
 func TestSort_Natural_Ascending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_Natural_Ascending",
-		// XFail: DumboDB keys documents by hash(_id), so a $natural scan
-		// walks the prolly tree in hash order, not MongoDB's insertion/disk
-		// order. Fundamental storage difference; not reconcilable without
-		// tracking an insertion sequence (meaningless in a versioned store).
-		Support: harness.DumboDBXFail,
+		// MongoOnly: $natural (physical/insertion order) is not a supported
+		// concept in DumboDB. Documents are keyed by hash(_id) in a versioned
+		// prolly tree, which has no insertion/disk order to expose. Support
+		// is not planned, so this runs on MongoDB only.
+		Support: harness.DumboDBMongoOnly,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -762,11 +762,11 @@ func TestSort_Natural_Ascending(t *testing.T) {
 func TestSort_Natural_Descending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_Natural_Descending",
-		// XFail: DumboDB keys documents by hash(_id), so a $natural scan
-		// walks the prolly tree in hash order, not MongoDB's insertion/disk
-		// order. Fundamental storage difference; not reconcilable without
-		// tracking an insertion sequence (meaningless in a versioned store).
-		Support: harness.DumboDBXFail,
+		// MongoOnly: $natural (physical/insertion order) is not a supported
+		// concept in DumboDB. Documents are keyed by hash(_id) in a versioned
+		// prolly tree, which has no insertion/disk order to expose. Support
+		// is not planned, so this runs on MongoDB only.
+		Support: harness.DumboDBMongoOnly,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
