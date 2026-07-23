@@ -749,7 +749,7 @@ func TestIndex_2dsphere_CreateOne(t *testing.T) {
 func TestIndex_2dsphere_NearQuery(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_2dsphere_NearQuery",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "location", Value: "2dsphere"}}}
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
@@ -1314,7 +1314,7 @@ func TestIndex_IndexStats_Basic(t *testing.T) {
 func TestIndex_IndexStats_NoIndexes(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_IndexStats_NoIndexes",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := mongo.Pipeline{
 				bson.D{{Key: "$indexStats", Value: bson.D{}}},
