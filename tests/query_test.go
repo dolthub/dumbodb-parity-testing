@@ -1863,7 +1863,7 @@ func TestQuery_in_mixed_types(t *testing.T) {
 func TestQuery_jsonSchema_required_invalid(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_jsonSchema_required_invalid",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: int32(1)}, {Key: "name", Value: "alice"}},
