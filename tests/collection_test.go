@@ -450,16 +450,18 @@ func TestDB_ListDatabaseNames(t *testing.T) {
 
 func TestDB_ListDatabases(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name: "DB_ListDatabases",
-		// XFail: structural divergence. MongoDB reports the config and local
-		// system databases (which DumboDB intentionally does not implement)
-		// and storage-engine-specific sizeondisk/empty values. DumboDB lists
-		// only real user databases plus admin, with its own sizes.
-		Support: harness.DumboDBXFail,
+		Name:    "DB_ListDatabases",
+		Support: harness.DumboDBFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// List all databases — result structure and system DBs may differ.
-			result, err := col.Database().Client().ListDatabases(ctx, bson.D{})
+			// Scope to this test's own database. An unfiltered listing would
+			// diverge on MongoDB-internal system databases (config, local)
+			// that DumboDB does not implement. The per-database sizeOnDisk and
+			// totalSize are storage-engine-specific and normalized away by the
+			// harness, so this compares the portable content: the database is
+			// listed with the right name and empty flag.
+			result, err := col.Database().Client().ListDatabases(ctx,
+				bson.D{{Key: "name", Value: col.Database().Name()}})
 			if err != nil {
 				return nil, err
 			}
