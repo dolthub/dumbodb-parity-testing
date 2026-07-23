@@ -161,7 +161,7 @@ func TestAggDBLevel_DocumentsEmptyArray(t *testing.T) {
 func TestAggDBLevel_DocumentsInline(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggDBLevel_DocumentsInline",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return runDBAggregate(ctx, col, bson.D{
 				{Key: "aggregate", Value: int32(1)},
@@ -210,8 +210,12 @@ func TestAggDBLevel_CurrentOp_AdminOK(t *testing.T) {
 
 func TestAggDBLevel_ListLocalSessions(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "AggDBLevel_ListLocalSessions",
-		Support: harness.DumboDBXFail,
+		Name: "AggDBLevel_ListLocalSessions",
+		// MongoOnly: $listLocalSessions reports the node-local logical-session
+		// cache, which is inherently per-server/per-connection state. Its only
+		// portable field is the no-auth uid digest; the session id (UUID) and
+		// lastUse are non-deterministic. Not a meaningful cross-server target.
+		Support: harness.DumboDBMongoOnly,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return runDBAggregate(ctx, col, bson.D{
 				{Key: "aggregate", Value: int32(1)},
