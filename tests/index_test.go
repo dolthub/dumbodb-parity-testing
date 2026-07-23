@@ -222,6 +222,179 @@ func TestIndex_SecondIndexSameKeyDifferentCollation(t *testing.T) {
 	})
 }
 
+func TestIndex_SameKeySameCollationDifferentName_Conflicts(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_SameKeySameCollationDifferentName_Conflicts",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "seed"}}); err != nil {
+				return err
+			}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().SetName("ci_a").SetCollation(&options.Collation{Locale: "en", Strength: 2}),
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().SetName("ci_b").SetCollation(&options.Collation{Locale: "en", Strength: 2}),
+			})
+			code, _, _ := harness.CommandErrorCode(err)
+			return bson.D{
+				{Key: "created", Value: err == nil},
+				{Key: "error_code", Value: code},
+			}, nil
+		},
+	})
+}
+
+func TestIndex_SameKeyDifferentStrength_BothCreated(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_SameKeyDifferentStrength_BothCreated",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "seed"}}); err != nil {
+				return err
+			}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().SetName("s2").SetCollation(&options.Collation{Locale: "en", Strength: 2}),
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().SetName("s3").SetCollation(&options.Collation{Locale: "en", Strength: 3}),
+			})
+			if err != nil {
+				return nil, err
+			}
+			n, err := countIndexes(ctx, col)
+			if err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "index_count", Value: n}}, nil
+		},
+	})
+}
+
+func TestIndex_IdenticalCollatedIndex_Idempotent(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_IdenticalCollatedIndex_Idempotent",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "seed"}}); err != nil {
+				return err
+			}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().SetName("ci").SetCollation(&options.Collation{Locale: "en", Strength: 2}),
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().SetName("ci").SetCollation(&options.Collation{Locale: "en", Strength: 2}),
+			})
+			if err != nil {
+				return nil, err
+			}
+			n, err := countIndexes(ctx, col)
+			if err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "index_count", Value: n}}, nil
+		},
+	})
+}
+
+func TestIndex_CollatedUnique_EnforcesCaseInsensitive(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_CollatedUnique_EnforcesCaseInsensitive",
+		Support: harness.DumboDBXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			unique := true
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys: bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().SetUnique(unique).
+					SetCollation(&options.Collation{Locale: "en", Strength: 2}),
+			})
+			if err != nil {
+				return err
+			}
+			_, err = col.InsertOne(ctx, bson.D{{Key: "username", Value: "Alice"}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "alice"}})
+			code, _, _ := harness.CommandErrorCode(err)
+			return bson.D{
+				{Key: "rejected", Value: err != nil},
+				{Key: "error_code", Value: code},
+			}, nil
+		},
+	})
+}
+
+func TestIndex_ListIndexes_EchoesCollation(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_ListIndexes_EchoesCollation",
+		Support: harness.DumboDBXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "seed"}}); err != nil {
+				return err
+			}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().SetName("ci").SetCollation(&options.Collation{Locale: "en", Strength: 2}),
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Indexes().List(ctx)
+			if err != nil {
+				return nil, err
+			}
+			var indexes []bson.D
+			if err := cur.All(ctx, &indexes); err != nil {
+				return nil, err
+			}
+			hasCollation := false
+			locale := ""
+			for _, idx := range indexes {
+				m := idx.Map()
+				if m["name"] != "ci" {
+					continue
+				}
+				if c, ok := m["collation"].(bson.D); ok {
+					hasCollation = true
+					locale, _ = c.Map()["locale"].(string)
+				}
+			}
+			return bson.D{
+				{Key: "has_collation", Value: hasCollation},
+				{Key: "locale", Value: locale},
+			}, nil
+		},
+	})
+}
+
+func countIndexes(ctx context.Context, col *mongo.Collection) (int32, error) {
+	cur, err := col.Indexes().List(ctx)
+	if err != nil {
+		return 0, err
+	}
+	var indexes []bson.D
+	if err := cur.All(ctx, &indexes); err != nil {
+		return 0, err
+	}
+	return int32(len(indexes)), nil
+}
+
 func TestIndex_CreateOne_Compound(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_CreateOne_Compound",
