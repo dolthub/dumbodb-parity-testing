@@ -343,7 +343,7 @@ func TestIndex_CollatedUnique_EnforcesCaseInsensitive(t *testing.T) {
 func TestIndex_ListIndexes_EchoesCollation(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_ListIndexes_EchoesCollation",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "seed"}}); err != nil {
 				return err
@@ -393,6 +393,92 @@ func countIndexes(ctx context.Context, col *mongo.Collection) (int32, error) {
 		return 0, err
 	}
 	return int32(len(indexes)), nil
+}
+
+func indexByName(ctx context.Context, col *mongo.Collection, name string) (map[string]interface{}, error) {
+	cur, err := col.Indexes().List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var indexes []bson.D
+	if err := cur.All(ctx, &indexes); err != nil {
+		return nil, err
+	}
+	for _, idx := range indexes {
+		m := idx.Map()
+		if m["name"] == name {
+			return m, nil
+		}
+	}
+	return nil, nil
+}
+
+func TestIndex_ListIndexes_EchoesPartialFilterExpression(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_ListIndexes_EchoesPartialFilterExpression",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			filter := bson.D{{Key: "score", Value: bson.D{{Key: "$gt", Value: int32(1)}}}}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "score", Value: 1}},
+				Options: options.Index().SetName("pf").SetPartialFilterExpression(filter),
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			m, err := indexByName(ctx, col, "pf")
+			if err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "partialFilterExpression", Value: m["partialFilterExpression"]}}, nil
+		},
+	})
+}
+
+func TestIndex_ListIndexes_EchoesHidden(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_ListIndexes_EchoesHidden",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			hidden := true
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "score", Value: 1}},
+				Options: options.Index().SetName("hid").SetHidden(hidden),
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			m, err := indexByName(ctx, col, "hid")
+			if err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "hidden", Value: m["hidden"]}}, nil
+		},
+	})
+}
+
+func TestIndex_ListIndexes_CollationResolvedSpec(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_ListIndexes_CollationResolvedSpec",
+		Support: harness.DumboDBXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "seed"}}); err != nil {
+				return err
+			}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().SetName("ci").SetCollation(&options.Collation{Locale: "en", Strength: 2}),
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			m, err := indexByName(ctx, col, "ci")
+			if err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "collation", Value: m["collation"]}}, nil
+		},
+	})
 }
 
 func TestIndex_CreateOne_Compound(t *testing.T) {
