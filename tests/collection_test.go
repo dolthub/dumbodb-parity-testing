@@ -1243,7 +1243,7 @@ func runExplain(ctx context.Context, col *mongo.Collection, cmd interface{}) (in
 func TestExplain_Find_QueryPlanner(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Find_QueryPlanner",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1261,7 +1261,7 @@ func TestExplain_Find_QueryPlanner(t *testing.T) {
 func TestExplain_Find_ExecutionStats(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Find_ExecutionStats",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1279,7 +1279,7 @@ func TestExplain_Find_ExecutionStats(t *testing.T) {
 func TestExplain_Find_AllPlansExecution(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Find_AllPlansExecution",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1297,7 +1297,7 @@ func TestExplain_Find_AllPlansExecution(t *testing.T) {
 func TestExplain_Aggregate(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Aggregate",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1318,7 +1318,7 @@ func TestExplain_Aggregate(t *testing.T) {
 func TestExplain_Count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Count",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1336,7 +1336,7 @@ func TestExplain_Count(t *testing.T) {
 func TestExplain_Update(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Update",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1357,7 +1357,7 @@ func TestExplain_Update(t *testing.T) {
 func TestExplain_Delete(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Delete",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1378,7 +1378,7 @@ func TestExplain_Delete(t *testing.T) {
 func TestExplain_Distinct(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Distinct",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1400,7 +1400,7 @@ func TestExplain_Distinct(t *testing.T) {
 func TestExplain_Find_IXSCAN_AfterIndexCreated(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Find_IXSCAN_AfterIndexCreated",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertColTestDocs(ctx, col); err != nil {
 				return err
@@ -1426,7 +1426,7 @@ func TestExplain_Find_IXSCAN_AfterIndexCreated(t *testing.T) {
 func TestExplain_Count_IXSCAN_AfterIndexCreated(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Count_IXSCAN_AfterIndexCreated",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertColTestDocs(ctx, col); err != nil {
 				return err
@@ -1452,7 +1452,7 @@ func TestExplain_Count_IXSCAN_AfterIndexCreated(t *testing.T) {
 func TestExplain_Aggregate_IXSCAN_AfterIndexCreated(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Aggregate_IXSCAN_AfterIndexCreated",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertColTestDocs(ctx, col); err != nil {
 				return err
