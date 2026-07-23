@@ -188,7 +188,7 @@ func TestIndex_CreateOne_IdempotentSameSpec(t *testing.T) {
 func TestIndex_SecondIndexSameKeyDifferentCollation(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_SecondIndexSameKeyDifferentCollation",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "seed"}}); err != nil {
 				return err
