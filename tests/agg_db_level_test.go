@@ -16,9 +16,12 @@ package tests
 
 import (
 	"context"
+	"fmt"
+	"sort"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
@@ -210,15 +213,53 @@ func TestAggDBLevel_CurrentOp_AdminOK(t *testing.T) {
 
 func TestAggDBLevel_ListLocalSessions(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "AggDBLevel_ListLocalSessions",
+		Name: "AggDBLevel_ListLocalSessions",
+		// The set of cached logical sessions is not deterministic across two
+		// independent servers -- each server's cache reflects its own
+		// connections and session lifecycle, so the count, session ids, and
+		// lastUse timestamps differ. The portable, deterministic value is the
+		// session owner uid (SHA-256 of the authenticated user; the empty-user
+		// digest on these no-auth servers). Compare the distinct set of uids
+		// rather than the raw session list.
 		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			return runDBAggregate(ctx, col, bson.D{
-				{Key: "aggregate", Value: int32(1)},
-				{Key: "pipeline", Value: bson.A{bson.D{{Key: "$listLocalSessions", Value: bson.D{}}}}},
-				{Key: "cursor", Value: bson.D{}},
-			})
+			return listLocalSessionDistinctUIDs(ctx, col)
 		},
 	})
+}
+
+// listLocalSessionDistinctUIDs runs $listLocalSessions and returns the
+// sorted, de-duplicated set of session owner uids (hex-encoded), discarding
+// the non-deterministic session count, ids, and timestamps.
+func listLocalSessionDistinctUIDs(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+	var res struct {
+		Cursor struct {
+			FirstBatch []struct {
+				ID struct {
+					UID primitive.Binary `bson:"uid"`
+				} `bson:"_id"`
+			} `bson:"firstBatch"`
+		} `bson:"cursor"`
+	}
+	err := col.Database().RunCommand(ctx, bson.D{
+		{Key: "aggregate", Value: int32(1)},
+		{Key: "pipeline", Value: bson.A{bson.D{{Key: "$listLocalSessions", Value: bson.D{}}}}},
+		{Key: "cursor", Value: bson.D{}},
+	}).Decode(&res)
+	if err != nil {
+		return nil, err
+	}
+
+	seen := make(map[string]struct{})
+	var uids []string
+	for _, s := range res.Cursor.FirstBatch {
+		h := fmt.Sprintf("%x", s.ID.UID.Data)
+		if _, ok := seen[h]; !ok {
+			seen[h] = struct{}{}
+			uids = append(uids, h)
+		}
+	}
+	sort.Strings(uids)
+	return uids, nil
 }
 
