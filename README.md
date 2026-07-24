@@ -18,6 +18,12 @@ you are investigating:
 
 - Go 1.22+
 - Docker (every suite uses containers for at least one of its servers)
+- **MongoDB 8.0.28** is the pinned parity target. CI runs against exactly
+  this release, and DumboDB advertises the same version (see dumbodb's
+  `internal/version`), so version-sensitive checks such as `buildInfo`
+  compare cleanly. Bump the `mongo:8.0.28` pins in
+  `.github/workflows/parity.yml` (and dumbodb's version constant) together
+  when adopting a newer 8.0.x.
 - A way to run DumboDB. The parity suite expects a `dumbodb` binary on `PATH`
   (or a server already running at `DUMBODB_URI`). The benchmark runner and the
   storage suite both pull `dolthub/dumbodb:latest` from the registry by default;
@@ -56,7 +62,7 @@ transactions, BSON types, and a handful of documentation-derived suites
 
 **Running.** Bring up both servers and point the harness at them:
 
-    docker run -d --name mongo8   -p 27017:27017 mongo:8.0
+    docker run -d --name mongo8   -p 27017:27017 mongo:8.0.28
     /path/to/dumbodb --port 27018 &
 
     GOWORK=off go test ./tests/...

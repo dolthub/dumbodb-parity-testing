@@ -12,7 +12,10 @@ jobs:
 
     services:
       mongo:
-        image: mongo:8.0
+        # Pinned to the MongoDB release DumboDB is tested against; keep in
+        # sync with the mongo-rs image below, the apt install step, dumbodb's
+        # internal/version MongoDBVersion, and the README.
+        image: mongo:8.0.28
         ports:
           - 27017:27017
         options: >-
@@ -47,7 +50,7 @@ jobs:
           # harness.Topology). Tests requiring transactions declare
           # TopologyReplicaSet and route to this instance.
           docker run -d --name mongo-rs --network host \
-            mongo:8.0 mongod --replSet rs0 --bind_ip_all --port 27019
+            mongo:8.0.28 mongod --replSet rs0 --bind_ip_all --port 27019
           for i in $(seq 1 30); do
             if docker exec mongo-rs mongosh --port 27019 --quiet --eval 'db.runCommand({ping:1})' >/dev/null 2>&1; then
               break
@@ -101,7 +104,8 @@ jobs:
           echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu ${codename}/mongodb-org/8.0 multiverse" \
             | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
           sudo apt-get update
-          sudo apt-get install -y mongodb-org-server
+          # Pin to the same release as the mongo service image above.
+          sudo apt-get install -y mongodb-org-server=8.0.28
           mongod --version
 
       - name: Start DumboDB
