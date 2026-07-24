@@ -96,7 +96,7 @@ func uniqIndexSetup(field string, docs ...interface{}) func(context.Context, *mo
 func TestIndex_Unique_BuildOverExistingDuplicates(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Unique_BuildOverExistingDuplicates",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: int32(1)}, {Key: "f", Value: "dup"}},

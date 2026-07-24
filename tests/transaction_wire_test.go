@@ -31,7 +31,9 @@ import (
 )
 
 func TestTransaction_lsid_reconnect_wire(t *testing.T) {
-	runWireParity(t, "lsid_reconnect_wire", harness.DumboDBXFail, func(addr, dbName string) (interface{}, error) {
+	// Multi-document transactions require a replica set in MongoDB; run the
+	// Mongo side against the RS topology (DumboDB is single-node either way).
+	runWireParity(t, "lsid_reconnect_wire", harness.DumboDBFull, harness.TopologyReplicaSet, func(addr, dbName string) (interface{}, error) {
 		lsid := wire.NewLsid()
 		const txnNum int64 = 1
 		lsidDoc := bson.D{{Key: "id", Value: lsid}}
@@ -123,7 +125,7 @@ func cursorFirstBatchLen(reply bson.M) int32 {
 	return int32(len(fb))
 }
 
-func runWireParity(t *testing.T, name string, support harness.DumboDBSupport, fn func(addr, dbName string) (interface{}, error)) {
+func runWireParity(t *testing.T, name string, support harness.DumboDBSupport, topo harness.Topology, fn func(addr, dbName string) (interface{}, error)) {
 	t.Helper()
 
 	connectCtx, connectCancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -131,6 +133,13 @@ func runWireParity(t *testing.T, name string, support harness.DumboDBSupport, fn
 	clients, err := harness.GetClients(connectCtx)
 	if err != nil {
 		t.Fatalf("wire test %s: get clients: %v", name, err)
+	}
+
+	// Pick the Mongo endpoint for the requested topology. Transactions need a
+	// replica set; other wire tests use the standalone.
+	mongoAddr := harness.MongoURI()
+	if topo == harness.TopologyReplicaSet {
+		mongoAddr = harness.MongoRSURI()
 	}
 
 	dbName := fmt.Sprintf("parity_wire_%s_%d", name, time.Now().UnixNano())
@@ -141,7 +150,7 @@ func runWireParity(t *testing.T, name string, support harness.DumboDBSupport, fn
 		_ = clients.DumboDB.Database(dbName).Drop(dropCtx)
 	}()
 
-	mongoResult, mongoErr := fn(harness.MongoURI(), dbName)
+	mongoResult, mongoErr := fn(mongoAddr, dbName)
 
 	if support == harness.DumboDBMongoOnly {
 		if mongoErr != nil {

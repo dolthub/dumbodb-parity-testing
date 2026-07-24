@@ -744,7 +744,11 @@ func TestSort_ArrayField_Descending(t *testing.T) {
 func TestSort_Natural_Ascending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_Natural_Ascending",
-		Support: harness.DumboDBXFail, // prolly trees do not preserve insertion order
+		// MongoOnly: $natural (physical/insertion order) is not a supported
+		// concept in DumboDB. Documents are keyed by hash(_id) in a versioned
+		// prolly tree, which has no insertion/disk order to expose. Support
+		// is not planned, so this runs on MongoDB only.
+		Support: harness.DumboDBMongoOnly,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -758,7 +762,11 @@ func TestSort_Natural_Ascending(t *testing.T) {
 func TestSort_Natural_Descending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Sort_Natural_Descending",
-		Support: harness.DumboDBXFail, // prolly trees do not preserve insertion order
+		// MongoOnly: $natural (physical/insertion order) is not a supported
+		// concept in DumboDB. Documents are keyed by hash(_id) in a versioned
+		// prolly tree, which has no insertion/disk order to expose. Support
+		// is not planned, so this runs on MongoDB only.
+		Support: harness.DumboDBMongoOnly,
 		Setup:   insertProjDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			opts := options.Find().
@@ -771,7 +779,12 @@ func TestSort_Natural_Descending(t *testing.T) {
 
 func TestSort_MetaTextScore(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "Sort_MetaTextScore",
+		Name: "Sort_MetaTextScore",
+		// XFail: text-relevance scoring is unimplemented ($meta:"textScore"
+		// stubbed to 0). This case also surfaces a secondary gap: DumboDB
+		// rejects the {"$text": {$meta: "textScore"}} sort key with Location16410
+		// (field name starts with '$'), whereas MongoDB ignores the field name
+		// when the value is a $meta expression.
 		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			// Create a text index required for $meta textScore sort.

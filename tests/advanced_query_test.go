@@ -153,7 +153,12 @@ func TestAdvancedQuery_TextSearch_CaseSensitive(t *testing.T) {
 
 func TestAdvancedQuery_TextSearch_MetaTextScore_Sort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "AdvancedQuery_TextSearch_MetaTextScore_Sort",
+		Name: "AdvancedQuery_TextSearch_MetaTextScore_Sort",
+		// XFail: text-relevance scoring is unimplemented. DumboDB matches
+		// $text queries (see the Count test) but stubs $meta:"textScore" to 0
+		// (projection.go applyMetaProjection), so the projected scores and the
+		// score-ordered result differ from MongoDB's TF-IDF values. Reaching
+		// parity requires reproducing MongoDB's FTS scoring to float precision.
 		Support: harness.DumboDBXFail,
 		Setup:   insertAdvancedQueryDocsWithTextIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
@@ -172,7 +177,10 @@ func TestAdvancedQuery_TextSearch_MetaTextScore_Sort(t *testing.T) {
 
 func TestAdvancedQuery_TextSearch_MetaTextScore_Projection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "AdvancedQuery_TextSearch_MetaTextScore_Projection",
+		Name: "AdvancedQuery_TextSearch_MetaTextScore_Projection",
+		// XFail: text-relevance scoring is unimplemented; $meta:"textScore" is
+		// stubbed to 0 rather than MongoDB's TF-IDF value. See the
+		// MetaTextScore_Sort case for the full rationale.
 		Support: harness.DumboDBXFail,
 		Setup:   insertAdvancedQueryDocsWithTextIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {

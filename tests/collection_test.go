@@ -450,15 +450,18 @@ func TestDB_ListDatabaseNames(t *testing.T) {
 
 func TestDB_ListDatabases(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name: "DB_ListDatabases",
-		// XFail: DumboDB closes the connection (EOF) when listDatabases is
-		// invoked at the client level. Re-evaluate when the listDatabases
-		// command is implemented.
-		Support: harness.DumboDBXFail,
+		Name:    "DB_ListDatabases",
+		Support: harness.DumboDBFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// List all databases — result structure and system DBs may differ.
-			result, err := col.Database().Client().ListDatabases(ctx, bson.D{})
+			// Scope to this test's own database. An unfiltered listing would
+			// diverge on MongoDB-internal system databases (config, local)
+			// that DumboDB does not implement. The per-database sizeOnDisk and
+			// totalSize are storage-engine-specific and normalized away by the
+			// harness, so this compares the portable content: the database is
+			// listed with the right name and empty flag.
+			result, err := col.Database().Client().ListDatabases(ctx,
+				bson.D{{Key: "name", Value: col.Database().Name()}})
 			if err != nil {
 				return nil, err
 			}
@@ -503,15 +506,18 @@ func TestDB_RunCommand_Ping(t *testing.T) {
 func TestDB_RunCommand_Hello(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_Hello",
-		Support: harness.DumboDBXFail, // maxWireVersion mismatch: mongo=25, dumbodb=21
+		Support: harness.DumboDBFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// connectionId is server-assigned and differs between instances; omit it.
+			// connectionId is server-assigned and differs between instances.
+			// topologyVersion is deliberately omitted by DumboDB: advertising
+			// it implies awaitable ("streaming") hello monitoring, which
+			// DumboDB does not implement. Omit both.
 			doc, err := runCommandDoc(ctx, col, bson.D{{Key: "hello", Value: 1}})
 			if err != nil {
 				return nil, err
 			}
-			return omitFields(doc.(bson.D), "connectionId"), nil
+			return omitFields(doc.(bson.D), "connectionId", "topologyVersion"), nil
 		},
 	})
 }
@@ -519,15 +525,18 @@ func TestDB_RunCommand_Hello(t *testing.T) {
 func TestDB_RunCommand_IsMaster(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_IsMaster",
-		Support: harness.DumboDBXFail, // maxWireVersion mismatch: mongo=25, dumbodb=21
+		Support: harness.DumboDBFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// connectionId is server-assigned and differs between instances; omit it.
+			// connectionId is server-assigned and differs between instances.
+			// topologyVersion is deliberately omitted by DumboDB: advertising
+			// it implies awaitable ("streaming") hello monitoring, which
+			// DumboDB does not implement. Omit both.
 			doc, err := runCommandDoc(ctx, col, bson.D{{Key: "isMaster", Value: 1}})
 			if err != nil {
 				return nil, err
 			}
-			return omitFields(doc.(bson.D), "connectionId"), nil
+			return omitFields(doc.(bson.D), "connectionId", "topologyVersion"), nil
 		},
 	})
 }
@@ -535,7 +544,7 @@ func TestDB_RunCommand_IsMaster(t *testing.T) {
 func TestDB_RunCommand_BuildInfo(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "DB_RunCommand_BuildInfo",
-		Support: harness.DumboDBXFail, // version string diverges: mongo=8.0.20, dumbodb=7.0.42
+		Support: harness.DumboDBFull,
 		Setup:   nil,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// Omit MongoDB-internal fields: allocator, javascriptEngine, openssl,
@@ -1243,7 +1252,7 @@ func runExplain(ctx context.Context, col *mongo.Collection, cmd interface{}) (in
 func TestExplain_Find_QueryPlanner(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Find_QueryPlanner",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1261,7 +1270,7 @@ func TestExplain_Find_QueryPlanner(t *testing.T) {
 func TestExplain_Find_ExecutionStats(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Find_ExecutionStats",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1279,7 +1288,7 @@ func TestExplain_Find_ExecutionStats(t *testing.T) {
 func TestExplain_Find_AllPlansExecution(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Find_AllPlansExecution",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1297,7 +1306,7 @@ func TestExplain_Find_AllPlansExecution(t *testing.T) {
 func TestExplain_Aggregate(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Aggregate",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1318,7 +1327,7 @@ func TestExplain_Aggregate(t *testing.T) {
 func TestExplain_Count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Count",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1336,7 +1345,7 @@ func TestExplain_Count(t *testing.T) {
 func TestExplain_Update(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Update",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1357,7 +1366,7 @@ func TestExplain_Update(t *testing.T) {
 func TestExplain_Delete(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Delete",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1378,7 +1387,7 @@ func TestExplain_Delete(t *testing.T) {
 func TestExplain_Distinct(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Distinct",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cmd := bson.D{
@@ -1400,7 +1409,7 @@ func TestExplain_Distinct(t *testing.T) {
 func TestExplain_Find_IXSCAN_AfterIndexCreated(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Find_IXSCAN_AfterIndexCreated",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertColTestDocs(ctx, col); err != nil {
 				return err
@@ -1426,7 +1435,7 @@ func TestExplain_Find_IXSCAN_AfterIndexCreated(t *testing.T) {
 func TestExplain_Count_IXSCAN_AfterIndexCreated(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Count_IXSCAN_AfterIndexCreated",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertColTestDocs(ctx, col); err != nil {
 				return err
@@ -1452,7 +1461,7 @@ func TestExplain_Count_IXSCAN_AfterIndexCreated(t *testing.T) {
 func TestExplain_Aggregate_IXSCAN_AfterIndexCreated(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Aggregate_IXSCAN_AfterIndexCreated",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertColTestDocs(ctx, col); err != nil {
 				return err

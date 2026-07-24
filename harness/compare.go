@@ -27,12 +27,22 @@ type Comparison struct {
 }
 
 // defaultIgnoredFields are document fields omitted from comparison because
-// their values are non-deterministic (timestamps, generated IDs).
+// their values are non-deterministic (timestamps, generated IDs) or are
+// physical storage metrics that depend on the storage engine rather than
+// the data (WiredTiger vs Dolt prolly trees report different on-disk byte
+// counts for identical documents). Field names are matched as they appear
+// after normalization; the mongo driver marshals result structs with
+// lowercased field names (sizeOnDisk -> sizeondisk), so both cases are
+// listed for robustness against raw runCommand documents.
 var defaultIgnoredFields = map[string]bool{
 	"operationTime": true,
 	"$clusterTime":  true,
 	"insertedId":    true,
 	"insertedIds":   true,
+	"sizeOnDisk":    true,
+	"sizeondisk":    true,
+	"totalSize":     true,
+	"totalsize":     true,
 }
 
 // millisToleranceMS is the maximum amount DumboDB is allowed to be slower

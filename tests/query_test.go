@@ -1450,7 +1450,11 @@ func TestQuery_sort_desc(t *testing.T) {
 func TestQuery_sort_natural_asc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_sort_natural_asc",
-		Support: harness.DumboDBXFail, // prolly trees do not preserve insertion order
+		// MongoOnly: $natural (physical/insertion order) is not a supported
+		// concept in DumboDB. Documents are keyed by hash(_id) in a versioned
+		// prolly tree, which has no insertion/disk order to expose. Support
+		// is not planned, so this runs on MongoDB only.
+		Support: harness.DumboDBMongoOnly,
 		Setup:   insertQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return findSortedIDs(ctx, col, bson.D{}, bson.D{{Key: "$natural", Value: 1}})
@@ -1461,7 +1465,11 @@ func TestQuery_sort_natural_asc(t *testing.T) {
 func TestQuery_sort_natural_desc(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_sort_natural_desc",
-		Support: harness.DumboDBXFail, // prolly trees do not preserve insertion order
+		// MongoOnly: $natural (physical/insertion order) is not a supported
+		// concept in DumboDB. Documents are keyed by hash(_id) in a versioned
+		// prolly tree, which has no insertion/disk order to expose. Support
+		// is not planned, so this runs on MongoDB only.
+		Support: harness.DumboDBMongoOnly,
 		Setup:   insertQueryDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return findSortedIDs(ctx, col, bson.D{}, bson.D{{Key: "$natural", Value: -1}})
@@ -1855,7 +1863,7 @@ func TestQuery_in_mixed_types(t *testing.T) {
 func TestQuery_jsonSchema_required_invalid(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Query_jsonSchema_required_invalid",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: int32(1)}, {Key: "name", Value: "alice"}},
