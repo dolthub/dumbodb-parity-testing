@@ -963,12 +963,12 @@ func TestView_DepthLimit(t *testing.T) {
 	})
 }
 
-// TestView_CollModRedefine (V8) redefines a view's pipeline via collMod.
-// DumboDB's collMod ignores viewOn/pipeline (G4).
+// TestView_CollModRedefine (V8) redefines a view's pipeline via collMod;
+// DumboDB rewrites the view's stored definition in place.
 func TestView_CollModRedefine(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_CollModRedefine",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "grp", Value: "a"}},
