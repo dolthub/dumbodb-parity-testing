@@ -738,6 +738,50 @@ func TestView_Empty_Pipeline(t *testing.T) {
 	})
 }
 
+// TestView_ListIndexes_NotSupported checks that listIndexes on a view fails with
+// CommandNotSupportedOnView, as MongoDB does (a view has no indexes of its own).
+func TestView_ListIndexes_NotSupported(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "View_ListIndexes_NotSupported",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			viewName := "view_listindexes"
+			if err := db.CreateView(ctx, viewName, col.Name(), mongo.Pipeline{}); err != nil {
+				return nil, err
+			}
+			defer db.Collection(viewName).Drop(ctx)
+			return nil, db.RunCommand(ctx, bson.D{{Key: "listIndexes", Value: viewName}}).Err()
+		},
+	})
+}
+
+// TestView_CollStats_NotSupported checks that collStats on a view fails with
+// CommandNotSupportedOnView, as MongoDB does.
+func TestView_CollStats_NotSupported(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "View_CollStats_NotSupported",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			viewName := "view_collstats"
+			if err := db.CreateView(ctx, viewName, col.Name(), mongo.Pipeline{}); err != nil {
+				return nil, err
+			}
+			defer db.Collection(viewName).Drop(ctx)
+			return nil, db.RunCommand(ctx, bson.D{{Key: "collStats", Value: viewName}}).Err()
+		},
+	})
+}
+
 // TestView_ListCollections_TypeAndOptions (V3) strengthens the listCollections
 // coverage: a view must be reported with type "view" and options carrying the
 // resolved viewOn and pipeline, not merely appear by name.
@@ -782,12 +826,12 @@ func TestView_ListCollections_TypeAndOptions(t *testing.T) {
 	})
 }
 
-// TestView_Distinct (V4) exercises distinct against a view. DumboDB does not
-// resolve views on the distinct path today (G2), so it diverges.
+// TestView_Distinct (V4) exercises distinct against a view; DumboDB resolves the
+// view source and applies the pipeline.
 func TestView_Distinct(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_Distinct",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "status", Value: "active"}, {Key: "region", Value: "east"}},
