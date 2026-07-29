@@ -1061,11 +1061,11 @@ func TestView_CreateCollectionOverExistingView(t *testing.T) {
 }
 
 // TestView_DurabilityAcrossRestart (V12) creates a view, restarts both servers
-// on their same data directories, then reads the view. MongoDB persists the
-// view definition; DumboDB holds it in memory only (G1) and loses it on
-// restart, so this diverges today. It uses the restartable server-pair
-// primitive rather than the shared-server PairTest harness because a restart
-// would disrupt other tests sharing those servers.
+// on their same data directories, then reads the view. Both MongoDB and DumboDB
+// persist the view definition across restart, so the view still resolves. It
+// uses the restartable server-pair primitive rather than the shared-server
+// PairTest harness because a restart would disrupt other tests sharing those
+// servers.
 func TestView_DurabilityAcrossRestart(t *testing.T) {
 	srv := harness.StartRestartableServers(t)
 
@@ -1119,11 +1119,11 @@ func TestView_DurabilityAcrossRestart(t *testing.T) {
 	dRes, dErr := readView(srv.DumboDBURI)
 
 	cmp := harness.CompareResponses(mRes, mErr, dRes, dErr)
-	if cmp.Result == harness.Match {
-		t.Errorf("XPASS View_DurabilityAcrossRestart: DumboDB now matches MongoDB -- promote (view survives restart)")
+	if cmp.Result != harness.Match {
+		t.Errorf("FULL View_DurabilityAcrossRestart: DIVERGE (view did not survive restart)\n%s", cmp.Diff)
 		return
 	}
-	t.Logf("XFAIL View_DurabilityAcrossRestart: diverged as expected\n%s", cmp.Diff)
+	t.Logf("FULL View_DurabilityAcrossRestart: PASS")
 }
 
 func TestTimeSeries_CreateCollection_Basic(t *testing.T) {
