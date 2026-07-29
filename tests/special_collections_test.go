@@ -1006,12 +1006,13 @@ func TestView_CollModRedefine(t *testing.T) {
 	})
 }
 
-// TestView_Rename (V9) renames a view and reads it under the new name. DumboDB
-// does not move view metadata on rename (G5).
+// TestView_Rename (V9) attempts to rename a view. MongoDB does not support
+// renaming a view; DumboDB now rejects it the same way, with the identical
+// CommandNotSupportedOnView error ("cannot rename view: <ns>").
 func TestView_Rename(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_Rename",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "k", Value: "keep"}},
@@ -1077,8 +1078,9 @@ func TestView_CreateOverExistingCollection(t *testing.T) {
 }
 
 // TestView_CreateCollectionOverExistingView (V11) creating a collection whose
-// name is an existing view must fail with NamespaceExists. DumboDB allows it
-// today (no error), so this diverges.
+// name is an existing view must fail with NamespaceExists. Both servers now
+// return NamespaceExists; they diverge only on the message text (MongoDB spells
+// out "is a view on <viewOn>"), so this remains XFail on the message alone.
 func TestView_CreateCollectionOverExistingView(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_CreateCollectionOverExistingView",
