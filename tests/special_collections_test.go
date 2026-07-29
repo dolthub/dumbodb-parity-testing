@@ -821,12 +821,12 @@ func TestView_Distinct(t *testing.T) {
 	})
 }
 
-// TestView_Nested (V5) reads a view defined on another view. DumboDB fetches
-// the source as a base collection and does not resolve a view source (G3).
+// TestView_Nested (V5) reads a view defined on another view. DumboDB resolves
+// the view source chain and applies each pipeline in order.
 func TestView_Nested(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_Nested",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "n", Value: int32(1)}},
@@ -861,9 +861,10 @@ func TestView_Nested(t *testing.T) {
 	})
 }
 
-// TestView_Cycle (V6) creates two views referencing each other. MongoDB detects
-// the cycle and rejects the closing definition; DumboDB has no cycle detection
-// (G3), so both creations succeed.
+// TestView_Cycle (V6) creates two views referencing each other. Both servers
+// now reject the closing definition with GraphContainsCycle; they diverge only
+// on the error message text (MongoDB spells out the full resolved namespace
+// chain), so this remains XFail on the message alone.
 func TestView_Cycle(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_Cycle",
@@ -888,12 +889,11 @@ func TestView_Cycle(t *testing.T) {
 }
 
 // TestView_DepthLimit (V7) builds a view chain deeper than the max resolution
-// depth (20). MongoDB errors resolving the top view; DumboDB does not resolve
-// view sources (G3) and so does not hit the limit.
+// depth (20). Both servers error with ViewDepthLimitExceeded.
 func TestView_DepthLimit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_DepthLimit",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}})
 			return err
