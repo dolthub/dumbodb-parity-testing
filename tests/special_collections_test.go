@@ -2020,6 +2020,65 @@ func TestView_DropAndRecreate(t *testing.T) {
 	})
 }
 
+// TestView_DropSource verifies a view is a lazy, name-based reference: dropping
+// its source collection neither deletes nor errors the view. A read over the
+// dangling view returns empty (no error), and recreating the source re-animates
+// the view. Both servers must agree.
+func TestView_DropSource(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "View_DropSource",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "x", Value: int32(1)}},
+				bson.D{{Key: "x", Value: int32(2)}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			viewName := "view_dropsource"
+			if err := db.CreateView(ctx, viewName, col.Name(), mongo.Pipeline{}); err != nil {
+				return nil, err
+			}
+			defer db.Collection(viewName).Drop(ctx)
+			view := db.Collection(viewName)
+
+			countBefore, err := view.CountDocuments(ctx, bson.D{})
+			if err != nil {
+				return nil, err
+			}
+
+			// Drop the source. The view definition must survive and the read
+			// must return empty rather than error.
+			if err := col.Drop(ctx); err != nil {
+				return nil, err
+			}
+			countDangling, danglingErr := view.CountDocuments(ctx, bson.D{})
+
+			// Recreating the source (insert auto-creates it) re-animates the view.
+			if _, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "x", Value: int32(10)}},
+				bson.D{{Key: "x", Value: int32(20)}},
+				bson.D{{Key: "x", Value: int32(30)}},
+			}); err != nil {
+				return nil, err
+			}
+			countAfter, err := view.CountDocuments(ctx, bson.D{})
+			if err != nil {
+				return nil, err
+			}
+
+			return bson.D{
+				{Key: "count_before", Value: countBefore},
+				{Key: "count_dangling", Value: countDangling},
+				{Key: "dangling_errored", Value: danglingErr != nil},
+				{Key: "count_after", Value: countAfter},
+			}, nil
+		},
+	})
+}
+
 func TestCapped_CreateIndex_Fails(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_CreateIndex_Fails",
