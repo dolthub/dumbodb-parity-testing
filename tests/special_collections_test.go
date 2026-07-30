@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -905,31 +906,66 @@ func TestView_Nested(t *testing.T) {
 	})
 }
 
-// TestView_Cycle (V6) creates two views referencing each other. Both servers
-// now reject the closing definition with GraphContainsCycle; they diverge only
-// on the error message text (MongoDB spells out the full resolved namespace
-// chain), so this remains XFail on the message alone.
+// runViewErrorCase runs op against both servers' test collections and returns
+// the two resulting errors. It is used by the view error-parity cases whose
+// MongoDB message text carries values that need not (and cannot sensibly) be
+// reproduced byte-for-byte -- a random collection UUID, or a spelled-out
+// namespace chain -- so they assert the error code and codeName match instead of
+// the full message.
+func runViewErrorCase(t *testing.T, name string, op func(ctx context.Context, col *mongo.Collection) error) (mongoErr, dumboErr error) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	clients, err := harness.GetClients(ctx)
+	if err != nil {
+		t.Fatalf("%s: get clients: %v", name, err)
+	}
+	mongoCol, dumboDBCol, cleanup, err := clients.TestDB(ctx, name)
+	if err != nil {
+		t.Fatalf("%s: allocate test DB: %v", name, err)
+	}
+	defer cleanup()
+
+	return op(ctx, mongoCol), op(ctx, dumboDBCol)
+}
+
+// assertCommandError asserts err is a command error carrying the given numeric
+// code and codeName.
+func assertCommandError(t *testing.T, label string, err error, wantCode int32, wantName string) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("%s: expected an error, got nil", label)
+	}
+	code, name, ok := harness.CommandErrorCode(err)
+	if !ok {
+		t.Fatalf("%s: not a command error: %v", label, err)
+	}
+	if code != wantCode {
+		t.Errorf("%s: error code = %d, want %d (err=%v)", label, code, wantCode, err)
+	}
+	if name != wantName {
+		t.Errorf("%s: codeName = %q, want %q (err=%v)", label, name, wantName, err)
+	}
+}
+
+// TestView_Cycle (V6) creates two views that reference each other. Both servers
+// reject the closing definition with GraphContainsCycle. MongoDB's message
+// spells out the full resolved namespace chain, which is not a meaningful
+// divergence, so this asserts the code and codeName match rather than the text.
 func TestView_Cycle(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "View_Cycle",
-		Support: harness.DumboDBXFail,
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			db := col.Database()
-			vA, vB := "view_cycle_a", "view_cycle_b"
-			// vA -> vB is allowed (source need not exist yet).
-			if err := db.CreateView(ctx, vA, vB, mongo.Pipeline{}); err != nil {
-				return nil, err
-			}
-			defer db.Collection(vA).Drop(ctx)
-			// vB -> vA closes the cycle; MongoDB rejects this creation.
-			err := db.CreateView(ctx, vB, vA, mongo.Pipeline{})
-			if err != nil {
-				return nil, err
-			}
-			defer db.Collection(vB).Drop(ctx)
-			return bson.D{{Key: "created", Value: true}}, nil
-		},
+	mErr, dErr := runViewErrorCase(t, "View_Cycle", func(ctx context.Context, col *mongo.Collection) error {
+		db := col.Database()
+		vA, vB := "view_cycle_a", "view_cycle_b"
+		// vA -> vB is allowed (source need not exist yet).
+		if err := db.CreateView(ctx, vA, vB, mongo.Pipeline{}); err != nil {
+			return err
+		}
+		// vB -> vA closes the cycle; both servers reject this creation.
+		return db.CreateView(ctx, vB, vA, mongo.Pipeline{})
 	})
+	assertCommandError(t, "mongo", mErr, 5, "GraphContainsCycle")
+	assertCommandError(t, "dumbodb", dErr, 5, "GraphContainsCycle")
 }
 
 // TestView_DepthLimit (V7) builds a view chain deeper than the max resolution
@@ -1049,61 +1085,47 @@ func TestView_Rename(t *testing.T) {
 }
 
 // TestView_CreateOverExistingCollection (V10) creating a view whose name is an
-// existing collection must fail with NamespaceExists. DumboDB returns the same
-// code and codeName but a different message today, so this diverges.
+// existing collection fails with NamespaceExists on both servers. MongoDB's
+// message embeds the existing collection's (random) UUID; DumboDB's does not, so
+// this asserts the code and codeName match and that MongoDB returns a UUID,
+// rather than requiring byte-identical messages.
 func TestView_CreateOverExistingCollection(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "View_CreateOverExistingCollection",
-		Support: harness.DumboDBXFail,
-		Setup: func(ctx context.Context, col *mongo.Collection) error {
-			_, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}})
+	mErr, dErr := runViewErrorCase(t, "View_CreateOverExistingCollection", func(ctx context.Context, col *mongo.Collection) error {
+		db := col.Database()
+		if _, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}}); err != nil {
 			return err
-		},
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			db := col.Database()
-			taken := "ns_existing_coll"
-			if _, err := db.Collection(taken).InsertOne(ctx, bson.D{{Key: "y", Value: int32(1)}}); err != nil {
-				return nil, err
-			}
-			defer db.Collection(taken).Drop(ctx)
-
-			err := db.CreateView(ctx, taken, col.Name(), mongo.Pipeline{})
-			if err != nil {
-				return nil, err
-			}
-			db.Collection(taken).Drop(ctx)
-			return bson.D{{Key: "created", Value: true}}, nil
-		},
+		}
+		taken := "ns_existing_coll"
+		if _, err := db.Collection(taken).InsertOne(ctx, bson.D{{Key: "y", Value: int32(1)}}); err != nil {
+			return err
+		}
+		return db.CreateView(ctx, taken, col.Name(), mongo.Pipeline{})
 	})
+	assertCommandError(t, "mongo", mErr, 48, "NamespaceExists")
+	assertCommandError(t, "dumbodb", dErr, 48, "NamespaceExists")
+	if !strings.Contains(mErr.Error(), "UUID(") {
+		t.Errorf("expected MongoDB NamespaceExists message to embed a UUID, got: %v", mErr)
+	}
 }
 
 // TestView_CreateCollectionOverExistingView (V11) creating a collection whose
-// name is an existing view must fail with NamespaceExists. Both servers now
-// return NamespaceExists; they diverge only on the message text (MongoDB spells
-// out "is a view on <viewOn>"), so this remains XFail on the message alone.
+// name is an existing view fails with NamespaceExists on both servers. MongoDB's
+// message spells out "is a view on <viewOn>", which is not a meaningful
+// divergence, so this asserts the code and codeName match.
 func TestView_CreateCollectionOverExistingView(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "View_CreateCollectionOverExistingView",
-		Support: harness.DumboDBXFail,
-		Setup: func(ctx context.Context, col *mongo.Collection) error {
-			_, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}})
+	mErr, dErr := runViewErrorCase(t, "View_CreateCollectionOverExistingView", func(ctx context.Context, col *mongo.Collection) error {
+		db := col.Database()
+		if _, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}}); err != nil {
 			return err
-		},
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			db := col.Database()
-			viewName := "ns_existing_view"
-			if err := db.CreateView(ctx, viewName, col.Name(), mongo.Pipeline{}); err != nil {
-				return nil, err
-			}
-			defer db.Collection(viewName).Drop(ctx)
-
-			err := db.CreateCollection(ctx, viewName)
-			if err != nil {
-				return nil, err
-			}
-			return bson.D{{Key: "created", Value: true}}, nil
-		},
+		}
+		viewName := "ns_existing_view"
+		if err := db.CreateView(ctx, viewName, col.Name(), mongo.Pipeline{}); err != nil {
+			return err
+		}
+		return db.CreateCollection(ctx, viewName)
 	})
+	assertCommandError(t, "mongo", mErr, 48, "NamespaceExists")
+	assertCommandError(t, "dumbodb", dErr, 48, "NamespaceExists")
 }
 
 // TestView_DurabilityAcrossRestart (V12) creates a view, restarts both servers
