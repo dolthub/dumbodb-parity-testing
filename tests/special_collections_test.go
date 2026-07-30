@@ -3,8 +3,8 @@ package tests
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
-	"strings"
 	"testing"
 	"time"
 
@@ -1085,10 +1085,10 @@ func TestView_Rename(t *testing.T) {
 }
 
 // TestView_CreateOverExistingCollection (V10) creating a view whose name is an
-// existing collection fails with NamespaceExists on both servers. MongoDB's
-// message embeds the existing collection's (random) UUID; DumboDB's does not, so
-// this asserts the code and codeName match and that MongoDB returns a UUID,
-// rather than requiring byte-identical messages.
+// existing collection fails with NamespaceExists on both servers. Both messages
+// report the existing collection's UUID; only the UUID value differs. This
+// asserts the code and codeName match, that each message embeds a UUID, and that
+// the messages are identical once the UUID value is normalized out.
 func TestView_CreateOverExistingCollection(t *testing.T) {
 	mErr, dErr := runViewErrorCase(t, "View_CreateOverExistingCollection", func(ctx context.Context, col *mongo.Collection) error {
 		db := col.Database()
@@ -1103,8 +1103,18 @@ func TestView_CreateOverExistingCollection(t *testing.T) {
 	})
 	assertCommandError(t, "mongo", mErr, 48, "NamespaceExists")
 	assertCommandError(t, "dumbodb", dErr, 48, "NamespaceExists")
-	if !strings.Contains(mErr.Error(), "UUID(") {
-		t.Errorf("expected MongoDB NamespaceExists message to embed a UUID, got: %v", mErr)
+
+	uuidRe := regexp.MustCompile(`UUID\("[0-9a-fA-F-]+"\)`)
+	if !uuidRe.MatchString(mErr.Error()) {
+		t.Errorf("MongoDB NamespaceExists message missing a UUID: %v", mErr)
+	}
+	if !uuidRe.MatchString(dErr.Error()) {
+		t.Errorf("DumboDB NamespaceExists message missing a UUID: %v", dErr)
+	}
+	mNorm := uuidRe.ReplaceAllString(mErr.Error(), `UUID("<uuid>")`)
+	dNorm := uuidRe.ReplaceAllString(dErr.Error(), `UUID("<uuid>")`)
+	if mNorm != dNorm {
+		t.Errorf("messages differ beyond the UUID value:\n  mongo:   %s\n  dumbodb: %s", mNorm, dNorm)
 	}
 }
 
