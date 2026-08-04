@@ -193,3 +193,151 @@ func TestValidatorEnforce_Warn_AllowsInvalid(t *testing.T) {
 		},
 	})
 }
+
+// veReqName is a $jsonSchema validator requiring a string field "name". Unlike
+// the query-expression validator above, this exercises the $jsonSchema engine
+// through the collection-validator (not query) path across every write path.
+var veReqName = bson.D{{Key: "$jsonSchema", Value: bson.D{
+	{Key: "bsonType", Value: "object"},
+	{Key: "required", Value: bson.A{"name"}},
+	{Key: "properties", Value: bson.D{{Key: "name", Value: bson.D{{Key: "bsonType", Value: "string"}}}}},
+}}}
+
+// veJsonSchemaColl creates a collection with the $jsonSchema validator and seeds
+// one valid document.
+func veJsonSchemaColl(ctx context.Context, col *mongo.Collection, suffix string) (*mongo.Collection, error) {
+	name := col.Name() + suffix
+	if err := col.Database().CreateCollection(ctx, name, options.CreateCollection().SetValidator(veReqName)); err != nil {
+		return nil, err
+	}
+	vc := col.Database().Collection(name)
+	if _, err := vc.InsertOne(ctx, bson.D{{Key: "_id", Value: 1}, {Key: "name", Value: "ok"}}); err != nil {
+		return nil, err
+	}
+	return vc, nil
+}
+
+func TestValidatorEnforce_JsonSchema_Update_InvalidRejected(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "ValidatorEnforce_JsonSchema_Update_InvalidRejected",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			vc, err := veJsonSchemaColl(ctx, col, "_jsupd")
+			if err != nil {
+				return nil, err
+			}
+			// $set name to an int violates bsonType:"string".
+			_, updErr := vc.UpdateOne(ctx, bson.D{{Key: "_id", Value: 1}},
+				bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: int32(5)}}}})
+			return classifyWrite(updErr), nil
+		},
+	})
+}
+
+func TestValidatorEnforce_JsonSchema_FindAndModify_InvalidRejected(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "ValidatorEnforce_JsonSchema_FindAndModify_InvalidRejected",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			vc, err := veJsonSchemaColl(ctx, col, "_jsfam")
+			if err != nil {
+				return nil, err
+			}
+			// $unset the required "name" field.
+			famErr := vc.FindOneAndUpdate(ctx, bson.D{{Key: "_id", Value: 1}},
+				bson.D{{Key: "$unset", Value: bson.D{{Key: "name", Value: ""}}}}).Err()
+			return classifyWrite(famErr), nil
+		},
+	})
+}
+
+func TestValidatorEnforce_JsonSchema_BulkWrite_InvalidRejected(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "ValidatorEnforce_JsonSchema_BulkWrite_InvalidRejected",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			vc, err := veJsonSchemaColl(ctx, col, "_jsbw")
+			if err != nil {
+				return nil, err
+			}
+			_, updErr := vc.BulkWrite(ctx, []mongo.WriteModel{
+				mongo.NewUpdateOneModel().
+					SetFilter(bson.D{{Key: "_id", Value: 1}}).
+					SetUpdate(bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: int32(9)}}}}),
+			})
+			// insert missing the required "name" field.
+			_, insErr := vc.BulkWrite(ctx, []mongo.WriteModel{
+				mongo.NewInsertOneModel().SetDocument(bson.D{{Key: "_id", Value: 2}, {Key: "other", Value: "x"}}),
+			})
+			return bson.D{{Key: "update", Value: classifyWrite(updErr)}, {Key: "insert", Value: classifyWrite(insErr)}}, nil
+		},
+	})
+}
+
+// veLevelSetup creates a collection WITHOUT a validator, seeds a doc that will be
+// grandfathered invalid (_id:1, age:-5) and a valid one (_id:2, age:10), then
+// collMods the non-negative-age validator on at the given validationLevel.
+func veLevelSetup(ctx context.Context, col *mongo.Collection, suffix, level string) (*mongo.Collection, error) {
+	name := col.Name() + suffix
+	if err := col.Database().CreateCollection(ctx, name); err != nil {
+		return nil, err
+	}
+	vc := col.Database().Collection(name)
+	if _, err := vc.InsertMany(ctx, []interface{}{
+		bson.D{{Key: "_id", Value: 1}, {Key: "age", Value: int32(-5)}},
+		bson.D{{Key: "_id", Value: 2}, {Key: "age", Value: int32(10)}},
+	}); err != nil {
+		return nil, err
+	}
+	if err := vc.Database().RunCommand(ctx, bson.D{
+		{Key: "collMod", Value: name},
+		{Key: "validator", Value: veNonNegAge},
+		{Key: "validationLevel", Value: level},
+		{Key: "validationAction", Value: "error"},
+	}).Err(); err != nil {
+		return nil, err
+	}
+	return vc, nil
+}
+
+// TestValidatorLevel_Strict_ValidatesGrandfathered: under strict, an update to an
+// already-invalid document whose result is still invalid is rejected.
+func TestValidatorLevel_Strict_ValidatesGrandfathered(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "ValidatorLevel_Strict_ValidatesGrandfathered",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			vc, err := veLevelSetup(ctx, col, "_strict", "strict")
+			if err != nil {
+				return nil, err
+			}
+			_, uErr := vc.UpdateOne(ctx, bson.D{{Key: "_id", Value: 1}},
+				bson.D{{Key: "$set", Value: bson.D{{Key: "note", Value: "x"}}}})
+			return classifyWrite(uErr), nil
+		},
+	})
+}
+
+// TestValidatorLevel_Moderate_GrandfathersInvalid: under moderate, an update to an
+// already-invalid document is allowed (its pre-image failed the validator), while
+// an update turning a valid document invalid is still rejected.
+func TestValidatorLevel_Moderate_GrandfathersInvalid(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "ValidatorLevel_Moderate_GrandfathersInvalid",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			vc, err := veLevelSetup(ctx, col, "_moderate", "moderate")
+			if err != nil {
+				return nil, err
+			}
+			_, grandErr := vc.UpdateOne(ctx, bson.D{{Key: "_id", Value: 1}},
+				bson.D{{Key: "$set", Value: bson.D{{Key: "note", Value: "x"}}}})
+			_, validErr := vc.UpdateOne(ctx, bson.D{{Key: "_id", Value: 2}},
+				bson.D{{Key: "$set", Value: bson.D{{Key: "age", Value: int32(-1)}}}})
+			return bson.D{
+				{Key: "grandfathered", Value: classifyWrite(grandErr)},
+				{Key: "validToInvalid", Value: classifyWrite(validErr)},
+			}, nil
+		},
+	})
+}
