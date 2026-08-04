@@ -23,6 +23,7 @@ package tests
 import (
 	"context"
 	"errors"
+	"sort"
 	"testing"
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
@@ -381,6 +382,121 @@ func TestValidatorLevel_Moderate_JsonSchema_GrandfathersInvalid(t *testing.T) {
 			return bson.D{
 				{Key: "grandfathered", Value: classifyWrite(grandErr)},
 				{Key: "validToInvalid", Value: classifyWrite(validErr)},
+			}, nil
+		},
+	})
+}
+
+// veAuditIDs runs an audit query and returns the matching integer _ids in sorted
+// order. Installing a validator never retro-checks existing documents, so the
+// idiom for finding pre-existing offenders is find({$nor:[<validator>]}); this
+// asserts both engines flag the identical set. Sorting in Go keeps the result
+// independent of natural scan order.
+func veAuditIDs(ctx context.Context, vc *mongo.Collection, filter bson.D) ([]int32, error) {
+	cur, err := vc.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+	var ids []int32
+	for cur.Next(ctx) {
+		var doc struct {
+			ID int32 `bson:"_id"`
+		}
+		if err := cur.Decode(&doc); err != nil {
+			return nil, err
+		}
+		ids = append(ids, doc.ID)
+	}
+	if err := cur.Err(); err != nil {
+		return nil, err
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	return ids, nil
+}
+
+// TestValidatorAudit_QueryExpr_FindsNonConforming: a query-expression validator
+// (age >= 0) installed over a collection that already holds violating docs never
+// rejects or removes them; find({$nor:[validator]}) returns exactly the offenders.
+func TestValidatorAudit_QueryExpr_FindsNonConforming(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "ValidatorAudit_QueryExpr_FindsNonConforming",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			name := col.Name() + "_auditqe"
+			if err := col.Database().CreateCollection(ctx, name); err != nil {
+				return nil, err
+			}
+			vc := col.Database().Collection(name)
+			if _, err := vc.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: 1}, {Key: "age", Value: int32(-5)}},
+				bson.D{{Key: "_id", Value: 2}, {Key: "age", Value: int32(10)}},
+				bson.D{{Key: "_id", Value: 3}, {Key: "age", Value: int32(-1)}},
+				bson.D{{Key: "_id", Value: 4}, {Key: "age", Value: int32(0)}},
+			}); err != nil {
+				return nil, err
+			}
+			if err := vc.Database().RunCommand(ctx, bson.D{
+				{Key: "collMod", Value: name},
+				{Key: "validator", Value: veNonNegAge},
+			}).Err(); err != nil {
+				return nil, err
+			}
+			total, err := vc.CountDocuments(ctx, bson.D{})
+			if err != nil {
+				return nil, err
+			}
+			offenders, err := veAuditIDs(ctx, vc, bson.D{{Key: "$nor", Value: bson.A{veNonNegAge}}})
+			if err != nil {
+				return nil, err
+			}
+			return bson.D{
+				{Key: "totalAfterInstall", Value: total},
+				{Key: "nonConforming", Value: offenders},
+			}, nil
+		},
+	})
+}
+
+// TestValidatorAudit_JsonSchema_FindsNonConforming: same audit idiom for a
+// $jsonSchema validator; $jsonSchema is a real query operator, so
+// find({$nor:[{$jsonSchema:...}]}) returns docs missing/misshaping the required
+// field. Confirms DumboDB's validator engine and query engine agree on membership.
+func TestValidatorAudit_JsonSchema_FindsNonConforming(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "ValidatorAudit_JsonSchema_FindsNonConforming",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			name := col.Name() + "_auditjs"
+			if err := col.Database().CreateCollection(ctx, name); err != nil {
+				return nil, err
+			}
+			vc := col.Database().Collection(name)
+			if _, err := vc.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: 1}, {Key: "other", Value: "x"}},
+				bson.D{{Key: "_id", Value: 2}, {Key: "name", Value: "ok"}},
+				bson.D{{Key: "_id", Value: 3}, {Key: "name", Value: int32(5)}},
+				bson.D{{Key: "_id", Value: 4}, {Key: "name", Value: "good"}},
+			}); err != nil {
+				return nil, err
+			}
+			if err := vc.Database().RunCommand(ctx, bson.D{
+				{Key: "collMod", Value: name},
+				{Key: "validator", Value: veReqName},
+			}).Err(); err != nil {
+				return nil, err
+			}
+			offenders, err := veAuditIDs(ctx, vc, bson.D{{Key: "$nor", Value: bson.A{veReqName}}})
+			if err != nil {
+				return nil, err
+			}
+			// The offenders remain queryable/readable directly by _id (install did
+			// not delete them): read one back to prove it survived.
+			var survived bson.M
+			readErr := vc.FindOne(ctx, bson.D{{Key: "_id", Value: 1}}).Decode(&survived)
+			return bson.D{
+				{Key: "nonConforming", Value: offenders},
+				{Key: "offenderStillReadable", Value: readErr == nil},
 			}, nil
 		},
 	})
