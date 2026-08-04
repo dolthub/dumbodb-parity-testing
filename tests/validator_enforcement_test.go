@@ -341,3 +341,47 @@ func TestValidatorLevel_Moderate_GrandfathersInvalid(t *testing.T) {
 		},
 	})
 }
+
+// TestValidatorLevel_Moderate_JsonSchema_GrandfathersInvalid fills the
+// $jsonSchema x moderate cell: a moderate-level $jsonSchema validator skips an
+// update to a document that already failed the schema (grandfathered), while
+// still rejecting an update that turns a schema-valid document invalid.
+func TestValidatorLevel_Moderate_JsonSchema_GrandfathersInvalid(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "ValidatorLevel_Moderate_JsonSchema_GrandfathersInvalid",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			name := col.Name() + "_jsmod"
+			if err := col.Database().CreateCollection(ctx, name); err != nil {
+				return nil, err
+			}
+			vc := col.Database().Collection(name)
+			// _id:1 lacks the required "name" (grandfathered invalid); _id:2 is valid.
+			if _, err := vc.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: 1}, {Key: "other", Value: "x"}},
+				bson.D{{Key: "_id", Value: 2}, {Key: "name", Value: "ok"}},
+			}); err != nil {
+				return nil, err
+			}
+			if err := vc.Database().RunCommand(ctx, bson.D{
+				{Key: "collMod", Value: name},
+				{Key: "validator", Value: veReqName},
+				{Key: "validationLevel", Value: "moderate"},
+				{Key: "validationAction", Value: "error"},
+			}).Err(); err != nil {
+				return nil, err
+			}
+
+			// Update the grandfathered-invalid doc: moderate skips it -> allowed.
+			_, grandErr := vc.UpdateOne(ctx, bson.D{{Key: "_id", Value: 1}},
+				bson.D{{Key: "$set", Value: bson.D{{Key: "other", Value: "y"}}}})
+			// Turn the valid doc invalid ($set name to an int): rejected.
+			_, validErr := vc.UpdateOne(ctx, bson.D{{Key: "_id", Value: 2}},
+				bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: int32(5)}}}})
+			return bson.D{
+				{Key: "grandfathered", Value: classifyWrite(grandErr)},
+				{Key: "validToInvalid", Value: classifyWrite(validErr)},
+			}, nil
+		},
+	})
+}
