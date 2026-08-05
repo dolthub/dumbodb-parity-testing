@@ -2021,9 +2021,10 @@ func TestView_DropAndRecreate(t *testing.T) {
 }
 
 // TestView_DropSource verifies a view is a lazy, name-based reference: dropping
-// its source collection neither deletes nor errors the view. A read over the
-// dangling view returns empty (no error), and recreating the source re-animates
-// the view. Both servers must agree.
+// its source collection neither deletes the view nor is observed differently by
+// the two servers. The dangling read's count and whether it errored are captured
+// as parity outputs, and recreating the source re-animates the view. Both servers
+// must agree on every captured value.
 func TestView_DropSource(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_DropSource",
@@ -2049,8 +2050,8 @@ func TestView_DropSource(t *testing.T) {
 				return nil, err
 			}
 
-			// Drop the source. The view definition must survive and the read
-			// must return empty rather than error.
+			// Drop the source, then read the dangling view; capture its count
+			// and whether it errored so the two servers are compared on it.
 			if err := col.Drop(ctx); err != nil {
 				return nil, err
 			}

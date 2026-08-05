@@ -267,9 +267,10 @@ func resolveServer(envKey, dirPrefix string, args serverArgs) (string, error) {
 }
 
 type serverProc struct {
-	cmd *exec.Cmd
-	dir string
-	log string
+	cmd  *exec.Cmd
+	dir  string
+	log  string
+	logf *os.File
 }
 
 func (p *serverProc) stop() {
@@ -278,6 +279,9 @@ func (p *serverProc) stop() {
 	}
 	_ = p.cmd.Process.Kill()
 	_, _ = p.cmd.Process.Wait()
+	if p.logf != nil {
+		_ = p.logf.Close()
+	}
 	if p.dir != "" {
 		_ = os.RemoveAll(p.dir)
 	}
@@ -303,6 +307,9 @@ func (p *serverProc) shutdownGraceful(grace time.Duration) {
 		_ = p.cmd.Process.Kill()
 		<-done
 	}
+	if p.logf != nil {
+		_ = p.logf.Close()
+	}
 }
 
 // startProc launches cmd with its output routed to a temp log file for
@@ -318,7 +325,7 @@ func startProc(cmd *exec.Cmd, name, dir string) (*serverProc, error) {
 		_ = logf.Close()
 		return nil, fmt.Errorf("start %s: %w", name, err)
 	}
-	return &serverProc{cmd: cmd, dir: dir, log: logf.Name()}, nil
+	return &serverProc{cmd: cmd, dir: dir, log: logf.Name(), logf: logf}, nil
 }
 
 func findMongodBin() string {
