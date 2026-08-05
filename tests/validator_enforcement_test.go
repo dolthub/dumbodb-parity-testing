@@ -501,3 +501,89 @@ func TestValidatorAudit_JsonSchema_FindsNonConforming(t *testing.T) {
 		},
 	})
 }
+
+// veListValidatorOptions reads a collection's validator/validationLevel/
+// validationAction from listCollections and returns them normalized for
+// comparison. This pins DumboDB's listCollections option fidelity against the
+// oracle -- notably that MongoDB does NOT materialize the level/action defaults
+// there (they are absent, decoded as empty strings) and reports only what was
+// explicitly set.
+func veListValidatorOptions(ctx context.Context, db *mongo.Database, name string) (interface{}, error) {
+	var res struct {
+		Cursor struct {
+			FirstBatch []struct {
+				Options struct {
+					Validator        bson.D `bson:"validator"`
+					ValidationLevel  string `bson:"validationLevel"`
+					ValidationAction string `bson:"validationAction"`
+				} `bson:"options"`
+			} `bson:"firstBatch"`
+		} `bson:"cursor"`
+	}
+	if err := db.RunCommand(ctx, bson.D{
+		{Key: "listCollections", Value: 1},
+		{Key: "filter", Value: bson.D{{Key: "name", Value: name}}},
+	}).Decode(&res); err != nil {
+		return nil, err
+	}
+	if len(res.Cursor.FirstBatch) != 1 {
+		return bson.D{{Key: "found", Value: false}}, nil
+	}
+	o := res.Cursor.FirstBatch[0].Options
+	return bson.D{
+		{Key: "validator", Value: o.Validator},
+		{Key: "validationLevel", Value: o.ValidationLevel},
+		{Key: "validationAction", Value: o.ValidationAction},
+	}, nil
+}
+
+// A validator created without an explicit level/action: MongoDB's
+// listCollections reports the validator but omits validationLevel/
+// validationAction (they come back empty). DumboDB must match.
+func TestValidatorOptions_ValidatorOnly(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "ValidatorOptions_ValidatorOnly",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			name := col.Name() + "_optdefault"
+			if err := col.Database().CreateCollection(ctx, name,
+				options.CreateCollection().SetValidator(veNonNegAge)); err != nil {
+				return nil, err
+			}
+			return veListValidatorOptions(ctx, col.Database(), name)
+		},
+	})
+}
+
+// Explicit validationLevel / validationAction are preserved verbatim.
+func TestValidatorOptions_ExplicitPreserved(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "ValidatorOptions_ExplicitPreserved",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			name := col.Name() + "_optexplicit"
+			if err := col.Database().CreateCollection(ctx, name, options.CreateCollection().
+				SetValidator(veNonNegAge).SetValidationLevel("moderate").SetValidationAction("warn")); err != nil {
+				return nil, err
+			}
+			return veListValidatorOptions(ctx, col.Database(), name)
+		},
+	})
+}
+
+// A $jsonSchema validator with no explicit level/action: same as above, the
+// level/action are absent in listCollections. DumboDB must match.
+func TestValidatorOptions_JsonSchemaValidatorOnly(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "ValidatorOptions_JsonSchemaValidatorOnly",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			name := col.Name() + "_optjsonschema"
+			if err := col.Database().CreateCollection(ctx, name,
+				options.CreateCollection().SetValidator(veReqName)); err != nil {
+				return nil, err
+			}
+			return veListValidatorOptions(ctx, col.Database(), name)
+		},
+	})
+}
