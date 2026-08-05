@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -266,9 +267,10 @@ func resolveServer(envKey, dirPrefix string, args serverArgs) (string, error) {
 }
 
 type serverProc struct {
-	cmd *exec.Cmd
-	dir string
-	log string
+	cmd  *exec.Cmd
+	dir  string
+	log  string
+	logf *os.File
 }
 
 func (p *serverProc) stop() {
@@ -277,8 +279,36 @@ func (p *serverProc) stop() {
 	}
 	_ = p.cmd.Process.Kill()
 	_, _ = p.cmd.Process.Wait()
+	if p.logf != nil {
+		_ = p.logf.Close()
+	}
 	if p.dir != "" {
 		_ = os.RemoveAll(p.dir)
+	}
+}
+
+// shutdownGraceful sends SIGTERM and waits up to grace for a clean exit,
+// escalating to SIGKILL if the process does not stop in time. It never touches
+// the data directory: callers that restart a server on the same data dir need
+// its on-disk state to survive a graceful shutdown, not crash recovery.
+func (p *serverProc) shutdownGraceful(grace time.Duration) {
+	if p == nil || p.cmd == nil || p.cmd.Process == nil {
+		return
+	}
+	_ = p.cmd.Process.Signal(syscall.SIGTERM)
+	done := make(chan struct{})
+	go func() {
+		_, _ = p.cmd.Process.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(grace):
+		_ = p.cmd.Process.Kill()
+		<-done
+	}
+	if p.logf != nil {
+		_ = p.logf.Close()
 	}
 }
 
@@ -295,7 +325,7 @@ func startProc(cmd *exec.Cmd, name, dir string) (*serverProc, error) {
 		_ = logf.Close()
 		return nil, fmt.Errorf("start %s: %w", name, err)
 	}
-	return &serverProc{cmd: cmd, dir: dir, log: logf.Name()}, nil
+	return &serverProc{cmd: cmd, dir: dir, log: logf.Name(), logf: logf}, nil
 }
 
 func findMongodBin() string {

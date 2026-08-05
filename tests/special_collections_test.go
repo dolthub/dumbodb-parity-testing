@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
 	"testing"
 	"time"
@@ -736,6 +737,450 @@ func TestView_Empty_Pipeline(t *testing.T) {
 			return bson.D{{Key: "count", Value: count}}, nil
 		},
 	})
+}
+
+func TestView_ListIndexes_NotSupported(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "View_ListIndexes_NotSupported",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			viewName := "view_listindexes"
+			if err := db.CreateView(ctx, viewName, col.Name(), mongo.Pipeline{}); err != nil {
+				return nil, err
+			}
+			defer db.Collection(viewName).Drop(ctx)
+			return nil, db.RunCommand(ctx, bson.D{{Key: "listIndexes", Value: viewName}}).Err()
+		},
+	})
+}
+
+func TestView_CollStats_NotSupported(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "View_CollStats_NotSupported",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			viewName := "view_collstats"
+			if err := db.CreateView(ctx, viewName, col.Name(), mongo.Pipeline{}); err != nil {
+				return nil, err
+			}
+			defer db.Collection(viewName).Drop(ctx)
+			return nil, db.RunCommand(ctx, bson.D{{Key: "collStats", Value: viewName}}).Err()
+		},
+	})
+}
+
+func TestView_ListCollections_TypeAndOptions(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "View_ListCollections_TypeAndOptions",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			viewName := "view_typeopts"
+			pipeline := mongo.Pipeline{
+				bson.D{{Key: "$match", Value: bson.D{{Key: "x", Value: int32(1)}}}},
+			}
+			if err := db.CreateView(ctx, viewName, col.Name(), pipeline); err != nil {
+				return nil, err
+			}
+			defer db.Collection(viewName).Drop(ctx)
+
+			cur, err := db.ListCollections(ctx, bson.D{{Key: "name", Value: viewName}})
+			if err != nil {
+				return nil, err
+			}
+			var infos []bson.M
+			if err := cur.All(ctx, &infos); err != nil {
+				return nil, err
+			}
+			if len(infos) != 1 {
+				return nil, fmt.Errorf("expected exactly one listCollections entry for %q, got %d", viewName, len(infos))
+			}
+			opts, _ := infos[0]["options"].(bson.M)
+			pipe, _ := opts["pipeline"].(bson.A)
+			return bson.D{
+				{Key: "type", Value: infos[0]["type"]},
+				{Key: "viewOn", Value: opts["viewOn"]},
+				{Key: "pipelineLen", Value: int32(len(pipe))},
+			}, nil
+		},
+	})
+}
+
+func TestView_Distinct(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "View_Distinct",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "status", Value: "active"}, {Key: "region", Value: "east"}},
+				bson.D{{Key: "status", Value: "active"}, {Key: "region", Value: "west"}},
+				bson.D{{Key: "status", Value: "inactive"}, {Key: "region", Value: "east"}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			viewName := "view_distinct"
+			pipeline := mongo.Pipeline{
+				bson.D{{Key: "$match", Value: bson.D{{Key: "status", Value: "active"}}}},
+			}
+			if err := db.CreateView(ctx, viewName, col.Name(), pipeline); err != nil {
+				return nil, err
+			}
+			defer db.Collection(viewName).Drop(ctx)
+
+			vals, err := db.Collection(viewName).Distinct(ctx, "region", bson.D{})
+			if err != nil {
+				return nil, err
+			}
+			strs := make([]string, 0, len(vals))
+			for _, v := range vals {
+				strs = append(strs, fmt.Sprintf("%v", v))
+			}
+			sort.Strings(strs)
+			return bson.D{{Key: "regions", Value: strs}}, nil
+		},
+	})
+}
+
+func TestView_Nested(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "View_Nested",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "n", Value: int32(1)}},
+				bson.D{{Key: "n", Value: int32(2)}},
+				bson.D{{Key: "n", Value: int32(3)}},
+				bson.D{{Key: "n", Value: int32(4)}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			v1, v2 := "view_nested_inner", "view_nested_outer"
+			if err := db.CreateView(ctx, v1, col.Name(), mongo.Pipeline{
+				bson.D{{Key: "$match", Value: bson.D{{Key: "n", Value: bson.D{{Key: "$gte", Value: int32(2)}}}}}},
+			}); err != nil {
+				return nil, err
+			}
+			defer db.Collection(v1).Drop(ctx)
+			if err := db.CreateView(ctx, v2, v1, mongo.Pipeline{
+				bson.D{{Key: "$match", Value: bson.D{{Key: "n", Value: bson.D{{Key: "$lte", Value: int32(3)}}}}}},
+			}); err != nil {
+				return nil, err
+			}
+			defer db.Collection(v2).Drop(ctx)
+
+			count, err := db.Collection(v2).CountDocuments(ctx, bson.D{})
+			if err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "count", Value: count}}, nil
+		},
+	})
+}
+
+// runViewErrorCase runs op against both servers' test collections and returns
+// the two resulting errors. It is used by the view error-parity cases whose
+// MongoDB message text carries values that need not (and cannot sensibly) be
+// reproduced byte-for-byte -- a random collection UUID, or a spelled-out
+// namespace chain -- so they assert the error code and codeName match instead of
+// the full message.
+func runViewErrorCase(t *testing.T, name string, op func(ctx context.Context, col *mongo.Collection) error) (mongoErr, dumboErr error) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	clients, err := harness.GetClients(ctx)
+	if err != nil {
+		t.Fatalf("%s: get clients: %v", name, err)
+	}
+	mongoCol, dumboDBCol, cleanup, err := clients.TestDB(ctx, name)
+	if err != nil {
+		t.Fatalf("%s: allocate test DB: %v", name, err)
+	}
+	defer cleanup()
+
+	return op(ctx, mongoCol), op(ctx, dumboDBCol)
+}
+
+func assertCommandError(t *testing.T, label string, err error, wantCode int32, wantName string) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("%s: expected an error, got nil", label)
+	}
+	code, name, ok := harness.CommandErrorCode(err)
+	if !ok {
+		t.Fatalf("%s: not a command error: %v", label, err)
+	}
+	if code != wantCode {
+		t.Errorf("%s: error code = %d, want %d (err=%v)", label, code, wantCode, err)
+	}
+	if name != wantName {
+		t.Errorf("%s: codeName = %q, want %q (err=%v)", label, name, wantName, err)
+	}
+}
+
+// TestView_Cycle (V6) creates two views that reference each other. Both servers
+// reject the closing definition with GraphContainsCycle. MongoDB's message
+// spells out the full resolved namespace chain, which is not a meaningful
+// divergence, so this asserts the code and codeName match rather than the text.
+func TestView_Cycle(t *testing.T) {
+	mErr, dErr := runViewErrorCase(t, "View_Cycle", func(ctx context.Context, col *mongo.Collection) error {
+		db := col.Database()
+		vA, vB := "view_cycle_a", "view_cycle_b"
+		if err := db.CreateView(ctx, vA, vB, mongo.Pipeline{}); err != nil {
+			return err
+		}
+		return db.CreateView(ctx, vB, vA, mongo.Pipeline{})
+	})
+	assertCommandError(t, "mongo", mErr, 5, "GraphContainsCycle")
+	assertCommandError(t, "dumbodb", dErr, 5, "GraphContainsCycle")
+}
+
+func TestView_DepthLimit(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "View_DepthLimit",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			source := col.Name()
+			const depth = 25
+			for i := 1; i <= depth; i++ {
+				name := fmt.Sprintf("view_depth_%d", i)
+				if err := db.CreateView(ctx, name, source, mongo.Pipeline{}); err != nil {
+					return nil, err
+				}
+				defer db.Collection(name).Drop(ctx)
+				source = name
+			}
+			count, err := db.Collection(source).CountDocuments(ctx, bson.D{})
+			if err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "count", Value: count}}, nil
+		},
+	})
+}
+
+func TestView_CollModRedefine(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "View_CollModRedefine",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "grp", Value: "a"}},
+				bson.D{{Key: "grp", Value: "a"}},
+				bson.D{{Key: "grp", Value: "b"}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			viewName := "view_collmod"
+			if err := db.CreateView(ctx, viewName, col.Name(), mongo.Pipeline{
+				bson.D{{Key: "$match", Value: bson.D{{Key: "grp", Value: "a"}}}},
+			}); err != nil {
+				return nil, err
+			}
+			defer db.Collection(viewName).Drop(ctx)
+
+			if err := db.RunCommand(ctx, bson.D{
+				{Key: "collMod", Value: viewName},
+				{Key: "viewOn", Value: col.Name()},
+				{Key: "pipeline", Value: mongo.Pipeline{
+					bson.D{{Key: "$match", Value: bson.D{{Key: "grp", Value: "b"}}}},
+				}},
+			}).Err(); err != nil {
+				return nil, err
+			}
+
+			count, err := db.Collection(viewName).CountDocuments(ctx, bson.D{})
+			if err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "count", Value: count}}, nil
+		},
+	})
+}
+
+// TestView_Rename (V9) attempts to rename a view. MongoDB does not support
+// renaming a view; DumboDB now rejects it the same way, with the identical
+// CommandNotSupportedOnView error ("cannot rename view: <ns>").
+func TestView_Rename(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "View_Rename",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "k", Value: "keep"}},
+				bson.D{{Key: "k", Value: "drop"}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			oldName, newName := "view_rename_old", "view_rename_new"
+			if err := db.CreateView(ctx, oldName, col.Name(), mongo.Pipeline{
+				bson.D{{Key: "$match", Value: bson.D{{Key: "k", Value: "keep"}}}},
+			}); err != nil {
+				return nil, err
+			}
+			defer db.Collection(oldName).Drop(ctx)
+			defer db.Collection(newName).Drop(ctx)
+
+			admin := db.Client().Database("admin")
+			if err := admin.RunCommand(ctx, bson.D{
+				{Key: "renameCollection", Value: db.Name() + "." + oldName},
+				{Key: "to", Value: db.Name() + "." + newName},
+			}).Err(); err != nil {
+				return nil, err
+			}
+
+			count, err := db.Collection(newName).CountDocuments(ctx, bson.D{})
+			if err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "count", Value: count}}, nil
+		},
+	})
+}
+
+// TestView_CreateOverExistingCollection (V10) creating a view whose name is an
+// existing collection fails with NamespaceExists on both servers. Both messages
+// report the existing collection's UUID; only the UUID value differs. This
+// asserts the code and codeName match, that each message embeds a UUID, and that
+// the messages are identical once the UUID value is normalized out.
+func TestView_CreateOverExistingCollection(t *testing.T) {
+	mErr, dErr := runViewErrorCase(t, "View_CreateOverExistingCollection", func(ctx context.Context, col *mongo.Collection) error {
+		db := col.Database()
+		if _, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}}); err != nil {
+			return err
+		}
+		taken := "ns_existing_coll"
+		if _, err := db.Collection(taken).InsertOne(ctx, bson.D{{Key: "y", Value: int32(1)}}); err != nil {
+			return err
+		}
+		return db.CreateView(ctx, taken, col.Name(), mongo.Pipeline{})
+	})
+	assertCommandError(t, "mongo", mErr, 48, "NamespaceExists")
+	assertCommandError(t, "dumbodb", dErr, 48, "NamespaceExists")
+
+	uuidRe := regexp.MustCompile(`UUID\("[0-9a-fA-F-]+"\)`)
+	if !uuidRe.MatchString(mErr.Error()) {
+		t.Errorf("MongoDB NamespaceExists message missing a UUID: %v", mErr)
+	}
+	if !uuidRe.MatchString(dErr.Error()) {
+		t.Errorf("DumboDB NamespaceExists message missing a UUID: %v", dErr)
+	}
+	mNorm := uuidRe.ReplaceAllString(mErr.Error(), `UUID("<uuid>")`)
+	dNorm := uuidRe.ReplaceAllString(dErr.Error(), `UUID("<uuid>")`)
+	if mNorm != dNorm {
+		t.Errorf("messages differ beyond the UUID value:\n  mongo:   %s\n  dumbodb: %s", mNorm, dNorm)
+	}
+}
+
+// TestView_CreateCollectionOverExistingView (V11) creating a collection whose
+// name is an existing view fails with NamespaceExists on both servers. MongoDB's
+// message spells out "is a view on <viewOn>", which is not a meaningful
+// divergence, so this asserts the code and codeName match.
+func TestView_CreateCollectionOverExistingView(t *testing.T) {
+	mErr, dErr := runViewErrorCase(t, "View_CreateCollectionOverExistingView", func(ctx context.Context, col *mongo.Collection) error {
+		db := col.Database()
+		if _, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}}); err != nil {
+			return err
+		}
+		viewName := "ns_existing_view"
+		if err := db.CreateView(ctx, viewName, col.Name(), mongo.Pipeline{}); err != nil {
+			return err
+		}
+		return db.CreateCollection(ctx, viewName)
+	})
+	assertCommandError(t, "mongo", mErr, 48, "NamespaceExists")
+	assertCommandError(t, "dumbodb", dErr, 48, "NamespaceExists")
+}
+
+// TestView_DurabilityAcrossRestart (V12): both MongoDB and DumboDB persist the
+// view definition across restart, so the view still resolves. It uses the
+// restartable server-pair primitive rather than the shared-server PairTest
+// harness because a restart would disrupt other tests sharing those servers.
+func TestView_DurabilityAcrossRestart(t *testing.T) {
+	srv := harness.StartRestartableServers(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	const dbName = "view_durability"
+	const baseColl = "src"
+	const viewName = "view_durable"
+
+	dial := func(uri string) *mongo.Client {
+		c, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+		if err != nil {
+			t.Fatalf("connect %s: %v", uri, err)
+		}
+		return c
+	}
+
+	seed := func(name, uri string) {
+		c := dial(uri)
+		defer func() { _ = c.Disconnect(ctx) }()
+		db := c.Database(dbName)
+		if _, err := db.Collection(baseColl).InsertMany(ctx, []interface{}{
+			bson.D{{Key: "status", Value: "active"}},
+			bson.D{{Key: "status", Value: "inactive"}},
+			bson.D{{Key: "status", Value: "active"}},
+		}); err != nil {
+			t.Fatalf("%s: seed base collection: %v", name, err)
+		}
+		if err := db.CreateView(ctx, viewName, baseColl, mongo.Pipeline{
+			bson.D{{Key: "$match", Value: bson.D{{Key: "status", Value: "active"}}}},
+		}); err != nil {
+			t.Fatalf("%s: create view: %v", name, err)
+		}
+	}
+	seed("mongo", srv.MongoURI)
+	seed("dumbodb", srv.DumboDBURI)
+
+	srv.Restart(t)
+
+	readView := func(uri string) (interface{}, error) {
+		c := dial(uri)
+		defer func() { _ = c.Disconnect(ctx) }()
+		count, err := c.Database(dbName).Collection(viewName).CountDocuments(ctx, bson.D{})
+		if err != nil {
+			return nil, err
+		}
+		return bson.D{{Key: "count", Value: count}}, nil
+	}
+	mRes, mErr := readView(srv.MongoURI)
+	dRes, dErr := readView(srv.DumboDBURI)
+
+	cmp := harness.CompareResponses(mRes, mErr, dRes, dErr)
+	if cmp.Result != harness.Match {
+		t.Errorf("FULL View_DurabilityAcrossRestart: DIVERGE (view did not survive restart)\n%s", cmp.Diff)
+		return
+	}
+	t.Logf("FULL View_DurabilityAcrossRestart: PASS")
 }
 
 func TestTimeSeries_CreateCollection_Basic(t *testing.T) {
@@ -1549,6 +1994,117 @@ func TestView_DropAndRecreate(t *testing.T) {
 			return bson.D{
 				{Key: "count_before", Value: count1},
 				{Key: "count_after", Value: count2},
+			}, nil
+		},
+	})
+}
+
+// TestView_DropSource verifies a view is a lazy, name-based reference: dropping
+// its source collection neither deletes the view nor changes behavior across the
+// two servers, and recreating the source re-animates the view.
+func TestView_DropSource(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "View_DropSource",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "x", Value: int32(1)}},
+				bson.D{{Key: "x", Value: int32(2)}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			viewName := "view_dropsource"
+			if err := db.CreateView(ctx, viewName, col.Name(), mongo.Pipeline{}); err != nil {
+				return nil, err
+			}
+			defer db.Collection(viewName).Drop(ctx)
+			view := db.Collection(viewName)
+
+			countBefore, err := view.CountDocuments(ctx, bson.D{})
+			if err != nil {
+				return nil, err
+			}
+
+			if err := col.Drop(ctx); err != nil {
+				return nil, err
+			}
+			countDangling, danglingErr := view.CountDocuments(ctx, bson.D{})
+
+			if _, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "x", Value: int32(10)}},
+				bson.D{{Key: "x", Value: int32(20)}},
+				bson.D{{Key: "x", Value: int32(30)}},
+			}); err != nil {
+				return nil, err
+			}
+			countAfter, err := view.CountDocuments(ctx, bson.D{})
+			if err != nil {
+				return nil, err
+			}
+
+			return bson.D{
+				{Key: "count_before", Value: countBefore},
+				{Key: "count_dangling", Value: countDangling},
+				{Key: "dangling_errored", Value: danglingErr != nil},
+				{Key: "count_after", Value: countAfter},
+			}, nil
+		},
+	})
+}
+
+// TestView_CollModPartialRedefine pins MongoDB's collMod-on-a-view behavior when
+// only one of viewOn/pipeline is supplied: the redefinition succeeds and the
+// omitted field keeps its existing value. A pipeline-only collMod preserves
+// viewOn; a viewOn-only collMod preserves the pipeline.
+func TestView_CollModPartialRedefine(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "View_CollModPartialRedefine",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			if _, err := db.Collection("cm_src_alt").InsertOne(ctx, bson.D{{Key: "x", Value: int32(2)}}); err != nil {
+				return nil, err
+			}
+			viewName := "view_partial_redef"
+			initial := mongo.Pipeline{{{Key: "$match", Value: bson.D{{Key: "tag", Value: "a"}}}}}
+			if err := db.CreateView(ctx, viewName, col.Name(), initial); err != nil {
+				return nil, err
+			}
+			defer db.Collection(viewName).Drop(ctx)
+
+			if err := db.RunCommand(ctx, bson.D{
+				{Key: "collMod", Value: viewName},
+				{Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "tag", Value: "b"}}}}}},
+			}).Err(); err != nil {
+				return nil, err
+			}
+			afterPipeOnly, err := tsCollOptions(ctx, db, viewName)
+			if err != nil {
+				return nil, err
+			}
+
+			if err := db.RunCommand(ctx, bson.D{
+				{Key: "collMod", Value: viewName},
+				{Key: "viewOn", Value: "cm_src_alt"},
+			}).Err(); err != nil {
+				return nil, err
+			}
+			afterViewOnOnly, err := tsCollOptions(ctx, db, viewName)
+			if err != nil {
+				return nil, err
+			}
+
+			return bson.D{
+				{Key: "pipeOnly_viewOn", Value: afterPipeOnly["viewOn"]},
+				{Key: "pipeOnly_pipeline", Value: afterPipeOnly["pipeline"]},
+				{Key: "viewOnOnly_viewOn", Value: afterViewOnOnly["viewOn"]},
+				{Key: "viewOnOnly_pipeline", Value: afterViewOnOnly["pipeline"]},
 			}, nil
 		},
 	})
