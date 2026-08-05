@@ -26,13 +26,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// TestRestartableServersPrimitive is the smoke test for the restartable
-// server-pair primitive (the prerequisite for the live-views durability
-// PairTest, V12). It writes an ordinary document -- durable on both servers
-// today -- restarts both servers on their same data directories, reconnects,
-// and confirms the document survives. This proves the primitive itself
-// preserves on-disk state across a graceful restart, independent of the
-// not-yet-durable view catalog it will later exercise.
 func TestRestartableServersPrimitive(t *testing.T) {
 	srv := harness.StartRestartableServers(t)
 

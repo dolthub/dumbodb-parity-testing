@@ -739,8 +739,6 @@ func TestView_Empty_Pipeline(t *testing.T) {
 	})
 }
 
-// TestView_ListIndexes_NotSupported checks that listIndexes on a view fails with
-// CommandNotSupportedOnView, as MongoDB does (a view has no indexes of its own).
 func TestView_ListIndexes_NotSupported(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_ListIndexes_NotSupported",
@@ -761,8 +759,6 @@ func TestView_ListIndexes_NotSupported(t *testing.T) {
 	})
 }
 
-// TestView_CollStats_NotSupported checks that collStats on a view fails with
-// CommandNotSupportedOnView, as MongoDB does.
 func TestView_CollStats_NotSupported(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_CollStats_NotSupported",
@@ -783,9 +779,6 @@ func TestView_CollStats_NotSupported(t *testing.T) {
 	})
 }
 
-// TestView_ListCollections_TypeAndOptions (V3) strengthens the listCollections
-// coverage: a view must be reported with type "view" and options carrying the
-// resolved viewOn and pipeline, not merely appear by name.
 func TestView_ListCollections_TypeAndOptions(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_ListCollections_TypeAndOptions",
@@ -827,8 +820,6 @@ func TestView_ListCollections_TypeAndOptions(t *testing.T) {
 	})
 }
 
-// TestView_Distinct (V4) exercises distinct against a view; DumboDB resolves the
-// view source and applies the pipeline.
 func TestView_Distinct(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_Distinct",
@@ -866,8 +857,6 @@ func TestView_Distinct(t *testing.T) {
 	})
 }
 
-// TestView_Nested (V5) reads a view defined on another view. DumboDB resolves
-// the view source chain and applies each pipeline in order.
 func TestView_Nested(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_Nested",
@@ -930,8 +919,6 @@ func runViewErrorCase(t *testing.T, name string, op func(ctx context.Context, co
 	return op(ctx, mongoCol), op(ctx, dumboDBCol)
 }
 
-// assertCommandError asserts err is a command error carrying the given numeric
-// code and codeName.
 func assertCommandError(t *testing.T, label string, err error, wantCode int32, wantName string) {
 	t.Helper()
 	if err == nil {
@@ -957,19 +944,15 @@ func TestView_Cycle(t *testing.T) {
 	mErr, dErr := runViewErrorCase(t, "View_Cycle", func(ctx context.Context, col *mongo.Collection) error {
 		db := col.Database()
 		vA, vB := "view_cycle_a", "view_cycle_b"
-		// vA -> vB is allowed (source need not exist yet).
 		if err := db.CreateView(ctx, vA, vB, mongo.Pipeline{}); err != nil {
 			return err
 		}
-		// vB -> vA closes the cycle; both servers reject this creation.
 		return db.CreateView(ctx, vB, vA, mongo.Pipeline{})
 	})
 	assertCommandError(t, "mongo", mErr, 5, "GraphContainsCycle")
 	assertCommandError(t, "dumbodb", dErr, 5, "GraphContainsCycle")
 }
 
-// TestView_DepthLimit (V7) builds a view chain deeper than the max resolution
-// depth (20). Both servers error with ViewDepthLimitExceeded.
 func TestView_DepthLimit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_DepthLimit",
@@ -999,8 +982,6 @@ func TestView_DepthLimit(t *testing.T) {
 	})
 }
 
-// TestView_CollModRedefine (V8) redefines a view's pipeline via collMod;
-// DumboDB rewrites the view's stored definition in place.
 func TestView_CollModRedefine(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_CollModRedefine",
@@ -1138,12 +1119,10 @@ func TestView_CreateCollectionOverExistingView(t *testing.T) {
 	assertCommandError(t, "dumbodb", dErr, 48, "NamespaceExists")
 }
 
-// TestView_DurabilityAcrossRestart (V12) creates a view, restarts both servers
-// on their same data directories, then reads the view. Both MongoDB and DumboDB
-// persist the view definition across restart, so the view still resolves. It
-// uses the restartable server-pair primitive rather than the shared-server
-// PairTest harness because a restart would disrupt other tests sharing those
-// servers.
+// TestView_DurabilityAcrossRestart (V12): both MongoDB and DumboDB persist the
+// view definition across restart, so the view still resolves. It uses the
+// restartable server-pair primitive rather than the shared-server PairTest
+// harness because a restart would disrupt other tests sharing those servers.
 func TestView_DurabilityAcrossRestart(t *testing.T) {
 	srv := harness.StartRestartableServers(t)
 
@@ -2021,10 +2000,8 @@ func TestView_DropAndRecreate(t *testing.T) {
 }
 
 // TestView_DropSource verifies a view is a lazy, name-based reference: dropping
-// its source collection neither deletes the view nor is observed differently by
-// the two servers. The dangling read's count and whether it errored are captured
-// as parity outputs, and recreating the source re-animates the view. Both servers
-// must agree on every captured value.
+// its source collection neither deletes the view nor changes behavior across the
+// two servers, and recreating the source re-animates the view.
 func TestView_DropSource(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_DropSource",
@@ -2050,14 +2027,11 @@ func TestView_DropSource(t *testing.T) {
 				return nil, err
 			}
 
-			// Drop the source, then read the dangling view; capture its count
-			// and whether it errored so the two servers are compared on it.
 			if err := col.Drop(ctx); err != nil {
 				return nil, err
 			}
 			countDangling, danglingErr := view.CountDocuments(ctx, bson.D{})
 
-			// Recreating the source (insert auto-creates it) re-animates the view.
 			if _, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "x", Value: int32(10)}},
 				bson.D{{Key: "x", Value: int32(20)}},
@@ -2083,8 +2057,7 @@ func TestView_DropSource(t *testing.T) {
 // TestView_CollModPartialRedefine pins MongoDB's collMod-on-a-view behavior when
 // only one of viewOn/pipeline is supplied: the redefinition succeeds and the
 // omitted field keeps its existing value. A pipeline-only collMod preserves
-// viewOn; a viewOn-only collMod preserves the pipeline. Both servers must agree
-// on the resulting view definition.
+// viewOn; a viewOn-only collMod preserves the pipeline.
 func TestView_CollModPartialRedefine(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_CollModPartialRedefine",
@@ -2105,7 +2078,6 @@ func TestView_CollModPartialRedefine(t *testing.T) {
 			}
 			defer db.Collection(viewName).Drop(ctx)
 
-			// collMod with only pipeline: viewOn must survive as col.Name().
 			if err := db.RunCommand(ctx, bson.D{
 				{Key: "collMod", Value: viewName},
 				{Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "tag", Value: "b"}}}}}},
@@ -2117,7 +2089,6 @@ func TestView_CollModPartialRedefine(t *testing.T) {
 				return nil, err
 			}
 
-			// collMod with only viewOn: the pipeline from the prior step survives.
 			if err := db.RunCommand(ctx, bson.D{
 				{Key: "collMod", Value: viewName},
 				{Key: "viewOn", Value: "cm_src_alt"},

@@ -27,10 +27,8 @@ import (
 const restartGrace = 15 * time.Second
 
 // RestartableServers is a private, non-auth MongoDB + DumboDB pair whose data
-// directories survive a restart. It lets a durability parity test write state,
-// bounce both servers on the SAME data directories, and confirm the state is
-// still there. It is the durability counterpart to EphemeralServers, which
-// discards its data directories on Stop.
+// directories survive a restart. It is the durability counterpart to
+// EphemeralServers, which discards its data directories on Stop.
 //
 // A restart is a graceful shutdown (SIGTERM), not a kill, so it exercises
 // durable-state persistence rather than crash recovery, and relaunches each
@@ -45,8 +43,6 @@ type RestartableServers struct {
 	dumbo *restartTarget
 }
 
-// restartTarget holds everything needed to relaunch one server on its own
-// persistent data directory across restarts.
 type restartTarget struct {
 	bin  string
 	dir  string
@@ -54,8 +50,6 @@ type restartTarget struct {
 	proc *serverProc
 }
 
-// launch starts the server on a fresh free port over its existing data
-// directory and returns its URI once it accepts connections.
 func (rt *restartTarget) launch(t *testing.T) string {
 	t.Helper()
 	port := mustFreePort(t)
@@ -77,8 +71,7 @@ func (rt *restartTarget) launch(t *testing.T) string {
 // StartRestartableServers launches a fresh non-auth mongod and dumbodb on free
 // ports with empty data directories, returning once both accept connections. A
 // missing server binary or a failed start is fatal -- never a skip -- so an
-// environment that cannot run these tests fails loudly. Teardown is registered
-// with t.Cleanup.
+// environment that cannot run these tests fails loudly.
 func StartRestartableServers(t *testing.T) *RestartableServers {
 	t.Helper()
 
