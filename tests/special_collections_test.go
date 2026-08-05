@@ -2080,6 +2080,65 @@ func TestView_DropSource(t *testing.T) {
 	})
 }
 
+// TestView_CollModPartialRedefine pins MongoDB's collMod-on-a-view behavior when
+// only one of viewOn/pipeline is supplied: the redefinition succeeds and the
+// omitted field keeps its existing value. A pipeline-only collMod preserves
+// viewOn; a viewOn-only collMod preserves the pipeline. Both servers must agree
+// on the resulting view definition.
+func TestView_CollModPartialRedefine(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "View_CollModPartialRedefine",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			if _, err := db.Collection("cm_src_alt").InsertOne(ctx, bson.D{{Key: "x", Value: int32(2)}}); err != nil {
+				return nil, err
+			}
+			viewName := "view_partial_redef"
+			initial := mongo.Pipeline{{{Key: "$match", Value: bson.D{{Key: "tag", Value: "a"}}}}}
+			if err := db.CreateView(ctx, viewName, col.Name(), initial); err != nil {
+				return nil, err
+			}
+			defer db.Collection(viewName).Drop(ctx)
+
+			// collMod with only pipeline: viewOn must survive as col.Name().
+			if err := db.RunCommand(ctx, bson.D{
+				{Key: "collMod", Value: viewName},
+				{Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "tag", Value: "b"}}}}}},
+			}).Err(); err != nil {
+				return nil, err
+			}
+			afterPipeOnly, err := tsCollOptions(ctx, db, viewName)
+			if err != nil {
+				return nil, err
+			}
+
+			// collMod with only viewOn: the pipeline from the prior step survives.
+			if err := db.RunCommand(ctx, bson.D{
+				{Key: "collMod", Value: viewName},
+				{Key: "viewOn", Value: "cm_src_alt"},
+			}).Err(); err != nil {
+				return nil, err
+			}
+			afterViewOnOnly, err := tsCollOptions(ctx, db, viewName)
+			if err != nil {
+				return nil, err
+			}
+
+			return bson.D{
+				{Key: "pipeOnly_viewOn", Value: afterPipeOnly["viewOn"]},
+				{Key: "pipeOnly_pipeline", Value: afterPipeOnly["pipeline"]},
+				{Key: "viewOnOnly_viewOn", Value: afterViewOnOnly["viewOn"]},
+				{Key: "viewOnOnly_pipeline", Value: afterViewOnOnly["pipeline"]},
+			}, nil
+		},
+	})
+}
+
 func TestCapped_CreateIndex_Fails(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Capped_CreateIndex_Fails",
