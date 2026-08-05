@@ -155,7 +155,7 @@ func (b *DumboDBBackend) Merge(ctx context.Context, fromBranch string) (time.Dur
 	start := time.Now()
 	err := b.client.Database(b.encodedDB()).RunCommand(ctx, bson.D{
 		{Key: "dumboMerge", Value: 1},
-		{Key: "merge_in", Value: fromBranch},
+		{Key: "mergeIn", Value: fromBranch},
 	}).Err()
 	dur := time.Since(start)
 	if err != nil {
