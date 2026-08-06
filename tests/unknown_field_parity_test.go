@@ -120,6 +120,42 @@ func TestUnknownField_RenameCollection(t *testing.T) {
 	})
 }
 
+// TestUnknownField_Introspection covers the safe introspection commands (ei1
+// Phase 3 subset). dataSize takes a namespace value; top is admin-scoped.
+func TestUnknownField_Introspection(t *testing.T) {
+	ufRejectionCase(t, "UnknownField_dbStats", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "dbStats", Value: int32(1)}}
+	})
+	ufRejectionCase(t, "UnknownField_collStats", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "collStats", Value: c}}
+	})
+
+	harness.PairTest(t, harness.TestCase{
+		Name:    "UnknownField_dataSize",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			ns := col.Database().Name() + "." + col.Name()
+			return unknownFieldCode(ctx, col, bson.D{{Key: "dataSize", Value: ns}})
+		},
+	})
+
+	// top is a legacy diagnostic command that is NOT strict-IDL in MongoDB: it
+	// accepts (ignores) an unknown field rather than rejecting it. DumboDB must
+	// match by NOT rejecting -- both return no IDLUnknownField (code 0).
+	harness.PairTest(t, harness.TestCase{
+		Name:    "UnknownField_top_notStrict",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			err := col.Database().Client().Database("admin").RunCommand(ctx, bson.D{
+				{Key: "top", Value: int32(1)},
+				{Key: "nonExistentField42", Value: int32(1)},
+			}).Err()
+			code, _, _ := harness.CommandErrorCode(err)
+			return bson.D{{Key: "unknownFieldCode", Value: code}}, nil
+		},
+	})
+}
+
 // TestUnknownField_EnvelopeAccepted proves the protocol envelope is NOT treated
 // as unknown: a command carrying the standard driver-appended fields succeeds
 // (no IDLUnknownField) on both servers.
