@@ -84,6 +84,42 @@ func TestUnknownField_CRUD(t *testing.T) {
 	})
 }
 
+// TestUnknownField_DDL covers the DDL family (ei1 Phase 2). renameCollection is
+// admin-scoped and handled separately below.
+func TestUnknownField_DDL(t *testing.T) {
+	ufRejectionCase(t, "UnknownField_drop", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "drop", Value: c}}
+	})
+	ufRejectionCase(t, "UnknownField_dropDatabase", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "dropDatabase", Value: int32(1)}}
+	})
+	ufRejectionCase(t, "UnknownField_dropIndexes", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "dropIndexes", Value: c}, {Key: "index", Value: "*"}}
+	})
+	ufRejectionCase(t, "UnknownField_collMod", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "collMod", Value: c}}
+	})
+}
+
+// TestUnknownField_RenameCollection covers renameCollection, which runs against
+// the admin database with fully-qualified namespaces.
+func TestUnknownField_RenameCollection(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "UnknownField_renameCollection",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			src := col.Database().Name() + "." + col.Name()
+			err := col.Database().Client().Database("admin").RunCommand(ctx, bson.D{
+				{Key: "renameCollection", Value: src},
+				{Key: "to", Value: src + "_renamed"},
+				{Key: "nonExistentField42", Value: int32(1)},
+			}).Err()
+			code, _, _ := harness.CommandErrorCode(err)
+			return bson.D{{Key: "unknownFieldCode", Value: code}}, nil
+		},
+	})
+}
+
 // TestUnknownField_EnvelopeAccepted proves the protocol envelope is NOT treated
 // as unknown: a command carrying the standard driver-appended fields succeeds
 // (no IDLUnknownField) on both servers.
