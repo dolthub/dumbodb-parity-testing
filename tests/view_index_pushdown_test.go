@@ -102,18 +102,40 @@ func TestView_IndexPushdown_DirectBaseControl(t *testing.T) {
 	})
 }
 
-// TestView_IndexPushdown_ViewRead demonstrates the jw1 gap: reading through a
-// view whose pipeline leads with an eq $match on an indexed base field. MongoDB
-// resolves the view to an aggregation over the base and uses the index (IXSCAN);
-// DumboDB full-scans the base (COLLSCAN). XFail until jw1 lands, then flip to
-// DumboDBFull.
+// TestView_IndexPushdown_ViewRead verifies reading through a view whose pipeline
+// leads with an eq $match on an indexed base field uses the index (IXSCAN) on
+// both servers: MongoDB resolves the view to an aggregation over the base, and
+// DumboDB pushes the view's leading $match to the base collection (workspace-jw1).
 func TestView_IndexPushdown_ViewRead(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "View_IndexPushdown_ViewRead",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   pushdownSetup,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return explainFindUsesIndex(ctx, col, "vw_active", bson.D{})
+		},
+	})
+}
+
+// TestView_IndexPushdown_NestedView verifies the pushdown survives view chain
+// flattening: a view over a view whose innermost leading stage is the indexed
+// $match still uses the base index on both servers.
+func TestView_IndexPushdown_NestedView(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "View_IndexPushdown_NestedView",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if err := pushdownSetup(ctx, col); err != nil {
+				return err
+			}
+			// vw_active_sorted reads vw_active (whose leading stage is the indexed
+			// $match) and appends a $sort; the resolved chain still leads with the
+			// indexed $match.
+			return col.Database().CreateView(ctx, "vw_active_sorted", "vw_active",
+				mongo.Pipeline{{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}}})
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return explainFindUsesIndex(ctx, col, "vw_active_sorted", bson.D{})
 		},
 	})
 }
