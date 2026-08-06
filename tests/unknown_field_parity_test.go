@@ -1,0 +1,105 @@
+// Copyright 2026 Dolthub, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package tests
+
+import (
+	"context"
+	"testing"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+
+	"github.com/dolthub/dumbodb-parity-testing/harness"
+)
+
+// unknownFieldCode appends a bogus top-level field to cmd, runs it, and returns
+// the resulting command-error code. MongoDB rejects an unknown top-level field
+// during IDL parsing (before executing the command) with IDLUnknownField
+// (40415), so cmd need only be well-formed enough to reach the parse, not to
+// succeed. DumboDB must match once its handler adopts common.RejectUnknownFields.
+func unknownFieldCode(ctx context.Context, col *mongo.Collection, cmd bson.D) (interface{}, error) {
+	full := make(bson.D, len(cmd), len(cmd)+1)
+	copy(full, cmd)
+	full = append(full, bson.E{Key: "nonExistentField42", Value: int32(1)})
+
+	err := col.Database().RunCommand(ctx, full).Err()
+	code, _, _ := harness.CommandErrorCode(err)
+	return bson.D{{Key: "unknownFieldCode", Value: code}}, nil
+}
+
+// ufRejectionCase asserts a command rejects an unknown top-level field
+// identically on both servers. build receives the test collection's name so the
+// command can target a real namespace.
+func ufRejectionCase(t *testing.T, name string, support harness.DumboDBSupport, build func(coll string) bson.D) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    name,
+		Support: support,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return unknownFieldCode(ctx, col, build(col.Name()))
+		},
+	})
+}
+
+// TestUnknownField_CRUD locks in the already-strict CRUD commands: MongoDB and
+// DumboDB both reject an unknown top-level field with IDLUnknownField (40415).
+// This is the ei1 Phase 0 CRUD regression guard. Later family phases add their
+// commands here, flipping Support from XFail to Full as each lands.
+func TestUnknownField_CRUD(t *testing.T) {
+	ufRejectionCase(t, "UnknownField_find", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "find", Value: c}}
+	})
+	ufRejectionCase(t, "UnknownField_count", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "count", Value: c}}
+	})
+	ufRejectionCase(t, "UnknownField_distinct", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "distinct", Value: c}, {Key: "key", Value: "x"}}
+	})
+	ufRejectionCase(t, "UnknownField_insert", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "insert", Value: c}, {Key: "documents", Value: bson.A{bson.D{{Key: "x", Value: int32(1)}}}}}
+	})
+	ufRejectionCase(t, "UnknownField_update", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "update", Value: c}, {Key: "updates", Value: bson.A{bson.D{
+			{Key: "q", Value: bson.D{}}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "a", Value: int32(1)}}}}},
+		}}}}
+	})
+	ufRejectionCase(t, "UnknownField_delete", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "delete", Value: c}, {Key: "deletes", Value: bson.A{bson.D{
+			{Key: "q", Value: bson.D{}}, {Key: "limit", Value: int32(1)},
+		}}}}
+	})
+	ufRejectionCase(t, "UnknownField_findAndModify", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "findAndModify", Value: c}, {Key: "remove", Value: true}}
+	})
+}
+
+// TestUnknownField_EnvelopeAccepted proves the protocol envelope is NOT treated
+// as unknown: a command carrying the standard driver-appended fields succeeds
+// (no IDLUnknownField) on both servers.
+func TestUnknownField_EnvelopeAccepted(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "UnknownField_EnvelopeAccepted",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			err := col.Database().RunCommand(ctx, bson.D{
+				{Key: "find", Value: col.Name()},
+				{Key: "comment", Value: "envelope"},
+				{Key: "maxTimeMS", Value: int32(5000)},
+				{Key: "readConcern", Value: bson.D{{Key: "level", Value: "local"}}},
+			}).Err()
+			code, _, _ := harness.CommandErrorCode(err)
+			return bson.D{{Key: "unknownFieldCode", Value: code}}, nil
+		},
+	})
+}
