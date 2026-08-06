@@ -160,47 +160,39 @@ func TestCompact_NonExistentCollection(t *testing.T) {
 	})
 }
 
-func TestAutoCompact_Enable(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "AutoCompact_Enable",
-		Support: harness.DumboDBFull,
-		Setup:   nil,
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// autoCompact enables background compaction for the database (8.0+).
-			return runCommandDoc(ctx, col, bson.D{
-				{Key: "autoCompact", Value: true},
-			})
-		},
-	})
-}
+// TestAutoCompact_DumboDBUnsupported documents a deliberate deviation: MongoDB
+// supports autoCompact (returns ok:1), but DumboDB has no background auto-
+// compaction on its Dolt-backed storage and reports NotImplemented (238) rather
+// than a misleading success. This is not a PairTest -- the servers intentionally
+// differ.
+func TestAutoCompact_DumboDBUnsupported(t *testing.T) {
+	ctx := context.Background()
 
-func TestAutoCompact_Disable(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "AutoCompact_Disable",
-		Support: harness.DumboDBFull,
-		Setup:   nil,
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// autoCompact with false disables background compaction.
-			return runCommandDoc(ctx, col, bson.D{
-				{Key: "autoCompact", Value: false},
-			})
-		},
-	})
-}
+	clients, err := harness.GetClients(ctx)
+	if err != nil {
+		t.Fatalf("get clients: %v", err)
+	}
 
-func TestAutoCompact_FreeSpaceTargetMB(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "AutoCompact_FreeSpaceTargetMB",
-		Support: harness.DumboDBFull,
-		Setup:   nil,
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			// autoCompact with freeSpaceTargetMB option controls compaction threshold.
-			return runCommandDoc(ctx, col, bson.D{
-				{Key: "autoCompact", Value: true},
-				{Key: "freeSpaceTargetMB", Value: int32(100)},
-			})
-		},
-	})
+	mcol, dcol, cleanup, err := clients.TestDB(ctx, "AutoCompact_DumboDBUnsupported")
+	if err != nil {
+		t.Fatalf("allocate test DB: %v", err)
+	}
+	defer cleanup()
+
+	cmd := bson.D{{Key: "autoCompact", Value: true}, {Key: "freeSpaceTargetMB", Value: int32(100)}}
+
+	// autoCompact is admin-only in MongoDB, where it succeeds.
+	if merr := mcol.Database().Client().Database("admin").RunCommand(ctx, cmd).Err(); merr != nil {
+		t.Errorf("MongoDB autoCompact should succeed on admin, got: %v", merr)
+	}
+
+	derr := dcol.Database().Client().Database("admin").RunCommand(ctx, cmd).Err()
+	if derr == nil {
+		t.Fatalf("DumboDB autoCompact must report unsupported, got success")
+	}
+	if code, _, _ := harness.CommandErrorCode(derr); code != 238 {
+		t.Errorf("DumboDB autoCompact should return NotImplemented (238), got %d: %v", code, derr)
+	}
 }
 
 func TestConvertToCapped_Basic(t *testing.T) {
