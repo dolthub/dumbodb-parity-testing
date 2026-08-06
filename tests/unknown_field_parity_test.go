@@ -52,6 +52,49 @@ func ufRejectionCase(t *testing.T, name string, support harness.DumboDBSupport, 
 	})
 }
 
+// ufRejectionCaseAdmin is ufRejectionCase for admin-scoped commands (run against
+// the admin database). cmd is fixed (no per-collection target needed).
+func ufRejectionCaseAdmin(t *testing.T, name string, support harness.DumboDBSupport, cmd bson.D) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    name,
+		Support: support,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			full := make(bson.D, len(cmd), len(cmd)+1)
+			copy(full, cmd)
+			full = append(full, bson.E{Key: "nonExistentField42", Value: int32(1)})
+			err := col.Database().Client().Database("admin").RunCommand(ctx, full).Err()
+			code, _, _ := harness.CommandErrorCode(err)
+			return bson.D{{Key: "unknownFieldCode", Value: code}}, nil
+		},
+	})
+}
+
+// TestUnknownField_Session covers the strict cursor/session commands (ei1 Phase
+// 5 subset). hello/isMaster/buildInfo/whatsmyuri are NOT included: they are
+// legacy non-strict commands MongoDB accepts unknown fields on.
+func TestUnknownField_Session(t *testing.T) {
+	ufRejectionCaseAdmin(t, "UnknownField_ping", harness.DumboDBFull, bson.D{{Key: "ping", Value: int32(1)}})
+	ufRejectionCaseAdmin(t, "UnknownField_logout", harness.DumboDBFull, bson.D{{Key: "logout", Value: int32(1)}})
+	ufRejectionCaseAdmin(t, "UnknownField_endSessions", harness.DumboDBFull, bson.D{{Key: "endSessions", Value: bson.A{}}})
+	ufRejectionCaseAdmin(t, "UnknownField_connectionStatus", harness.DumboDBFull, bson.D{{Key: "connectionStatus", Value: int32(1)}})
+	ufRejectionCase(t, "UnknownField_killCursors", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "killCursors", Value: c}, {Key: "cursors", Value: bson.A{}}}
+	})
+	ufRejectionCase(t, "UnknownField_getMore", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "getMore", Value: int64(1)}, {Key: "collection", Value: c}}
+	})
+}
+
+// TestUnknownField_ServerIntrospection covers the strict server-introspection
+// commands (ei1 Phase 6 subset). serverStatus/listCommands/currentOp/
+// getParameter/debugError/getFreeMonitoringStatus are non-strict, excluded.
+func TestUnknownField_ServerIntrospection(t *testing.T) {
+	ufRejectionCaseAdmin(t, "UnknownField_hostInfo", harness.DumboDBFull, bson.D{{Key: "hostInfo", Value: int32(1)}})
+	ufRejectionCaseAdmin(t, "UnknownField_getLog", harness.DumboDBFull, bson.D{{Key: "getLog", Value: "global"}})
+	ufRejectionCaseAdmin(t, "UnknownField_getCmdLineOpts", harness.DumboDBFull, bson.D{{Key: "getCmdLineOpts", Value: int32(1)}})
+	ufRejectionCaseAdmin(t, "UnknownField_listDatabases", harness.DumboDBFull, bson.D{{Key: "listDatabases", Value: int32(1)}})
+}
+
 // TestUnknownField_CRUD locks in the already-strict CRUD commands: MongoDB and
 // DumboDB both reject an unknown top-level field with IDLUnknownField (40415).
 // This is the ei1 Phase 0 CRUD regression guard. Later family phases add their
