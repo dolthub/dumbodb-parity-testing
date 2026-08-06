@@ -123,6 +123,38 @@ func TestUnknownField_UserRole(t *testing.T) {
 	}
 }
 
+// TestUnknownField_AggregateExplain covers aggregate and explain (ei1 Phase 7,
+// top-level fields only). The positive case asserts aggregate's full optional
+// field set is accepted (no over-restriction).
+func TestUnknownField_AggregateExplain(t *testing.T) {
+	ufRejectionCase(t, "UnknownField_aggregate", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "aggregate", Value: c}, {Key: "pipeline", Value: bson.A{}}, {Key: "cursor", Value: bson.D{}}}
+	})
+	ufRejectionCase(t, "UnknownField_explain", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "explain", Value: bson.D{{Key: "find", Value: c}}}, {Key: "verbosity", Value: "queryPlanner"}}
+	})
+
+	// Positive: aggregate's optional fields are NOT treated as unknown. Limited to
+	// options DumboDB implements; collation/let are allowed by RejectUnknownFields
+	// but separately unimplemented in aggregate (a pre-existing gap, not ei1's).
+	harness.PairTest(t, harness.TestCase{
+		Name:    "UnknownField_aggregateOptionsAccepted",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			err := col.Database().RunCommand(ctx, bson.D{
+				{Key: "aggregate", Value: col.Name()},
+				{Key: "pipeline", Value: bson.A{}},
+				{Key: "cursor", Value: bson.D{}},
+				{Key: "allowDiskUse", Value: true},
+				{Key: "bypassDocumentValidation", Value: false},
+				{Key: "hint", Value: bson.D{}},
+			}).Err()
+			code, _, _ := harness.CommandErrorCode(err)
+			return bson.D{{Key: "unknownFieldCode", Value: code}}, nil
+		},
+	})
+}
+
 // TestUnknownField_CRUD locks in the already-strict CRUD commands: MongoDB and
 // DumboDB both reject an unknown top-level field with IDLUnknownField (40415).
 // This is the ei1 Phase 0 CRUD regression guard. Later family phases add their
