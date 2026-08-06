@@ -95,6 +95,34 @@ func TestUnknownField_ServerIntrospection(t *testing.T) {
 	ufRejectionCaseAdmin(t, "UnknownField_listDatabases", harness.DumboDBFull, bson.D{{Key: "listDatabases", Value: int32(1)}})
 }
 
+// TestUnknownField_UserRole covers the user & role management family (ei1 Phase
+// 4). All are strict in MongoDB; the allow-lists were validated against Mongo to
+// include fields DumboDB does not model (customData, digestPassword, filter,
+// showAuthenticationRestrictions) so valid commands are not over-restricted.
+func TestUnknownField_UserRole(t *testing.T) {
+	target := map[string]interface{}{
+		"createUser": "u", "updateUser": "u", "dropUser": "u",
+		"createRole": "r", "updateRole": "r", "dropRole": "r",
+		"grantRolesToUser": "u", "revokeRolesFromUser": "u",
+		"grantRolesToRole": "r", "revokeRolesFromRole": "r",
+		"grantPrivilegesToRole": "r", "revokePrivilegesFromRole": "r",
+		"dropAllUsersFromDatabase": int32(1), "dropAllRolesFromDatabase": int32(1),
+		"usersInfo": int32(1), "rolesInfo": int32(1),
+	}
+	order := []string{
+		"createUser", "updateUser", "dropUser", "dropAllUsersFromDatabase", "usersInfo",
+		"grantRolesToUser", "revokeRolesFromUser",
+		"createRole", "updateRole", "dropRole", "dropAllRolesFromDatabase", "rolesInfo",
+		"grantRolesToRole", "revokeRolesFromRole", "grantPrivilegesToRole", "revokePrivilegesFromRole",
+	}
+	for _, cmd := range order {
+		cmd, tgt := cmd, target[cmd]
+		ufRejectionCase(t, "UnknownField_"+cmd, harness.DumboDBFull, func(string) bson.D {
+			return bson.D{{Key: cmd, Value: tgt}}
+		})
+	}
+}
+
 // TestUnknownField_CRUD locks in the already-strict CRUD commands: MongoDB and
 // DumboDB both reject an unknown top-level field with IDLUnknownField (40415).
 // This is the ei1 Phase 0 CRUD regression guard. Later family phases add their
