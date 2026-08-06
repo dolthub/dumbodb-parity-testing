@@ -155,6 +155,17 @@ func TestUnknownField_AggregateExplain(t *testing.T) {
 	})
 }
 
+// TestUnknownField_WriteAndTxn covers bulkWrite and the transaction commands
+// (strict). startSession/setParameter/convertToCapped are non-strict, excluded.
+func TestUnknownField_WriteAndTxn(t *testing.T) {
+	ufRejectionCaseAdmin(t, "UnknownField_bulkWrite", harness.DumboDBFull,
+		bson.D{{Key: "bulkWrite", Value: int32(1)}, {Key: "ops", Value: bson.A{}}, {Key: "nsInfo", Value: bson.A{}}})
+	ufRejectionCaseAdmin(t, "UnknownField_abortTransaction", harness.DumboDBFull,
+		bson.D{{Key: "abortTransaction", Value: int32(1)}})
+	ufRejectionCaseAdmin(t, "UnknownField_commitTransaction", harness.DumboDBFull,
+		bson.D{{Key: "commitTransaction", Value: int32(1)}})
+}
+
 // TestUnknownField_CRUD locks in the already-strict CRUD commands: MongoDB and
 // DumboDB both reject an unknown top-level field with IDLUnknownField (40415).
 // This is the ei1 Phase 0 CRUD regression guard. Later family phases add their
