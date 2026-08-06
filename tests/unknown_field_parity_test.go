@@ -166,6 +166,67 @@ func TestUnknownField_WriteAndTxn(t *testing.T) {
 		bson.D{{Key: "commitTransaction", Value: int32(1)}})
 }
 
+// TestUnknownField_DDLExtended covers create/createIndexes/listCollections/
+// listIndexes/validate/compact (ei1 Phases 2-3 follow-up). Their allow-lists
+// cover MongoDB's full field set (validated by per-field probing) so valid
+// commands are not over-restricted.
+func TestUnknownField_DDLExtended(t *testing.T) {
+	ufRejectionCase(t, "UnknownField_create", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "create", Value: c + "_new"}}
+	})
+	ufRejectionCase(t, "UnknownField_createIndexes", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "createIndexes", Value: c}, {Key: "indexes", Value: bson.A{}}}
+	})
+	ufRejectionCase(t, "UnknownField_listCollections", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "listCollections", Value: int32(1)}}
+	})
+	ufRejectionCase(t, "UnknownField_listIndexes", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "listIndexes", Value: c}}
+	})
+	ufRejectionCase(t, "UnknownField_compact", harness.DumboDBFull, func(c string) bson.D {
+		return bson.D{{Key: "compact", Value: c}}
+	})
+
+	// Positive: create's optional fields are not treated as unknown. Limited to
+	// fields DumboDB accepts (storageEngine/indexOptionDefaults are ignored);
+	// capped/size/max hit a separate pre-existing create-option gap.
+	harness.PairTest(t, harness.TestCase{
+		Name:    "UnknownField_createOptionsAccepted",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			err := col.Database().RunCommand(ctx, bson.D{
+				{Key: "create", Value: col.Name() + "_opts"},
+				{Key: "storageEngine", Value: bson.D{}},
+				{Key: "indexOptionDefaults", Value: bson.D{}},
+			}).Err()
+			code, _, _ := harness.CommandErrorCode(err)
+			return bson.D{{Key: "unknownFieldCode", Value: code}}, nil
+		},
+	})
+}
+
+// TestUnknownField_ValidateLegacy documents that validate is a non-strict
+// command: MongoDB accepts an unknown field on an existing collection, so
+// DumboDB must not reject it either.
+func TestUnknownField_ValidateLegacy(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "UnknownField_validate_notStrict",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "x", Value: int32(1)}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			err := col.Database().RunCommand(ctx, bson.D{
+				{Key: "validate", Value: col.Name()},
+				{Key: "nonExistentField42", Value: int32(1)},
+			}).Err()
+			code, _, _ := harness.CommandErrorCode(err)
+			return bson.D{{Key: "unknownFieldCode", Value: code}}, nil
+		},
+	})
+}
+
 // TestUnknownField_CRUD locks in the already-strict CRUD commands: MongoDB and
 // DumboDB both reject an unknown top-level field with IDLUnknownField (40415).
 // This is the ei1 Phase 0 CRUD regression guard. Later family phases add their
