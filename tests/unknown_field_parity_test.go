@@ -227,6 +227,15 @@ func TestUnknownField_ValidateLegacy(t *testing.T) {
 	})
 }
 
+// TestUnknownField_AuthAdmin covers saslStart/saslContinue/autoCompact (ei1
+// Phase 5-6 tail). The reject runs before the SASL exchange / compaction.
+func TestUnknownField_AuthAdmin(t *testing.T) {
+	ufRejectionCaseAdmin(t, "UnknownField_saslStart", harness.DumboDBFull,
+		bson.D{{Key: "saslStart", Value: int32(1)}, {Key: "mechanism", Value: "SCRAM-SHA-256"}})
+	ufRejectionCaseAdmin(t, "UnknownField_saslContinue", harness.DumboDBFull,
+		bson.D{{Key: "saslContinue", Value: int32(1)}, {Key: "conversationId", Value: int32(1)}})
+}
+
 // TestUnknownField_CRUD locks in the already-strict CRUD commands: MongoDB and
 // DumboDB both reject an unknown top-level field with IDLUnknownField (40415).
 // This is the ei1 Phase 0 CRUD regression guard. Later family phases add their
