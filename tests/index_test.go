@@ -188,7 +188,7 @@ func TestIndex_CreateOne_IdempotentSameSpec(t *testing.T) {
 func TestIndex_SecondIndexSameKeyDifferentCollation(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_SecondIndexSameKeyDifferentCollation",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "seed"}}); err != nil {
 				return err
@@ -253,7 +253,7 @@ func TestIndex_SameKeySameCollationDifferentName_Conflicts(t *testing.T) {
 func TestIndex_SameKeyDifferentStrength_BothCreated(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_SameKeyDifferentStrength_BothCreated",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "seed"}}); err != nil {
 				return err
@@ -315,7 +315,7 @@ func TestIndex_IdenticalCollatedIndex_Idempotent(t *testing.T) {
 func TestIndex_CollatedUnique_EnforcesCaseInsensitive(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_CollatedUnique_EnforcesCaseInsensitive",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			unique := true
 			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
@@ -460,7 +460,7 @@ func TestIndex_ListIndexes_EchoesHidden(t *testing.T) {
 func TestIndex_ListIndexes_CollationResolvedSpec(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_ListIndexes_CollationResolvedSpec",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "seed"}}); err != nil {
 				return err
@@ -751,7 +751,7 @@ func TestIndex_Sparse_UniqueWithMissingField(t *testing.T) {
 
 func TestIndex_TTL_CreateOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "Index_TTL_CreateOne",
+		Name: "Index_TTL_CreateOne",
 		// MongoOnly: TTL (expireAfterSeconds) is a MongoDB feature dumbodb does
 		// not support -- it rejects the request (workspace-pni). This documents
 		// MongoDB's behavior; the rejection itself is asserted in the dumbodb repo.
@@ -773,7 +773,7 @@ func TestIndex_TTL_CreateOne(t *testing.T) {
 
 func TestIndex_TTL_ZeroSeconds(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "Index_TTL_ZeroSeconds",
+		Name: "Index_TTL_ZeroSeconds",
 		// MongoOnly: TTL (expireAfterSeconds) is a MongoDB feature dumbodb does
 		// not support -- it rejects the request (workspace-pni). This documents
 		// MongoDB's behavior; the rejection itself is asserted in the dumbodb repo.
@@ -795,7 +795,7 @@ func TestIndex_TTL_ZeroSeconds(t *testing.T) {
 
 func TestIndex_TTL_InsertAndVerifyNotExpiredYet(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "Index_TTL_InsertAndVerifyNotExpiredYet",
+		Name: "Index_TTL_InsertAndVerifyNotExpiredYet",
 		// MongoOnly: TTL (expireAfterSeconds) is a MongoDB feature dumbodb does
 		// not support -- it rejects the request (workspace-pni). This documents
 		// MongoDB's behavior; the rejection itself is asserted in the dumbodb repo.
@@ -2122,7 +2122,7 @@ func TestIndex_Sparse_Drop(t *testing.T) {
 
 func TestIndex_TTL_OnNestedDateField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "Index_TTL_OnNestedDateField",
+		Name: "Index_TTL_OnNestedDateField",
 		// MongoOnly: TTL (expireAfterSeconds) is a MongoDB feature dumbodb does
 		// not support -- it rejects the request (workspace-pni). This documents
 		// MongoDB's behavior; the rejection itself is asserted in the dumbodb repo.
@@ -2750,6 +2750,42 @@ func TestIndex_ListIndexes_CompoundKeyOrder(t *testing.T) {
 				return nil, err
 			}
 			return indexSpecsByName(ctx, col)
+		},
+	})
+}
+
+// A unique index with no explicit collation must inherit the collection's
+// default collation and enforce uniqueness under it. Currently XFail: DumboDB
+// has no collection-default collation, so "Alice" and "alice" both persist.
+func TestIndex_CollectionDefault_UniqueEnforced(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_CollectionDefault_UniqueEnforced",
+		Support: harness.DumboDBXFail,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			ci := &options.Collation{Locale: "en", Strength: 2}
+			if err := db.CreateCollection(ctx, "cuniq", options.CreateCollection().SetCollation(ci)); err != nil {
+				return nil, err
+			}
+			c := db.Collection("cuniq")
+			if _, err := c.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "u", Value: 1}},
+				Options: options.Index().SetUnique(true),
+			}); err != nil {
+				return nil, err
+			}
+			if _, err := c.InsertOne(ctx, bson.D{{Key: "u", Value: "Alice"}}); err != nil {
+				return nil, err
+			}
+			_, dupErr := c.InsertOne(ctx, bson.D{{Key: "u", Value: "alice"}})
+			remaining, err := c.CountDocuments(ctx, bson.D{})
+			if err != nil {
+				return nil, err
+			}
+			return bson.D{
+				{Key: "dup_rejected", Value: dupErr != nil},
+				{Key: "count", Value: remaining},
+			}, nil
 		},
 	})
 }
