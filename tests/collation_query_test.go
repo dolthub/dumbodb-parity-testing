@@ -237,7 +237,7 @@ func TestCollation_FindOneAndUpdate(t *testing.T) {
 func TestCollation_CollectionDefault_Find(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collation_CollectionDefault_Find",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			if err := db.CreateCollection(ctx, "cdef", options.CreateCollection().SetCollation(ci2)); err != nil {
@@ -275,7 +275,7 @@ func TestCollation_CollectionDefault_Find(t *testing.T) {
 func TestCollation_CollectionDefault_Sort(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collation_CollectionDefault_Sort",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			if err := db.CreateCollection(ctx, "cdef", options.CreateCollection().SetCollation(ci2)); err != nil {

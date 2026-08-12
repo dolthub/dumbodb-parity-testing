@@ -88,7 +88,7 @@ func TestCollation_CollectionDefault_SimpleOverride(t *testing.T) {
 func TestCollation_Index_InheritsCollectionDefault(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collation_Index_InheritsCollectionDefault",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			c, err := collatedColl(ctx, col)
 			if err != nil {
