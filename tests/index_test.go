@@ -457,10 +457,20 @@ func TestIndex_ListIndexes_EchoesHidden(t *testing.T) {
 	})
 }
 
+// The collation `version` field legitimately differs by engine: MongoDB 8.0
+// pins the ICU 57 collator and reports "57.1", while DumboDB links a modern ICU
+// and reports its real version (design collation-resolution.md 3.3, 5.1). These
+// are the two accepted values; a future ICU bump changes the DumboDB constant
+// and is a deliberate test update, not a silent divergence.
+const (
+	expectedMongoCollationVersion   = "57.1"
+	expectedDumboDBCollationVersion = "78.3"
+)
+
 func TestIndex_ListIndexes_CollationResolvedSpec(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_ListIndexes_CollationResolvedSpec",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "seed"}}); err != nil {
 				return err
@@ -476,7 +486,26 @@ func TestIndex_ListIndexes_CollationResolvedSpec(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return bson.D{{Key: "collation", Value: m["collation"]}}, nil
+			coll, ok := m["collation"].(bson.D)
+			if !ok {
+				return bson.D{{Key: "collation_present", Value: false}}, nil
+			}
+
+			// Assert each server reports its own expected engine version, then
+			// normalize the field so the rest of the resolved spec is compared
+			// structurally (every other field must match exactly).
+			expected := expectedMongoCollationVersion
+			if harness.ServerURI(ctx) == harness.DumboDBURI() {
+				expected = expectedDumboDBCollationVersion
+			}
+			spec := coll.Map()
+			version, _ := spec["version"].(string)
+			spec["version"] = "<engine-specific>"
+
+			return bson.D{
+				{Key: "version_matches_expected", Value: version == expected},
+				{Key: "spec", Value: spec},
+			}, nil
 		},
 	})
 }
