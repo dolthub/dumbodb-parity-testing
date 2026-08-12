@@ -64,7 +64,7 @@ func TestCollation_Find_CaseInsensitiveEquality(t *testing.T) {
 func TestCollation_Find_In(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collation_Find_In",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   seedNames,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cur, err := col.Find(ctx, bson.D{{Key: "u", Value: bson.D{{Key: "$in", Value: bson.A{"ALICE", "bob"}}}}},
@@ -112,7 +112,7 @@ func TestCollation_Find_SortCaseInsensitive(t *testing.T) {
 func TestCollation_Find_AccentInsensitiveStrength1(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collation_Find_AccentInsensitiveStrength1",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: 1}, {Key: "u", Value: "cafe"}},
@@ -142,7 +142,7 @@ func TestCollation_Find_AccentInsensitiveStrength1(t *testing.T) {
 func TestCollation_Count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collation_Count",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   seedNames,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			n, err := col.CountDocuments(ctx, bson.D{{Key: "u", Value: "alice"}},
@@ -158,7 +158,7 @@ func TestCollation_Count(t *testing.T) {
 func TestCollation_Distinct(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collation_Distinct",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   seedNames,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			vals, err := col.Distinct(ctx, "_id", bson.D{{Key: "u", Value: "alice"}},
@@ -174,7 +174,7 @@ func TestCollation_Distinct(t *testing.T) {
 func TestCollation_DeleteMany(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collation_DeleteMany",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   seedNames,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.DeleteMany(ctx, bson.D{{Key: "u", Value: "alice"}},
@@ -194,7 +194,7 @@ func TestCollation_DeleteMany(t *testing.T) {
 func TestCollation_UpdateMany(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collation_UpdateMany",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   seedNames,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateMany(ctx, bson.D{{Key: "u", Value: "alice"}},
@@ -211,7 +211,7 @@ func TestCollation_UpdateMany(t *testing.T) {
 func TestCollation_FindOneAndUpdate(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collation_FindOneAndUpdate",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   seedNames,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			var updated bson.D
@@ -312,7 +312,7 @@ func TestCollation_CollectionDefault_Sort(t *testing.T) {
 func TestCollation_Find_RangeGte(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collation_Find_RangeGte",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   seedNames,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cur, err := col.Find(ctx, bson.D{{Key: "u", Value: bson.D{{Key: "$gte", Value: "BOB"}}}},
