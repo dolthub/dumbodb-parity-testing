@@ -113,7 +113,7 @@ func TestCollation_Index_InheritsCollectionDefault(t *testing.T) {
 func TestCollation_IdIndex_InheritsDefault(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collation_IdIndex_InheritsDefault",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			c, err := collatedColl(ctx, col)
 			if err != nil {
@@ -137,7 +137,7 @@ func TestCollation_IdIndex_InheritsDefault(t *testing.T) {
 func TestCollation_IdIndex_UniqueUnderDefault(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collation_IdIndex_UniqueUnderDefault",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			c, err := collatedColl(ctx, col)
 			if err != nil {
