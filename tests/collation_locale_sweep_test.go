@@ -107,9 +107,11 @@ func TestCollationLocaleSweep(t *testing.T) {
 			mOrder, mErr := orderSig(ctx, mcol, spec)
 			dOrder, dErr := orderSig(ctx, dcol, spec)
 			if mErr != nil || dErr != nil {
-				// Both erroring means both reject the locale: agreement.
+				// Both erroring means both reject the collation: agreement.
 				if (mErr == nil) != (dErr == nil) {
 					diverged[key] = "error-asymmetry"
+				} else {
+					matched++
 				}
 				continue
 			}
