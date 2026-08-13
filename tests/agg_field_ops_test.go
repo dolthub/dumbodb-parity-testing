@@ -951,7 +951,7 @@ func TestSetField_UnknownArgument(t *testing.T) {
 func TestGetField_FieldEvaluatesToMissing(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_FieldEvaluatesToMissing",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return fieldOpsProject(ctx, col, bson.D{
@@ -1002,7 +1002,7 @@ func TestGetField_FieldEvaluatesToObject(t *testing.T) {
 func TestSetField_FieldVariableReferenceRejected(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SetField_FieldVariableReferenceRejected",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return setFieldOnRoot(ctx, col, "$$REMOVE", int32(1))
@@ -1013,7 +1013,7 @@ func TestSetField_FieldVariableReferenceRejected(t *testing.T) {
 func TestUnsetField_FieldVariableReferenceRejected(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UnsetField_FieldVariableReferenceRejected",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return unsetFieldOnRoot(ctx, col, "$$REMOVE")
@@ -1025,7 +1025,7 @@ func TestUnsetField_FieldVariableReferenceRejected(t *testing.T) {
 func TestSetField_FieldPathReferenceRejected(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SetField_FieldPathReferenceRejected",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return setFieldOnRoot(ctx, col, "$nameHolder", int32(1))
@@ -1037,7 +1037,7 @@ func TestSetField_FieldPathReferenceRejected(t *testing.T) {
 func TestSetField_FieldNonConstantRejected(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SetField_FieldNonConstantRejected",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return setFieldOnRoot(ctx, col,
