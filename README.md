@@ -89,10 +89,6 @@ At the end of a run the harness prints:
 
 CI exits non-zero only when `Diverging > 0`.
 
-**Known divergences.** `known-divergences.txt` lists features where DumboDB
-intentionally differs. The file is managed by the project owner only; see
-`AGENTS.md` for the governance rule.
-
 ---
 
 ## 2. Performance benchmarks (`benchmarks/`)
