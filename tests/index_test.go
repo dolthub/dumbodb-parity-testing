@@ -185,6 +185,331 @@ func TestIndex_CreateOne_IdempotentSameSpec(t *testing.T) {
 	})
 }
 
+func TestIndex_SecondIndexSameKeyDifferentCollation(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_SecondIndexSameKeyDifferentCollation",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "seed"}}); err != nil {
+				return err
+			}
+			unique := true
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "username", Value: 1}},
+				Options: &options.IndexOptions{Unique: &unique},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys: bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().
+					SetName("case_insensitive_username").
+					SetCollation(&options.Collation{Locale: "en", Strength: 2}),
+			})
+			if err != nil {
+				code, _, _ := harness.CommandErrorCode(err)
+				return bson.D{
+					{Key: "second_index_created", Value: false},
+					{Key: "error_code", Value: code},
+				}, nil
+			}
+			return bson.D{
+				{Key: "second_index_created", Value: true},
+				{Key: "error_code", Value: int32(0)},
+			}, nil
+		},
+	})
+}
+
+func TestIndex_SameKeySameCollationDifferentName_Conflicts(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_SameKeySameCollationDifferentName_Conflicts",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "seed"}}); err != nil {
+				return err
+			}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().SetName("ci_a").SetCollation(&options.Collation{Locale: "en", Strength: 2}),
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().SetName("ci_b").SetCollation(&options.Collation{Locale: "en", Strength: 2}),
+			})
+			code, _, _ := harness.CommandErrorCode(err)
+			return bson.D{
+				{Key: "created", Value: err == nil},
+				{Key: "error_code", Value: code},
+			}, nil
+		},
+	})
+}
+
+func TestIndex_SameKeyDifferentStrength_BothCreated(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_SameKeyDifferentStrength_BothCreated",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "seed"}}); err != nil {
+				return err
+			}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().SetName("s2").SetCollation(&options.Collation{Locale: "en", Strength: 2}),
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().SetName("s3").SetCollation(&options.Collation{Locale: "en", Strength: 3}),
+			})
+			if err != nil {
+				return nil, err
+			}
+			n, err := countIndexes(ctx, col)
+			if err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "index_count", Value: n}}, nil
+		},
+	})
+}
+
+func TestIndex_IdenticalCollatedIndex_Idempotent(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_IdenticalCollatedIndex_Idempotent",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "seed"}}); err != nil {
+				return err
+			}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().SetName("ci").SetCollation(&options.Collation{Locale: "en", Strength: 2}),
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().SetName("ci").SetCollation(&options.Collation{Locale: "en", Strength: 2}),
+			})
+			if err != nil {
+				return nil, err
+			}
+			n, err := countIndexes(ctx, col)
+			if err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "index_count", Value: n}}, nil
+		},
+	})
+}
+
+func TestIndex_CollatedUnique_EnforcesCaseInsensitive(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_CollatedUnique_EnforcesCaseInsensitive",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			unique := true
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys: bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().SetUnique(unique).
+					SetCollation(&options.Collation{Locale: "en", Strength: 2}),
+			})
+			if err != nil {
+				return err
+			}
+			_, err = col.InsertOne(ctx, bson.D{{Key: "username", Value: "Alice"}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "alice"}})
+			code, _, _ := harness.CommandErrorCode(err)
+			return bson.D{
+				{Key: "rejected", Value: err != nil},
+				{Key: "error_code", Value: code},
+			}, nil
+		},
+	})
+}
+
+func TestIndex_ListIndexes_EchoesCollation(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_ListIndexes_EchoesCollation",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "seed"}}); err != nil {
+				return err
+			}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().SetName("ci").SetCollation(&options.Collation{Locale: "en", Strength: 2}),
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Indexes().List(ctx)
+			if err != nil {
+				return nil, err
+			}
+			var indexes []bson.D
+			if err := cur.All(ctx, &indexes); err != nil {
+				return nil, err
+			}
+			hasCollation := false
+			locale := ""
+			for _, idx := range indexes {
+				m := idx.Map()
+				if m["name"] != "ci" {
+					continue
+				}
+				if c, ok := m["collation"].(bson.D); ok {
+					hasCollation = true
+					locale, _ = c.Map()["locale"].(string)
+				}
+			}
+			return bson.D{
+				{Key: "has_collation", Value: hasCollation},
+				{Key: "locale", Value: locale},
+			}, nil
+		},
+	})
+}
+
+func countIndexes(ctx context.Context, col *mongo.Collection) (int32, error) {
+	cur, err := col.Indexes().List(ctx)
+	if err != nil {
+		return 0, err
+	}
+	var indexes []bson.D
+	if err := cur.All(ctx, &indexes); err != nil {
+		return 0, err
+	}
+	return int32(len(indexes)), nil
+}
+
+func indexByName(ctx context.Context, col *mongo.Collection, name string) (map[string]interface{}, error) {
+	cur, err := col.Indexes().List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var indexes []bson.D
+	if err := cur.All(ctx, &indexes); err != nil {
+		return nil, err
+	}
+	for _, idx := range indexes {
+		m := idx.Map()
+		if m["name"] == name {
+			return m, nil
+		}
+	}
+	return nil, nil
+}
+
+func TestIndex_ListIndexes_EchoesPartialFilterExpression(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_ListIndexes_EchoesPartialFilterExpression",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			filter := bson.D{{Key: "score", Value: bson.D{{Key: "$gt", Value: int32(1)}}}}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "score", Value: 1}},
+				Options: options.Index().SetName("pf").SetPartialFilterExpression(filter),
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			m, err := indexByName(ctx, col, "pf")
+			if err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "partialFilterExpression", Value: m["partialFilterExpression"]}}, nil
+		},
+	})
+}
+
+func TestIndex_ListIndexes_EchoesHidden(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_ListIndexes_EchoesHidden",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			hidden := true
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "score", Value: 1}},
+				Options: options.Index().SetName("hid").SetHidden(hidden),
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			m, err := indexByName(ctx, col, "hid")
+			if err != nil {
+				return nil, err
+			}
+			return bson.D{{Key: "hidden", Value: m["hidden"]}}, nil
+		},
+	})
+}
+
+// The collation `version` field legitimately differs by engine: MongoDB 8.0
+// pins the ICU 57 collator and reports "57.1", while DumboDB links a modern ICU
+// and reports its real version (design collation-resolution.md 3.3, 5.1). These
+// are the two accepted values; a future ICU bump changes the DumboDB constant
+// and is a deliberate test update, not a silent divergence.
+const (
+	expectedMongoCollationVersion   = "57.1"
+	expectedDumboDBCollationVersion = "78.3"
+)
+
+func TestIndex_ListIndexes_CollationResolvedSpec(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_ListIndexes_CollationResolvedSpec",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.InsertOne(ctx, bson.D{{Key: "username", Value: "seed"}}); err != nil {
+				return err
+			}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "username", Value: 1}},
+				Options: options.Index().SetName("ci").SetCollation(&options.Collation{Locale: "en", Strength: 2}),
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			m, err := indexByName(ctx, col, "ci")
+			if err != nil {
+				return nil, err
+			}
+			coll, ok := m["collation"].(bson.D)
+			if !ok {
+				return bson.D{{Key: "collation_present", Value: false}}, nil
+			}
+
+			// Assert each server reports its own expected engine version, then
+			// normalize the field so the rest of the resolved spec is compared
+			// structurally (every other field must match exactly).
+			expected := expectedMongoCollationVersion
+			if harness.ServerURI(ctx) == harness.DumboDBURI() {
+				expected = expectedDumboDBCollationVersion
+			}
+			spec := coll.Map()
+			version, _ := spec["version"].(string)
+			spec["version"] = "<engine-specific>"
+
+			return bson.D{
+				{Key: "version_matches_expected", Value: version == expected},
+				{Key: "spec", Value: spec},
+			}, nil
+		},
+	})
+}
+
 func TestIndex_CreateOne_Compound(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_CreateOne_Compound",
@@ -455,7 +780,7 @@ func TestIndex_Sparse_UniqueWithMissingField(t *testing.T) {
 
 func TestIndex_TTL_CreateOne(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "Index_TTL_CreateOne",
+		Name: "Index_TTL_CreateOne",
 		// MongoOnly: TTL (expireAfterSeconds) is a MongoDB feature dumbodb does
 		// not support -- it rejects the request (workspace-pni). This documents
 		// MongoDB's behavior; the rejection itself is asserted in the dumbodb repo.
@@ -477,7 +802,7 @@ func TestIndex_TTL_CreateOne(t *testing.T) {
 
 func TestIndex_TTL_ZeroSeconds(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "Index_TTL_ZeroSeconds",
+		Name: "Index_TTL_ZeroSeconds",
 		// MongoOnly: TTL (expireAfterSeconds) is a MongoDB feature dumbodb does
 		// not support -- it rejects the request (workspace-pni). This documents
 		// MongoDB's behavior; the rejection itself is asserted in the dumbodb repo.
@@ -499,7 +824,7 @@ func TestIndex_TTL_ZeroSeconds(t *testing.T) {
 
 func TestIndex_TTL_InsertAndVerifyNotExpiredYet(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "Index_TTL_InsertAndVerifyNotExpiredYet",
+		Name: "Index_TTL_InsertAndVerifyNotExpiredYet",
 		// MongoOnly: TTL (expireAfterSeconds) is a MongoDB feature dumbodb does
 		// not support -- it rejects the request (workspace-pni). This documents
 		// MongoDB's behavior; the rejection itself is asserted in the dumbodb repo.
@@ -1826,7 +2151,7 @@ func TestIndex_Sparse_Drop(t *testing.T) {
 
 func TestIndex_TTL_OnNestedDateField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "Index_TTL_OnNestedDateField",
+		Name: "Index_TTL_OnNestedDateField",
 		// MongoOnly: TTL (expireAfterSeconds) is a MongoDB feature dumbodb does
 		// not support -- it rejects the request (workspace-pni). This documents
 		// MongoDB's behavior; the rejection itself is asserted in the dumbodb repo.
@@ -2454,6 +2779,42 @@ func TestIndex_ListIndexes_CompoundKeyOrder(t *testing.T) {
 				return nil, err
 			}
 			return indexSpecsByName(ctx, col)
+		},
+	})
+}
+
+// A unique index with no explicit collation must inherit the collection's
+// default collation and enforce uniqueness under it. Currently XFail: DumboDB
+// has no collection-default collation, so "Alice" and "alice" both persist.
+func TestIndex_CollectionDefault_UniqueEnforced(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_CollectionDefault_UniqueEnforced",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			ci := &options.Collation{Locale: "en", Strength: 2}
+			if err := db.CreateCollection(ctx, "cuniq", options.CreateCollection().SetCollation(ci)); err != nil {
+				return nil, err
+			}
+			c := db.Collection("cuniq")
+			if _, err := c.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "u", Value: 1}},
+				Options: options.Index().SetUnique(true),
+			}); err != nil {
+				return nil, err
+			}
+			if _, err := c.InsertOne(ctx, bson.D{{Key: "u", Value: "Alice"}}); err != nil {
+				return nil, err
+			}
+			_, dupErr := c.InsertOne(ctx, bson.D{{Key: "u", Value: "alice"}})
+			remaining, err := c.CountDocuments(ctx, bson.D{})
+			if err != nil {
+				return nil, err
+			}
+			return bson.D{
+				{Key: "dup_rejected", Value: dupErr != nil},
+				{Key: "count", Value: remaining},
+			}, nil
 		},
 	})
 }
