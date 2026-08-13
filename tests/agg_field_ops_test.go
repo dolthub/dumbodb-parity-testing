@@ -790,3 +790,147 @@ func TestFieldOps_UnsetThenGetIsMissing(t *testing.T) {
 		},
 	})
 }
+
+// ---------------------------------------------------------------------------
+// Argument contract
+//
+// The full form requires both 'field' and 'input' for all three operators;
+// only the $getField shorthand defaults to $$CURRENT. The two families report
+// the same conditions under different codes ($getField 3041701/02/03 against
+// the $setField family 4161101/02/09), and $unsetField names itself here even
+// though it reports a non-string 'field' as $setField.
+// ---------------------------------------------------------------------------
+
+func TestGetField_MissingFieldArgument(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "GetField_MissingFieldArgument",
+		Support: harness.DumboDBFull,
+		Setup:   fieldOpsSeedPlain,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: bson.D{
+				{Key: "input", Value: "$$ROOT"},
+			}}})
+		},
+	})
+}
+
+func TestGetField_MissingInputArgument(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "GetField_MissingInputArgument",
+		Support: harness.DumboDBFull,
+		Setup:   fieldOpsSeedPlain,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: bson.D{
+				{Key: "field", Value: "plain"},
+			}}})
+		},
+	})
+}
+
+func TestSetField_MissingFieldArgument(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "SetField_MissingFieldArgument",
+		Support: harness.DumboDBFull,
+		Setup:   fieldOpsSeedDotted,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsProject(ctx, col, bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "got", Value: bson.D{{Key: "$setField", Value: bson.D{
+					{Key: "input", Value: "$$ROOT"},
+					{Key: "value", Value: int32(9)},
+				}}}},
+			})
+		},
+	})
+}
+
+func TestSetField_MissingInputArgument(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "SetField_MissingInputArgument",
+		Support: harness.DumboDBFull,
+		Setup:   fieldOpsSeedDotted,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsProject(ctx, col, bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "got", Value: bson.D{{Key: "$setField", Value: bson.D{
+					{Key: "field", Value: "price.usd"},
+					{Key: "value", Value: int32(9)},
+				}}}},
+			})
+		},
+	})
+}
+
+// $unsetField names itself when an argument is missing, unlike the non-string
+// 'field' case which it reports as $setField.
+func TestUnsetField_MissingFieldArgument(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "UnsetField_MissingFieldArgument",
+		Support: harness.DumboDBFull,
+		Setup:   fieldOpsSeedDotted,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsProject(ctx, col, bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "got", Value: bson.D{{Key: "$unsetField", Value: bson.D{
+					{Key: "input", Value: "$$ROOT"},
+				}}}},
+			})
+		},
+	})
+}
+
+func TestUnsetField_MissingInputArgument(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "UnsetField_MissingInputArgument",
+		Support: harness.DumboDBFull,
+		Setup:   fieldOpsSeedDotted,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsProject(ctx, col, bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "got", Value: bson.D{{Key: "$unsetField", Value: bson.D{
+					{Key: "field", Value: "price.usd"},
+				}}}},
+			})
+		},
+	})
+}
+
+// 'value' belongs to $setField only; $unsetField rejects it as unknown.
+func TestUnsetField_RejectsValueArgument(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "UnsetField_RejectsValueArgument",
+		Support: harness.DumboDBFull,
+		Setup:   fieldOpsSeedDotted,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsProject(ctx, col, bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "got", Value: bson.D{{Key: "$unsetField", Value: bson.D{
+					{Key: "field", Value: "price.usd"},
+					{Key: "input", Value: "$$ROOT"},
+					{Key: "value", Value: int32(1)},
+				}}}},
+			})
+		},
+	})
+}
+
+// The $setField family uses its own unknown-argument code, distinct from the
+// $getField one exercised above.
+func TestSetField_UnknownArgument(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "SetField_UnknownArgument",
+		Support: harness.DumboDBFull,
+		Setup:   fieldOpsSeedDotted,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsProject(ctx, col, bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "got", Value: bson.D{{Key: "$setField", Value: bson.D{
+					{Key: "field", Value: "price.usd"},
+					{Key: "input", Value: "$$ROOT"},
+					{Key: "value", Value: int32(1)},
+					{Key: "bogus", Value: int32(1)},
+				}}}},
+			})
+		},
+	})
+}
