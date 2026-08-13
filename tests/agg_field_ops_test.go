@@ -934,3 +934,114 @@ func TestSetField_UnknownArgument(t *testing.T) {
 		},
 	})
 }
+
+// ---------------------------------------------------------------------------
+// 'field' argument evaluation
+//
+// $getField resolves a dynamic field name; $setField and $unsetField do not.
+// They require a constant and reject anything else while parsing, under two
+// codes: 4161108 for a field path or variable reference, 4161106 for a
+// non-constant expression. MongoDB renders the offending reference in its own
+// normalised form, dropping one dollar from a variable and routing a bare path
+// through $CURRENT.
+// ---------------------------------------------------------------------------
+
+// A 'field' that evaluates to missing is an error, not a reason to drop the
+// field being projected.
+func TestGetField_FieldEvaluatesToMissing(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "GetField_FieldEvaluatesToMissing",
+		Support: harness.DumboDBXFail,
+		Setup:   fieldOpsSeedPlain,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsProject(ctx, col, bson.D{
+				{Key: "_id", Value: 0},
+				{Key: "keep", Value: "$plain"},
+				{Key: "got", Value: bson.D{{Key: "$getField", Value: bson.D{
+					{Key: "field", Value: "$$REMOVE"},
+					{Key: "input", Value: "$$ROOT"},
+				}}}},
+			})
+		},
+	})
+}
+
+// An absent field path is the same condition reached a different way.
+func TestGetField_FieldPathResolvesToMissing(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "GetField_FieldPathResolvesToMissing",
+		Support: harness.DumboDBFull,
+		Setup:   fieldOpsSeedPlain,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: bson.D{
+				{Key: "field", Value: "$nosuch"},
+				{Key: "input", Value: "$$ROOT"},
+			}}})
+		},
+	})
+}
+
+// A non-string that is present rather than missing already matched, so this
+// guards the "but got <type>" branch while the missing branch is fixed.
+func TestGetField_FieldEvaluatesToObject(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "GetField_FieldEvaluatesToObject",
+		Support: harness.DumboDBFull,
+		Setup:   fieldOpsSeedPlain,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: bson.D{
+				{Key: "field", Value: "$$ROOT"},
+				{Key: "input", Value: "$$ROOT"},
+			}}})
+		},
+	})
+}
+
+// $setField rejects a variable reference as 'field'. The message drops one
+// dollar, naming '$REMOVE'.
+func TestSetField_FieldVariableReferenceRejected(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "SetField_FieldVariableReferenceRejected",
+		Support: harness.DumboDBXFail,
+		Setup:   fieldOpsSeedPlain,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return setFieldOnRoot(ctx, col, "$$REMOVE", int32(1))
+		},
+	})
+}
+
+func TestUnsetField_FieldVariableReferenceRejected(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "UnsetField_FieldVariableReferenceRejected",
+		Support: harness.DumboDBXFail,
+		Setup:   fieldOpsSeedPlain,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return unsetFieldOnRoot(ctx, col, "$$REMOVE")
+		},
+	})
+}
+
+// A bare field path is reported normalised through $CURRENT.
+func TestSetField_FieldPathReferenceRejected(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "SetField_FieldPathReferenceRejected",
+		Support: harness.DumboDBXFail,
+		Setup:   fieldOpsSeedPlain,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return setFieldOnRoot(ctx, col, "$nameHolder", int32(1))
+		},
+	})
+}
+
+// A computed expression is rejected under a different code from a reference.
+func TestSetField_FieldNonConstantRejected(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "SetField_FieldNonConstantRejected",
+		Support: harness.DumboDBXFail,
+		Setup:   fieldOpsSeedPlain,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return setFieldOnRoot(ctx, col,
+				bson.D{{Key: "$concat", Value: bson.A{"$prefix", "ain"}}}, int32(1))
+		},
+	})
+}
