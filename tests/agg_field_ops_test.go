@@ -32,9 +32,9 @@ import (
 // than on ordinary names, and several assert the negative: that the operators
 // do NOT perform the path traversal a dot-path would.
 //
-// Every case is DumboDBXFail while the operators sit in unsupportedOperators.
-// XFail fails when the two servers agree, so these flip to DumboDBFull as a
-// unit once DumboDB implements the trio.
+// Expected values come from MongoDB at run time, so the assertions are whatever
+// the oracle does; these cases were recorded against 8.0.28 while the operators
+// were still unimplemented, and became the specification DumboDB was built to.
 
 func fieldOpsAgg(ctx context.Context, col *mongo.Collection, stages ...bson.D) (interface{}, error) {
 	cursor, err := col.Aggregate(ctx, mongo.Pipeline(stages))
@@ -116,7 +116,7 @@ func fieldOpsSeedEdgeNames(ctx context.Context, col *mongo.Collection) error {
 func TestGetField_ShorthandOrdinaryName(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_ShorthandOrdinaryName",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: "plain"}})
@@ -127,7 +127,7 @@ func TestGetField_ShorthandOrdinaryName(t *testing.T) {
 func TestGetField_FullFormOrdinaryName(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_FullFormOrdinaryName",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: bson.D{
@@ -143,7 +143,7 @@ func TestGetField_FullFormOrdinaryName(t *testing.T) {
 func TestGetField_ShorthandDollarNameInvalid(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_ShorthandDollarNameInvalid",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDollar,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: "$weird"}})
@@ -158,7 +158,7 @@ func TestGetField_ShorthandDollarNameInvalid(t *testing.T) {
 func TestGetField_LiteralDotKey(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_LiteralDotKey",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: "price.usd"}})
@@ -169,7 +169,7 @@ func TestGetField_LiteralDotKey(t *testing.T) {
 func TestGetField_MultipleDotsKey(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_MultipleDotsKey",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: "a.b.c"}})
@@ -182,7 +182,7 @@ func TestGetField_MultipleDotsKey(t *testing.T) {
 func TestGetField_DottedKeyVersusNestedPath(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_DottedKeyVersusNestedPath",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return fieldOpsProject(ctx, col, bson.D{
@@ -197,7 +197,7 @@ func TestGetField_DottedKeyVersusNestedPath(t *testing.T) {
 func TestGetField_DollarPrefixedName(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_DollarPrefixedName",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDollar,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: bson.D{
@@ -211,7 +211,7 @@ func TestGetField_DollarPrefixedName(t *testing.T) {
 func TestGetField_DoubleDollarPrefixedName(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_DoubleDollarPrefixedName",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDollar,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: bson.D{
@@ -225,7 +225,7 @@ func TestGetField_DoubleDollarPrefixedName(t *testing.T) {
 func TestGetField_LeadingDotName(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_LeadingDotName",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedEdgeNames,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: ".x"}})
@@ -236,7 +236,7 @@ func TestGetField_LeadingDotName(t *testing.T) {
 func TestGetField_TrailingDotName(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_TrailingDotName",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedEdgeNames,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: "x."}})
@@ -247,7 +247,7 @@ func TestGetField_TrailingDotName(t *testing.T) {
 func TestGetField_EmptyStringName(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_EmptyStringName",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedEdgeNames,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: ""}})
@@ -262,7 +262,7 @@ func TestGetField_EmptyStringName(t *testing.T) {
 func TestGetField_DynamicFieldNameFromDocument(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_DynamicFieldNameFromDocument",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: bson.D{
@@ -276,7 +276,7 @@ func TestGetField_DynamicFieldNameFromDocument(t *testing.T) {
 func TestGetField_ComputedFieldName(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_ComputedFieldName",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: bson.D{
@@ -290,7 +290,7 @@ func TestGetField_ComputedFieldName(t *testing.T) {
 func TestGetField_NonStringFieldError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_NonStringFieldError",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: bson.D{
@@ -304,7 +304,7 @@ func TestGetField_NonStringFieldError(t *testing.T) {
 func TestGetField_UnknownArgumentError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_UnknownArgumentError",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: bson.D{
@@ -323,7 +323,7 @@ func TestGetField_UnknownArgumentError(t *testing.T) {
 func TestGetField_InputExplicitObject(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_InputExplicitObject",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: bson.D{
@@ -337,7 +337,7 @@ func TestGetField_InputExplicitObject(t *testing.T) {
 func TestGetField_InputExpressionSubdocument(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_InputExpressionSubdocument",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: bson.D{
@@ -352,7 +352,7 @@ func TestGetField_InputExpressionSubdocument(t *testing.T) {
 func TestGetField_AbsentFieldIsMissing(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_AbsentFieldIsMissing",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return fieldOpsProject(ctx, col, bson.D{
@@ -367,7 +367,7 @@ func TestGetField_AbsentFieldIsMissing(t *testing.T) {
 func TestGetField_InputNull(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_InputNull",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: bson.D{
@@ -381,7 +381,7 @@ func TestGetField_InputNull(t *testing.T) {
 func TestGetField_InputNonObjectError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_InputNonObjectError",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: bson.D{
@@ -401,7 +401,7 @@ func TestGetField_InputNonObjectError(t *testing.T) {
 func TestGetField_NoDotPathTraversal(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_NoDotPathTraversal",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return fieldOpsProject(ctx, col, bson.D{
@@ -417,7 +417,7 @@ func TestGetField_NoDotPathTraversal(t *testing.T) {
 func TestGetField_NoArrayTraversal(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_NoArrayTraversal",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return fieldOpsProject(ctx, col, bson.D{
@@ -432,7 +432,7 @@ func TestGetField_NoArrayTraversal(t *testing.T) {
 func TestGetField_NestedComposition(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_NestedComposition",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: bson.D{
@@ -450,7 +450,7 @@ func TestGetField_NestedComposition(t *testing.T) {
 func TestGetField_InAddFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_InAddFields",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return fieldOpsAgg(ctx, col,
@@ -465,7 +465,7 @@ func TestGetField_InAddFields(t *testing.T) {
 func TestGetField_InReplaceWith(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_InReplaceWith",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return fieldOpsAgg(ctx, col,
@@ -478,7 +478,7 @@ func TestGetField_InReplaceWith(t *testing.T) {
 func TestGetField_InMatchExpr(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_InMatchExpr",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return fieldOpsAgg(ctx, col,
@@ -495,7 +495,7 @@ func TestGetField_InMatchExpr(t *testing.T) {
 func TestGetField_InGroupId(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_InGroupId",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return fieldOpsAgg(ctx, col,
@@ -511,7 +511,7 @@ func TestGetField_InGroupId(t *testing.T) {
 func TestGetField_InSortViaAddFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GetField_InSortViaAddFields",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return fieldOpsAgg(ctx, col,
@@ -542,7 +542,7 @@ func setFieldOnRoot(ctx context.Context, col *mongo.Collection, field, value int
 func TestSetField_DottedKeyScalar(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SetField_DottedKeyScalar",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return setFieldOnRoot(ctx, col, "price.usd", int32(99))
@@ -553,7 +553,7 @@ func TestSetField_DottedKeyScalar(t *testing.T) {
 func TestSetField_NewDottedKey(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SetField_NewDottedKey",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return setFieldOnRoot(ctx, col, "brand.new", int32(7))
@@ -564,7 +564,7 @@ func TestSetField_NewDottedKey(t *testing.T) {
 func TestSetField_DollarPrefixedKey(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SetField_DollarPrefixedKey",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDollar,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return setFieldOnRoot(ctx, col,
@@ -576,7 +576,7 @@ func TestSetField_DollarPrefixedKey(t *testing.T) {
 func TestSetField_DocumentValue(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SetField_DocumentValue",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return setFieldOnRoot(ctx, col, "price.usd",
@@ -588,7 +588,7 @@ func TestSetField_DocumentValue(t *testing.T) {
 func TestSetField_ArrayValue(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SetField_ArrayValue",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return setFieldOnRoot(ctx, col, "price.usd", bson.A{int32(1), int32(2)})
@@ -599,7 +599,7 @@ func TestSetField_ArrayValue(t *testing.T) {
 func TestSetField_NullValue(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SetField_NullValue",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return setFieldOnRoot(ctx, col, "price.usd", nil)
@@ -611,7 +611,7 @@ func TestSetField_NullValue(t *testing.T) {
 func TestSetField_RemoveDeletesField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SetField_RemoveDeletesField",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return setFieldOnRoot(ctx, col, "price.usd", "$$REMOVE")
@@ -623,7 +623,7 @@ func TestSetField_RemoveDeletesField(t *testing.T) {
 func TestSetField_RemoveMatchesUnsetField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SetField_RemoveMatchesUnsetField",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return fieldOpsProject(ctx, col, bson.D{
@@ -645,7 +645,7 @@ func TestSetField_RemoveMatchesUnsetField(t *testing.T) {
 func TestSetField_MissingValueArgumentError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SetField_MissingValueArgumentError",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return fieldOpsAgg(ctx, col,
@@ -661,7 +661,7 @@ func TestSetField_MissingValueArgumentError(t *testing.T) {
 func TestSetField_NonStringFieldError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SetField_NonStringFieldError",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return setFieldOnRoot(ctx, col, int32(123), int32(1))
@@ -685,7 +685,7 @@ func unsetFieldOnRoot(ctx context.Context, col *mongo.Collection, field interfac
 func TestUnsetField_DottedKey(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UnsetField_DottedKey",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return unsetFieldOnRoot(ctx, col, "price.usd")
@@ -696,7 +696,7 @@ func TestUnsetField_DottedKey(t *testing.T) {
 func TestUnsetField_DollarPrefixedKey(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UnsetField_DollarPrefixedKey",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDollar,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return unsetFieldOnRoot(ctx, col, bson.D{{Key: "$literal", Value: "$weird"}})
@@ -708,7 +708,7 @@ func TestUnsetField_DollarPrefixedKey(t *testing.T) {
 func TestUnsetField_AbsentKeyIsNoOp(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UnsetField_AbsentKeyIsNoOp",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return unsetFieldOnRoot(ctx, col, "nosuch")
@@ -720,7 +720,7 @@ func TestUnsetField_AbsentKeyIsNoOp(t *testing.T) {
 func TestUnsetField_DottedKeyLeavesNestedPath(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UnsetField_DottedKeyLeavesNestedPath",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return fieldOpsAgg(ctx, col,
@@ -740,7 +740,7 @@ func TestUnsetField_DottedKeyLeavesNestedPath(t *testing.T) {
 func TestUnsetField_NonStringFieldError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "UnsetField_NonStringFieldError",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return unsetFieldOnRoot(ctx, col, int32(123))
@@ -755,7 +755,7 @@ func TestUnsetField_NonStringFieldError(t *testing.T) {
 func TestFieldOps_SetThenGetRoundTrip(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FieldOps_SetThenGetRoundTrip",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedPlain,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return getFieldOnRoot(ctx, col, bson.D{{Key: "$getField", Value: bson.D{
@@ -773,7 +773,7 @@ func TestFieldOps_SetThenGetRoundTrip(t *testing.T) {
 func TestFieldOps_UnsetThenGetIsMissing(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FieldOps_UnsetThenGetIsMissing",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   fieldOpsSeedDotted,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return fieldOpsProject(ctx, col, bson.D{
