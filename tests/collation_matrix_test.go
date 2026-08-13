@@ -47,10 +47,13 @@ import (
 
 const matrixDB = "parity_collation_matrix"
 
-// matrixLocales is en (baseline) plus three heavily-tailored locales. The full
-// 117-locale sweep is its own task (locale coverage); this task is the option
-// surface, which en plus a few tailorings exercises.
-var matrixLocales = []string{"en", "de", "fr", "tr"}
+// matrixLocales is en (baseline) plus tailored locales that move letter order or
+// equality: de/fr/tr for accent and case tailoring, and es/da/sv for distinct-
+// letter alphabets (Spanish n-tilde sorts after n; Danish/Swedish a-ring, ae,
+// o-slash, o-umlaut sort after z). A full per-locale sweep of all 109 accepted
+// locales is a separate task; this exercises the option surface plus the
+// highest-signal letter-order tailorings.
+var matrixLocales = []string{"en", "de", "fr", "tr", "es", "da", "sv"}
 
 // matrixProbes are the equality-signature probe values, one per phenomenon whose
 // equality classes an option can move (section 8.2). Each yields the set of ids
@@ -70,6 +73,11 @@ func corpusDocs() []interface{} {
 		{14, "black-bird"}, {15, "blackbird"}, {16, "black bird"},
 		{17, "a1"}, {18, "a2"}, {19, "a10"},
 		{20, "cote"}, {21, "cot\u00e9"}, {22, "c\u00f4te"}, {23, "c\u00f4t\u00e9"}, // cote quartet
+		{24, "z"}, {25, "n"}, {26, "o"}, // anchors: Nordic letters sort after z, Spanish n-tilde after n
+		{27, "\u00f1"}, {28, "nz"}, // n-tilde, nz -- Spanish: nz < n-tilde (distinct letter after n)
+		{29, "\u00e5"}, {30, "aa"}, // a-ring, aa -- Danish: aa == a-ring, both after z
+		{31, "\u00e6"}, {32, "\u00f8"}, // ae-ligature, o-slash -- Danish/Norwegian: after z
+		{33, "\u00f6"}, // o-umlaut -- Swedish: after z; German: near o
 	}
 	docs := make([]interface{}, len(rows))
 	for i, r := range rows {
