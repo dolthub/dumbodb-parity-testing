@@ -31,10 +31,11 @@ import (
 // path, so a fix for one resolves all four and a matrix covering only $$REMOVE
 // would be half true.
 //
-// Two failure modes are covered, and the second is the more dangerous: in
-// $project DumboDB reports NotImplemented, but in $addFields it stores the
-// literal string "$$REMOVE" as the field's value, which is wrong data rather
-// than a refusal.
+// These were recorded against MongoDB 8.0.28 while DumboDB still rejected the
+// variables, and became the specification it was built to. They cover two
+// distinct failure modes, the second being the more dangerous: $project
+// reported NotImplemented, while $addFields stored the literal string
+// "$$REMOVE" as the field's value, which is wrong data rather than a refusal.
 
 func sysVarSeed(ctx context.Context, col *mongo.Collection) error {
 	_, err := col.InsertOne(ctx, bson.D{
@@ -71,7 +72,7 @@ func sysVarProject(ctx context.Context, col *mongo.Collection, projection bson.D
 func TestSystemVar_RemoveOmitsKey(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SystemVar_RemoveOmitsKey",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   sysVarSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return sysVarProject(ctx, col, bson.D{
@@ -87,7 +88,7 @@ func TestSystemVar_RemoveOmitsKey(t *testing.T) {
 func TestSystemVar_RemoveKeepsSiblingInclusion(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SystemVar_RemoveKeepsSiblingInclusion",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   sysVarSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return sysVarProject(ctx, col, bson.D{
@@ -99,12 +100,12 @@ func TestSystemVar_RemoveKeepsSiblingInclusion(t *testing.T) {
 	})
 }
 
-// $addFields is a separate stage path. DumboDB currently stores the literal
-// string "$$REMOVE" here rather than dropping the field.
+// $addFields is a separate stage path, and the one that used to store the
+// literal string "$$REMOVE" instead of dropping the field.
 func TestSystemVar_RemoveInAddFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SystemVar_RemoveInAddFields",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   sysVarSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return sysVarAgg(ctx, col, bson.D{{Key: "$addFields", Value: bson.D{
@@ -118,7 +119,7 @@ func TestSystemVar_RemoveInAddFields(t *testing.T) {
 func TestSystemVar_CondRemoveTaken(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SystemVar_CondRemoveTaken",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   sysVarSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return sysVarProject(ctx, col, bson.D{
@@ -162,7 +163,7 @@ func TestSystemVar_CondRemoveNotTaken(t *testing.T) {
 func TestSystemVar_Root(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SystemVar_Root",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   sysVarSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return sysVarProject(ctx, col, bson.D{
@@ -176,7 +177,7 @@ func TestSystemVar_Root(t *testing.T) {
 func TestSystemVar_Current(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SystemVar_Current",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   sysVarSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return sysVarProject(ctx, col, bson.D{
@@ -191,7 +192,7 @@ func TestSystemVar_Current(t *testing.T) {
 func TestSystemVar_RootSuffixPath(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SystemVar_RootSuffixPath",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   sysVarSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return sysVarProject(ctx, col, bson.D{
@@ -205,7 +206,7 @@ func TestSystemVar_RootSuffixPath(t *testing.T) {
 func TestSystemVar_RootInAddFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SystemVar_RootInAddFields",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   sysVarSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return sysVarAgg(ctx, col, bson.D{{Key: "$addFields", Value: bson.D{
@@ -220,7 +221,7 @@ func TestSystemVar_RootInAddFields(t *testing.T) {
 func TestSystemVar_NowIsDate(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SystemVar_NowIsDate",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   sysVarSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return sysVarProject(ctx, col, bson.D{
