@@ -35,8 +35,14 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
+// setupCollatedRowCount is seeded large on purpose: the IndexServed test asserts
+// docsExamined stays a small constant, so at this scale a regression that lost
+// the index bounds and scanned would examine ~this many docs and fail by ~400x,
+// not squeak under a thin margin.
+const setupCollatedRowCount = 2000
+
 // setupCollatedEmailIndex creates a unique en/strength-2 index on email (no
-// collection default) and seeds 50 rows plus Alice@example.com.
+// collection default) and seeds setupCollatedRowCount rows plus Alice@example.com.
 func setupCollatedEmailIndex(ctx context.Context, col *mongo.Collection) error {
 	if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys:    bson.D{{Key: "email", Value: 1}},
@@ -44,12 +50,12 @@ func setupCollatedEmailIndex(ctx context.Context, col *mongo.Collection) error {
 	}); err != nil {
 		return err
 	}
-	for i := 0; i < 50; i++ {
-		if _, err := col.InsertOne(ctx, bson.D{{Key: "email", Value: fmt.Sprintf("User%d@example.com", i)}}); err != nil {
-			return err
-		}
+	docs := make([]interface{}, 0, setupCollatedRowCount+1)
+	for i := 0; i < setupCollatedRowCount; i++ {
+		docs = append(docs, bson.D{{Key: "email", Value: fmt.Sprintf("User%d@example.com", i)}})
 	}
-	_, err := col.InsertOne(ctx, bson.D{{Key: "email", Value: "Alice@example.com"}})
+	docs = append(docs, bson.D{{Key: "email", Value: "Alice@example.com"}})
+	_, err := col.InsertMany(ctx, docs)
 	return err
 }
 
