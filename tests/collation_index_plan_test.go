@@ -109,7 +109,7 @@ func TestCollation_Plan_CollatedQuery_UsesIndex(t *testing.T) {
 func TestCollation_Plan_SimpleQuery_NotCollatedIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collation_Plan_SimpleQuery_NotCollatedIndex",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   setupCollatedEmailIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			r := explainFind(ctx, col, bson.D{{Key: "email", Value: "alice@example.com"}}, nil, "queryPlanner")
