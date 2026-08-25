@@ -775,17 +775,14 @@ func TestExplain_ExecutionStats_Range_Indexed(t *testing.T) {
 	})
 }
 
-// DumboDBXFail: for a compound index DumboDB bounds the scan on the LEADING
-// field only and applies suffix-field constraints as a post-scan filter
-// (tryIndexLookup / compoundLeadingBounds). So {city:"NYC", n:{$gt:4}} examines
-// every city:"NYC" doc (n in {4,8,12,16,20} -> 5) and filters n>4 in memory,
-// where MongoDB uses the full compound bound and examines 4. Results match
-// (nReturned=4); only the examined count diverges. Flip to Full when DumboDB
-// tightens compound-index suffix bounds. See workspace-jp7.
+// DumboDB bounds a compound-index scan across leading-equality + trailing-range
+// fields (compoundIndexBounds, workspace-jp7), so {city:"NYC", n:{$gt:4}} scans
+// only the (NYC, n>4) slice and examines 4 -- matching MongoDB, not the 5 the
+// old leading-field-only bound examined.
 func TestExplain_ExecutionStats_Compound_Indexed(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_ExecutionStats_Compound_Indexed",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err
@@ -799,6 +796,61 @@ func TestExplain_ExecutionStats_Compound_Indexed(t *testing.T) {
 					{Key: "city", Value: "NYC"},
 					{Key: "n", Value: bson.D{{Key: "$gt", Value: int32(4)}}},
 				}},
+			}, "executionStats")
+			if err != nil {
+				return nil, err
+			}
+			return explainExtractCritical(doc), nil
+		},
+	})
+}
+
+// Compound all-equality (both key fields pinned): the index seeks the exact
+// (city, n) slice and examines one doc -- exercises compoundIndexBounds' full
+// equality-prefix path.
+func TestExplain_ExecutionStats_CompoundEquality_Indexed(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Explain_ExecutionStats_CompoundEquality_Indexed",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if err := insertExplainDocs(ctx, col); err != nil {
+				return err
+			}
+			return createIndex(ctx, col, bson.D{{Key: "city", Value: 1}, {Key: "n", Value: 1}})
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			doc, err := explainRunExplain(ctx, col, bson.D{
+				{Key: "find", Value: col.Name()},
+				{Key: "filter", Value: bson.D{
+					{Key: "city", Value: "NYC"},
+					{Key: "n", Value: int32(8)},
+				}},
+			}, "executionStats")
+			if err != nil {
+				return nil, err
+			}
+			return explainExtractCritical(doc), nil
+		},
+	})
+}
+
+// Compound leading-equality only (suffix field unconstrained): the index seeks
+// the whole (city) slice -- both servers examine every NYC doc -- exercising
+// compoundIndexBounds' equality-prefix-then-bracket path.
+func TestExplain_ExecutionStats_CompoundPrefix_Indexed(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Explain_ExecutionStats_CompoundPrefix_Indexed",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if err := insertExplainDocs(ctx, col); err != nil {
+				return err
+			}
+			return createIndex(ctx, col, bson.D{{Key: "city", Value: 1}, {Key: "n", Value: 1}})
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			doc, err := explainRunExplain(ctx, col, bson.D{
+				{Key: "find", Value: col.Name()},
+				{Key: "filter", Value: bson.D{{Key: "city", Value: "NYC"}}},
 			}, "executionStats")
 			if err != nil {
 				return nil, err
