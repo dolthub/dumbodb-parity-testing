@@ -14,14 +14,16 @@
 
 package tests
 
-// Regressions surfaced while writing blog examples:
+// Collation regressions:
 //   - $match+$group must honor an operation collation (workspace-4jf)
-//   - a duplicate-key error must name the offending index, not always _id_
-//     (workspace-223)
+//   - a duplicate-key error must name the offending index (workspace-223)
+//   - an uncollated count must not use a collated index (workspace-047)
+//   - an uncollated distinct must not use a collated index (workspace-gf1)
 
 import (
 	"context"
 	"regexp"
+	"sort"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -104,6 +106,58 @@ func TestIndex_DuplicateKeyError_NamesIndex(t *testing.T) {
 			}
 			code, _, _ := harness.CommandErrorCode(err)
 			return bson.D{{Key: "code", Value: code}, {Key: "index", Value: idx}}, nil
+		},
+	})
+}
+
+// collatedNameIndex creates a case-insensitive index on name and seeds two docs
+// that differ only in case.
+func collatedNameIndex(ctx context.Context, col *mongo.Collection) error {
+	if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "name", Value: 1}},
+		Options: options.Index().SetCollation(&options.Collation{Locale: "en", Strength: 2}),
+	}); err != nil {
+		return err
+	}
+	_, err := col.InsertMany(ctx, []interface{}{
+		bson.D{{Key: "name", Value: "Alice"}},
+		bson.D{{Key: "name", Value: "alice"}},
+	})
+	return err
+}
+
+// An uncollated count on a collated-indexed field counts binary matches; it must
+// not probe the sort-key index with raw bytes (which returned 0).
+func TestCollation_Count_UncollatedOnCollatedIndex(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Collation_Count_UncollatedOnCollatedIndex",
+		Support: harness.DumboDBFull,
+		Setup:   collatedNameIndex,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return col.CountDocuments(ctx, bson.D{{Key: "name", Value: "Alice"}})
+		},
+	})
+}
+
+// An uncollated distinct on a collated-indexed field keeps case variants
+// separate; it must not merge them via the index's sort-key prefix.
+func TestCollation_Distinct_UncollatedOnCollatedIndex(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Collation_Distinct_UncollatedOnCollatedIndex",
+		Support: harness.DumboDBFull,
+		Setup:   collatedNameIndex,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			raw, err := col.Distinct(ctx, "name", bson.D{})
+			if err != nil {
+				return nil, err
+			}
+			values := make([]string, 0, len(raw))
+			for _, v := range raw {
+				s, _ := v.(string)
+				values = append(values, s)
+			}
+			sort.Strings(values)
+			return values, nil
 		},
 	})
 }
