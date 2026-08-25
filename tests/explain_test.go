@@ -743,12 +743,8 @@ func TestExplain_ExecutionStats_FullScan(t *testing.T) {
 	})
 }
 
-// Range and compound executionStats variants: the equality ExecutionStats_Indexed
-// above proves docsExamined parity for a single-field point lookup, but ranges
-// (where index bound computation lives) and compound keys were only ever checked
-// at queryPlanner verbosity -- plan shape, never how many docs execution actually
-// touched. These assert the exact executionStats counters so a "plans IXSCAN but
-// scans" divergence is caught for those shapes too.
+// Range and compound variants assert exact docsExamined so a "plans IXSCAN but
+// scans" divergence is caught for those shapes, not just single-field equality.
 func TestExplain_ExecutionStats_Range_Indexed(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_ExecutionStats_Range_Indexed",
@@ -775,10 +771,6 @@ func TestExplain_ExecutionStats_Range_Indexed(t *testing.T) {
 	})
 }
 
-// DumboDB bounds a compound-index scan across leading-equality + trailing-range
-// fields (compoundIndexBounds, workspace-jp7), so {city:"NYC", n:{$gt:4}} scans
-// only the (NYC, n>4) slice and examines 4 -- matching MongoDB, not the 5 the
-// old leading-field-only bound examined.
 func TestExplain_ExecutionStats_Compound_Indexed(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_ExecutionStats_Compound_Indexed",
@@ -805,9 +797,6 @@ func TestExplain_ExecutionStats_Compound_Indexed(t *testing.T) {
 	})
 }
 
-// Compound all-equality (both key fields pinned): the index seeks the exact
-// (city, n) slice and examines one doc -- exercises compoundIndexBounds' full
-// equality-prefix path.
 func TestExplain_ExecutionStats_CompoundEquality_Indexed(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_ExecutionStats_CompoundEquality_Indexed",
@@ -834,9 +823,6 @@ func TestExplain_ExecutionStats_CompoundEquality_Indexed(t *testing.T) {
 	})
 }
 
-// Compound leading-equality only (suffix field unconstrained): the index seeks
-// the whole (city) slice -- both servers examine every NYC doc -- exercising
-// compoundIndexBounds' equality-prefix-then-bracket path.
 func TestExplain_ExecutionStats_CompoundPrefix_Indexed(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_ExecutionStats_CompoundPrefix_Indexed",

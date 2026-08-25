@@ -10,25 +10,13 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// Collated point-lookup-at-scale: the collation counterpart to
-// point_lookup_scaled_bench_test.go. The lookup key is the unique STRING field
-// sk, and both the index and the query carry an fr_CA collation -- real CLDR
-// tailoring (French/backwards accent ordering), so the index stores non-trivial
-// ICU sort keys rather than raw UTF-8. Every lookup returns exactly one document,
-// so latency growth across N is pure seek cost.
-//
-// The indexed variant proves end-to-end that a collation-matching query is
-// served by the sort-key index and stays near-flat as N grows; the unindexed
-// variant is a collated full scan whose latency grows with N. This is the
-// black-box, sort-key-path companion to the white-box collated node-count test
-// in dumbodb (TestSeekScaling_CollatedPointLookupIsLogarithmic).
-//
-// Scale ceiling 10K/50K matches the plain point-lookup and scaled-index suites.
+// Collation counterpart to point_lookup_scaled_bench_test.go: the unique key is
+// a string and index + query carry an fr_CA collation, so the index stores ICU
+// sort keys. 10K/50K, indexed (sort-key seek) and unindexed (collated scan).
 
 func benchCollation() *options.Collation { return &options.Collation{Locale: "fr_CA"} }
 
-// seedStringKeys fills col with n docs {_id:i, sk:"k<i>"} (unique string key).
-// Untimed; the caller adds the collated index (or not) before ResetTimer.
+// seedStringKeys inserts n docs {_id:i, sk:"k<i>"} (unique string key); untimed.
 func seedStringKeys(b *testing.B, ctx context.Context, col *mongo.Collection, n int) {
 	b.Helper()
 	const batch = 1000

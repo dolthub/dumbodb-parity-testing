@@ -14,12 +14,8 @@
 
 package tests
 
-// Collated-index query-plan parity (workspace-33x / nah / u6x). These assert
-// what the order/equality suites never did: that a collated index is actually
-// USED (index-served, O(1) docs examined), and that the planner picks the same
-// stage MongoDB does. They XFail until collation-ordered index keys land; the
-// point is they now fail HONESTLY -- before the explain fix (u6x) they would
-// have false-passed on a synthesized IXSCAN.
+// Query-plan parity for collated indexes: a collated query is index-served
+// (IXSCAN, O(1) docs examined) and a binary query is not, matching MongoDB.
 
 import (
 	"context"
@@ -35,14 +31,12 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// setupCollatedRowCount is seeded large on purpose: the IndexServed test asserts
-// docsExamined stays a small constant, so at this scale a regression that lost
-// the index bounds and scanned would examine ~this many docs and fail by ~400x,
-// not squeak under a thin margin.
+// setupCollatedRowCount is large so a lost-index regression examines ~this many
+// docs and fails clearly, rather than squeaking under a small threshold.
 const setupCollatedRowCount = 2000
 
-// setupCollatedEmailIndex creates a unique en/strength-2 index on email (no
-// collection default) and seeds setupCollatedRowCount rows plus Alice@example.com.
+// setupCollatedEmailIndex seeds setupCollatedRowCount rows plus
+// Alice@example.com under a unique en/strength-2 index on email.
 func setupCollatedEmailIndex(ctx context.Context, col *mongo.Collection) error {
 	if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys:    bson.D{{Key: "email", Value: 1}},
@@ -97,8 +91,6 @@ func docsExamined(r bson.M) int64 {
 
 var en2 = bson.D{{Key: "locale", Value: "en"}, {Key: "strength", Value: 2}}
 
-// A collated query on a matching collated index must be served by the index
-// (MongoDB: IXSCAN).
 func TestCollation_Plan_CollatedQuery_UsesIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collation_Plan_CollatedQuery_UsesIndex",
@@ -111,7 +103,6 @@ func TestCollation_Plan_CollatedQuery_UsesIndex(t *testing.T) {
 	})
 }
 
-// A simple (binary) query must NOT use a collated index (MongoDB: COLLSCAN).
 func TestCollation_Plan_SimpleQuery_NotCollatedIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collation_Plan_SimpleQuery_NotCollatedIndex",
@@ -124,8 +115,6 @@ func TestCollation_Plan_SimpleQuery_NotCollatedIndex(t *testing.T) {
 	})
 }
 
-// A collated point query must examine O(1) docs (index-served), not the whole
-// collection.
 func TestCollation_Plan_CollatedQuery_IndexServed(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Collation_Plan_CollatedQuery_IndexServed",
@@ -133,11 +122,6 @@ func TestCollation_Plan_CollatedQuery_IndexServed(t *testing.T) {
 		Setup:   setupCollatedEmailIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			r := explainFind(ctx, col, bson.D{{Key: "email", Value: "alice@example.com"}}, en2, "executionStats")
-			// Exact-count parity (matching Explain_ExecutionStats_Indexed): a
-			// collated point lookup on a unique index examines exactly one doc on
-			// both servers. Returning the raw count, not a <=threshold bool, makes
-			// a regression to a scan (docsExamined ~= the 2000-row collection) a
-			// hard mismatch instead of a silent pass.
 			return bson.D{{Key: "totalDocsExamined", Value: docsExamined(r)}}, nil
 		},
 	})
