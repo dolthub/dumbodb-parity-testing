@@ -45,6 +45,16 @@ that many docs through the index is no cheaper than a sequential scan, and
 for the write benchmarks the dominant cost is the writes themselves, not the
 candidate lookup.
 
+**Point-lookup variants** (in `point_lookup_scaled_bench_test.go`):
+`PointLookup` has `_10K`, `_10K_Indexed`, `_50K`, `_50K_Indexed` variants that
+filter on the *unique* field `i`, so every lookup returns exactly one document -
+the result set is constant across N, unlike `Find_FilterEq`/`Find_FilterRange`
+whose result sets grow with the collection. That isolates pure seek cost: the
+indexed variant's latency stays near-flat from 10K to 50K (log-N seek) while the
+unindexed variant grows linearly (full scan). This is the black-box latency
+companion to dumbodb's white-box node-fetch proof (`workspace-da6.1`), which
+counts prolly-tree nodes per seek and reaches larger N in-process.
+
 ## Scope - deferred
 
 These are enumerated in `bd pa-xp1` but not implemented in the first cut:
