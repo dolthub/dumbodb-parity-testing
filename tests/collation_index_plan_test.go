@@ -133,7 +133,12 @@ func TestCollation_Plan_CollatedQuery_IndexServed(t *testing.T) {
 		Setup:   setupCollatedEmailIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			r := explainFind(ctx, col, bson.D{{Key: "email", Value: "alice@example.com"}}, en2, "executionStats")
-			return bson.D{{Key: "index_served", Value: docsExamined(r) >= 0 && docsExamined(r) <= 5}}, nil
+			// Exact-count parity (matching Explain_ExecutionStats_Indexed): a
+			// collated point lookup on a unique index examines exactly one doc on
+			// both servers. Returning the raw count, not a <=threshold bool, makes
+			// a regression to a scan (docsExamined ~= the 2000-row collection) a
+			// hard mismatch instead of a silent pass.
+			return bson.D{{Key: "totalDocsExamined", Value: docsExamined(r)}}, nil
 		},
 	})
 }

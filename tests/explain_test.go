@@ -743,6 +743,71 @@ func TestExplain_ExecutionStats_FullScan(t *testing.T) {
 	})
 }
 
+// Range and compound executionStats variants: the equality ExecutionStats_Indexed
+// above proves docsExamined parity for a single-field point lookup, but ranges
+// (where index bound computation lives) and compound keys were only ever checked
+// at queryPlanner verbosity -- plan shape, never how many docs execution actually
+// touched. These assert the exact executionStats counters so a "plans IXSCAN but
+// scans" divergence is caught for those shapes too.
+func TestExplain_ExecutionStats_Range_Indexed(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Explain_ExecutionStats_Range_Indexed",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if err := insertExplainDocs(ctx, col); err != nil {
+				return err
+			}
+			return createIndex(ctx, col, bson.D{{Key: "n", Value: 1}})
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			doc, err := explainRunExplain(ctx, col, bson.D{
+				{Key: "find", Value: col.Name()},
+				{Key: "filter", Value: bson.D{{Key: "n", Value: bson.D{
+					{Key: "$gte", Value: int32(5)},
+					{Key: "$lte", Value: int32(10)},
+				}}}},
+			}, "executionStats")
+			if err != nil {
+				return nil, err
+			}
+			return explainExtractCritical(doc), nil
+		},
+	})
+}
+
+// DumboDBXFail: for a compound index DumboDB bounds the scan on the LEADING
+// field only and applies suffix-field constraints as a post-scan filter
+// (tryIndexLookup / compoundLeadingBounds). So {city:"NYC", n:{$gt:4}} examines
+// every city:"NYC" doc (n in {4,8,12,16,20} -> 5) and filters n>4 in memory,
+// where MongoDB uses the full compound bound and examines 4. Results match
+// (nReturned=4); only the examined count diverges. Flip to Full when DumboDB
+// tightens compound-index suffix bounds. See workspace-jp7.
+func TestExplain_ExecutionStats_Compound_Indexed(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Explain_ExecutionStats_Compound_Indexed",
+		Support: harness.DumboDBXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if err := insertExplainDocs(ctx, col); err != nil {
+				return err
+			}
+			return createIndex(ctx, col, bson.D{{Key: "city", Value: 1}, {Key: "n", Value: 1}})
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			doc, err := explainRunExplain(ctx, col, bson.D{
+				{Key: "find", Value: col.Name()},
+				{Key: "filter", Value: bson.D{
+					{Key: "city", Value: "NYC"},
+					{Key: "n", Value: bson.D{{Key: "$gt", Value: int32(4)}}},
+				}},
+			}, "executionStats")
+			if err != nil {
+				return nil, err
+			}
+			return explainExtractCritical(doc), nil
+		},
+	})
+}
+
 func TestExplain_Hint_ForcesIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Hint_ForcesIndex",
