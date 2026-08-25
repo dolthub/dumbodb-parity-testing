@@ -743,6 +743,109 @@ func TestExplain_ExecutionStats_FullScan(t *testing.T) {
 	})
 }
 
+// Range and compound variants assert exact docsExamined so a "plans IXSCAN but
+// scans" divergence is caught for those shapes, not just single-field equality.
+func TestExplain_ExecutionStats_Range_Indexed(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Explain_ExecutionStats_Range_Indexed",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if err := insertExplainDocs(ctx, col); err != nil {
+				return err
+			}
+			return createIndex(ctx, col, bson.D{{Key: "n", Value: 1}})
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			doc, err := explainRunExplain(ctx, col, bson.D{
+				{Key: "find", Value: col.Name()},
+				{Key: "filter", Value: bson.D{{Key: "n", Value: bson.D{
+					{Key: "$gte", Value: int32(5)},
+					{Key: "$lte", Value: int32(10)},
+				}}}},
+			}, "executionStats")
+			if err != nil {
+				return nil, err
+			}
+			return explainExtractCritical(doc), nil
+		},
+	})
+}
+
+func TestExplain_ExecutionStats_Compound_Indexed(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Explain_ExecutionStats_Compound_Indexed",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if err := insertExplainDocs(ctx, col); err != nil {
+				return err
+			}
+			return createIndex(ctx, col, bson.D{{Key: "city", Value: 1}, {Key: "n", Value: 1}})
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			doc, err := explainRunExplain(ctx, col, bson.D{
+				{Key: "find", Value: col.Name()},
+				{Key: "filter", Value: bson.D{
+					{Key: "city", Value: "NYC"},
+					{Key: "n", Value: bson.D{{Key: "$gt", Value: int32(4)}}},
+				}},
+			}, "executionStats")
+			if err != nil {
+				return nil, err
+			}
+			return explainExtractCritical(doc), nil
+		},
+	})
+}
+
+func TestExplain_ExecutionStats_CompoundEquality_Indexed(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Explain_ExecutionStats_CompoundEquality_Indexed",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if err := insertExplainDocs(ctx, col); err != nil {
+				return err
+			}
+			return createIndex(ctx, col, bson.D{{Key: "city", Value: 1}, {Key: "n", Value: 1}})
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			doc, err := explainRunExplain(ctx, col, bson.D{
+				{Key: "find", Value: col.Name()},
+				{Key: "filter", Value: bson.D{
+					{Key: "city", Value: "NYC"},
+					{Key: "n", Value: int32(8)},
+				}},
+			}, "executionStats")
+			if err != nil {
+				return nil, err
+			}
+			return explainExtractCritical(doc), nil
+		},
+	})
+}
+
+func TestExplain_ExecutionStats_CompoundPrefix_Indexed(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Explain_ExecutionStats_CompoundPrefix_Indexed",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if err := insertExplainDocs(ctx, col); err != nil {
+				return err
+			}
+			return createIndex(ctx, col, bson.D{{Key: "city", Value: 1}, {Key: "n", Value: 1}})
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			doc, err := explainRunExplain(ctx, col, bson.D{
+				{Key: "find", Value: col.Name()},
+				{Key: "filter", Value: bson.D{{Key: "city", Value: "NYC"}}},
+			}, "executionStats")
+			if err != nil {
+				return nil, err
+			}
+			return explainExtractCritical(doc), nil
+		},
+	})
+}
+
 func TestExplain_Hint_ForcesIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Explain_Hint_ForcesIndex",
