@@ -55,6 +55,13 @@ unindexed variant grows linearly (full scan). This is the black-box latency
 companion to dumbodb's white-box node-fetch proof (`workspace-da6.1`), which
 counts prolly-tree nodes per seek and reaches larger N in-process.
 
+`CollatedPointLookup` (in `collated_point_lookup_scaled_bench_test.go`) is the
+same at `_10K`/`_50K` `[_Indexed]` but on a *string* key with an fr_CA collation
+on both the index and the query, so the index stores ICU sort keys. The indexed
+variant proves the collated (sort-key) index seeks flat at scale end-to-end; its
+gap over the unindexed collated scan is wider than the plain case, because a
+collated scan pays per-document ICU comparison while the sort-key seek does not.
+
 ## Scope - deferred
 
 These are enumerated in `bd pa-xp1` but not implemented in the first cut:
