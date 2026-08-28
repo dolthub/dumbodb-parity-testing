@@ -70,7 +70,10 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: "1.26.2"
+          # Must be at least the go directive in dumbodb's go.mod, which the
+          # Build DumboDB step compiles. setup-go sets GOTOOLCHAIN=local, so a
+          # version older than dumbodb requires fails instead of upgrading.
+          go-version: "1.26.7"
           cache: true
 
       - name: Build DumboDB
