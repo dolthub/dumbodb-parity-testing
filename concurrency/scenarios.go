@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -50,7 +51,9 @@ func readCounter(ctx context.Context, collection Collection) (int64, error) {
 }
 
 type casScenario struct {
-	payload string
+	payload  string
+	seed     int64
+	maxDelay time.Duration
 }
 
 type uuidCASDocument struct {
@@ -60,7 +63,9 @@ type uuidCASDocument struct {
 }
 
 type uuidCASScenario struct {
-	payload string
+	payload  string
+	seed     int64
+	maxDelay time.Duration
 }
 
 func (s *uuidCASScenario) Name() string {
@@ -81,6 +86,9 @@ func (s *uuidCASScenario) Setup(ctx context.Context, collection Collection) erro
 func (s *uuidCASScenario) Execute(ctx context.Context, collection Collection, _ int, sequence int64) Outcome {
 	var observed uuidCASDocument
 	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "uuid-counter"}}, &observed); err != nil {
+		return Outcome{Kind: OutcomeClientError, Err: err}
+	}
+	if err := waitCASDelay(ctx, s.seed, sequence, s.maxDelay); err != nil {
 		return Outcome{Kind: OutcomeClientError, Err: err}
 	}
 	replacement := uuidToken(sequence)
@@ -194,6 +202,9 @@ func (s *casScenario) Execute(ctx context.Context, collection Collection, worker
 	if err != nil {
 		return Outcome{Kind: OutcomeClientError, Err: err}
 	}
+	if err := waitCASDelay(ctx, s.seed, sequence, s.maxDelay); err != nil {
+		return Outcome{Kind: OutcomeClientError, Err: err}
+	}
 	result, err := collection.UpdateOne(ctx,
 		bson.D{{Key: "_id", Value: "counter"}, {Key: "version", Value: version}},
 		bson.D{{Key: "$inc", Value: bson.D{{Key: "version", Value: int64(1)}}}},
@@ -203,6 +214,34 @@ func (s *casScenario) Execute(ctx context.Context, collection Collection, worker
 	outcome.Worker = worker
 	outcome.CAS = &CASOperation{ObservedGeneration: version, ProposedGeneration: version + 1}
 	return outcome
+}
+
+func waitCASDelay(ctx context.Context, seed, sequence int64, maximum time.Duration) error {
+	delay := deterministicDelay(seed, sequence, maximum)
+	if delay == 0 {
+		return nil
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func deterministicDelay(seed, sequence int64, maximum time.Duration) time.Duration {
+	if maximum <= 0 {
+		return 0
+	}
+	value := uint64(seed) ^ uint64(sequence)*0x9e3779b97f4a7c15
+	value ^= value >> 30
+	value *= 0xbf58476d1ce4e5b9
+	value ^= value >> 27
+	value *= 0x94d049bb133111eb
+	value ^= value >> 31
+	return time.Duration(value % (uint64(maximum) + 1))
 }
 
 func (s *casScenario) Verify(ctx context.Context, collection Collection, ledger LedgerSnapshot) ([]Check, error) {

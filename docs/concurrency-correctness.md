@@ -139,15 +139,17 @@ writes were durable.
 
 ## Workload dimensions
 
-The MongoDB phase varies:
+The MongoDB phase currently varies:
 
 - worker count;
-- client count and connection-pool size;
-- synchronized bursts versus continuously released operations;
 - small inline-shaped documents and large payload documents;
-- CAS read/update delay;
+- seed-driven CAS read/update delay;
 - run duration and operation limit;
 - deterministic workload seed.
+
+Multiple clients, explicit connection-pool sizing, and synchronized burst
+release are planned dimensions. The current runner uses one client with the
+driver's default pool and continuously releases operations.
 
 Document size is a workload dimension even though MongoDB has no DumboDB
 inline/out-of-band storage boundary. The same generated documents will later be

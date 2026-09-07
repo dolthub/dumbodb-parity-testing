@@ -14,7 +14,10 @@
 
 package concurrency
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestConfigValidate(t *testing.T) {
 	valid := Config{
@@ -40,6 +43,7 @@ func TestConfigValidate(t *testing.T) {
 		{name: "collection", mutate: func(c *Config) { c.Collection = "" }},
 		{name: "scenario", mutate: func(c *Config) { c.Scenario = "" }},
 		{name: "payload", mutate: func(c *Config) { c.PayloadBytes = -1 }},
+		{name: "CAS delay", mutate: func(c *Config) { c.CASDelay = -time.Nanosecond }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

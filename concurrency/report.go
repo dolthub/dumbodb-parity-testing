@@ -31,6 +31,7 @@ type RunConfig struct {
 	Database     string
 	Collection   string
 	PayloadBytes int
+	CASDelay     string
 }
 
 func (r LifecycleResult) Passed() bool {

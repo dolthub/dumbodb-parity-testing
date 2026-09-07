@@ -32,6 +32,7 @@ type Config struct {
 	KeepData     bool
 	Scenario     string
 	PayloadBytes int
+	CASDelay     time.Duration
 }
 
 func (c Config) Validate() error {
@@ -55,6 +56,9 @@ func (c Config) Validate() error {
 	}
 	if c.PayloadBytes < 0 {
 		return errors.New("payload bytes cannot be negative")
+	}
+	if c.CASDelay < 0 {
+		return errors.New("CAS delay cannot be negative")
 	}
 	return nil
 }
