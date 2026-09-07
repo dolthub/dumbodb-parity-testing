@@ -70,10 +70,10 @@ func TestUpdateOutcome(t *testing.T) {
 		got  Outcome
 		want OutcomeKind
 	}{
-		{name: "matched", got: UpdateOutcome(&mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1}, nil), want: OutcomeMatched},
-		{name: "no match", got: UpdateOutcome(&mongo.UpdateResult{}, nil), want: OutcomeNoMatch},
-		{name: "command", got: UpdateOutcome(nil, mongo.CommandError{Code: 1}), want: OutcomeCommandError},
-		{name: "client", got: UpdateOutcome(nil, errors.New("network")), want: OutcomeClientError},
+		{name: "matched", got: UpdateOutcome(WriteResult{Matched: 1, Modified: 1}, nil), want: OutcomeMatched},
+		{name: "no match", got: UpdateOutcome(WriteResult{}, nil), want: OutcomeNoMatch},
+		{name: "command", got: UpdateOutcome(WriteResult{}, mongo.CommandError{Code: 1}), want: OutcomeCommandError},
+		{name: "client", got: UpdateOutcome(WriteResult{}, errors.New("network")), want: OutcomeClientError},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

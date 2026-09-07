@@ -20,10 +20,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type LifecycleResult struct {
@@ -47,27 +43,39 @@ func Run(ctx context.Context, cfg Config, scenario Scenario) (LifecycleResult, e
 		return LifecycleResult{}, fmt.Errorf("scenario is required")
 	}
 
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(cfg.TargetURI))
+	target, err := connectMongoTarget(ctx, cfg.TargetURI)
 	if err != nil {
 		return LifecycleResult{}, fmt.Errorf("connect: %w", err)
 	}
-	defer client.Disconnect(context.Background())
+	return RunWithTarget(ctx, cfg, scenario, target)
+}
 
-	if err := client.Ping(ctx, nil); err != nil {
+func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Target) (LifecycleResult, error) {
+	if err := cfg.Validate(); err != nil {
+		return LifecycleResult{}, err
+	}
+	if scenario == nil {
+		return LifecycleResult{}, fmt.Errorf("scenario is required")
+	}
+	if target == nil {
+		return LifecycleResult{}, fmt.Errorf("target is required")
+	}
+	defer target.Disconnect(context.Background())
+
+	if err := target.Ping(ctx); err != nil {
 		return LifecycleResult{}, fmt.Errorf("ping: %w", err)
 	}
-	identity, err := serverIdentity(ctx, client)
+	identity, err := target.Identity(ctx)
 	if err != nil {
 		return LifecycleResult{}, err
 	}
 
-	database := client.Database(cfg.Database)
-	collection := database.Collection(cfg.Collection)
+	collection := target.Collection(cfg.Database, cfg.Collection)
 	if !cfg.KeepData {
 		defer func() {
 			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			_ = database.Drop(cleanupCtx)
+			_ = target.DropDatabase(cleanupCtx, cfg.Database)
 		}()
 	}
 
@@ -149,16 +157,4 @@ func Run(ctx context.Context, cfg Config, scenario Scenario) (LifecycleResult, e
 type serverInfo struct {
 	Product string
 	Version string
-}
-
-func serverIdentity(ctx context.Context, client *mongo.Client) (serverInfo, error) {
-	var response bson.M
-	if err := client.Database("admin").RunCommand(ctx, bson.D{{Key: "buildInfo", Value: 1}}).Decode(&response); err != nil {
-		return serverInfo{}, fmt.Errorf("buildInfo: %w", err)
-	}
-	version, _ := response["version"].(string)
-	if version == "" {
-		return serverInfo{}, fmt.Errorf("buildInfo did not return a version")
-	}
-	return serverInfo{Product: "MongoDB", Version: version}, nil
 }

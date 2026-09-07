@@ -17,8 +17,6 @@ package concurrency
 import (
 	"context"
 	"fmt"
-
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type Check struct {
@@ -29,9 +27,9 @@ type Check struct {
 
 type Scenario interface {
 	Name() string
-	Setup(context.Context, *mongo.Collection) error
-	Execute(context.Context, *mongo.Collection, int, int64) Outcome
-	Verify(context.Context, *mongo.Collection, LedgerSnapshot) ([]Check, error)
+	Setup(context.Context, Collection) error
+	Execute(context.Context, Collection, int, int64) Outcome
+	Verify(context.Context, Collection, LedgerSnapshot) ([]Check, error)
 }
 
 func NewScenario(name string, workers, payloadBytes int) (Scenario, error) {
