@@ -15,6 +15,7 @@
 package concurrency
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -258,6 +259,12 @@ func (l *latencyLedger) snapshot() LatencySnapshot {
 
 func UpdateOutcome(result WriteResult, err error) Outcome {
 	if err != nil {
+		if errors.Is(err, context.Canceled) ||
+			errors.Is(err, context.DeadlineExceeded) ||
+			mongo.IsNetworkError(err) ||
+			writeConcernOnly(err) {
+			return Outcome{Kind: OutcomeClientError, Err: err}
+		}
 		var commandError mongo.CommandError
 		var writeException mongo.WriteException
 		if errors.As(err, &commandError) || errors.As(err, &writeException) {
@@ -269,4 +276,11 @@ func UpdateOutcome(result WriteResult, err error) Outcome {
 		return Outcome{Kind: OutcomeNoMatch}
 	}
 	return Outcome{Kind: OutcomeMatched, Modified: result.Modified > 0}
+}
+
+func writeConcernOnly(err error) bool {
+	var writeException mongo.WriteException
+	return errors.As(err, &writeException) &&
+		writeException.WriteConcernError != nil &&
+		len(writeException.WriteErrors) == 0
 }
