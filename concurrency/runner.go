@@ -32,6 +32,27 @@ type LifecycleResult struct {
 	Checks     []Check
 	Config     RunConfig
 	Statistics RunStatistics
+	Truncated  bool
+	StopReason string
+	target     Target
+	database   string
+	keepData   bool
+}
+
+func (r *LifecycleResult) Finalize(ctx context.Context, preserve bool) error {
+	if r.target == nil {
+		return nil
+	}
+	var dropErr error
+	if !preserve && !r.keepData {
+		dropErr = r.target.DropDatabase(ctx, r.database)
+	}
+	disconnectErr := r.target.Disconnect(ctx)
+	r.target = nil
+	if dropErr != nil {
+		return dropErr
+	}
+	return disconnectErr
 }
 
 func Run(ctx context.Context, cfg Config, scenario Scenario) (LifecycleResult, error) {
@@ -59,24 +80,17 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 	if target == nil {
 		return LifecycleResult{}, fmt.Errorf("target is required")
 	}
-	defer target.Disconnect(context.Background())
-
 	if err := target.Ping(ctx); err != nil {
+		_ = target.Disconnect(context.Background())
 		return LifecycleResult{}, fmt.Errorf("ping: %w", err)
 	}
 	identity, err := target.Identity(ctx)
 	if err != nil {
+		_ = target.Disconnect(context.Background())
 		return LifecycleResult{}, err
 	}
 
 	collection := target.Collection(cfg.Database, cfg.Collection)
-	if !cfg.KeepData {
-		defer func() {
-			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-			_ = target.DropDatabase(cleanupCtx, cfg.Database)
-		}()
-	}
 
 	var deadline time.Time
 	if cfg.Duration > 0 {
@@ -98,9 +112,12 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 			Collection:   cfg.Collection,
 			PayloadBytes: cfg.PayloadBytes,
 		},
+		target:   target,
+		database: cfg.Database,
+		keepData: cfg.KeepData,
 	}
 	if err := scenario.Setup(ctx, collection); err != nil {
-		return LifecycleResult{}, fmt.Errorf("setup %s: %w", scenario.Name(), err)
+		return result, fmt.Errorf("setup %s: %w", scenario.Name(), err)
 	}
 	var issued atomic.Int64
 	ledger := &Ledger{}
@@ -143,13 +160,17 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 		}(workerID)
 	}
 	workers.Wait()
+	result.Truncated = ctx.Err() != nil
+	if result.Truncated {
+		result.StopReason = ctx.Err().Error()
+	}
 
 	if recordErr != nil {
-		return LifecycleResult{}, recordErr
+		return result, recordErr
 	}
 	result.Ledger = ledger.Snapshot()
 	if reserved := issued.Load(); reserved != result.Ledger.Attempts {
-		return LifecycleResult{}, fmt.Errorf(
+		return result, fmt.Errorf(
 			"reserved operations %d != recorded attempts %d",
 			reserved,
 			result.Ledger.Attempts,
@@ -157,11 +178,22 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 	}
 	result.Statistics = calculateStatistics(result.Ledger)
 	if err := result.Ledger.Validate(); err != nil {
-		return LifecycleResult{}, err
+		return result, err
 	}
-	checks, err := scenario.Verify(ctx, collection, result.Ledger)
+	verifyCtx, verifyCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer verifyCancel()
+	if result.Truncated {
+		timer := time.NewTimer(time.Second)
+		select {
+		case <-timer.C:
+		case <-verifyCtx.Done():
+			timer.Stop()
+			return result, verifyCtx.Err()
+		}
+	}
+	checks, err := scenario.Verify(verifyCtx, collection, result.Ledger)
 	if err != nil {
-		return LifecycleResult{}, fmt.Errorf("verify %s: %w", scenario.Name(), err)
+		return result, fmt.Errorf("verify %s: %w", scenario.Name(), err)
 	}
 	result.Checks = checks
 	result.FinishedAt = time.Now().UTC()

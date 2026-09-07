@@ -19,6 +19,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 type fakeTarget struct {
@@ -71,6 +72,34 @@ type countingScenario struct {
 
 type invalidOutcomeScenario struct {
 	countingScenario
+}
+
+type interruptedScenario struct {
+	started           chan struct{}
+	verifySawCanceled atomic.Bool
+}
+
+func (s *interruptedScenario) Name() string {
+	return "interrupted"
+}
+
+func (s *interruptedScenario) Setup(context.Context, Collection) error {
+	return nil
+}
+
+func (s *interruptedScenario) Execute(ctx context.Context, _ Collection, _ int, _ int64) Outcome {
+	select {
+	case <-s.started:
+	default:
+		close(s.started)
+	}
+	<-ctx.Done()
+	return Outcome{Kind: OutcomeClientError, Err: ctx.Err()}
+}
+
+func (s *interruptedScenario) Verify(ctx context.Context, _ Collection, _ LedgerSnapshot) ([]Check, error) {
+	s.verifySawCanceled.Store(ctx.Err() != nil)
+	return []Check{{Name: "final state read", Passed: true}}, nil
 }
 
 func (s *invalidOutcomeScenario) Execute(context.Context, Collection, int, int64) Outcome {
@@ -155,7 +184,55 @@ func TestRunWithTargetUsesInjectedAdapter(t *testing.T) {
 	if !scenario.setup.Load() || !scenario.verified.Load() {
 		t.Fatal("scenario lifecycle was not completed")
 	}
+	if err := result.Finalize(context.Background(), false); err != nil {
+		t.Fatal(err)
+	}
 	if !target.dropped.Load() || !target.disconnected.Load() {
 		t.Fatal("target lifecycle was not completed")
+	}
+}
+
+func TestInterruptedRunVerifiesWithFreshContextAndPreservesEvidence(t *testing.T) {
+	target := &fakeTarget{collection: unusedCollection{}}
+	scenario := &interruptedScenario{started: make(chan struct{})}
+	cfg := Config{
+		TargetURI:  "mongodb://unused",
+		Duration:   time.Minute,
+		Workers:    1,
+		Database:   "test",
+		Collection: "documents",
+		Scenario:   "interrupted",
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	var result LifecycleResult
+	var runErr error
+	go func() {
+		result, runErr = RunWithTarget(ctx, cfg, scenario, target)
+		close(done)
+	}()
+	<-scenario.started
+	cancel()
+	<-done
+	if runErr != nil {
+		t.Fatal(runErr)
+	}
+	if !result.Truncated || result.StopReason != context.Canceled.Error() {
+		t.Fatalf("truncated=%t stopReason=%q", result.Truncated, result.StopReason)
+	}
+	if scenario.verifySawCanceled.Load() {
+		t.Fatal("verification received canceled signal context")
+	}
+	if result.Passed() {
+		t.Fatal("truncated run reported a conclusive pass")
+	}
+	if err := result.Finalize(context.Background(), true); err != nil {
+		t.Fatal(err)
+	}
+	if target.dropped.Load() {
+		t.Fatal("interrupted run database was dropped")
+	}
+	if !target.disconnected.Load() {
+		t.Fatal("interrupted target was not disconnected")
 	}
 }
