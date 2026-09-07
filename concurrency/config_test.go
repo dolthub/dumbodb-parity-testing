@@ -23,6 +23,7 @@ func TestConfigValidate(t *testing.T) {
 		Workers:    1,
 		Database:   "concurrency_test",
 		Collection: "documents",
+		Scenario:   "cas",
 	}
 	if err := valid.Validate(); err != nil {
 		t.Fatalf("valid config: %v", err)
@@ -37,6 +38,8 @@ func TestConfigValidate(t *testing.T) {
 		{name: "workers", mutate: func(c *Config) { c.Workers = 0 }},
 		{name: "database", mutate: func(c *Config) { c.Database = "" }},
 		{name: "collection", mutate: func(c *Config) { c.Collection = "" }},
+		{name: "scenario", mutate: func(c *Config) { c.Scenario = "" }},
+		{name: "payload", mutate: func(c *Config) { c.PayloadBytes = -1 }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -26,23 +26,23 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type Operation func(context.Context, *mongo.Collection, int, int64) Outcome
-
 type LifecycleResult struct {
 	Product    string
 	Version    string
+	Scenario   string
 	StartedAt  time.Time
 	FinishedAt time.Time
 	Attempts   int64
 	Ledger     LedgerSnapshot
+	Checks     []Check
 }
 
-func Run(ctx context.Context, cfg Config, operation Operation) (LifecycleResult, error) {
+func Run(ctx context.Context, cfg Config, scenario Scenario) (LifecycleResult, error) {
 	if err := cfg.Validate(); err != nil {
 		return LifecycleResult{}, err
 	}
-	if operation == nil {
-		return LifecycleResult{}, fmt.Errorf("operation is required")
+	if scenario == nil {
+		return LifecycleResult{}, fmt.Errorf("scenario is required")
 	}
 
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(cfg.TargetURI))
@@ -60,6 +60,7 @@ func Run(ctx context.Context, cfg Config, operation Operation) (LifecycleResult,
 	}
 
 	database := client.Database(cfg.Database)
+	collection := database.Collection(cfg.Collection)
 	if !cfg.KeepData {
 		defer func() {
 			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -78,7 +79,11 @@ func Run(ctx context.Context, cfg Config, operation Operation) (LifecycleResult,
 	result := LifecycleResult{
 		Product:   identity.Product,
 		Version:   identity.Version,
+		Scenario:  scenario.Name(),
 		StartedAt: time.Now().UTC(),
+	}
+	if err := scenario.Setup(ctx, collection); err != nil {
+		return LifecycleResult{}, fmt.Errorf("setup %s: %w", scenario.Name(), err)
 	}
 	var issued atomic.Int64
 	ledger := &Ledger{}
@@ -88,14 +93,16 @@ func Run(ctx context.Context, cfg Config, operation Operation) (LifecycleResult,
 		go func(id int) {
 			defer workers.Done()
 			for {
+				select {
+				case <-runCtx.Done():
+					return
+				default:
+				}
 				sequence := issued.Add(1)
 				if cfg.Operations > 0 && sequence > cfg.Operations {
 					return
 				}
-				outcome := operation(runCtx, database.Collection(cfg.Collection), id, sequence)
-				if runCtx.Err() != nil && outcome.Err != nil {
-					return
-				}
+				outcome := scenario.Execute(runCtx, collection, id, sequence)
 				if err := ledger.Record(outcome); err != nil {
 					return
 				}
@@ -112,6 +119,14 @@ func Run(ctx context.Context, cfg Config, operation Operation) (LifecycleResult,
 		result.Attempts = cfg.Operations
 	}
 	result.Ledger = ledger.Snapshot()
+	if err := result.Ledger.Validate(); err != nil {
+		return LifecycleResult{}, err
+	}
+	checks, err := scenario.Verify(ctx, collection, result.Ledger)
+	if err != nil {
+		return LifecycleResult{}, fmt.Errorf("verify %s: %w", scenario.Name(), err)
+	}
+	result.Checks = checks
 	result.FinishedAt = time.Now().UTC()
 	return result, nil
 }

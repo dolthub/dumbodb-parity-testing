@@ -25,8 +25,6 @@ import (
 	"time"
 
 	concurrency "github.com/dolthub/dumbodb-parity-testing/concurrency"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func main() {
@@ -39,11 +37,18 @@ func main() {
 	flag.StringVar(&cfg.Database, "database", fmt.Sprintf("concurrency_%d", time.Now().UnixNano()), "isolated run database")
 	flag.StringVar(&cfg.Collection, "collection", "documents", "run collection")
 	flag.BoolVar(&cfg.KeepData, "keep-data", false, "retain the run database")
+	flag.StringVar(&cfg.Scenario, "scenario", "cas", "scenario: cas, blind-inc, disjoint-set, or same-set")
+	flag.IntVar(&cfg.PayloadBytes, "payload-bytes", 0, "padding bytes retained in the contended document")
 	flag.Parse()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	result, err := concurrency.Run(ctx, cfg, pingOperation)
+	scenario, err := concurrency.NewScenario(cfg.Scenario, cfg.Workers, cfg.PayloadBytes)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+	result, err := concurrency.Run(ctx, cfg, scenario)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -52,12 +57,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-}
-
-func pingOperation(ctx context.Context, collection *mongo.Collection, _ int, _ int64) concurrency.Outcome {
-	err := collection.Database().RunCommand(ctx, bson.D{{Key: "ping", Value: 1}}).Err()
-	if err != nil {
-		return concurrency.Outcome{Kind: concurrency.OutcomeClientError, Err: err}
+	if !concurrency.ChecksPassed(result.Checks) {
+		os.Exit(1)
 	}
-	return concurrency.Outcome{Kind: concurrency.OutcomeMatched}
 }

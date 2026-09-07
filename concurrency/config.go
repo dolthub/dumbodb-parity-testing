@@ -22,14 +22,16 @@ import (
 const DefaultDuration = 30 * time.Minute
 
 type Config struct {
-	TargetURI  string
-	Duration   time.Duration
-	Operations int64
-	Workers    int
-	Seed       int64
-	Database   string
-	Collection string
-	KeepData   bool
+	TargetURI    string
+	Duration     time.Duration
+	Operations   int64
+	Workers      int
+	Seed         int64
+	Database     string
+	Collection   string
+	KeepData     bool
+	Scenario     string
+	PayloadBytes int
 }
 
 func (c Config) Validate() error {
@@ -47,6 +49,12 @@ func (c Config) Validate() error {
 	}
 	if c.Collection == "" {
 		return errors.New("collection is required")
+	}
+	if c.Scenario == "" {
+		return errors.New("scenario is required")
+	}
+	if c.PayloadBytes < 0 {
+		return errors.New("payload bytes cannot be negative")
 	}
 	return nil
 }
