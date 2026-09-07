@@ -28,7 +28,6 @@ type LifecycleResult struct {
 	Scenario   string
 	StartedAt  time.Time
 	FinishedAt time.Time
-	Attempts   int64
 	Ledger     LedgerSnapshot
 	Checks     []Check
 	Config     RunConfig
@@ -106,6 +105,9 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 	var issued atomic.Int64
 	ledger := &Ledger{}
 	var workers sync.WaitGroup
+	var recordErr error
+	var recordErrOnce sync.Once
+	stop := make(chan struct{})
 	workers.Add(cfg.Workers)
 	for workerID := 0; workerID < cfg.Workers; workerID++ {
 		go func(id int) {
@@ -114,18 +116,24 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 				select {
 				case <-ctx.Done():
 					return
+				case <-stop:
+					return
 				default:
 				}
 				if !deadline.IsZero() && time.Now().After(deadline) {
 					return
 				}
-				sequence := issued.Add(1)
-				if cfg.Operations > 0 && sequence > cfg.Operations {
+				sequence, ok := reserveOperation(&issued, cfg.Operations)
+				if !ok {
 					return
 				}
 				started := time.Now()
 				outcome := scenario.Execute(ctx, collection, id, sequence)
 				if err := ledger.Record(outcome, time.Since(started)); err != nil {
+					recordErrOnce.Do(func() {
+						recordErr = fmt.Errorf("record operation %d: %w", sequence, err)
+						close(stop)
+					})
 					return
 				}
 				if ctx.Err() != nil {
@@ -136,11 +144,17 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 	}
 	workers.Wait()
 
-	result.Attempts = issued.Load()
-	if cfg.Operations > 0 && result.Attempts > cfg.Operations {
-		result.Attempts = cfg.Operations
+	if recordErr != nil {
+		return LifecycleResult{}, recordErr
 	}
 	result.Ledger = ledger.Snapshot()
+	if reserved := issued.Load(); reserved != result.Ledger.Attempts {
+		return LifecycleResult{}, fmt.Errorf(
+			"reserved operations %d != recorded attempts %d",
+			reserved,
+			result.Ledger.Attempts,
+		)
+	}
 	result.Statistics = calculateStatistics(result.Ledger)
 	if err := result.Ledger.Validate(); err != nil {
 		return LifecycleResult{}, err
@@ -152,6 +166,21 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 	result.Checks = checks
 	result.FinishedAt = time.Now().UTC()
 	return result, nil
+}
+
+func reserveOperation(issued *atomic.Int64, limit int64) (int64, bool) {
+	if limit <= 0 {
+		return issued.Add(1), true
+	}
+	for {
+		current := issued.Load()
+		if current >= limit {
+			return 0, false
+		}
+		if issued.CompareAndSwap(current, current+1) {
+			return current + 1, true
+		}
+	}
 }
 
 type serverInfo struct {
