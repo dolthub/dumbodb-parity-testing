@@ -170,7 +170,7 @@ func (l *latencyLedger) snapshot() LatencySnapshot {
 	}
 }
 
-func UpdateOutcome(result *mongo.UpdateResult, err error) Outcome {
+func UpdateOutcome(result WriteResult, err error) Outcome {
 	if err != nil {
 		var commandError mongo.CommandError
 		var writeException mongo.WriteException
@@ -179,8 +179,8 @@ func UpdateOutcome(result *mongo.UpdateResult, err error) Outcome {
 		}
 		return Outcome{Kind: OutcomeClientError, Err: err}
 	}
-	if result == nil || result.MatchedCount == 0 {
+	if result.Matched == 0 {
 		return Outcome{Kind: OutcomeNoMatch}
 	}
-	return Outcome{Kind: OutcomeMatched, Modified: result.ModifiedCount > 0}
+	return Outcome{Kind: OutcomeMatched, Modified: result.Modified > 0}
 }

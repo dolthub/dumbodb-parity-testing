@@ -24,7 +24,6 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type counterDocument struct {
@@ -35,8 +34,8 @@ func makePayload(size int) string {
 	return strings.Repeat("x", size)
 }
 
-func seedCounter(ctx context.Context, collection *mongo.Collection, payload string) error {
-	_, err := collection.InsertOne(ctx, bson.D{
+func seedCounter(ctx context.Context, collection Collection, payload string) error {
+	err := collection.InsertOne(ctx, bson.D{
 		{Key: "_id", Value: "counter"},
 		{Key: "version", Value: int64(0)},
 		{Key: "payload", Value: payload},
@@ -44,9 +43,9 @@ func seedCounter(ctx context.Context, collection *mongo.Collection, payload stri
 	return err
 }
 
-func readCounter(ctx context.Context, collection *mongo.Collection) (int64, error) {
+func readCounter(ctx context.Context, collection Collection) (int64, error) {
 	var document counterDocument
-	err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "counter"}}).Decode(&document)
+	err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "counter"}}, &document)
 	return document.Version, err
 }
 
@@ -68,8 +67,8 @@ func (s *uuidCASScenario) Name() string {
 	return "uuid-cas"
 }
 
-func (s *uuidCASScenario) Setup(ctx context.Context, collection *mongo.Collection) error {
-	_, err := collection.InsertOne(ctx, bson.D{
+func (s *uuidCASScenario) Setup(ctx context.Context, collection Collection) error {
+	err := collection.InsertOne(ctx, bson.D{
 		{Key: "_id", Value: "uuid-counter"},
 		{Key: "token", Value: uuidToken(0)},
 		{Key: "applied", Value: int64(0)},
@@ -79,9 +78,9 @@ func (s *uuidCASScenario) Setup(ctx context.Context, collection *mongo.Collectio
 	return err
 }
 
-func (s *uuidCASScenario) Execute(ctx context.Context, collection *mongo.Collection, _ int, sequence int64) Outcome {
+func (s *uuidCASScenario) Execute(ctx context.Context, collection Collection, _ int, sequence int64) Outcome {
 	var observed uuidCASDocument
-	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "uuid-counter"}}).Decode(&observed); err != nil {
+	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "uuid-counter"}}, &observed); err != nil {
 		return Outcome{Kind: OutcomeClientError, Err: err}
 	}
 	replacement := uuidToken(sequence)
@@ -98,9 +97,9 @@ func (s *uuidCASScenario) Execute(ctx context.Context, collection *mongo.Collect
 	return UpdateOutcome(result, err)
 }
 
-func (s *uuidCASScenario) Verify(ctx context.Context, collection *mongo.Collection, ledger LedgerSnapshot) ([]Check, error) {
+func (s *uuidCASScenario) Verify(ctx context.Context, collection Collection, ledger LedgerSnapshot) ([]Check, error) {
 	var document uuidCASDocument
-	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "uuid-counter"}}).Decode(&document); err != nil {
+	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "uuid-counter"}}, &document); err != nil {
 		return nil, err
 	}
 	validUUID := document.Token.Subtype == 4 && len(document.Token.Data) == 16
@@ -157,11 +156,11 @@ func (s *casScenario) Name() string {
 	return "cas"
 }
 
-func (s *casScenario) Setup(ctx context.Context, collection *mongo.Collection) error {
+func (s *casScenario) Setup(ctx context.Context, collection Collection) error {
 	return seedCounter(ctx, collection, s.payload)
 }
 
-func (s *casScenario) Execute(ctx context.Context, collection *mongo.Collection, _ int, _ int64) Outcome {
+func (s *casScenario) Execute(ctx context.Context, collection Collection, _ int, _ int64) Outcome {
 	version, err := readCounter(ctx, collection)
 	if err != nil {
 		return Outcome{Kind: OutcomeClientError, Err: err}
@@ -173,7 +172,7 @@ func (s *casScenario) Execute(ctx context.Context, collection *mongo.Collection,
 	return UpdateOutcome(result, err)
 }
 
-func (s *casScenario) Verify(ctx context.Context, collection *mongo.Collection, ledger LedgerSnapshot) ([]Check, error) {
+func (s *casScenario) Verify(ctx context.Context, collection Collection, ledger LedgerSnapshot) ([]Check, error) {
 	version, err := readCounter(ctx, collection)
 	if err != nil {
 		return nil, err
@@ -189,11 +188,11 @@ func (s *blindIncrementScenario) Name() string {
 	return "blind-inc"
 }
 
-func (s *blindIncrementScenario) Setup(ctx context.Context, collection *mongo.Collection) error {
+func (s *blindIncrementScenario) Setup(ctx context.Context, collection Collection) error {
 	return seedCounter(ctx, collection, s.payload)
 }
 
-func (s *blindIncrementScenario) Execute(ctx context.Context, collection *mongo.Collection, _ int, _ int64) Outcome {
+func (s *blindIncrementScenario) Execute(ctx context.Context, collection Collection, _ int, _ int64) Outcome {
 	result, err := collection.UpdateOne(ctx,
 		bson.D{{Key: "_id", Value: "counter"}},
 		bson.D{{Key: "$inc", Value: bson.D{{Key: "version", Value: int64(1)}}}},
@@ -201,7 +200,7 @@ func (s *blindIncrementScenario) Execute(ctx context.Context, collection *mongo.
 	return UpdateOutcome(result, err)
 }
 
-func (s *blindIncrementScenario) Verify(ctx context.Context, collection *mongo.Collection, ledger LedgerSnapshot) ([]Check, error) {
+func (s *blindIncrementScenario) Verify(ctx context.Context, collection Collection, ledger LedgerSnapshot) ([]Check, error) {
 	version, err := readCounter(ctx, collection)
 	if err != nil {
 		return nil, err
@@ -237,15 +236,15 @@ func (s *disjointSetScenario) Name() string {
 	return "disjoint-set"
 }
 
-func (s *disjointSetScenario) Setup(ctx context.Context, collection *mongo.Collection) error {
-	_, err := collection.InsertOne(ctx, bson.D{
+func (s *disjointSetScenario) Setup(ctx context.Context, collection Collection) error {
+	err := collection.InsertOne(ctx, bson.D{
 		{Key: "_id", Value: "fields"},
 		{Key: "payload", Value: s.payload},
 	})
 	return err
 }
 
-func (s *disjointSetScenario) Execute(ctx context.Context, collection *mongo.Collection, worker int, sequence int64) Outcome {
+func (s *disjointSetScenario) Execute(ctx context.Context, collection Collection, worker int, sequence int64) Outcome {
 	field := fmt.Sprintf("worker_%d", worker)
 	result, err := collection.UpdateOne(ctx,
 		bson.D{{Key: "_id", Value: "fields"}},
@@ -258,9 +257,9 @@ func (s *disjointSetScenario) Execute(ctx context.Context, collection *mongo.Col
 	return outcome
 }
 
-func (s *disjointSetScenario) Verify(ctx context.Context, collection *mongo.Collection, ledger LedgerSnapshot) ([]Check, error) {
+func (s *disjointSetScenario) Verify(ctx context.Context, collection Collection, ledger LedgerSnapshot) ([]Check, error) {
 	var document bson.M
-	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "fields"}}).Decode(&document); err != nil {
+	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "fields"}}, &document); err != nil {
 		return nil, err
 	}
 	checks := []Check{{
@@ -289,8 +288,8 @@ func (s *sameFieldSetScenario) Name() string {
 	return "same-set"
 }
 
-func (s *sameFieldSetScenario) Setup(ctx context.Context, collection *mongo.Collection) error {
-	_, err := collection.InsertOne(ctx, bson.D{
+func (s *sameFieldSetScenario) Setup(ctx context.Context, collection Collection) error {
+	err := collection.InsertOne(ctx, bson.D{
 		{Key: "_id", Value: "field"},
 		{Key: "value", Value: int64(0)},
 		{Key: "payload", Value: s.payload},
@@ -298,7 +297,7 @@ func (s *sameFieldSetScenario) Setup(ctx context.Context, collection *mongo.Coll
 	return err
 }
 
-func (s *sameFieldSetScenario) Execute(ctx context.Context, collection *mongo.Collection, _ int, sequence int64) Outcome {
+func (s *sameFieldSetScenario) Execute(ctx context.Context, collection Collection, _ int, sequence int64) Outcome {
 	result, err := collection.UpdateOne(ctx,
 		bson.D{{Key: "_id", Value: "field"}},
 		bson.D{{Key: "$set", Value: bson.D{{Key: "value", Value: sequence}}}},
@@ -306,11 +305,11 @@ func (s *sameFieldSetScenario) Execute(ctx context.Context, collection *mongo.Co
 	return UpdateOutcome(result, err)
 }
 
-func (s *sameFieldSetScenario) Verify(ctx context.Context, collection *mongo.Collection, ledger LedgerSnapshot) ([]Check, error) {
+func (s *sameFieldSetScenario) Verify(ctx context.Context, collection Collection, ledger LedgerSnapshot) ([]Check, error) {
 	var document struct {
 		Value int64
 	}
-	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "field"}}).Decode(&document); err != nil {
+	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "field"}}, &document); err != nil {
 		return nil, err
 	}
 	return []Check{
