@@ -124,7 +124,9 @@ match.
 Workers own stable top-level fields in one shared document and write a
 monotonic sequence value to their field. The final value of each worker field
 must equal that worker's greatest acknowledged sequence number. This verifies
-that acknowledged writes to different fields are not lost.
+that acknowledged writes to different fields are not lost. A worker issues one
+operation at a time, so its acknowledged sequence slot cannot be overwritten
+by an earlier in-flight operation.
 
 ### Same field set
 
