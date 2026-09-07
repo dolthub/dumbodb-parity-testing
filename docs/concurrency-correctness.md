@@ -167,6 +167,12 @@ Scheduler-sensitive observations are reported as rates with their sample size:
 - server and client error rate;
 - observed contention-window width.
 
+Latency covers the complete read-and-update attempt for CAS scenarios and only
+the update command for blind increment and field-set scenarios. Reports record
+this scope explicitly, so latency distributions with different scopes are not
+treated as comparable. Throughput uses only the worker execution window; setup,
+final reconciliation, and interruption grace time are excluded.
+
 MongoDB and DumboDB raw counts will not be required to match. Later comparisons
 will use normalized rates and confidence intervals. A statistical difference
 is reported separately from a correctness failure.

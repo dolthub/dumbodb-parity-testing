@@ -72,6 +72,7 @@ func (s LedgerSnapshot) Validate() error {
 }
 
 type Ledger struct {
+	accountingMu  sync.Mutex
 	attempts      atomic.Int64
 	matched       atomic.Int64
 	noMatch       atomic.Int64
@@ -87,6 +88,8 @@ type Ledger struct {
 const maxErrorSamples = 20
 
 func (l *Ledger) Record(outcome Outcome, latency time.Duration) error {
+	l.accountingMu.Lock()
+	defer l.accountingMu.Unlock()
 	switch outcome.Kind {
 	case OutcomeMatched:
 		l.matched.Add(1)
@@ -127,6 +130,8 @@ func (l *Ledger) Record(outcome Outcome, latency time.Duration) error {
 }
 
 func (l *Ledger) Snapshot() LedgerSnapshot {
+	l.accountingMu.Lock()
+	defer l.accountingMu.Unlock()
 	snapshot := LedgerSnapshot{
 		Attempts:      l.attempts.Load(),
 		Matched:       l.matched.Load(),

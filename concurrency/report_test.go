@@ -32,13 +32,15 @@ func TestReportSanitizesCredentials(t *testing.T) {
 func TestReportPassAndFailure(t *testing.T) {
 	start := time.Now()
 	result := LifecycleResult{
-		Product:    "MongoDB",
-		Version:    "8.0.28",
-		Scenario:   "cas",
-		StartedAt:  start,
-		FinishedAt: start.Add(time.Second),
-		Ledger:     LedgerSnapshot{Attempts: 1, Matched: 1, Modified: 1},
-		Checks:     []Check{{Name: "stored", Passed: true}},
+		Product:            "MongoDB",
+		Version:            "8.0.28",
+		Scenario:           "cas",
+		StartedAt:          start,
+		FinishedAt:         start.Add(time.Second),
+		WorkloadStartedAt:  start.Add(100 * time.Millisecond),
+		WorkloadFinishedAt: start.Add(1100 * time.Millisecond),
+		Ledger:             LedgerSnapshot{Attempts: 1, Matched: 1, Modified: 1},
+		Checks:             []Check{{Name: "stored", Passed: true}},
 	}
 	if !result.Passed() {
 		t.Fatal("expected valid result to pass")

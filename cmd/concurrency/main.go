@@ -42,6 +42,10 @@ func main() {
 	flag.DurationVar(&cfg.CASDelay, "cas-delay", 0, "maximum deterministic delay between CAS read and update")
 	flag.StringVar(&outputPath, "output", "", "write indented JSON report to this path")
 	flag.Parse()
+	if err := cfg.Validate(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
