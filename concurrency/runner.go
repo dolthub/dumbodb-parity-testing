@@ -26,7 +26,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type Operation func(context.Context, *mongo.Collection, int, int64) error
+type Operation func(context.Context, *mongo.Collection, int, int64) Outcome
 
 type LifecycleResult struct {
 	Product    string
@@ -34,7 +34,7 @@ type LifecycleResult struct {
 	StartedAt  time.Time
 	FinishedAt time.Time
 	Attempts   int64
-	Errors     int64
+	Ledger     LedgerSnapshot
 }
 
 func Run(ctx context.Context, cfg Config, operation Operation) (LifecycleResult, error) {
@@ -81,7 +81,7 @@ func Run(ctx context.Context, cfg Config, operation Operation) (LifecycleResult,
 		StartedAt: time.Now().UTC(),
 	}
 	var issued atomic.Int64
-	var failures atomic.Int64
+	ledger := &Ledger{}
 	var workers sync.WaitGroup
 	workers.Add(cfg.Workers)
 	for workerID := 0; workerID < cfg.Workers; workerID++ {
@@ -92,11 +92,12 @@ func Run(ctx context.Context, cfg Config, operation Operation) (LifecycleResult,
 				if cfg.Operations > 0 && sequence > cfg.Operations {
 					return
 				}
-				if err := operation(runCtx, database.Collection(cfg.Collection), id, sequence); err != nil {
-					if runCtx.Err() != nil {
-						return
-					}
-					failures.Add(1)
+				outcome := operation(runCtx, database.Collection(cfg.Collection), id, sequence)
+				if runCtx.Err() != nil && outcome.Err != nil {
+					return
+				}
+				if err := ledger.Record(outcome); err != nil {
+					return
 				}
 				if runCtx.Err() != nil {
 					return
@@ -110,7 +111,7 @@ func Run(ctx context.Context, cfg Config, operation Operation) (LifecycleResult,
 	if cfg.Operations > 0 && result.Attempts > cfg.Operations {
 		result.Attempts = cfg.Operations
 	}
-	result.Errors = failures.Load()
+	result.Ledger = ledger.Snapshot()
 	result.FinishedAt = time.Now().UTC()
 	return result, nil
 }

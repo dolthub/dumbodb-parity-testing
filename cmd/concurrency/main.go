@@ -54,6 +54,10 @@ func main() {
 	}
 }
 
-func pingOperation(ctx context.Context, collection *mongo.Collection, _ int, _ int64) error {
-	return collection.Database().RunCommand(ctx, bson.D{{Key: "ping", Value: 1}}).Err()
+func pingOperation(ctx context.Context, collection *mongo.Collection, _ int, _ int64) concurrency.Outcome {
+	err := collection.Database().RunCommand(ctx, bson.D{{Key: "ping", Value: 1}}).Err()
+	if err != nil {
+		return concurrency.Outcome{Kind: concurrency.OutcomeClientError, Err: err}
+	}
+	return concurrency.Outcome{Kind: concurrency.OutcomeMatched}
 }
