@@ -76,3 +76,17 @@ with 16 workers and a 20,000-byte retained payload:
 
 These preflights establish functional coverage. Only the CAS scenario has a
 30-minute statistical baseline so far.
+
+## UUID CAS expansion
+
+A later UUID compare-and-set run used 32 workers, a 20,000-byte retained
+payload, and 100,000 attempts. It produced 9,041 matched and modified updates,
+90,959 clean no-matches, and zero errors. After all writers drained:
+
+- the stored applied count was exactly 9,041;
+- the final token was BSON binary subtype 4 with 16 bytes;
+- the final token matched the deterministic UUID for the final stored operation;
+- the final stored operation was one of the issued attempts.
+
+This confirms the same MongoDB atomic CAS behavior when contenders propose
+distinct UUID replacements instead of converging integer increments.
