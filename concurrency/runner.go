@@ -94,11 +94,6 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 
 	collection := target.Collection(cfg.Database, cfg.Collection)
 
-	var deadline time.Time
-	if cfg.Duration > 0 {
-		deadline = time.Now().Add(cfg.Duration)
-	}
-
 	result := LifecycleResult{
 		Product:   identity.Product,
 		Version:   identity.Version,
@@ -130,6 +125,10 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 	var recordErrOnce sync.Once
 	stop := make(chan struct{})
 	result.WorkloadStartedAt = time.Now().UTC()
+	var deadline time.Time
+	if cfg.Duration > 0 {
+		deadline = result.WorkloadStartedAt.Add(cfg.Duration)
+	}
 	workers.Add(cfg.Workers)
 	for workerID := 0; workerID < cfg.Workers; workerID++ {
 		go func(id int) {
