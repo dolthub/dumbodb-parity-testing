@@ -16,7 +16,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -29,6 +28,7 @@ import (
 
 func main() {
 	var cfg concurrency.Config
+	var outputPath string
 	flag.StringVar(&cfg.TargetURI, "uri", "mongodb://localhost:27017", "MongoDB 8 target URI")
 	flag.DurationVar(&cfg.Duration, "duration", concurrency.DefaultDuration, "maximum run duration")
 	flag.Int64Var(&cfg.Operations, "operations", 0, "maximum operations; zero uses duration only")
@@ -39,6 +39,7 @@ func main() {
 	flag.BoolVar(&cfg.KeepData, "keep-data", false, "retain the run database")
 	flag.StringVar(&cfg.Scenario, "scenario", "cas", "scenario: cas, blind-inc, disjoint-set, or same-set")
 	flag.IntVar(&cfg.PayloadBytes, "payload-bytes", 0, "padding bytes retained in the contended document")
+	flag.StringVar(&outputPath, "output", "", "write indented JSON report to this path")
 	flag.Parse()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -53,7 +54,17 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
+	fmt.Println(result.Summary())
+	output := os.Stdout
+	if outputPath != "" {
+		output, err = os.Create(outputPath)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		defer output.Close()
+	}
+	if err := result.WriteJSON(output); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

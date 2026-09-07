@@ -35,6 +35,7 @@ type LifecycleResult struct {
 	Attempts   int64
 	Ledger     LedgerSnapshot
 	Checks     []Check
+	Config     RunConfig
 }
 
 func Run(ctx context.Context, cfg Config, scenario Scenario) (LifecycleResult, error) {
@@ -81,6 +82,16 @@ func Run(ctx context.Context, cfg Config, scenario Scenario) (LifecycleResult, e
 		Version:   identity.Version,
 		Scenario:  scenario.Name(),
 		StartedAt: time.Now().UTC(),
+		Config: RunConfig{
+			Target:       sanitizedTarget(cfg.TargetURI),
+			Duration:     cfg.Duration.String(),
+			Operations:   cfg.Operations,
+			Workers:      cfg.Workers,
+			Seed:         cfg.Seed,
+			Database:     cfg.Database,
+			Collection:   cfg.Collection,
+			PayloadBytes: cfg.PayloadBytes,
+		},
 	}
 	if err := scenario.Setup(ctx, collection); err != nil {
 		return LifecycleResult{}, fmt.Errorf("setup %s: %w", scenario.Name(), err)
@@ -102,8 +113,9 @@ func Run(ctx context.Context, cfg Config, scenario Scenario) (LifecycleResult, e
 				if cfg.Operations > 0 && sequence > cfg.Operations {
 					return
 				}
+				started := time.Now()
 				outcome := scenario.Execute(runCtx, collection, id, sequence)
-				if err := ledger.Record(outcome); err != nil {
+				if err := ledger.Record(outcome, time.Since(started)); err != nil {
 					return
 				}
 				if runCtx.Err() != nil {
