@@ -36,6 +36,7 @@ type LifecycleResult struct {
 	Ledger     LedgerSnapshot
 	Checks     []Check
 	Config     RunConfig
+	Statistics RunStatistics
 }
 
 func Run(ctx context.Context, cfg Config, scenario Scenario) (LifecycleResult, error) {
@@ -70,12 +71,10 @@ func Run(ctx context.Context, cfg Config, scenario Scenario) (LifecycleResult, e
 		}()
 	}
 
-	runCtx := ctx
-	cancel := func() {}
+	var deadline time.Time
 	if cfg.Duration > 0 {
-		runCtx, cancel = context.WithTimeout(ctx, cfg.Duration)
+		deadline = time.Now().Add(cfg.Duration)
 	}
-	defer cancel()
 
 	result := LifecycleResult{
 		Product:   identity.Product,
@@ -105,20 +104,23 @@ func Run(ctx context.Context, cfg Config, scenario Scenario) (LifecycleResult, e
 			defer workers.Done()
 			for {
 				select {
-				case <-runCtx.Done():
+				case <-ctx.Done():
 					return
 				default:
+				}
+				if !deadline.IsZero() && time.Now().After(deadline) {
+					return
 				}
 				sequence := issued.Add(1)
 				if cfg.Operations > 0 && sequence > cfg.Operations {
 					return
 				}
 				started := time.Now()
-				outcome := scenario.Execute(runCtx, collection, id, sequence)
+				outcome := scenario.Execute(ctx, collection, id, sequence)
 				if err := ledger.Record(outcome, time.Since(started)); err != nil {
 					return
 				}
-				if runCtx.Err() != nil {
+				if ctx.Err() != nil {
 					return
 				}
 			}
@@ -131,6 +133,7 @@ func Run(ctx context.Context, cfg Config, scenario Scenario) (LifecycleResult, e
 		result.Attempts = cfg.Operations
 	}
 	result.Ledger = ledger.Snapshot()
+	result.Statistics = calculateStatistics(result.Ledger)
 	if err := result.Ledger.Validate(); err != nil {
 		return LifecycleResult{}, err
 	}

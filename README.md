@@ -14,6 +14,23 @@ you are investigating:
 | Perf benchmarks   | DumboDB vs Mongo  | Per-operation latency (ns/op)     | `benchmarks/` |
 | Storage + merge   | DumboDB vs Dolt   | On-disk growth, merge time        | `storage/`    |
 
+The standalone concurrency correctness runner is intentionally outside these
+three suites. It performs sustained MongoDB-only characterization and is not
+part of normal parity CI:
+
+    GOWORK=off go run ./cmd/concurrency \
+        -uri=mongodb://localhost:27017 \
+        -scenario=cas \
+        -duration=30m \
+        -workers=16 \
+        -seed=1 \
+        -output=mongodb-cas.json
+
+Available scenarios are `cas`, `blind-inc`, `disjoint-set`, and
+`same-set`. Use `-operations` for a bounded verification run and
+`-payload-bytes` to retain a large payload in the contended document. The
+command exits nonzero when a hard accounting or final-state check fails.
+
 ## Prerequisites
 
 - Go 1.22+
