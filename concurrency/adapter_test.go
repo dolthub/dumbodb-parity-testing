@@ -16,6 +16,7 @@ package concurrency
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"testing"
 )
@@ -68,8 +69,54 @@ type countingScenario struct {
 	verified atomic.Bool
 }
 
+type invalidOutcomeScenario struct {
+	countingScenario
+}
+
+func (s *invalidOutcomeScenario) Execute(context.Context, Collection, int, int64) Outcome {
+	return Outcome{Kind: OutcomeNoMatch, Modified: true}
+}
+
 func (s *countingScenario) Name() string {
 	return "counting"
+}
+
+func TestRunWithTargetFailsOnLedgerRecordError(t *testing.T) {
+	target := &fakeTarget{collection: unusedCollection{}}
+	scenario := &invalidOutcomeScenario{}
+	cfg := Config{
+		TargetURI:  "mongodb://unused",
+		Operations: 100,
+		Workers:    8,
+		Database:   "test",
+		Collection: "documents",
+		Scenario:   "invalid",
+	}
+	if _, err := RunWithTarget(context.Background(), cfg, scenario, target); err == nil {
+		t.Fatal("expected invalid outcome to fail the run")
+	}
+}
+
+func TestReserveOperationDoesNotOvershoot(t *testing.T) {
+	var issued atomic.Int64
+	var workers sync.WaitGroup
+	var reserved atomic.Int64
+	for i := 0; i < 16; i++ {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			for {
+				if _, ok := reserveOperation(&issued, 1000); !ok {
+					return
+				}
+				reserved.Add(1)
+			}
+		}()
+	}
+	workers.Wait()
+	if issued.Load() != 1000 || reserved.Load() != 1000 {
+		t.Fatalf("issued=%d reserved=%d", issued.Load(), reserved.Load())
+	}
 }
 
 func (s *countingScenario) Setup(context.Context, Collection) error {
