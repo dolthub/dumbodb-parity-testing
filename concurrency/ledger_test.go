@@ -17,6 +17,7 @@ package concurrency
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -31,7 +32,7 @@ func TestLedgerBalancesTerminalOutcomes(t *testing.T) {
 		{Kind: OutcomeClientError},
 	}
 	for _, outcome := range outcomes {
-		if err := ledger.Record(outcome); err != nil {
+		if err := ledger.Record(outcome, time.Millisecond); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -46,7 +47,7 @@ func TestLedgerBalancesTerminalOutcomes(t *testing.T) {
 
 func TestLedgerRejectsInvalidOutcome(t *testing.T) {
 	ledger := &Ledger{}
-	if err := ledger.Record(Outcome{Kind: OutcomeNoMatch, Modified: true}); err == nil {
+	if err := ledger.Record(Outcome{Kind: OutcomeNoMatch, Modified: true}, 0); err == nil {
 		t.Fatal("expected invalid outcome to fail")
 	}
 }

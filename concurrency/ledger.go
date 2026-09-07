@@ -17,7 +17,9 @@ package concurrency
 import (
 	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
+	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -44,6 +46,8 @@ type LedgerSnapshot struct {
 	Modified      int64
 	CommandErrors int64
 	ClientErrors  int64
+	Latency       LatencySnapshot
+	ErrorSamples  []string
 }
 
 func (s LedgerSnapshot) Validate() error {
@@ -64,10 +68,14 @@ type Ledger struct {
 	modified      atomic.Int64
 	commandErrors atomic.Int64
 	clientErrors  atomic.Int64
+	latency       latencyLedger
+	samplesMu     sync.Mutex
+	errorSamples  []string
 }
 
-func (l *Ledger) Record(outcome Outcome) error {
-	l.attempts.Add(1)
+const maxErrorSamples = 20
+
+func (l *Ledger) Record(outcome Outcome, latency time.Duration) error {
 	switch outcome.Kind {
 	case OutcomeMatched:
 		l.matched.Add(1)
@@ -92,17 +100,73 @@ func (l *Ledger) Record(outcome Outcome) error {
 	default:
 		return fmt.Errorf("unknown outcome kind %q", outcome.Kind)
 	}
+	l.attempts.Add(1)
+	l.latency.record(latency)
+	if outcome.Err != nil {
+		l.samplesMu.Lock()
+		if len(l.errorSamples) < maxErrorSamples {
+			l.errorSamples = append(l.errorSamples, outcome.Err.Error())
+		}
+		l.samplesMu.Unlock()
+	}
 	return nil
 }
 
 func (l *Ledger) Snapshot() LedgerSnapshot {
-	return LedgerSnapshot{
+	snapshot := LedgerSnapshot{
 		Attempts:      l.attempts.Load(),
 		Matched:       l.matched.Load(),
 		NoMatch:       l.noMatch.Load(),
 		Modified:      l.modified.Load(),
 		CommandErrors: l.commandErrors.Load(),
 		ClientErrors:  l.clientErrors.Load(),
+		Latency:       l.latency.snapshot(),
+	}
+	l.samplesMu.Lock()
+	snapshot.ErrorSamples = append([]string(nil), l.errorSamples...)
+	l.samplesMu.Unlock()
+	return snapshot
+}
+
+type LatencySnapshot struct {
+	LessThan100us int64
+	LessThan1ms   int64
+	LessThan10ms  int64
+	LessThan100ms int64
+	LessThan1s    int64
+	AtLeast1s     int64
+}
+
+type latencyLedger struct {
+	buckets [6]atomic.Int64
+}
+
+func (l *latencyLedger) record(duration time.Duration) {
+	index := 5
+	limits := [...]time.Duration{
+		100 * time.Microsecond,
+		time.Millisecond,
+		10 * time.Millisecond,
+		100 * time.Millisecond,
+		time.Second,
+	}
+	for i, limit := range limits {
+		if duration < limit {
+			index = i
+			break
+		}
+	}
+	l.buckets[index].Add(1)
+}
+
+func (l *latencyLedger) snapshot() LatencySnapshot {
+	return LatencySnapshot{
+		LessThan100us: l.buckets[0].Load(),
+		LessThan1ms:   l.buckets[1].Load(),
+		LessThan10ms:  l.buckets[2].Load(),
+		LessThan100ms: l.buckets[3].Load(),
+		LessThan1s:    l.buckets[4].Load(),
+		AtLeast1s:     l.buckets[5].Load(),
 	}
 }
 
