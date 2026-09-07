@@ -42,6 +42,15 @@ Every worker must stop producing attempts before final state is read. All
 issued operations must reach a terminal client-visible outcome before final
 reconciliation starts.
 
+A terminal client-visible outcome does not prove that the server has quiesced.
+In particular, a command canceled after it was sent can still be applied by the
+server after the driver returns. On interruption, the runner stops issuing new
+work, allows a bounded grace period for in-flight server work, and then reads
+final state with a fresh bounded context. The report is marked truncated and
+is not a conclusive pass. The grace period reduces but cannot eliminate the
+uncertainty from an indeterminate client response, so the run database is
+preserved for investigation.
+
 The runner fails on an accounting imbalance, an unreadable final state, an
 unexpected document shape, or a violated scenario invariant. Statistical
 comparisons never soften these failures.

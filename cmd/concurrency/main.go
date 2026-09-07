@@ -49,26 +49,50 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
-	result, err := concurrency.Run(ctx, cfg, scenario)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	result, runErr := concurrency.Run(ctx, cfg, scenario)
+	if result.Product == "" {
+		fmt.Fprintln(os.Stderr, runErr)
 		os.Exit(1)
 	}
 	fmt.Println(result.Summary())
 	output := os.Stdout
+	var outputFile *os.File
 	if outputPath != "" {
-		output, err = os.Create(outputPath)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
+		var outputErr error
+		outputFile, outputErr = os.Create(outputPath)
+		if outputErr != nil {
+			fmt.Fprintln(os.Stderr, outputErr)
+			finalize(&result, true)
 			os.Exit(1)
 		}
-		defer output.Close()
+		output = outputFile
 	}
-	if err := result.WriteJSON(output); err != nil {
+	reportErr := result.WriteJSON(output)
+	if outputFile != nil {
+		if closeErr := outputFile.Close(); reportErr == nil {
+			reportErr = closeErr
+		}
+	}
+	if reportErr != nil {
+		fmt.Fprintln(os.Stderr, reportErr)
+		finalize(&result, true)
+		os.Exit(1)
+	}
+	preserve := cfg.KeepData || result.Truncated || runErr != nil || !result.Passed()
+	finalize(&result, preserve)
+	if runErr != nil {
+		fmt.Fprintln(os.Stderr, runErr)
+		os.Exit(1)
+	}
+	if !result.Passed() {
+		os.Exit(1)
+	}
+}
+
+func finalize(result *concurrency.LifecycleResult, preserve bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := result.Finalize(ctx, preserve); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	if !concurrency.ChecksPassed(result.Checks) {
-		os.Exit(1)
 	}
 }

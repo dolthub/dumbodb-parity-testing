@@ -34,7 +34,7 @@ type RunConfig struct {
 }
 
 func (r LifecycleResult) Passed() bool {
-	return r.Ledger.Validate() == nil && ChecksPassed(r.Checks)
+	return !r.Truncated && r.Ledger.ClientErrors == 0 && r.Ledger.Validate() == nil && ChecksPassed(r.Checks)
 }
 
 func (r LifecycleResult) OperationsPerSecond() float64 {
