@@ -15,6 +15,7 @@
 package concurrency
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -73,6 +74,30 @@ func TestUpdateOutcome(t *testing.T) {
 		{name: "matched", got: UpdateOutcome(WriteResult{Matched: 1, Modified: 1}, nil), want: OutcomeMatched},
 		{name: "no match", got: UpdateOutcome(WriteResult{}, nil), want: OutcomeNoMatch},
 		{name: "command", got: UpdateOutcome(WriteResult{}, mongo.CommandError{Code: 1}), want: OutcomeCommandError},
+		{
+			name: "network-labeled command",
+			got: UpdateOutcome(WriteResult{}, mongo.CommandError{
+				Code:   1,
+				Labels: []string{"NetworkError"},
+			}),
+			want: OutcomeClientError,
+		},
+		{
+			name: "write concern only",
+			got: UpdateOutcome(WriteResult{}, mongo.WriteException{
+				WriteConcernError: &mongo.WriteConcernError{Code: 64},
+			}),
+			want: OutcomeClientError,
+		},
+		{
+			name: "write rejection",
+			got: UpdateOutcome(WriteResult{}, mongo.WriteException{
+				WriteErrors: mongo.WriteErrors{{Code: 11000}},
+			}),
+			want: OutcomeCommandError,
+		},
+		{name: "canceled", got: UpdateOutcome(WriteResult{}, context.Canceled), want: OutcomeClientError},
+		{name: "deadline", got: UpdateOutcome(WriteResult{}, context.DeadlineExceeded), want: OutcomeClientError},
 		{name: "client", got: UpdateOutcome(WriteResult{}, errors.New("network")), want: OutcomeClientError},
 	}
 	for _, test := range tests {
