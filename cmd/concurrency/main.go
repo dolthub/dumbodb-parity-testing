@@ -37,7 +37,7 @@ func main() {
 	flag.StringVar(&cfg.Database, "database", fmt.Sprintf("concurrency_%d", time.Now().UnixNano()), "isolated run database")
 	flag.StringVar(&cfg.Collection, "collection", "documents", "run collection")
 	flag.BoolVar(&cfg.KeepData, "keep-data", false, "retain the run database")
-	flag.StringVar(&cfg.Scenario, "scenario", "cas", "scenario: cas, blind-inc, disjoint-set, or same-set")
+	flag.StringVar(&cfg.Scenario, "scenario", "cas", "scenario: cas, uuid-cas, blind-inc, disjoint-set, or same-set")
 	flag.IntVar(&cfg.PayloadBytes, "payload-bytes", 0, "padding bytes retained in the contended document")
 	flag.StringVar(&outputPath, "output", "", "write indented JSON report to this path")
 	flag.Parse()

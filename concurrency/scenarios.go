@@ -16,11 +16,14 @@ package concurrency
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"strings"
 	"sync/atomic"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -49,6 +52,105 @@ func readCounter(ctx context.Context, collection *mongo.Collection) (int64, erro
 
 type casScenario struct {
 	payload string
+}
+
+type uuidCASDocument struct {
+	Token         primitive.Binary
+	Applied       int64
+	LastOperation int64
+}
+
+type uuidCASScenario struct {
+	payload string
+}
+
+func (s *uuidCASScenario) Name() string {
+	return "uuid-cas"
+}
+
+func (s *uuidCASScenario) Setup(ctx context.Context, collection *mongo.Collection) error {
+	_, err := collection.InsertOne(ctx, bson.D{
+		{Key: "_id", Value: "uuid-counter"},
+		{Key: "token", Value: uuidToken(0)},
+		{Key: "applied", Value: int64(0)},
+		{Key: "lastOperation", Value: int64(0)},
+		{Key: "payload", Value: s.payload},
+	})
+	return err
+}
+
+func (s *uuidCASScenario) Execute(ctx context.Context, collection *mongo.Collection, _ int, sequence int64) Outcome {
+	var observed uuidCASDocument
+	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "uuid-counter"}}).Decode(&observed); err != nil {
+		return Outcome{Kind: OutcomeClientError, Err: err}
+	}
+	replacement := uuidToken(sequence)
+	result, err := collection.UpdateOne(ctx,
+		bson.D{{Key: "_id", Value: "uuid-counter"}, {Key: "token", Value: observed.Token}},
+		bson.D{
+			{Key: "$set", Value: bson.D{
+				{Key: "token", Value: replacement},
+				{Key: "lastOperation", Value: sequence},
+			}},
+			{Key: "$inc", Value: bson.D{{Key: "applied", Value: int64(1)}}},
+		},
+	)
+	return UpdateOutcome(result, err)
+}
+
+func (s *uuidCASScenario) Verify(ctx context.Context, collection *mongo.Collection, ledger LedgerSnapshot) ([]Check, error) {
+	var document uuidCASDocument
+	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "uuid-counter"}}).Decode(&document); err != nil {
+		return nil, err
+	}
+	validUUID := document.Token.Subtype == 4 && len(document.Token.Data) == 16
+	expectedToken := uuidToken(document.LastOperation)
+	tokenMatchesOperation := binaryTokensEqual(document.Token, expectedToken)
+	operationWasIssued := document.LastOperation > 0 && document.LastOperation <= ledger.Attempts
+	return []Check{
+		{
+			Name:   "storedAppliedEqualsMatched",
+			Passed: document.Applied == ledger.Matched,
+			Detail: fmt.Sprintf("applied=%d matched=%d", document.Applied, ledger.Matched),
+		},
+		{
+			Name:   "everyMatchModified",
+			Passed: ledger.Modified == ledger.Matched,
+			Detail: fmt.Sprintf("modified=%d matched=%d", ledger.Modified, ledger.Matched),
+		},
+		{
+			Name:   "finalTokenIsUUID",
+			Passed: validUUID,
+			Detail: fmt.Sprintf("subtype=%d bytes=%d", document.Token.Subtype, len(document.Token.Data)),
+		},
+		{
+			Name:   "finalTokenMatchesIssuedOperation",
+			Passed: tokenMatchesOperation && operationWasIssued && document.Applied <= ledger.Matched,
+			Detail: fmt.Sprintf("lastOperation=%d attempts=%d", document.LastOperation, ledger.Attempts),
+		},
+	}, nil
+}
+
+func uuidToken(sequence int64) primitive.Binary {
+	var input [8]byte
+	binary.BigEndian.PutUint64(input[:], uint64(sequence))
+	digest := sha256.Sum256(input[:])
+	data := append([]byte(nil), digest[:16]...)
+	data[6] = (data[6] & 0x0f) | 0x40
+	data[8] = (data[8] & 0x3f) | 0x80
+	return primitive.Binary{Subtype: 4, Data: data}
+}
+
+func binaryTokensEqual(left, right primitive.Binary) bool {
+	if left.Subtype != right.Subtype || len(left.Data) != len(right.Data) {
+		return false
+	}
+	for i := range left.Data {
+		if left.Data[i] != right.Data[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *casScenario) Name() string {

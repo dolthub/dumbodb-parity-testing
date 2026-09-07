@@ -92,6 +92,24 @@ final version = initial version + matched
 This scenario verifies preservation of acknowledged commutative writes under
 contention.
 
+### UUID compare-and-set
+
+The document holds a binary subtype-4 UUID token and an integer applied count.
+Each attempt reads the current token and submits a conditional update that
+replaces it with a deterministic unique UUID and increments applied in the same
+atomic update.
+
+After all writers drain:
+
+    final applied = matched
+    modified = matched
+    final token is a valid binary subtype-4 UUID
+    final token belongs to a matched update
+
+This exercises compare-and-set without convergent result values. Two contenders
+that observe the same token propose different replacements, and at most one may
+match.
+
 ### Disjoint field set
 
 Workers own stable top-level fields in one shared document and write a

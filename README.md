@@ -26,8 +26,8 @@ part of normal parity CI:
         -seed=1 \
         -output=mongodb-cas.json
 
-Available scenarios are `cas`, `blind-inc`, `disjoint-set`, and
-`same-set`. Use `-operations` for a bounded verification run and
+Available scenarios are `cas`, `uuid-cas`, `blind-inc`,
+`disjoint-set`, and `same-set`. Use `-operations` for a bounded verification run and
 `-payload-bytes` to retain a large payload in the contended document. The
 command exits nonzero when a hard accounting or final-state check fails.
 

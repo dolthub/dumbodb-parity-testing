@@ -39,6 +39,8 @@ func NewScenario(name string, workers, payloadBytes int) (Scenario, error) {
 	switch name {
 	case "cas":
 		return &casScenario{payload: payload}, nil
+	case "uuid-cas":
+		return &uuidCASScenario{payload: payload}, nil
 	case "blind-inc":
 		return &blindIncrementScenario{payload: payload}, nil
 	case "disjoint-set":

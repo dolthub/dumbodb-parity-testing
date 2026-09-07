@@ -17,7 +17,7 @@ package concurrency
 import "testing"
 
 func TestNewScenario(t *testing.T) {
-	names := []string{"cas", "blind-inc", "disjoint-set", "same-set"}
+	names := []string{"cas", "uuid-cas", "blind-inc", "disjoint-set", "same-set"}
 	for _, name := range names {
 		scenario, err := NewScenario(name, 4, 0)
 		if err != nil {
@@ -29,6 +29,27 @@ func TestNewScenario(t *testing.T) {
 	}
 	if _, err := NewScenario("unknown", 4, 0); err == nil {
 		t.Fatal("expected unknown scenario to fail")
+	}
+}
+
+func TestUUIDTokenIsDeterministicUniqueSubtypeFour(t *testing.T) {
+	first := uuidToken(1)
+	again := uuidToken(1)
+	second := uuidToken(2)
+	if first.Subtype != 4 || len(first.Data) != 16 {
+		t.Fatalf("invalid UUID representation: %+v", first)
+	}
+	if string(first.Data) != string(again.Data) {
+		t.Fatal("same sequence produced different UUIDs")
+	}
+	if string(first.Data) == string(second.Data) {
+		t.Fatal("different sequences produced the same UUID")
+	}
+	if !binaryTokensEqual(first, again) || binaryTokensEqual(first, second) {
+		t.Fatal("binary UUID equality is incorrect")
+	}
+	if first.Data[6]&0xf0 != 0x40 || first.Data[8]&0xc0 != 0x80 {
+		t.Fatalf("UUID version or variant bits are invalid: %x", first.Data)
 	}
 }
 
