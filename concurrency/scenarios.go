@@ -300,6 +300,7 @@ func (s *disjointSetScenario) Execute(ctx context.Context, collection Collection
 	)
 	outcome := UpdateOutcome(result, err)
 	if outcome.Kind == OutcomeMatched {
+		// Each worker executes sequentially, so its latest acknowledgement wins this slot.
 		s.acknowledged[worker].Store(sequence)
 	}
 	return outcome
@@ -311,18 +312,23 @@ func (s *disjointSetScenario) Verify(ctx context.Context, collection Collection,
 		return nil, err
 	}
 	checks := []Check{{
-		Name:   "allWritesMatched",
-		Passed: ledger.Matched == ledger.Attempts,
-		Detail: fmt.Sprintf("matched=%d attempts=%d", ledger.Matched, ledger.Attempts),
+		Name:   "allAcknowledgedWritesMatched",
+		Passed: ledger.Matched == ledger.Attempts-ledger.CommandErrors-ledger.ClientErrors,
+		Detail: fmt.Sprintf("matched=%d attempts=%d commandErrors=%d clientErrors=%d", ledger.Matched, ledger.Attempts, ledger.CommandErrors, ledger.ClientErrors),
 	}}
 	for worker := range s.acknowledged {
 		want := s.acknowledged[worker].Load()
 		field := fmt.Sprintf("worker_%d", worker)
-		got, ok := numericInt64(document[field])
+		value, present := document[field]
+		got, numeric := numericInt64(value)
+		passed := !present
+		if want > 0 {
+			passed = present && numeric && got == want
+		}
 		checks = append(checks, Check{
 			Name:   field + "RetainsLastAcknowledgement",
-			Passed: ok && got == want,
-			Detail: fmt.Sprintf("stored=%d acknowledged=%d", got, want),
+			Passed: passed,
+			Detail: fmt.Sprintf("present=%t stored=%d acknowledged=%d", present, got, want),
 		})
 	}
 	return checks, nil
@@ -362,9 +368,9 @@ func (s *sameFieldSetScenario) Verify(ctx context.Context, collection Collection
 	}
 	return []Check{
 		{
-			Name:   "allWritesMatched",
-			Passed: ledger.Matched == ledger.Attempts,
-			Detail: fmt.Sprintf("matched=%d attempts=%d", ledger.Matched, ledger.Attempts),
+			Name:   "allAcknowledgedWritesMatched",
+			Passed: ledger.Matched == ledger.Attempts-ledger.CommandErrors-ledger.ClientErrors,
+			Detail: fmt.Sprintf("matched=%d attempts=%d commandErrors=%d clientErrors=%d", ledger.Matched, ledger.Attempts, ledger.CommandErrors, ledger.ClientErrors),
 		},
 		{
 			Name:   "finalValueWasIssued",

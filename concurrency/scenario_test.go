@@ -14,7 +14,30 @@
 
 package concurrency
 
-import "testing"
+import (
+	"context"
+	"testing"
+
+	"go.mongodb.org/mongo-driver/bson"
+)
+
+type finalDocumentCollection struct {
+	document bson.M
+}
+
+func (c finalDocumentCollection) InsertOne(context.Context, interface{}) error {
+	return nil
+}
+
+func (c finalDocumentCollection) UpdateOne(context.Context, interface{}, interface{}) (WriteResult, error) {
+	return WriteResult{}, nil
+}
+
+func (c finalDocumentCollection) FindOne(_ context.Context, _ interface{}, result interface{}) error {
+	destination := result.(*bson.M)
+	*destination = c.document
+	return nil
+}
 
 func TestNewScenario(t *testing.T) {
 	names := []string{"cas", "uuid-cas", "blind-inc", "disjoint-set", "same-set"}
@@ -115,4 +138,74 @@ func TestCounterChecksRejectDoubleMatch(t *testing.T) {
 	if snapshot.CAS.DuplicateMatches != 1 {
 		t.Fatalf("duplicate matches = %d, want 1", snapshot.CAS.DuplicateMatches)
 	}
+}
+
+func TestDisjointSetWorkerWithoutMatchRequiresAbsentField(t *testing.T) {
+	ledger := LedgerSnapshot{Attempts: 1, Matched: 1}
+	scenario := newDisjointSetScenario(2, "")
+	scenario.acknowledged[0].Store(1)
+	checks, err := scenario.Verify(context.Background(), finalDocumentCollection{document: bson.M{
+		"_id":      "fields",
+		"worker_0": int64(1),
+	}}, ledger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ChecksPassed(checks) {
+		t.Fatalf("absent unmatched worker field failed: %+v", checks)
+	}
+
+	checks, err = scenario.Verify(context.Background(), finalDocumentCollection{document: bson.M{
+		"_id":      "fields",
+		"worker_0": int64(1),
+		"worker_1": int64(9),
+	}}, ledger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ChecksPassed(checks) {
+		t.Fatalf("present unacknowledged worker field passed: %+v", checks)
+	}
+}
+
+func TestSetScenariosSeparateIndeterminateOutcomesFromMatchAccounting(t *testing.T) {
+	ledger := LedgerSnapshot{Attempts: 3, Matched: 1, CommandErrors: 1, ClientErrors: 1}
+	disjoint := newDisjointSetScenario(1, "")
+	disjoint.acknowledged[0].Store(1)
+	disjointChecks, err := disjoint.Verify(context.Background(), finalDocumentCollection{document: bson.M{
+		"worker_0": int64(1),
+	}}, ledger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ChecksPassed(disjointChecks) {
+		t.Fatalf("disjoint accounting folded errors into failure: %+v", disjointChecks)
+	}
+
+	same := &sameFieldSetScenario{}
+	sameChecks, err := same.Verify(context.Background(), finalStructCollection{value: 1}, ledger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ChecksPassed(sameChecks) {
+		t.Fatalf("same-field accounting folded errors into failure: %+v", sameChecks)
+	}
+}
+
+type finalStructCollection struct {
+	value int64
+}
+
+func (c finalStructCollection) InsertOne(context.Context, interface{}) error {
+	return nil
+}
+
+func (c finalStructCollection) UpdateOne(context.Context, interface{}, interface{}) (WriteResult, error) {
+	return WriteResult{}, nil
+}
+
+func (c finalStructCollection) FindOne(_ context.Context, _ interface{}, result interface{}) error {
+	document := result.(*struct{ Value int64 })
+	document.Value = c.value
+	return nil
 }
