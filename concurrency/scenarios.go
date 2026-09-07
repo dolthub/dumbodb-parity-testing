@@ -238,7 +238,18 @@ func (s *blindIncrementScenario) Verify(ctx context.Context, collection Collecti
 	if err != nil {
 		return nil, err
 	}
-	return counterChecks(version, ledger), nil
+	return []Check{
+		{
+			Name:   "storedVersionEqualsMatched",
+			Passed: version == ledger.Matched,
+			Detail: fmt.Sprintf("version=%d matched=%d", version, ledger.Matched),
+		},
+		{
+			Name:   "everyMatchModified",
+			Passed: ledger.Modified == ledger.Matched,
+			Detail: fmt.Sprintf("modified=%d matched=%d", ledger.Modified, ledger.Matched),
+		},
+	}, nil
 }
 
 func counterChecks(version int64, ledger LedgerSnapshot) []Check {
