@@ -17,12 +17,30 @@ package concurrency
 import (
 	"context"
 	"testing"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 )
 
 type finalDocumentCollection struct {
 	document bson.M
+}
+
+func TestDeterministicDelayUsesSeedAndSequence(t *testing.T) {
+	maximum := 10 * time.Second
+	first := deterministicDelay(7, 11, maximum)
+	if first != deterministicDelay(7, 11, maximum) {
+		t.Fatal("same seed and sequence produced different delays")
+	}
+	if first == deterministicDelay(8, 11, maximum) {
+		t.Fatal("different seeds produced the same test delay")
+	}
+	if first < 0 || first > maximum {
+		t.Fatalf("delay %s outside [0,%s]", first, maximum)
+	}
+	if deterministicDelay(7, 11, 0) != 0 {
+		t.Fatal("disabled delay was nonzero")
+	}
 }
 
 func (c finalDocumentCollection) InsertOne(context.Context, interface{}) error {

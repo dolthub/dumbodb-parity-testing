@@ -17,6 +17,7 @@ package concurrency
 import (
 	"context"
 	"fmt"
+	"time"
 )
 
 type Check struct {
@@ -33,12 +34,16 @@ type Scenario interface {
 }
 
 func NewScenario(name string, workers, payloadBytes int) (Scenario, error) {
+	return NewScenarioWithWorkload(name, workers, payloadBytes, 0, 0)
+}
+
+func NewScenarioWithWorkload(name string, workers, payloadBytes int, seed int64, casDelay time.Duration) (Scenario, error) {
 	payload := makePayload(payloadBytes)
 	switch name {
 	case "cas":
-		return &casScenario{payload: payload}, nil
+		return &casScenario{payload: payload, seed: seed, maxDelay: casDelay}, nil
 	case "uuid-cas":
-		return &uuidCASScenario{payload: payload}, nil
+		return &uuidCASScenario{payload: payload, seed: seed, maxDelay: casDelay}, nil
 	case "blind-inc":
 		return &blindIncrementScenario{payload: payload}, nil
 	case "disjoint-set":

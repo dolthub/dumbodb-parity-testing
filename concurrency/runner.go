@@ -111,6 +111,7 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 			Database:     cfg.Database,
 			Collection:   cfg.Collection,
 			PayloadBytes: cfg.PayloadBytes,
+			CASDelay:     cfg.CASDelay.String(),
 		},
 		target:   target,
 		database: cfg.Database,
