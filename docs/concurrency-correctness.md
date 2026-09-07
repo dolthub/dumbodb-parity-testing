@@ -197,6 +197,6 @@ DumboDB support must not begin until the MongoDB-only runner:
 
 1. completes the initial scenario set;
 2. balances every accounting equation;
-3. detects an intentionally corrupted ledger or final state;
+3. detects an intentionally corrupted ledger and every scenario's final state;
 4. emits bounded machine-readable evidence;
 5. completes a sustained MongoDB 8.0.28 characterization run.
