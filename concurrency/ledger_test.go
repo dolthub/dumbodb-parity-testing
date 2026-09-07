@@ -17,6 +17,7 @@ package concurrency
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -61,6 +62,38 @@ func TestLedgerSnapshotDetectsCorruption(t *testing.T) {
 	for _, snapshot := range tests {
 		if err := snapshot.Validate(); err == nil {
 			t.Fatalf("expected corrupted snapshot to fail: %+v", snapshot)
+		}
+	}
+}
+
+func TestLedgerSnapshotsRemainBalancedDuringConcurrentRecording(t *testing.T) {
+	ledger := &Ledger{}
+	var writers sync.WaitGroup
+	for worker := 0; worker < 8; worker++ {
+		writers.Add(1)
+		go func() {
+			defer writers.Done()
+			for operation := 0; operation < 1000; operation++ {
+				if err := ledger.Record(Outcome{Kind: OutcomeMatched, Modified: true}, 0); err != nil {
+					t.Errorf("record: %v", err)
+					return
+				}
+			}
+		}()
+	}
+	done := make(chan struct{})
+	go func() {
+		writers.Wait()
+		close(done)
+	}()
+	for {
+		if err := ledger.Snapshot().Validate(); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case <-done:
+			return
+		default:
 		}
 	}
 }

@@ -181,6 +181,12 @@ func TestRunWithTargetUsesInjectedAdapter(t *testing.T) {
 	if result.Ledger.Attempts != 1000 || scenario.executed.Load() != 1000 {
 		t.Fatalf("attempts=%d executed=%d", result.Ledger.Attempts, scenario.executed.Load())
 	}
+	if result.WorkloadStartedAt.IsZero() || result.WorkloadFinishedAt.Before(result.WorkloadStartedAt) {
+		t.Fatalf("invalid workload window: %s to %s", result.WorkloadStartedAt, result.WorkloadFinishedAt)
+	}
+	if result.Config.LatencyScope != "update" {
+		t.Fatalf("latency scope=%q", result.Config.LatencyScope)
+	}
 	if !scenario.setup.Load() || !scenario.verified.Load() {
 		t.Fatal("scenario lifecycle was not completed")
 	}

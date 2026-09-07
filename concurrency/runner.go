@@ -23,20 +23,22 @@ import (
 )
 
 type LifecycleResult struct {
-	Product    string
-	Version    string
-	Scenario   string
-	StartedAt  time.Time
-	FinishedAt time.Time
-	Ledger     LedgerSnapshot
-	Checks     []Check
-	Config     RunConfig
-	Statistics RunStatistics
-	Truncated  bool
-	StopReason string
-	target     Target
-	database   string
-	keepData   bool
+	Product            string
+	Version            string
+	Scenario           string
+	StartedAt          time.Time
+	FinishedAt         time.Time
+	WorkloadStartedAt  time.Time
+	WorkloadFinishedAt time.Time
+	Ledger             LedgerSnapshot
+	Checks             []Check
+	Config             RunConfig
+	Statistics         RunStatistics
+	Truncated          bool
+	StopReason         string
+	target             Target
+	database           string
+	keepData           bool
 }
 
 func (r *LifecycleResult) Finalize(ctx context.Context, preserve bool) error {
@@ -112,6 +114,7 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 			Collection:   cfg.Collection,
 			PayloadBytes: cfg.PayloadBytes,
 			CASDelay:     cfg.CASDelay.String(),
+			LatencyScope: scenarioLatencyScope(scenario.Name()),
 		},
 		target:   target,
 		database: cfg.Database,
@@ -126,6 +129,7 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 	var recordErr error
 	var recordErrOnce sync.Once
 	stop := make(chan struct{})
+	result.WorkloadStartedAt = time.Now().UTC()
 	workers.Add(cfg.Workers)
 	for workerID := 0; workerID < cfg.Workers; workerID++ {
 		go func(id int) {
@@ -161,6 +165,7 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 		}(workerID)
 	}
 	workers.Wait()
+	result.WorkloadFinishedAt = time.Now().UTC()
 	result.Truncated = ctx.Err() != nil
 	if result.Truncated {
 		result.StopReason = ctx.Err().Error()
@@ -199,6 +204,13 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 	result.Checks = checks
 	result.FinishedAt = time.Now().UTC()
 	return result, nil
+}
+
+func scenarioLatencyScope(name string) string {
+	if name == "cas" || name == "uuid-cas" {
+		return "read-and-update"
+	}
+	return "update"
 }
 
 func reserveOperation(issued *atomic.Int64, limit int64) (int64, bool) {

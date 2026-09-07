@@ -38,6 +38,15 @@ func NewScenario(name string, workers, payloadBytes int) (Scenario, error) {
 }
 
 func NewScenarioWithWorkload(name string, workers, payloadBytes int, seed int64, casDelay time.Duration) (Scenario, error) {
+	if workers <= 0 {
+		return nil, fmt.Errorf("workers must be positive")
+	}
+	if payloadBytes < 0 {
+		return nil, fmt.Errorf("payload bytes cannot be negative")
+	}
+	if casDelay < 0 {
+		return nil, fmt.Errorf("CAS delay cannot be negative")
+	}
 	payload := makePayload(payloadBytes)
 	switch name {
 	case "cas":

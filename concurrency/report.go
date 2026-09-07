@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"time"
 )
 
 type RunConfig struct {
@@ -32,6 +31,7 @@ type RunConfig struct {
 	Collection   string
 	PayloadBytes int
 	CASDelay     string
+	LatencyScope string
 }
 
 func (r LifecycleResult) Passed() bool {
@@ -39,7 +39,7 @@ func (r LifecycleResult) Passed() bool {
 }
 
 func (r LifecycleResult) OperationsPerSecond() float64 {
-	elapsed := r.FinishedAt.Sub(r.StartedAt).Seconds()
+	elapsed := r.WorkloadFinishedAt.Sub(r.WorkloadStartedAt).Seconds()
 	if elapsed <= 0 {
 		return 0
 	}
@@ -75,8 +75,4 @@ func sanitizedTarget(raw string) string {
 	parsed.User = nil
 	parsed.RawQuery = ""
 	return parsed.String()
-}
-
-func elapsedMilliseconds(start, finish time.Time) int64 {
-	return finish.Sub(start).Milliseconds()
 }

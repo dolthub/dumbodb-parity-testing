@@ -71,6 +71,12 @@ func TestNewScenario(t *testing.T) {
 	if _, err := NewScenario("unknown", 4, 0); err == nil {
 		t.Fatal("expected unknown scenario to fail")
 	}
+	if _, err := NewScenario("disjoint-set", -1, 0); err == nil {
+		t.Fatal("expected negative workers to fail")
+	}
+	if _, err := NewScenario("cas", 1, -1); err == nil {
+		t.Fatal("expected negative payload to fail")
+	}
 }
 
 func TestUUIDTokenIsDeterministicUniqueSubtypeFour(t *testing.T) {
