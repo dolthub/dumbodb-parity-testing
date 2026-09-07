@@ -1,0 +1,103 @@
+{
+  "Product": "MongoDB",
+  "Version": "8.0.28",
+  "Scenario": "cas",
+  "StartedAt": "2026-09-07T23:03:32.408111924Z",
+  "FinishedAt": "2026-09-07T23:33:32.436798793Z",
+  "WorkloadStartedAt": "2026-09-07T23:03:32.432489171Z",
+  "WorkloadFinishedAt": "2026-09-07T23:33:32.433571669Z",
+  "Ledger": {
+    "Attempts": 26630519,
+    "Matched": 2066934,
+    "NoMatch": 24563585,
+    "Modified": 2066934,
+    "CommandErrors": 0,
+    "ClientErrors": 0,
+    "Latency": {
+      "LessThan100us": 0,
+      "LessThan1ms": 1889750,
+      "LessThan10ms": 24676184,
+      "LessThan100ms": 64585,
+      "LessThan1s": 0,
+      "AtLeast1s": 0
+    },
+    "ErrorSamples": null,
+    "CAS": {
+      "MatchedEdges": 2066934,
+      "DuplicateMatches": 0,
+      "InvalidEdges": 0,
+      "HighestObserved": 2066933
+    }
+  },
+  "Checks": [
+    {
+      "Name": "storedVersionEqualsMatched",
+      "Passed": true,
+      "Detail": "version=2066934 matched=2066934"
+    },
+    {
+      "Name": "everyMatchModified",
+      "Passed": true,
+      "Detail": "modified=2066934 matched=2066934"
+    },
+    {
+      "Name": "oneMatchPerObservedGeneration",
+      "Passed": true,
+      "Detail": "duplicateMatches=0"
+    },
+    {
+      "Name": "matchedEdgesAreSuccessive",
+      "Passed": true,
+      "Detail": "edges=2066934 invalid=0 matched=2066934"
+    },
+    {
+      "Name": "matchedEdgesFormCompleteChain",
+      "Passed": true,
+      "Detail": "highestObserved=2066933 version=2066934"
+    }
+  ],
+  "Config": {
+    "Target": "mongodb://localhost:27017",
+    "Duration": "30m0s",
+    "Operations": 0,
+    "Workers": 32,
+    "Seed": 1,
+    "Database": "mongodb_cas_corrected_rerun_20260907",
+    "Collection": "documents",
+    "PayloadBytes": 0,
+    "CASDelay": "0s",
+    "LatencyScope": "read-and-update"
+  },
+  "Statistics": {
+    "MatchRate": {
+      "Count": 2066934,
+      "SampleSize": 26630519,
+      "Rate": 0.07761523536210466,
+      "Lower95": 0.07751367425973157,
+      "Upper95": 0.07771691832266953
+    },
+    "NoMatchRate": {
+      "Count": 24563585,
+      "SampleSize": 26630519,
+      "Rate": 0.9223847646378953,
+      "Lower95": 0.9222830816773304,
+      "Upper95": 0.9224863257402685
+    },
+    "CommandErrorRate": {
+      "Count": 0,
+      "SampleSize": 26630519,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 1.442502215808426e-7
+    },
+    "ClientErrorRate": {
+      "Count": 0,
+      "SampleSize": 26630519,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 1.442502215808426e-7
+    }
+  },
+  "Truncated": false,
+  "StopReason": ""
+}

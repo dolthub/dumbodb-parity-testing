@@ -65,9 +65,10 @@ func (unusedCollection) UpdateOne(context.Context, interface{}, interface{}) (Wr
 }
 
 type countingScenario struct {
-	executed atomic.Int64
-	setup    atomic.Bool
-	verified atomic.Bool
+	executed   atomic.Int64
+	setup      atomic.Bool
+	verified   atomic.Bool
+	setupDelay time.Duration
 }
 
 type invalidOutcomeScenario struct {
@@ -149,8 +150,34 @@ func TestReserveOperationDoesNotOvershoot(t *testing.T) {
 }
 
 func (s *countingScenario) Setup(context.Context, Collection) error {
+	if s.setupDelay > 0 {
+		time.Sleep(s.setupDelay)
+	}
 	s.setup.Store(true)
 	return nil
+}
+
+func TestDurationStartsAfterSetup(t *testing.T) {
+	target := &fakeTarget{collection: unusedCollection{}}
+	scenario := &countingScenario{setupDelay: 20 * time.Millisecond}
+	result, err := RunWithTarget(context.Background(), Config{
+		TargetURI:  "mongodb://unused",
+		Duration:   10 * time.Millisecond,
+		Operations: 1,
+		Workers:    1,
+		Database:   "test",
+		Collection: "documents",
+		Scenario:   "counting",
+	}, scenario, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Ledger.Attempts != 1 {
+		t.Fatalf("attempts=%d, setup consumed workload duration", result.Ledger.Attempts)
+	}
+	if err := result.Finalize(context.Background(), true); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func (s *countingScenario) Execute(context.Context, Collection, int, int64) Outcome {

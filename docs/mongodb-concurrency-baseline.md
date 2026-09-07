@@ -1,8 +1,15 @@
-# MongoDB 8.0.28 Concurrency Baseline
+# MongoDB 8.0.28 Corrected Concurrency Baseline
+
+This baseline supersedes the aggregate-only CAS run that completed at
+2026-09-07T21:20:38Z. That earlier run checked only final version and modified
+counts. It did not retain per-observed-generation edges and therefore could not
+support its claim that two operations observing the same version never both
+matched. Its throughput and match-rate measurements remain historical data,
+but it is not correctness evidence.
 
 ## Environment
 
-The initial sustained baseline ran against MongoDB Community Server 8.0.28 on
+The corrected sustained baseline ran against MongoDB Community Server 8.0.28 on
 Debian 12. The server and runner were on the same host.
 
     scenario: cas
@@ -10,8 +17,10 @@ Debian 12. The server and runner were on the same host.
     workers: 32
     seed: 1
     payload bytes: 0
-    started: 2026-09-07T20:50:38.139770087Z
-    finished: 2026-09-07T21:20:38.142640916Z
+    CAS delay: 0s
+    latency scope: read-and-update
+    workload started: 2026-09-07T23:03:32.432489171Z
+    workload finished: 2026-09-07T23:33:32.433571669Z
 
 Command:
 
@@ -20,45 +29,55 @@ Command:
       -duration=30m \
       -workers=32 \
       -seed=1 \
-      -output=/tmp/mongodb-8.0.28-cas-30m.json
+      -database=mongodb_cas_corrected_rerun_20260907 \
+      -output=docs/evidence/mongodb-8.0.28-cas-corrected-30m.json
+
+The complete machine-readable report is stored at
+`docs/evidence/mongodb-8.0.28-cas-corrected-30m.json` with SHA-256
+`e25eef402e6068369872af1164f549c39eef0a772d04bcb54d5718b0b3445751`.
 
 ## Results
 
-    attempts: 20,413,088
-    matched: 1,755,590
-    no match: 18,657,498
-    modified: 1,755,590
+    attempts: 26,630,519
+    matched: 2,066,934
+    no match: 24,563,585
+    modified: 2,066,934
     command errors: 0
     client errors: 0
-    operations per second: 11,340.6
+    operations per second: 14,794.7
 
-The CAS match rate was 0.0860032. Its 95 percent Wilson interval was
-[0.0858816, 0.0861249]. The no-match rate was 0.9139968 with interval
-[0.9138751, 0.9141184].
+The CAS match rate was 0.0776152. Its 95 percent Wilson interval was
+[0.0775137, 0.0777169]. The no-match rate was 0.9223848 with interval
+[0.9222831, 0.9224863].
 
 The upper bound of the 95 percent interval for each unobserved error rate was
-0.0000001882.
+0.0000001443.
 
 Latency buckets:
 
     under 100 us: 0
-    100 us to 1 ms: 1,073,569
-    1 ms to 10 ms: 19,033,819
-    10 ms to 100 ms: 305,700
+    100 us to 1 ms: 1,889,750
+    1 ms to 10 ms: 24,676,184
+    10 ms to 100 ms: 64,585
     100 ms to 1 s: 0
     1 s or greater: 0
 
 ## Correctness
 
-Both zero-tolerance checks passed:
+All five zero-tolerance checks passed:
 
-    stored version = matched updates = 1,755,590
-    modified updates = matched updates = 1,755,590
+    stored version = matched updates = 2,066,934
+    modified updates = matched updates = 2,066,934
+    matched causal edges = matched updates = 2,066,934
+    duplicate observed-generation matches = 0
+    invalid generation edges = 0
+    highest observed generation = 2,066,933
 
-Every attempt had exactly one terminal outcome. Two concurrent operations that
-read the same version did not both match. MongoDB atomically re-evaluated the
-version predicate when applying each update, so losing contenders returned a
-successful command with no matching document.
+Every attempt had exactly one terminal outcome. The matched edges form one
+complete chain from generation 0 to the stored version. No observed generation
+matched more than once, directly establishing that two concurrent operations
+based on the same version did not both match in this run. Losing contenders
+returned a successful command with no matching document.
 
 This is the observed MongoDB CAS contract that the later DumboDB baseline will
 use. It is comparable to the safety goal of fieldTouched, but MongoDB does not
@@ -86,7 +105,7 @@ payload, and 100,000 attempts. It produced 9,041 matched and modified updates,
 - the stored applied count was exactly 9,041;
 - the final token was BSON binary subtype 4 with 16 bytes;
 - the final token matched the deterministic UUID for the final stored operation;
-- the final stored operation was one of the issued attempts.
+- the final stored operation was one of the matched attempts.
 
 This confirms the same MongoDB atomic CAS behavior when contenders propose
 distinct UUID replacements instead of converging integer increments.
