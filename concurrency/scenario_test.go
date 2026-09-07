@@ -54,18 +54,65 @@ func TestUUIDTokenIsDeterministicUniqueSubtypeFour(t *testing.T) {
 }
 
 func TestCounterChecksPassAndFail(t *testing.T) {
-	passing := counterChecks(3, LedgerSnapshot{Matched: 3, Modified: 3})
+	passing := counterChecks(3, LedgerSnapshot{
+		Matched:  3,
+		Modified: 3,
+		CAS: CASSnapshot{
+			MatchedEdges:    3,
+			HighestObserved: 2,
+		},
+	})
 	if !ChecksPassed(passing) {
 		t.Fatalf("expected checks to pass: %+v", passing)
 	}
 
-	wrongVersion := counterChecks(2, LedgerSnapshot{Matched: 3, Modified: 3})
+	wrongVersion := counterChecks(2, LedgerSnapshot{
+		Matched:  3,
+		Modified: 3,
+		CAS: CASSnapshot{
+			MatchedEdges:    3,
+			HighestObserved: 2,
+		},
+	})
 	if ChecksPassed(wrongVersion) {
 		t.Fatal("expected stored-version mismatch to fail")
 	}
 
-	wrongModified := counterChecks(3, LedgerSnapshot{Matched: 3, Modified: 2})
+	wrongModified := counterChecks(3, LedgerSnapshot{
+		Matched:  3,
+		Modified: 2,
+		CAS: CASSnapshot{
+			MatchedEdges:    3,
+			HighestObserved: 2,
+		},
+	})
 	if ChecksPassed(wrongModified) {
 		t.Fatal("expected modification mismatch to fail")
+	}
+}
+
+func TestCounterChecksRejectDoubleMatch(t *testing.T) {
+	ledger := &Ledger{}
+	for sequence := int64(1); sequence <= 2; sequence++ {
+		err := ledger.Record(Outcome{
+			Kind:     OutcomeMatched,
+			Modified: true,
+			Sequence: sequence,
+			CAS: &CASOperation{
+				ObservedGeneration: 0,
+				ProposedGeneration: 1,
+			},
+		}, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	snapshot := ledger.Snapshot()
+	checks := counterChecks(2, snapshot)
+	if ChecksPassed(checks) {
+		t.Fatalf("double match passed oracle: %+v", checks)
+	}
+	if snapshot.CAS.DuplicateMatches != 1 {
+		t.Fatalf("duplicate matches = %d, want 1", snapshot.CAS.DuplicateMatches)
 	}
 }

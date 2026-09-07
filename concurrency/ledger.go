@@ -37,6 +37,14 @@ type Outcome struct {
 	Kind     OutcomeKind
 	Modified bool
 	Err      error
+	Sequence int64
+	Worker   int
+	CAS      *CASOperation
+}
+
+type CASOperation struct {
+	ObservedGeneration int64
+	ProposedGeneration int64
 }
 
 type LedgerSnapshot struct {
@@ -48,6 +56,7 @@ type LedgerSnapshot struct {
 	ClientErrors  int64
 	Latency       LatencySnapshot
 	ErrorSamples  []string
+	CAS           CASSnapshot
 }
 
 func (s LedgerSnapshot) Validate() error {
@@ -71,6 +80,7 @@ type Ledger struct {
 	latency       latencyLedger
 	samplesMu     sync.Mutex
 	errorSamples  []string
+	causal        causalLedger
 }
 
 const maxErrorSamples = 20
@@ -102,6 +112,9 @@ func (l *Ledger) Record(outcome Outcome, latency time.Duration) error {
 	}
 	l.attempts.Add(1)
 	l.latency.record(latency)
+	if outcome.CAS != nil && outcome.Kind == OutcomeMatched {
+		l.causal.record(outcome.Sequence, *outcome.CAS)
+	}
 	if outcome.Err != nil {
 		l.samplesMu.Lock()
 		if len(l.errorSamples) < maxErrorSamples {
@@ -121,11 +134,84 @@ func (l *Ledger) Snapshot() LedgerSnapshot {
 		CommandErrors: l.commandErrors.Load(),
 		ClientErrors:  l.clientErrors.Load(),
 		Latency:       l.latency.snapshot(),
+		CAS:           l.causal.snapshot(),
 	}
 	l.samplesMu.Lock()
 	snapshot.ErrorSamples = append([]string(nil), l.errorSamples...)
 	l.samplesMu.Unlock()
 	return snapshot
+}
+
+type CASSnapshot struct {
+	MatchedEdges     int64
+	DuplicateMatches int64
+	InvalidEdges     int64
+	HighestObserved  int64
+	matchedBits      []uint64
+}
+
+func (s CASSnapshot) OperationMatched(sequence int64) bool {
+	if sequence <= 0 {
+		return false
+	}
+	index := sequence / 64
+	if index >= int64(len(s.matchedBits)) {
+		return false
+	}
+	return s.matchedBits[index]&(uint64(1)<<uint(sequence%64)) != 0
+}
+
+type causalLedger struct {
+	mu              sync.Mutex
+	observedCounts  []uint8
+	matchedBits     []uint64
+	matchedEdges    int64
+	duplicates      int64
+	invalidEdges    int64
+	highestObserved int64
+}
+
+func (l *causalLedger) record(sequence int64, operation CASOperation) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.matchedEdges++
+	if operation.ObservedGeneration < 0 ||
+		operation.ProposedGeneration != operation.ObservedGeneration+1 {
+		l.invalidEdges++
+		return
+	}
+	observed := int(operation.ObservedGeneration)
+	if observed >= len(l.observedCounts) {
+		l.observedCounts = append(l.observedCounts, make([]uint8, observed-len(l.observedCounts)+1)...)
+	}
+	if l.observedCounts[observed] > 0 {
+		l.duplicates++
+	}
+	if l.observedCounts[observed] < 255 {
+		l.observedCounts[observed]++
+	}
+	if operation.ObservedGeneration > l.highestObserved {
+		l.highestObserved = operation.ObservedGeneration
+	}
+	if sequence > 0 {
+		index := int(sequence / 64)
+		if index >= len(l.matchedBits) {
+			l.matchedBits = append(l.matchedBits, make([]uint64, index-len(l.matchedBits)+1)...)
+		}
+		l.matchedBits[index] |= uint64(1) << uint(sequence%64)
+	}
+}
+
+func (l *causalLedger) snapshot() CASSnapshot {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return CASSnapshot{
+		MatchedEdges:     l.matchedEdges,
+		DuplicateMatches: l.duplicates,
+		InvalidEdges:     l.invalidEdges,
+		HighestObserved:  l.highestObserved,
+		matchedBits:      append([]uint64(nil), l.matchedBits...),
+	}
 }
 
 type LatencySnapshot struct {

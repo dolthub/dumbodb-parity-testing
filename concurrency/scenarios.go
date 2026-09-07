@@ -85,7 +85,11 @@ func (s *uuidCASScenario) Execute(ctx context.Context, collection Collection, _ 
 	}
 	replacement := uuidToken(sequence)
 	result, err := collection.UpdateOne(ctx,
-		bson.D{{Key: "_id", Value: "uuid-counter"}, {Key: "token", Value: observed.Token}},
+		bson.D{
+			{Key: "_id", Value: "uuid-counter"},
+			{Key: "token", Value: observed.Token},
+			{Key: "applied", Value: observed.Applied},
+		},
 		bson.D{
 			{Key: "$set", Value: bson.D{
 				{Key: "token", Value: replacement},
@@ -94,7 +98,13 @@ func (s *uuidCASScenario) Execute(ctx context.Context, collection Collection, _ 
 			{Key: "$inc", Value: bson.D{{Key: "applied", Value: int64(1)}}},
 		},
 	)
-	return UpdateOutcome(result, err)
+	outcome := UpdateOutcome(result, err)
+	outcome.Sequence = sequence
+	outcome.CAS = &CASOperation{
+		ObservedGeneration: observed.Applied,
+		ProposedGeneration: observed.Applied + 1,
+	}
+	return outcome
 }
 
 func (s *uuidCASScenario) Verify(ctx context.Context, collection Collection, ledger LedgerSnapshot) ([]Check, error) {
@@ -123,9 +133,28 @@ func (s *uuidCASScenario) Verify(ctx context.Context, collection Collection, led
 			Detail: fmt.Sprintf("subtype=%d bytes=%d", document.Token.Subtype, len(document.Token.Data)),
 		},
 		{
-			Name:   "finalTokenMatchesIssuedOperation",
-			Passed: tokenMatchesOperation && operationWasIssued && document.Applied <= ledger.Matched,
+			Name: "finalTokenMatchesIssuedOperation",
+			Passed: tokenMatchesOperation && operationWasIssued &&
+				ledger.CAS.OperationMatched(document.LastOperation),
 			Detail: fmt.Sprintf("lastOperation=%d attempts=%d", document.LastOperation, ledger.Attempts),
+		},
+		{
+			Name:   "oneMatchPerObservedGeneration",
+			Passed: ledger.CAS.DuplicateMatches == 0,
+			Detail: fmt.Sprintf("duplicateMatches=%d", ledger.CAS.DuplicateMatches),
+		},
+		{
+			Name: "matchedEdgesFormCompleteChain",
+			Passed: ledger.CAS.InvalidEdges == 0 &&
+				ledger.CAS.MatchedEdges == ledger.Matched &&
+				(document.Applied == 0 || ledger.CAS.HighestObserved == document.Applied-1),
+			Detail: fmt.Sprintf(
+				"edges=%d invalid=%d highestObserved=%d applied=%d",
+				ledger.CAS.MatchedEdges,
+				ledger.CAS.InvalidEdges,
+				ledger.CAS.HighestObserved,
+				document.Applied,
+			),
 		},
 	}, nil
 }
@@ -160,7 +189,7 @@ func (s *casScenario) Setup(ctx context.Context, collection Collection) error {
 	return seedCounter(ctx, collection, s.payload)
 }
 
-func (s *casScenario) Execute(ctx context.Context, collection Collection, _ int, _ int64) Outcome {
+func (s *casScenario) Execute(ctx context.Context, collection Collection, worker int, sequence int64) Outcome {
 	version, err := readCounter(ctx, collection)
 	if err != nil {
 		return Outcome{Kind: OutcomeClientError, Err: err}
@@ -169,7 +198,11 @@ func (s *casScenario) Execute(ctx context.Context, collection Collection, _ int,
 		bson.D{{Key: "_id", Value: "counter"}, {Key: "version", Value: version}},
 		bson.D{{Key: "$inc", Value: bson.D{{Key: "version", Value: int64(1)}}}},
 	)
-	return UpdateOutcome(result, err)
+	outcome := UpdateOutcome(result, err)
+	outcome.Sequence = sequence
+	outcome.Worker = worker
+	outcome.CAS = &CASOperation{ObservedGeneration: version, ProposedGeneration: version + 1}
+	return outcome
 }
 
 func (s *casScenario) Verify(ctx context.Context, collection Collection, ledger LedgerSnapshot) ([]Check, error) {
@@ -219,6 +252,21 @@ func counterChecks(version int64, ledger LedgerSnapshot) []Check {
 			Name:   "everyMatchModified",
 			Passed: ledger.Modified == ledger.Matched,
 			Detail: fmt.Sprintf("modified=%d matched=%d", ledger.Modified, ledger.Matched),
+		},
+		{
+			Name:   "oneMatchPerObservedGeneration",
+			Passed: ledger.CAS.DuplicateMatches == 0,
+			Detail: fmt.Sprintf("duplicateMatches=%d", ledger.CAS.DuplicateMatches),
+		},
+		{
+			Name:   "matchedEdgesAreSuccessive",
+			Passed: ledger.CAS.InvalidEdges == 0 && ledger.CAS.MatchedEdges == ledger.Matched,
+			Detail: fmt.Sprintf("edges=%d invalid=%d matched=%d", ledger.CAS.MatchedEdges, ledger.CAS.InvalidEdges, ledger.Matched),
+		},
+		{
+			Name:   "matchedEdgesFormCompleteChain",
+			Passed: version == 0 || ledger.CAS.HighestObserved == version-1,
+			Detail: fmt.Sprintf("highestObserved=%d version=%d", ledger.CAS.HighestObserved, version),
 		},
 	}
 }
