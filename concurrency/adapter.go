@@ -35,6 +35,15 @@ type Collection interface {
 	UpdateOne(context.Context, interface{}, interface{}) (WriteResult, error)
 }
 
+// BranchCollection exposes DumboDB branch operations to deterministic probes.
+type BranchCollection interface {
+	Collection
+	DeleteOne(context.Context, interface{}) (WriteResult, error)
+	AtDatabase(string) BranchCollection
+	DatabaseName() string
+	RunCommand(context.Context, string, interface{}) (bson.M, error)
+}
+
 type Target interface {
 	Ping(context.Context) error
 	Identity(context.Context) (ServerInfo, error)
@@ -83,7 +92,7 @@ func productFromBuildInfo(response bson.M) string {
 }
 
 func (t *mongoTarget) Collection(database, collection string) Collection {
-	return mongoCollection{collection: t.client.Database(database).Collection(collection)}
+	return mongoCollection{client: t.client, database: database, collection: collection}
 }
 
 func (t *mongoTarget) CreateCollection(ctx context.Context, database, collection, mergeMode string) (Collection, error) {
@@ -109,22 +118,57 @@ func (t *mongoTarget) Disconnect(ctx context.Context) error {
 }
 
 type mongoCollection struct {
-	collection *mongo.Collection
+	client     *mongo.Client
+	database   string
+	collection string
 }
 
 func (c mongoCollection) InsertOne(ctx context.Context, document interface{}) error {
-	_, err := c.collection.InsertOne(ctx, document)
+	_, err := c.mongoCollection().InsertOne(ctx, document)
 	return err
 }
 
 func (c mongoCollection) FindOne(ctx context.Context, filter interface{}, result interface{}) error {
-	return c.collection.FindOne(ctx, filter).Decode(result)
+	return c.mongoCollection().FindOne(ctx, filter).Decode(result)
 }
 
 func (c mongoCollection) UpdateOne(ctx context.Context, filter, update interface{}) (WriteResult, error) {
-	result, err := c.collection.UpdateOne(ctx, filter, update)
+	result, err := c.mongoCollection().UpdateOne(ctx, filter, update)
 	if err != nil {
 		return WriteResult{}, err
 	}
 	return WriteResult{Matched: result.MatchedCount, Modified: result.ModifiedCount}, nil
+}
+
+func (c mongoCollection) DeleteOne(ctx context.Context, filter interface{}) (WriteResult, error) {
+	result, err := c.mongoCollection().DeleteOne(ctx, filter)
+	if err != nil {
+		return WriteResult{}, err
+	}
+	return WriteResult{Matched: result.DeletedCount, Modified: result.DeletedCount}, nil
+}
+
+func (c mongoCollection) AtDatabase(database string) BranchCollection {
+	return mongoCollection{client: c.client, database: database, collection: c.collection}
+}
+
+func (c mongoCollection) DatabaseName() string {
+	return c.database
+}
+
+func (c mongoCollection) RunCommand(ctx context.Context, database string, command interface{}) (bson.M, error) {
+	result := c.client.Database(database).RunCommand(ctx, command)
+	raw, commandErr := result.Raw()
+	if raw == nil {
+		return nil, commandErr
+	}
+	var response bson.M
+	if err := bson.Unmarshal(raw, &response); err != nil {
+		return nil, err
+	}
+	return response, commandErr
+}
+
+func (c mongoCollection) mongoCollection() *mongo.Collection {
+	return c.client.Database(c.database).Collection(c.collection)
 }
