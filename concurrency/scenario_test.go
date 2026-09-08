@@ -76,7 +76,7 @@ func (c counterVersionCollection) FindOne(_ context.Context, _ interface{}, resu
 }
 
 func TestNewScenario(t *testing.T) {
-	names := []string{"cas", "uuid-cas", "blind-inc", "disjoint-set", "same-set"}
+	names := []string{"cas", "uuid-cas", "blind-inc", "disjoint-set", "same-set", "identical-set", "divergent-cas"}
 	for _, name := range names {
 		scenario, err := NewScenario(name, 4, 0)
 		if err != nil {
@@ -186,6 +186,41 @@ func TestCounterChecksRejectDoubleMatch(t *testing.T) {
 	}
 	if snapshot.CAS.ObservedGenerationSlots != 1 || snapshot.CAS.TrackerBytes == 0 {
 		t.Fatalf("missing tracker memory evidence: %+v", snapshot.CAS)
+	}
+}
+
+func TestFieldDivergentCounterAllowsConvergentMatches(t *testing.T) {
+	ledger := &Ledger{}
+	for sequence := int64(1); sequence <= 2; sequence++ {
+		if err := ledger.Record(Outcome{
+			Kind:     OutcomeMatched,
+			Modified: true,
+			Sequence: sequence,
+			CAS: &CASOperation{
+				ObservedGeneration: 0,
+				ProposedGeneration: 1,
+			},
+		}, 0); err != nil {
+			t.Fatal(err)
+		}
+	}
+	snapshot := ledger.Snapshot()
+	if !ChecksPassed(fieldDivergentCounterChecks(1, snapshot)) {
+		t.Fatalf("fieldDivergent rejected convergent matches: %+v", snapshot)
+	}
+	if ChecksPassed(counterChecks(1, snapshot)) {
+		t.Fatal("strict CAS oracle accepted convergent duplicate matches")
+	}
+}
+
+func TestFieldDivergentBlindIncrementAllowsCoalescing(t *testing.T) {
+	checks := fieldDivergentBlindIncrementChecks(1, LedgerSnapshot{
+		Attempts: 2,
+		Matched:  2,
+		Modified: 2,
+	})
+	if !ChecksPassed(checks) {
+		t.Fatalf("fieldDivergent rejected coalesced increments: %+v", checks)
 	}
 }
 
