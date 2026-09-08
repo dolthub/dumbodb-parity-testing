@@ -413,11 +413,11 @@ func TestMergeModeFixtureCreatesConfiguredCollection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if target.createdMode != MergeModeDocumentTouched {
-		t.Fatalf("created mode = %q, want %q", target.createdMode, MergeModeDocumentTouched)
+	if target.createdMode != MergeModeFieldTouched {
+		t.Fatalf("created mode = %q, want %q", target.createdMode, MergeModeFieldTouched)
 	}
-	if result.Config.MergeMode != MergeModeDocumentTouched {
-		t.Fatalf("reported mode = %q, want %q", result.Config.MergeMode, MergeModeDocumentTouched)
+	if result.Config.MergeMode != MergeModeFieldTouched {
+		t.Fatalf("reported mode = %q, want %q", result.Config.MergeMode, MergeModeFieldTouched)
 	}
 	if scenario.executed.Load() != 10 || !scenario.verified.Load() {
 		t.Fatal("configured collection did not run through the common lifecycle")
@@ -435,7 +435,7 @@ func mergeModeTestConfig() Config {
 		Database:   "test",
 		Collection: "documents",
 		Scenario:   "counting",
-		MergeMode:  MergeModeDocumentTouched,
+		MergeMode:  MergeModeFieldTouched,
 	}
 }
 
