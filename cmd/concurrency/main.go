@@ -50,7 +50,7 @@ func main() {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	scenario, err := concurrency.NewScenarioWithWorkload(cfg.Scenario, cfg.Workers, cfg.PayloadBytes, cfg.Seed, cfg.CASDelay)
+	scenario, err := concurrency.NewScenarioForConfig(cfg)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)

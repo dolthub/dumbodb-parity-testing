@@ -155,6 +155,7 @@ type CASSnapshot struct {
 	DuplicateMatches        int64
 	InvalidEdges            int64
 	HighestObserved         int64
+	UniqueObserved          int64
 	ObservedGenerationSlots int
 	MatchedOperationWords   int
 	TrackerBytes            int64
@@ -259,11 +260,18 @@ func (l *causalLedger) snapshot() CASSnapshot {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	trackerBytes := int64(len(l.observedCounts)) + int64(len(l.observedFirst))*16 + int64(len(l.matchedBits))*8
+	var uniqueObserved int64
+	for _, count := range l.observedCounts {
+		if count > 0 {
+			uniqueObserved++
+		}
+	}
 	return CASSnapshot{
 		MatchedEdges:            l.matchedEdges,
 		DuplicateMatches:        l.duplicates,
 		InvalidEdges:            l.invalidEdges,
 		HighestObserved:         l.highestObserved,
+		UniqueObserved:          uniqueObserved,
 		ObservedGenerationSlots: len(l.observedCounts),
 		MatchedOperationWords:   len(l.matchedBits),
 		TrackerBytes:            trackerBytes,

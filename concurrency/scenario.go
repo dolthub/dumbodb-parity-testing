@@ -36,10 +36,18 @@ type Scenario interface {
 }
 
 func NewScenario(name string, workers, payloadBytes int) (Scenario, error) {
-	return NewScenarioWithWorkload(name, workers, payloadBytes, 0, 0)
+	return newScenario(name, workers, payloadBytes, 0, 0, "")
 }
 
 func NewScenarioWithWorkload(name string, workers, payloadBytes int, seed int64, casDelay time.Duration) (Scenario, error) {
+	return newScenario(name, workers, payloadBytes, seed, casDelay, "")
+}
+
+func NewScenarioForConfig(cfg Config) (Scenario, error) {
+	return newScenario(cfg.Scenario, cfg.Workers, cfg.PayloadBytes, cfg.Seed, cfg.CASDelay, cfg.MergeMode)
+}
+
+func newScenario(name string, workers, payloadBytes int, seed int64, casDelay time.Duration, mergeMode string) (Scenario, error) {
 	if workers <= 0 {
 		return nil, fmt.Errorf("workers must be positive")
 	}
@@ -55,15 +63,19 @@ func NewScenarioWithWorkload(name string, workers, payloadBytes int, seed int64,
 	}
 	switch name {
 	case "cas":
-		return &casScenario{payload: payload, seed: seed, maxDelay: casDelay}, nil
+		return &casScenario{payload: payload, seed: seed, maxDelay: casDelay, mergeMode: mergeMode}, nil
 	case "uuid-cas":
 		return &uuidCASScenario{payload: payload, seed: seed, maxDelay: casDelay}, nil
 	case "blind-inc":
-		return &blindIncrementScenario{payload: payload}, nil
+		return &blindIncrementScenario{payload: payload, mergeMode: mergeMode}, nil
 	case "disjoint-set":
 		return newDisjointSetScenario(workers, payload), nil
 	case "same-set":
 		return &sameFieldSetScenario{payload: payload}, nil
+	case "identical-set":
+		return &identicalSetScenario{payload: payload}, nil
+	case "divergent-cas":
+		return &divergentCASScenario{payload: payload, seed: seed, maxDelay: casDelay}, nil
 	default:
 		return nil, fmt.Errorf("unknown scenario %q", name)
 	}

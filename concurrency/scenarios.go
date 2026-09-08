@@ -51,9 +51,10 @@ func readCounter(ctx context.Context, collection Collection) (int64, error) {
 }
 
 type casScenario struct {
-	payload  string
-	seed     int64
-	maxDelay time.Duration
+	payload   string
+	seed      int64
+	maxDelay  time.Duration
+	mergeMode string
 }
 
 type uuidCASDocument struct {
@@ -253,11 +254,15 @@ func (s *casScenario) Verify(ctx context.Context, collection Collection, ledger 
 	if err != nil {
 		return nil, err
 	}
+	if s.mergeMode == MergeModeFieldDivergent {
+		return fieldDivergentCounterChecks(version, ledger), nil
+	}
 	return counterChecks(version, ledger), nil
 }
 
 type blindIncrementScenario struct {
-	payload string
+	payload   string
+	mergeMode string
 }
 
 func (s *blindIncrementScenario) Name() string {
@@ -281,6 +286,9 @@ func (s *blindIncrementScenario) Verify(ctx context.Context, collection Collecti
 	if err != nil {
 		return nil, err
 	}
+	if s.mergeMode == MergeModeFieldDivergent {
+		return fieldDivergentBlindIncrementChecks(version, ledger), nil
+	}
 	return []Check{
 		{
 			Name:    "storedVersionEqualsMatched",
@@ -299,6 +307,54 @@ func (s *blindIncrementScenario) Verify(ctx context.Context, collection Collecti
 			Detail: fmt.Sprintf("matched=%d attempts=%d rejected=%d indeterminate=%d", ledger.Matched, ledger.Attempts, ledger.Rejected, ledger.Indeterminate),
 		},
 	}, nil
+}
+
+func fieldDivergentCounterChecks(version int64, ledger LedgerSnapshot) []Check {
+	return []Check{
+		{
+			Name:    "storedVersionEqualsUniqueObservedChain",
+			Passed:  version == ledger.CAS.UniqueObserved,
+			Skipped: ledger.Indeterminate > 0,
+			Detail:  fmt.Sprintf("version=%d uniqueObserved=%d matched=%d", version, ledger.CAS.UniqueObserved, ledger.Matched),
+		},
+		{
+			Name:   "everyMatchModified",
+			Passed: ledger.Modified == ledger.Matched,
+			Detail: fmt.Sprintf("modified=%d matched=%d", ledger.Modified, ledger.Matched),
+		},
+		{
+			Name:   "matchedEdgesAreSuccessive",
+			Passed: ledger.CAS.InvalidEdges == 0 && ledger.CAS.MatchedEdges == ledger.Matched,
+			Detail: fmt.Sprintf("edges=%d invalid=%d matched=%d", ledger.CAS.MatchedEdges, ledger.CAS.InvalidEdges, ledger.Matched),
+		},
+		{
+			Name:    "observedGenerationsFormCompleteChain",
+			Passed:  version == 0 || ledger.CAS.HighestObserved == version-1,
+			Skipped: ledger.Indeterminate > 0,
+			Detail:  fmt.Sprintf("highestObserved=%d version=%d", ledger.CAS.HighestObserved, version),
+		},
+	}
+}
+
+func fieldDivergentBlindIncrementChecks(version int64, ledger LedgerSnapshot) []Check {
+	return []Check{
+		{
+			Name:    "storedVersionDoesNotExceedMatched",
+			Passed:  version >= 0 && version <= ledger.Matched,
+			Skipped: ledger.Indeterminate > 0,
+			Detail:  fmt.Sprintf("version=%d matched=%d coalesced=%d", version, ledger.Matched, ledger.Matched-version),
+		},
+		{
+			Name:   "everyMatchModified",
+			Passed: ledger.Modified == ledger.Matched,
+			Detail: fmt.Sprintf("modified=%d matched=%d", ledger.Modified, ledger.Matched),
+		},
+		{
+			Name:   "allAcknowledgedWritesMatched",
+			Passed: ledger.Matched == ledger.Attempts-ledger.Rejected-ledger.Indeterminate,
+			Detail: fmt.Sprintf("matched=%d attempts=%d rejected=%d indeterminate=%d", ledger.Matched, ledger.Attempts, ledger.Rejected, ledger.Indeterminate),
+		},
+	}
 }
 
 func counterChecks(version int64, ledger LedgerSnapshot) []Check {
@@ -399,6 +455,116 @@ func (s *disjointSetScenario) Verify(ctx context.Context, collection Collection,
 
 type sameFieldSetScenario struct {
 	payload string
+}
+
+type identicalSetScenario struct {
+	payload string
+}
+
+func (s *identicalSetScenario) Name() string {
+	return "identical-set"
+}
+
+func (s *identicalSetScenario) Setup(ctx context.Context, collection Collection) error {
+	return collection.InsertOne(ctx, bson.D{
+		{Key: "_id", Value: "identical-field"},
+		{Key: "value", Value: int64(0)},
+		{Key: "payload", Value: s.payload},
+	})
+}
+
+func (s *identicalSetScenario) Execute(ctx context.Context, collection Collection, _ int, _ int64) Outcome {
+	result, err := collection.UpdateOne(ctx,
+		bson.D{{Key: "_id", Value: "identical-field"}},
+		bson.D{{Key: "$set", Value: bson.D{{Key: "value", Value: int64(1)}}}},
+	)
+	return UpdateOutcome(result, err)
+}
+
+func (s *identicalSetScenario) Verify(ctx context.Context, collection Collection, ledger LedgerSnapshot) ([]Check, error) {
+	var document struct {
+		Value int64
+	}
+	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "identical-field"}}, &document); err != nil {
+		return nil, err
+	}
+	return []Check{
+		{
+			Name:   "allAcknowledgedWritesMatched",
+			Passed: ledger.Matched == ledger.Attempts-ledger.Rejected-ledger.Indeterminate,
+			Detail: fmt.Sprintf("matched=%d attempts=%d rejected=%d indeterminate=%d", ledger.Matched, ledger.Attempts, ledger.Rejected, ledger.Indeterminate),
+		},
+		{
+			Name:   "convergentValueRetained",
+			Passed: document.Value == 1,
+			Detail: fmt.Sprintf("value=%d", document.Value),
+		},
+	}, nil
+}
+
+type divergentCASDocument struct {
+	Generation int64
+	Value      int64
+}
+
+type divergentCASScenario struct {
+	payload  string
+	seed     int64
+	maxDelay time.Duration
+}
+
+func (s *divergentCASScenario) Name() string {
+	return "divergent-cas"
+}
+
+func (s *divergentCASScenario) Setup(ctx context.Context, collection Collection) error {
+	return collection.InsertOne(ctx, bson.D{
+		{Key: "_id", Value: "divergent-cas"},
+		{Key: "generation", Value: int64(0)},
+		{Key: "value", Value: int64(0)},
+		{Key: "payload", Value: s.payload},
+	})
+}
+
+func (s *divergentCASScenario) Execute(ctx context.Context, collection Collection, worker int, sequence int64) Outcome {
+	var observed divergentCASDocument
+	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "divergent-cas"}}, &observed); err != nil {
+		return Outcome{Kind: OutcomeIndeterminate, Err: err}
+	}
+	if err := waitCASDelay(ctx, s.seed, sequence, s.maxDelay); err != nil {
+		return Outcome{Kind: OutcomeIndeterminate, Err: err}
+	}
+	result, err := collection.UpdateOne(ctx,
+		bson.D{
+			{Key: "_id", Value: "divergent-cas"},
+			{Key: "generation", Value: observed.Generation},
+		},
+		bson.D{
+			{Key: "$set", Value: bson.D{{Key: "value", Value: sequence}}},
+			{Key: "$inc", Value: bson.D{{Key: "generation", Value: int64(1)}}},
+		},
+	)
+	outcome := UpdateOutcome(result, err)
+	outcome.Sequence = sequence
+	outcome.Worker = worker
+	outcome.CAS = &CASOperation{ObservedGeneration: observed.Generation, ProposedGeneration: observed.Generation + 1}
+	return outcome
+}
+
+func (s *divergentCASScenario) Verify(ctx context.Context, collection Collection, ledger LedgerSnapshot) ([]Check, error) {
+	var document divergentCASDocument
+	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "divergent-cas"}}, &document); err != nil {
+		return nil, err
+	}
+	checks := counterChecks(document.Generation, ledger)
+	checks = append(checks, Check{
+		Name: "finalValueBelongsToAcceptedOperation",
+		Passed: document.Value > 0 && document.Value <= ledger.Attempts &&
+			ledger.CAS.OperationMatched(document.Value),
+		Skipped: ledger.Indeterminate > 0,
+		Detail:  fmt.Sprintf("value=%d attempts=%d", document.Value, ledger.Attempts),
+	})
+	return checks, nil
 }
 
 func (s *sameFieldSetScenario) Name() string {

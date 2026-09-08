@@ -136,7 +136,7 @@ func (s corruptingScenario) Verify(ctx context.Context, collection Collection, l
 }
 
 func TestEveryScenarioRunsThroughConcurrentLifecycle(t *testing.T) {
-	for _, name := range []string{"cas", "uuid-cas", "blind-inc", "disjoint-set", "same-set"} {
+	for _, name := range []string{"cas", "uuid-cas", "blind-inc", "disjoint-set", "same-set", "identical-set", "divergent-cas"} {
 		t.Run(name, func(t *testing.T) {
 			result := runMemoryScenario(t, name, nil)
 			if !result.Passed() {
@@ -165,6 +165,12 @@ func TestEveryScenarioRejectsCorruptedFinalState(t *testing.T) {
 		},
 		"same-set": func(document bson.M) {
 			document["value"] = int64(101)
+		},
+		"identical-set": func(document bson.M) {
+			document["value"] = int64(2)
+		},
+		"divergent-cas": func(document bson.M) {
+			document["generation"] = int64(101)
 		},
 	}
 	for name, corrupt := range corruptions {
