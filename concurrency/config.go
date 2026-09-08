@@ -33,7 +33,15 @@ type Config struct {
 	Scenario     string
 	PayloadBytes int
 	CASDelay     time.Duration
+	MergeMode    string
 }
+
+const (
+	MergeModeDocumentTouched   = "documentTouched"
+	MergeModeFieldTouched      = "fieldTouched"
+	MergeModeFieldDivergent    = "fieldDivergent"
+	MergeModeDocumentDivergent = "documentDivergent"
+)
 
 func (c Config) Validate() error {
 	if c.TargetURI == "" {
@@ -60,5 +68,17 @@ func (c Config) Validate() error {
 	if c.CASDelay < 0 {
 		return errors.New("CAS delay cannot be negative")
 	}
+	if c.MergeMode != "" && !validMergeMode(c.MergeMode) {
+		return errors.New("invalid merge mode")
+	}
 	return nil
+}
+
+func validMergeMode(mode string) bool {
+	switch mode {
+	case MergeModeDocumentTouched, MergeModeFieldTouched, MergeModeFieldDivergent, MergeModeDocumentDivergent:
+		return true
+	default:
+		return false
+	}
 }

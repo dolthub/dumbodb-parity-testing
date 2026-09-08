@@ -17,6 +17,7 @@ package concurrency
 import (
 	"context"
 	"errors"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -28,6 +29,9 @@ import (
 
 type fakeTarget struct {
 	collection   Collection
+	product      string
+	createErr    error
+	createdMode  string
 	dropped      atomic.Bool
 	disconnected atomic.Bool
 }
@@ -37,7 +41,11 @@ func (t *fakeTarget) Ping(context.Context) error {
 }
 
 func (t *fakeTarget) Identity(context.Context) (ServerInfo, error) {
-	return ServerInfo{Product: "fake", Version: "1", Revision: "test"}, nil
+	product := t.product
+	if product == "" {
+		product = "fake"
+	}
+	return ServerInfo{Product: product, Version: "1", Revision: "test"}, nil
 }
 
 func TestProductFromBuildInfo(t *testing.T) {
@@ -49,8 +57,26 @@ func TestProductFromBuildInfo(t *testing.T) {
 	}
 }
 
+func TestMergeModeCreateCommand(t *testing.T) {
+	want := bson.D{
+		{Key: "create", Value: "documents"},
+		{Key: "mergeMode", Value: MergeModeDocumentTouched},
+	}
+	if got := mergeModeCreateCommand("documents", MergeModeDocumentTouched); !reflect.DeepEqual(got, want) {
+		t.Fatalf("create command = %#v, want %#v", got, want)
+	}
+}
+
 func (t *fakeTarget) Collection(string, string) Collection {
 	return t.collection
+}
+
+func (t *fakeTarget) CreateCollection(_ context.Context, _, _ string, mergeMode string) (Collection, error) {
+	t.createdMode = mergeMode
+	if t.createErr != nil {
+		return nil, t.createErr
+	}
+	return t.collection, nil
 }
 
 func (t *fakeTarget) DropDatabase(context.Context, string) error {
@@ -343,6 +369,73 @@ func TestRunWithFixtureStopsBeforeWritesWhenCreationFails(t *testing.T) {
 	}
 	if err := result.Finalize(context.Background(), true); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestMergeModeFixtureRejectsMongoDB(t *testing.T) {
+	target := &fakeTarget{product: "MongoDB", collection: unusedCollection{}}
+	scenario := &countingScenario{}
+	result, err := RunWithTarget(context.Background(), mergeModeTestConfig(), scenario, target)
+	if err == nil {
+		t.Fatal("expected MongoDB merge-mode run to fail")
+	}
+	if scenario.setup.Load() || scenario.executed.Load() != 0 || target.createdMode != "" {
+		t.Fatal("MongoDB merge-mode run created or used a fixture")
+	}
+	if result.Product != "" {
+		t.Fatalf("pre-fixture product failure returned lifecycle result: %+v", result)
+	}
+}
+
+func TestMergeModeFixtureCreationFailureStopsBeforeWrites(t *testing.T) {
+	createErr := errors.New("create rejected")
+	target := &fakeTarget{product: "DumboDB", collection: unusedCollection{}, createErr: createErr}
+	scenario := &countingScenario{}
+	result, err := RunWithTarget(context.Background(), mergeModeTestConfig(), scenario, target)
+	if !errors.Is(err, createErr) {
+		t.Fatalf("create error = %v, want %v", err, createErr)
+	}
+	if scenario.setup.Load() || scenario.executed.Load() != 0 {
+		t.Fatal("workload ran after configured creation failed")
+	}
+	if result.RunError == "" {
+		t.Fatal("configured creation failure was not retained")
+	}
+	if err := result.Finalize(context.Background(), true); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestMergeModeFixtureCreatesConfiguredCollection(t *testing.T) {
+	target := &fakeTarget{product: "DumboDB", collection: unusedCollection{}}
+	scenario := &countingScenario{}
+	result, err := RunWithTarget(context.Background(), mergeModeTestConfig(), scenario, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if target.createdMode != MergeModeDocumentTouched {
+		t.Fatalf("created mode = %q, want %q", target.createdMode, MergeModeDocumentTouched)
+	}
+	if result.Config.MergeMode != MergeModeDocumentTouched {
+		t.Fatalf("reported mode = %q, want %q", result.Config.MergeMode, MergeModeDocumentTouched)
+	}
+	if scenario.executed.Load() != 10 || !scenario.verified.Load() {
+		t.Fatal("configured collection did not run through the common lifecycle")
+	}
+	if err := result.Finalize(context.Background(), true); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func mergeModeTestConfig() Config {
+	return Config{
+		TargetURI:  "mongodb://unused",
+		Operations: 10,
+		Workers:    2,
+		Database:   "test",
+		Collection: "documents",
+		Scenario:   "counting",
+		MergeMode:  MergeModeDocumentTouched,
 	}
 }
 
