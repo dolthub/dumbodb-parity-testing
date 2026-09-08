@@ -16,6 +16,7 @@ package concurrency
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -77,10 +78,35 @@ func (unusedCollection) UpdateOne(context.Context, interface{}, interface{}) (Wr
 }
 
 type countingScenario struct {
-	executed   atomic.Int64
-	setup      atomic.Bool
-	verified   atomic.Bool
-	setupDelay time.Duration
+	executed          atomic.Int64
+	active            atomic.Int64
+	setup             atomic.Bool
+	verified          atomic.Bool
+	verifiedQuiescent atomic.Bool
+	setupDelay        time.Duration
+}
+
+type failingLifecycleScenario struct {
+	setupErr  error
+	verifyErr error
+	executed  atomic.Int64
+}
+
+func (s *failingLifecycleScenario) Name() string {
+	return "failing-lifecycle"
+}
+
+func (s *failingLifecycleScenario) Setup(context.Context, Collection) error {
+	return s.setupErr
+}
+
+func (s *failingLifecycleScenario) Execute(context.Context, Collection, int, int64) Outcome {
+	s.executed.Add(1)
+	return Outcome{Kind: OutcomeMatched}
+}
+
+func (s *failingLifecycleScenario) Verify(context.Context, Collection, LedgerSnapshot) ([]Check, error) {
+	return nil, s.verifyErr
 }
 
 type invalidOutcomeScenario struct {
@@ -243,13 +269,120 @@ func TestDurationStartsAfterSetup(t *testing.T) {
 }
 
 func (s *countingScenario) Execute(context.Context, Collection, int, int64) Outcome {
+	s.active.Add(1)
+	defer s.active.Add(-1)
 	s.executed.Add(1)
 	return Outcome{Kind: OutcomeMatched}
 }
 
 func (s *countingScenario) Verify(context.Context, Collection, LedgerSnapshot) ([]Check, error) {
 	s.verified.Store(true)
+	s.verifiedQuiescent.Store(s.active.Load() == 0)
 	return []Check{{Name: "verified", Passed: true}}, nil
+}
+
+func TestRunWithFixtureCreatesCollectionBeforeScenarioSetup(t *testing.T) {
+	collection := unusedCollection{}
+	target := &fakeTarget{}
+	scenario := &countingScenario{}
+	var created atomic.Bool
+	fixture := FixtureFunc(func(_ context.Context, received Target, cfg Config) (Collection, error) {
+		if received != target {
+			t.Fatal("fixture received a different target")
+		}
+		if cfg.Database != "test" || cfg.Collection != "documents" {
+			t.Fatalf("fixture received wrong config: %+v", cfg)
+		}
+		created.Store(true)
+		return collection, nil
+	})
+	result, err := RunWithFixture(context.Background(), Config{
+		TargetURI:  "mongodb://unused",
+		Operations: 100,
+		Workers:    8,
+		Database:   "test",
+		Collection: "documents",
+		Scenario:   "counting",
+	}, scenario, target, fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !created.Load() || !scenario.setup.Load() || !scenario.verified.Load() {
+		t.Fatal("configured fixture lifecycle was not completed")
+	}
+	if !scenario.verifiedQuiescent.Load() {
+		t.Fatal("verification ran before workers stopped")
+	}
+	if err := result.Finalize(context.Background(), true); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRunWithFixtureStopsBeforeWritesWhenCreationFails(t *testing.T) {
+	target := &fakeTarget{}
+	scenario := &countingScenario{}
+	fixtureErr := errors.New("configured collection rejected")
+	result, err := RunWithFixture(context.Background(), Config{
+		TargetURI:  "mongodb://unused",
+		Operations: 100,
+		Workers:    8,
+		Database:   "test",
+		Collection: "documents",
+		Scenario:   "counting",
+	}, scenario, target, FixtureFunc(func(context.Context, Target, Config) (Collection, error) {
+		return nil, fixtureErr
+	}))
+	if !errors.Is(err, fixtureErr) {
+		t.Fatalf("run error = %v, want %v", err, fixtureErr)
+	}
+	if scenario.setup.Load() || scenario.executed.Load() != 0 || scenario.verified.Load() {
+		t.Fatal("scenario ran after fixture creation failed")
+	}
+	if result.RunError == "" {
+		t.Fatal("fixture failure was not retained in the result")
+	}
+	if err := result.Finalize(context.Background(), true); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCommonLifecycleSeparatesSetupAndVerificationFailures(t *testing.T) {
+	cfg := Config{
+		TargetURI:  "mongodb://unused",
+		Operations: 10,
+		Workers:    2,
+		Database:   "test",
+		Collection: "documents",
+		Scenario:   "failing-lifecycle",
+	}
+	setupErr := errors.New("seed failed")
+	setupScenario := &failingLifecycleScenario{setupErr: setupErr}
+	setupResult, err := RunWithTarget(context.Background(), cfg, setupScenario, &fakeTarget{collection: unusedCollection{}})
+	if !errors.Is(err, setupErr) {
+		t.Fatalf("setup error = %v, want %v", err, setupErr)
+	}
+	if setupScenario.executed.Load() != 0 || !setupResult.WorkloadStartedAt.IsZero() {
+		t.Fatal("workload started after scenario setup failed")
+	}
+	if err := setupResult.Finalize(context.Background(), true); err != nil {
+		t.Fatal(err)
+	}
+
+	verifyErr := errors.New("final read failed")
+	verifyScenario := &failingLifecycleScenario{verifyErr: verifyErr}
+	verifyResult, err := RunWithTarget(context.Background(), cfg, verifyScenario, &fakeTarget{collection: unusedCollection{}})
+	if !errors.Is(err, verifyErr) {
+		t.Fatalf("verification error = %v, want %v", err, verifyErr)
+	}
+	if verifyScenario.executed.Load() != cfg.Operations {
+		t.Fatalf("executed=%d, want %d", verifyScenario.executed.Load(), cfg.Operations)
+	}
+	if verifyResult.WorkloadFinishedAt.IsZero() || verifyResult.RunError == "" {
+		t.Fatal("verification failure did not retain completed workload evidence")
+	}
+	if err := verifyResult.Finalize(context.Background(), true); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestRunWithTargetUsesInjectedAdapter(t *testing.T) {

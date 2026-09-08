@@ -44,6 +44,24 @@ type LifecycleResult struct {
 	keepData           bool
 }
 
+// Fixture creates the isolated collection used by one lifecycle run.
+type Fixture interface {
+	CreateCollection(context.Context, Target, Config) (Collection, error)
+}
+
+// FixtureFunc adapts a collection creation function to Fixture.
+type FixtureFunc func(context.Context, Target, Config) (Collection, error)
+
+func (f FixtureFunc) CreateCollection(ctx context.Context, target Target, cfg Config) (Collection, error) {
+	return f(ctx, target, cfg)
+}
+
+type defaultFixture struct{}
+
+func (defaultFixture) CreateCollection(_ context.Context, target Target, cfg Config) (Collection, error) {
+	return target.Collection(cfg.Database, cfg.Collection), nil
+}
+
 func (r *LifecycleResult) Finalize(ctx context.Context, preserve bool) error {
 	if r.target == nil {
 		return nil
@@ -76,6 +94,11 @@ func Run(ctx context.Context, cfg Config, scenario Scenario) (LifecycleResult, e
 }
 
 func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Target) (LifecycleResult, error) {
+	return RunWithFixture(ctx, cfg, scenario, target, defaultFixture{})
+}
+
+// RunWithFixture runs a scenario using caller-supplied collection creation.
+func RunWithFixture(ctx context.Context, cfg Config, scenario Scenario, target Target, fixture Fixture) (LifecycleResult, error) {
 	if err := cfg.Validate(); err != nil {
 		return LifecycleResult{}, err
 	}
@@ -84,6 +107,9 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 	}
 	if target == nil {
 		return LifecycleResult{}, fmt.Errorf("target is required")
+	}
+	if fixture == nil {
+		return LifecycleResult{}, fmt.Errorf("fixture is required")
 	}
 	if err := target.Ping(ctx); err != nil {
 		_ = target.Disconnect(context.Background())
@@ -94,8 +120,6 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 		_ = target.Disconnect(context.Background())
 		return LifecycleResult{}, err
 	}
-
-	collection := target.Collection(cfg.Database, cfg.Collection)
 
 	result := LifecycleResult{
 		Product:   identity.Product,
@@ -118,6 +142,13 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 		target:   target,
 		database: cfg.Database,
 		keepData: cfg.KeepData,
+	}
+	collection, err := fixture.CreateCollection(ctx, target, cfg)
+	if err != nil {
+		return lifecycleFailure(result, fmt.Errorf("create fixture: %w", err))
+	}
+	if collection == nil {
+		return lifecycleFailure(result, fmt.Errorf("create fixture: collection is required"))
 	}
 	if err := scenario.Setup(ctx, collection); err != nil {
 		return lifecycleFailure(result, fmt.Errorf("setup %s: %w", scenario.Name(), err))
