@@ -2,6 +2,8 @@
   "Product": "MongoDB",
   "Version": "8.0.28",
   "Scenario": "cas",
+  "SchemaVocabulary": "matched/noMatch/rejected/indeterminate",
+  "Verdict": "conclusivePass",
   "StartedAt": "2026-09-07T23:03:32.408111924Z",
   "FinishedAt": "2026-09-07T23:33:32.436798793Z",
   "WorkloadStartedAt": "2026-09-07T23:03:32.432489171Z",
@@ -11,8 +13,8 @@
     "Matched": 2066934,
     "NoMatch": 24563585,
     "Modified": 2066934,
-    "CommandErrors": 0,
-    "ClientErrors": 0,
+    "Rejected": 0,
+    "Indeterminate": 0,
     "Latency": {
       "LessThan100us": 0,
       "LessThan1ms": 1889750,
@@ -83,14 +85,14 @@
       "Lower95": 0.9222830816773304,
       "Upper95": 0.9224863257402685
     },
-    "CommandErrorRate": {
+    "RejectedRate": {
       "Count": 0,
       "SampleSize": 26630519,
       "Rate": 0,
       "Lower95": 0,
       "Upper95": 1.442502215808426e-7
     },
-    "ClientErrorRate": {
+    "IndeterminateRate": {
       "Count": 0,
       "SampleSize": 26630519,
       "Rate": 0,

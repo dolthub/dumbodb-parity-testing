@@ -21,9 +21,10 @@ import (
 )
 
 type Check struct {
-	Name   string
-	Passed bool
-	Detail string
+	Name    string
+	Passed  bool
+	Skipped bool
+	Detail  string
 }
 
 type Scenario interface {
@@ -66,7 +67,7 @@ func NewScenarioWithWorkload(name string, workers, payloadBytes int, seed int64,
 
 func ChecksPassed(checks []Check) bool {
 	for _, check := range checks {
-		if !check.Passed {
+		if !check.Skipped && !check.Passed {
 			return false
 		}
 	}

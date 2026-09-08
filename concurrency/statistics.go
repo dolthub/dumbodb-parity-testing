@@ -25,18 +25,18 @@ type RateEstimate struct {
 }
 
 type RunStatistics struct {
-	MatchRate        RateEstimate
-	NoMatchRate      RateEstimate
-	CommandErrorRate RateEstimate
-	ClientErrorRate  RateEstimate
+	MatchRate         RateEstimate
+	NoMatchRate       RateEstimate
+	RejectedRate      RateEstimate
+	IndeterminateRate RateEstimate
 }
 
 func calculateStatistics(ledger LedgerSnapshot) RunStatistics {
 	return RunStatistics{
-		MatchRate:        wilsonRate(ledger.Matched, ledger.Attempts),
-		NoMatchRate:      wilsonRate(ledger.NoMatch, ledger.Attempts),
-		CommandErrorRate: wilsonRate(ledger.CommandErrors, ledger.Attempts),
-		ClientErrorRate:  wilsonRate(ledger.ClientErrors, ledger.Attempts),
+		MatchRate:         wilsonRate(ledger.Matched, ledger.Attempts),
+		NoMatchRate:       wilsonRate(ledger.NoMatch, ledger.Attempts),
+		RejectedRate:      wilsonRate(ledger.Rejected, ledger.Attempts),
+		IndeterminateRate: wilsonRate(ledger.Indeterminate, ledger.Attempts),
 	}
 }
 

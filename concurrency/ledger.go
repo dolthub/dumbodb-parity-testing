@@ -28,19 +28,21 @@ import (
 type OutcomeKind string
 
 const (
-	OutcomeMatched      OutcomeKind = "matched"
-	OutcomeNoMatch      OutcomeKind = "noMatch"
-	OutcomeCommandError OutcomeKind = "commandError"
-	OutcomeClientError  OutcomeKind = "clientError"
+	OutcomeMatched       OutcomeKind = "matched"
+	OutcomeNoMatch       OutcomeKind = "noMatch"
+	OutcomeRejected      OutcomeKind = "rejected"
+	OutcomeIndeterminate OutcomeKind = "indeterminate"
 )
 
 type Outcome struct {
-	Kind     OutcomeKind
-	Modified bool
-	Err      error
-	Sequence int64
-	Worker   int
-	CAS      *CASOperation
+	Kind                      OutcomeKind
+	Modified                  bool
+	Err                       error
+	Sequence                  int64
+	Worker                    int
+	CAS                       *CASOperation
+	MaximumObservedGeneration int64
+	ObservedGenerationBounded bool
 }
 
 type CASOperation struct {
@@ -53,15 +55,15 @@ type LedgerSnapshot struct {
 	Matched       int64
 	NoMatch       int64
 	Modified      int64
-	CommandErrors int64
-	ClientErrors  int64
+	Rejected      int64
+	Indeterminate int64
 	Latency       LatencySnapshot
 	ErrorSamples  []string
 	CAS           CASSnapshot
 }
 
 func (s LedgerSnapshot) Validate() error {
-	terminal := s.Matched + s.NoMatch + s.CommandErrors + s.ClientErrors
+	terminal := s.Matched + s.NoMatch + s.Rejected + s.Indeterminate
 	if s.Attempts != terminal {
 		return fmt.Errorf("attempts %d != terminal outcomes %d", s.Attempts, terminal)
 	}
@@ -77,8 +79,8 @@ type Ledger struct {
 	matched       atomic.Int64
 	noMatch       atomic.Int64
 	modified      atomic.Int64
-	commandErrors atomic.Int64
-	clientErrors  atomic.Int64
+	rejected      atomic.Int64
+	indeterminate atomic.Int64
 	latency       latencyLedger
 	samplesMu     sync.Mutex
 	errorSamples  []string
@@ -101,23 +103,23 @@ func (l *Ledger) Record(outcome Outcome, latency time.Duration) error {
 			return errors.New("no-match outcome cannot be modified")
 		}
 		l.noMatch.Add(1)
-	case OutcomeCommandError:
+	case OutcomeRejected:
 		if outcome.Modified {
-			return errors.New("command-error outcome cannot be modified")
+			return errors.New("rejected outcome cannot be modified")
 		}
-		l.commandErrors.Add(1)
-	case OutcomeClientError:
+		l.rejected.Add(1)
+	case OutcomeIndeterminate:
 		if outcome.Modified {
-			return errors.New("client-error outcome cannot be modified")
+			return errors.New("indeterminate outcome cannot be modified")
 		}
-		l.clientErrors.Add(1)
+		l.indeterminate.Add(1)
 	default:
 		return fmt.Errorf("unknown outcome kind %q", outcome.Kind)
 	}
 	l.attempts.Add(1)
 	l.latency.record(latency)
 	if outcome.CAS != nil && outcome.Kind == OutcomeMatched {
-		l.causal.record(outcome.Sequence, *outcome.CAS)
+		l.causal.record(outcome.Sequence, outcome.Worker, outcome.MaximumObservedGeneration, outcome.ObservedGenerationBounded, *outcome.CAS)
 	}
 	if outcome.Err != nil {
 		l.samplesMu.Lock()
@@ -137,8 +139,8 @@ func (l *Ledger) Snapshot() LedgerSnapshot {
 		Matched:       l.matched.Load(),
 		NoMatch:       l.noMatch.Load(),
 		Modified:      l.modified.Load(),
-		CommandErrors: l.commandErrors.Load(),
-		ClientErrors:  l.clientErrors.Load(),
+		Rejected:      l.rejected.Load(),
+		Indeterminate: l.indeterminate.Load(),
 		Latency:       l.latency.snapshot(),
 		CAS:           l.causal.snapshot(),
 	}
@@ -149,11 +151,29 @@ func (l *Ledger) Snapshot() LedgerSnapshot {
 }
 
 type CASSnapshot struct {
-	MatchedEdges     int64
-	DuplicateMatches int64
-	InvalidEdges     int64
-	HighestObserved  int64
-	matchedBits      []uint64
+	MatchedEdges            int64
+	DuplicateMatches        int64
+	InvalidEdges            int64
+	HighestObserved         int64
+	ObservedGenerationSlots int
+	MatchedOperationWords   int
+	TrackerBytes            int64
+	Findings                []CausalFinding
+	matchedBits             []uint64
+}
+
+type CausalFinding struct {
+	Reason             string
+	ObservedGeneration int64
+	FirstSequence      int64
+	FirstWorker        int
+	CompetingSequence  int64
+	CompetingWorker    int
+}
+
+type operationIdentity struct {
+	sequence int64
+	worker   int
 }
 
 func (s CASSnapshot) OperationMatched(sequence int64) bool {
@@ -170,28 +190,49 @@ func (s CASSnapshot) OperationMatched(sequence int64) bool {
 type causalLedger struct {
 	mu              sync.Mutex
 	observedCounts  []uint8
+	observedFirst   []operationIdentity
 	matchedBits     []uint64
+	findings        []CausalFinding
 	matchedEdges    int64
 	duplicates      int64
 	invalidEdges    int64
 	highestObserved int64
 }
 
-func (l *causalLedger) record(sequence int64, operation CASOperation) {
+func (l *causalLedger) record(sequence int64, worker int, maximumObservedGeneration int64, bounded bool, operation CASOperation) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.matchedEdges++
 	if operation.ObservedGeneration < 0 ||
-		operation.ProposedGeneration != operation.ObservedGeneration+1 {
+		operation.ProposedGeneration != operation.ObservedGeneration+1 ||
+		(bounded && operation.ObservedGeneration > maximumObservedGeneration) {
 		l.invalidEdges++
+		l.retainFinding(CausalFinding{
+			Reason:             "invalidEdge",
+			ObservedGeneration: operation.ObservedGeneration,
+			CompetingSequence:  sequence,
+			CompetingWorker:    worker,
+		})
 		return
 	}
 	observed := int(operation.ObservedGeneration)
 	if observed >= len(l.observedCounts) {
 		l.observedCounts = append(l.observedCounts, make([]uint8, observed-len(l.observedCounts)+1)...)
+		l.observedFirst = append(l.observedFirst, make([]operationIdentity, observed-len(l.observedFirst)+1)...)
 	}
 	if l.observedCounts[observed] > 0 {
 		l.duplicates++
+		first := l.observedFirst[observed]
+		l.retainFinding(CausalFinding{
+			Reason:             "duplicateMatch",
+			ObservedGeneration: operation.ObservedGeneration,
+			FirstSequence:      first.sequence,
+			FirstWorker:        first.worker,
+			CompetingSequence:  sequence,
+			CompetingWorker:    worker,
+		})
+	} else {
+		l.observedFirst[observed] = operationIdentity{sequence: sequence, worker: worker}
 	}
 	if l.observedCounts[observed] < 255 {
 		l.observedCounts[observed]++
@@ -208,15 +249,26 @@ func (l *causalLedger) record(sequence int64, operation CASOperation) {
 	}
 }
 
+func (l *causalLedger) retainFinding(finding CausalFinding) {
+	if len(l.findings) < maxErrorSamples {
+		l.findings = append(l.findings, finding)
+	}
+}
+
 func (l *causalLedger) snapshot() CASSnapshot {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	trackerBytes := int64(len(l.observedCounts)) + int64(len(l.observedFirst))*16 + int64(len(l.matchedBits))*8
 	return CASSnapshot{
-		MatchedEdges:     l.matchedEdges,
-		DuplicateMatches: l.duplicates,
-		InvalidEdges:     l.invalidEdges,
-		HighestObserved:  l.highestObserved,
-		matchedBits:      append([]uint64(nil), l.matchedBits...),
+		MatchedEdges:            l.matchedEdges,
+		DuplicateMatches:        l.duplicates,
+		InvalidEdges:            l.invalidEdges,
+		HighestObserved:         l.highestObserved,
+		ObservedGenerationSlots: len(l.observedCounts),
+		MatchedOperationWords:   len(l.matchedBits),
+		TrackerBytes:            trackerBytes,
+		Findings:                append([]CausalFinding(nil), l.findings...),
+		matchedBits:             append([]uint64(nil), l.matchedBits...),
 	}
 }
 
@@ -268,14 +320,14 @@ func UpdateOutcome(result WriteResult, err error) Outcome {
 			errors.Is(err, context.DeadlineExceeded) ||
 			mongo.IsNetworkError(err) ||
 			writeConcernOnly(err) {
-			return Outcome{Kind: OutcomeClientError, Err: err}
+			return Outcome{Kind: OutcomeIndeterminate, Err: err}
 		}
-		var commandError mongo.CommandError
+		var rejected mongo.CommandError
 		var writeException mongo.WriteException
-		if errors.As(err, &commandError) || errors.As(err, &writeException) {
-			return Outcome{Kind: OutcomeCommandError, Err: err}
+		if errors.As(err, &rejected) || errors.As(err, &writeException) {
+			return Outcome{Kind: OutcomeRejected, Err: err}
 		}
-		return Outcome{Kind: OutcomeClientError, Err: err}
+		return Outcome{Kind: OutcomeIndeterminate, Err: err}
 	}
 	if result.Matched == 0 {
 		return Outcome{Kind: OutcomeNoMatch}

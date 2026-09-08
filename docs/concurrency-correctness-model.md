@@ -36,17 +36,15 @@ Every completed operation produces an operation record:
     worker
     scenario
     observed generation
-    observed value fingerprint
     proposed generation
-    proposed value fingerprint
     outcome
     modified
     started and finished time
     error labels and bounded error text
 
-Fields that do not apply to a scenario remain absent. Tokens are represented by
-stable fingerprints in reports so BSON values and UUID bytes are compared
-without exposing arbitrary document contents.
+Fields that do not apply to a scenario remain absent. The current bounded
+causal report retains generations and operation identities. UUID token values
+are checked during final reconciliation but are not retained as fingerprints.
 
 The aggregate ledger and causal oracle consume the same record. This prevents
 the response counters and the CAS history from describing different sets of
@@ -138,7 +136,8 @@ are optional and bounded by configuration.
 
 Per-generation tracking grows with successful CAS generations rather than total
 attempts. This is acceptable for the expected multi-million-operation runs and
-must be reported as runner memory overhead.
+is reported as observed-generation slots, matched-operation words, and an
+estimated tracker byte count.
 
 ## Stop and reconciliation
 
@@ -166,7 +165,6 @@ mongo.Collection parameters. A deterministic fake must be able to inject:
 - two matches from the same observed CAS generation;
 - a corrupted final version or token;
 - an invalid outcome that the ledger rejects;
-- an issued operation with no recorded result;
 - a network-labeled CommandError;
 - a write-concern-only WriteException;
 - interruption during an in-flight write.
@@ -175,12 +173,14 @@ Tests must prove each injected defect makes the appropriate check fail. The
 runner and fake tests run under the race detector. Real MongoDB integration
 tests then verify adapter and BSON behavior.
 
+The issued-versus-recorded reconciliation is a defense-in-depth assertion. A
+worker cannot intentionally bypass recording through the Scenario interface;
+reaching that mismatch requires a worker panic or runner defect. It is reviewed
+as an invariant rather than exposed through a test-only production hook.
+
 ## Baseline status
 
-The existing 30-minute MongoDB run is an aggregate durability observation. It
-does not establish per-generation CAS exclusivity and is not the authoritative
-CAS baseline.
-
-The replacement baseline may begin only after the corrective epic passes its
-adversarial tests. DumboDB characterization remains blocked until that
-replacement MongoDB run succeeds.
+The corrected 30-minute MongoDB baseline establishes per-generation CAS
+exclusivity and is the authoritative baseline. Its report predates the tracker
+memory-size fields added in the subsequent review cleanup; all later reports
+include them.

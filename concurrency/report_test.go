@@ -45,6 +45,12 @@ func TestReportPassAndFailure(t *testing.T) {
 	if !result.Passed() {
 		t.Fatal("expected valid result to pass")
 	}
+	if result.Verdict() != VerdictConclusivePass {
+		t.Fatalf("verdict=%s", result.Verdict())
+	}
+	if !strings.Contains(result.Summary(), "verdict=conclusivePass") {
+		t.Fatalf("summary missing verdict: %s", result.Summary())
+	}
 	if result.OperationsPerSecond() != 1 {
 		t.Fatalf("operations per second = %f", result.OperationsPerSecond())
 	}
@@ -57,15 +63,30 @@ func TestReportPassAndFailure(t *testing.T) {
 	}
 
 	result.Checks[0].Passed = false
-	if result.Passed() {
-		t.Fatal("expected failed check to fail result")
+	if result.Verdict() != VerdictFailed {
+		t.Fatalf("failed check verdict=%s", result.Verdict())
+	}
+	result.Checks[0] = Check{Name: "stored", Skipped: true}
+	result.Ledger = LedgerSnapshot{Attempts: 1, Indeterminate: 1}
+	if result.Verdict() != VerdictInconclusive {
+		t.Fatalf("indeterminate verdict=%s", result.Verdict())
+	}
+	if !strings.Contains(result.Summary(), "verdict=inconclusive") {
+		t.Fatalf("summary missing inconclusive verdict: %s", result.Summary())
+	}
+	output.Reset()
+	if err := result.WriteJSON(&output); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "\"Verdict\": \"inconclusive\"") {
+		t.Fatalf("JSON report missing verdict: %s", output.String())
 	}
 }
 
 func TestLedgerBoundsErrorSamplesAndBucketsLatency(t *testing.T) {
 	ledger := &Ledger{}
 	for i := 0; i < maxErrorSamples+5; i++ {
-		if err := ledger.Record(Outcome{Kind: OutcomeClientError, Err: errors.New("failure")}, 2*time.Millisecond); err != nil {
+		if err := ledger.Record(Outcome{Kind: OutcomeIndeterminate, Err: errors.New("failure")}, 2*time.Millisecond); err != nil {
 			t.Fatal(err)
 		}
 	}

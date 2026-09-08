@@ -83,13 +83,13 @@ func (s *uuidCASScenario) Setup(ctx context.Context, collection Collection) erro
 	return err
 }
 
-func (s *uuidCASScenario) Execute(ctx context.Context, collection Collection, _ int, sequence int64) Outcome {
+func (s *uuidCASScenario) Execute(ctx context.Context, collection Collection, worker int, sequence int64) Outcome {
 	var observed uuidCASDocument
 	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "uuid-counter"}}, &observed); err != nil {
-		return Outcome{Kind: OutcomeClientError, Err: err}
+		return Outcome{Kind: OutcomeIndeterminate, Err: err}
 	}
 	if err := waitCASDelay(ctx, s.seed, sequence, s.maxDelay); err != nil {
-		return Outcome{Kind: OutcomeClientError, Err: err}
+		return Outcome{Kind: OutcomeIndeterminate, Err: err}
 	}
 	replacement := uuidToken(sequence)
 	result, err := collection.UpdateOne(ctx,
@@ -108,6 +108,7 @@ func (s *uuidCASScenario) Execute(ctx context.Context, collection Collection, _ 
 	)
 	outcome := UpdateOutcome(result, err)
 	outcome.Sequence = sequence
+	outcome.Worker = worker
 	outcome.CAS = &CASOperation{
 		ObservedGeneration: observed.Applied,
 		ProposedGeneration: observed.Applied + 1,
@@ -126,9 +127,10 @@ func (s *uuidCASScenario) Verify(ctx context.Context, collection Collection, led
 	operationWasIssued := document.LastOperation > 0 && document.LastOperation <= ledger.Attempts
 	return []Check{
 		{
-			Name:   "storedAppliedEqualsMatched",
-			Passed: document.Applied == ledger.Matched,
-			Detail: fmt.Sprintf("applied=%d matched=%d", document.Applied, ledger.Matched),
+			Name:    "storedAppliedEqualsMatched",
+			Passed:  document.Applied == ledger.Matched,
+			Skipped: ledger.Indeterminate > 0,
+			Detail:  fmt.Sprintf("applied=%d matched=%d", document.Applied, ledger.Matched),
 		},
 		{
 			Name:   "everyMatchModified",
@@ -144,7 +146,8 @@ func (s *uuidCASScenario) Verify(ctx context.Context, collection Collection, led
 			Name: "finalTokenMatchesIssuedOperation",
 			Passed: tokenMatchesOperation && operationWasIssued &&
 				ledger.CAS.OperationMatched(document.LastOperation),
-			Detail: fmt.Sprintf("lastOperation=%d attempts=%d", document.LastOperation, ledger.Attempts),
+			Skipped: ledger.Indeterminate > 0,
+			Detail:  fmt.Sprintf("lastOperation=%d attempts=%d", document.LastOperation, ledger.Attempts),
 		},
 		{
 			Name:   "oneMatchPerObservedGeneration",
@@ -156,6 +159,7 @@ func (s *uuidCASScenario) Verify(ctx context.Context, collection Collection, led
 			Passed: ledger.CAS.InvalidEdges == 0 &&
 				ledger.CAS.MatchedEdges == ledger.Matched &&
 				(document.Applied == 0 || ledger.CAS.HighestObserved == document.Applied-1),
+			Skipped: ledger.Indeterminate > 0,
 			Detail: fmt.Sprintf(
 				"edges=%d invalid=%d highestObserved=%d applied=%d",
 				ledger.CAS.MatchedEdges,
@@ -200,10 +204,10 @@ func (s *casScenario) Setup(ctx context.Context, collection Collection) error {
 func (s *casScenario) Execute(ctx context.Context, collection Collection, worker int, sequence int64) Outcome {
 	version, err := readCounter(ctx, collection)
 	if err != nil {
-		return Outcome{Kind: OutcomeClientError, Err: err}
+		return Outcome{Kind: OutcomeIndeterminate, Err: err}
 	}
 	if err := waitCASDelay(ctx, s.seed, sequence, s.maxDelay); err != nil {
-		return Outcome{Kind: OutcomeClientError, Err: err}
+		return Outcome{Kind: OutcomeIndeterminate, Err: err}
 	}
 	result, err := collection.UpdateOne(ctx,
 		bson.D{{Key: "_id", Value: "counter"}, {Key: "version", Value: version}},
@@ -279,9 +283,10 @@ func (s *blindIncrementScenario) Verify(ctx context.Context, collection Collecti
 	}
 	return []Check{
 		{
-			Name:   "storedVersionEqualsMatched",
-			Passed: version == ledger.Matched,
-			Detail: fmt.Sprintf("version=%d matched=%d", version, ledger.Matched),
+			Name:    "storedVersionEqualsMatched",
+			Passed:  version == ledger.Matched,
+			Skipped: ledger.Indeterminate > 0,
+			Detail:  fmt.Sprintf("version=%d matched=%d", version, ledger.Matched),
 		},
 		{
 			Name:   "everyMatchModified",
@@ -294,9 +299,10 @@ func (s *blindIncrementScenario) Verify(ctx context.Context, collection Collecti
 func counterChecks(version int64, ledger LedgerSnapshot) []Check {
 	return []Check{
 		{
-			Name:   "storedVersionEqualsMatched",
-			Passed: version == ledger.Matched,
-			Detail: fmt.Sprintf("version=%d matched=%d", version, ledger.Matched),
+			Name:    "storedVersionEqualsMatched",
+			Passed:  version == ledger.Matched,
+			Skipped: ledger.Indeterminate > 0,
+			Detail:  fmt.Sprintf("version=%d matched=%d", version, ledger.Matched),
 		},
 		{
 			Name:   "everyMatchModified",
@@ -314,9 +320,10 @@ func counterChecks(version int64, ledger LedgerSnapshot) []Check {
 			Detail: fmt.Sprintf("edges=%d invalid=%d matched=%d", ledger.CAS.MatchedEdges, ledger.CAS.InvalidEdges, ledger.Matched),
 		},
 		{
-			Name:   "matchedEdgesFormCompleteChain",
-			Passed: version == 0 || ledger.CAS.HighestObserved == version-1,
-			Detail: fmt.Sprintf("highestObserved=%d version=%d", ledger.CAS.HighestObserved, version),
+			Name:    "matchedEdgesFormCompleteChain",
+			Passed:  version == 0 || ledger.CAS.HighestObserved == version-1,
+			Skipped: ledger.Indeterminate > 0,
+			Detail:  fmt.Sprintf("highestObserved=%d version=%d", ledger.CAS.HighestObserved, version),
 		},
 	}
 }
@@ -363,8 +370,8 @@ func (s *disjointSetScenario) Verify(ctx context.Context, collection Collection,
 	}
 	checks := []Check{{
 		Name:   "allAcknowledgedWritesMatched",
-		Passed: ledger.Matched == ledger.Attempts-ledger.CommandErrors-ledger.ClientErrors,
-		Detail: fmt.Sprintf("matched=%d attempts=%d commandErrors=%d clientErrors=%d", ledger.Matched, ledger.Attempts, ledger.CommandErrors, ledger.ClientErrors),
+		Passed: ledger.Matched == ledger.Attempts-ledger.Rejected-ledger.Indeterminate,
+		Detail: fmt.Sprintf("matched=%d attempts=%d rejected=%d indeterminate=%d", ledger.Matched, ledger.Attempts, ledger.Rejected, ledger.Indeterminate),
 	}}
 	for worker := range s.acknowledged {
 		want := s.acknowledged[worker].Load()
@@ -376,9 +383,10 @@ func (s *disjointSetScenario) Verify(ctx context.Context, collection Collection,
 			passed = present && numeric && got == want
 		}
 		checks = append(checks, Check{
-			Name:   field + "RetainsLastAcknowledgement",
-			Passed: passed,
-			Detail: fmt.Sprintf("present=%t stored=%d acknowledged=%d", present, got, want),
+			Name:    field + "RetainsLastAcknowledgement",
+			Passed:  passed,
+			Skipped: ledger.Indeterminate > 0,
+			Detail:  fmt.Sprintf("present=%t stored=%d acknowledged=%d", present, got, want),
 		})
 	}
 	return checks, nil
@@ -419,13 +427,14 @@ func (s *sameFieldSetScenario) Verify(ctx context.Context, collection Collection
 	return []Check{
 		{
 			Name:   "allAcknowledgedWritesMatched",
-			Passed: ledger.Matched == ledger.Attempts-ledger.CommandErrors-ledger.ClientErrors,
-			Detail: fmt.Sprintf("matched=%d attempts=%d commandErrors=%d clientErrors=%d", ledger.Matched, ledger.Attempts, ledger.CommandErrors, ledger.ClientErrors),
+			Passed: ledger.Matched == ledger.Attempts-ledger.Rejected-ledger.Indeterminate,
+			Detail: fmt.Sprintf("matched=%d attempts=%d rejected=%d indeterminate=%d", ledger.Matched, ledger.Attempts, ledger.Rejected, ledger.Indeterminate),
 		},
 		{
-			Name:   "finalValueWasIssued",
-			Passed: document.Value > 0 && document.Value <= ledger.Attempts,
-			Detail: fmt.Sprintf("value=%d attempts=%d", document.Value, ledger.Attempts),
+			Name:    "finalValueWasIssued",
+			Passed:  document.Value > 0 && document.Value <= ledger.Attempts,
+			Skipped: ledger.Indeterminate > 0,
+			Detail:  fmt.Sprintf("value=%d attempts=%d", document.Value, ledger.Attempts),
 		},
 	}, nil
 }
