@@ -293,6 +293,11 @@ func (s *blindIncrementScenario) Verify(ctx context.Context, collection Collecti
 			Passed: ledger.Modified == ledger.Matched,
 			Detail: fmt.Sprintf("modified=%d matched=%d", ledger.Modified, ledger.Matched),
 		},
+		{
+			Name:   "allAcknowledgedWritesMatched",
+			Passed: ledger.Matched == ledger.Attempts-ledger.Rejected-ledger.Indeterminate,
+			Detail: fmt.Sprintf("matched=%d attempts=%d rejected=%d indeterminate=%d", ledger.Matched, ledger.Attempts, ledger.Rejected, ledger.Indeterminate),
+		},
 	}, nil
 }
 

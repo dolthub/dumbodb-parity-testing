@@ -26,6 +26,10 @@ type finalDocumentCollection struct {
 	document bson.M
 }
 
+type counterVersionCollection struct {
+	version int64
+}
+
 func TestDeterministicDelayUsesSeedAndSequence(t *testing.T) {
 	maximum := 10 * time.Second
 	first := deterministicDelay(7, 11, maximum)
@@ -54,6 +58,20 @@ func (c finalDocumentCollection) UpdateOne(context.Context, interface{}, interfa
 func (c finalDocumentCollection) FindOne(_ context.Context, _ interface{}, result interface{}) error {
 	destination := result.(*bson.M)
 	*destination = c.document
+	return nil
+}
+
+func (c counterVersionCollection) InsertOne(context.Context, interface{}) error {
+	return nil
+}
+
+func (c counterVersionCollection) UpdateOne(context.Context, interface{}, interface{}) (WriteResult, error) {
+	return WriteResult{}, nil
+}
+
+func (c counterVersionCollection) FindOne(_ context.Context, _ interface{}, result interface{}) error {
+	document := result.(*counterDocument)
+	document.Version = c.version
 	return nil
 }
 
@@ -183,6 +201,28 @@ func TestCounterChecksSkipUnknownConservationButRetainHardChecks(t *testing.T) {
 	if ChecksPassed(checks) {
 		t.Fatalf("hard CAS failure was hidden by indeterminacy: %+v", checks)
 	}
+}
+
+func TestBlindIncrementRejectsNoMatch(t *testing.T) {
+	scenario := &blindIncrementScenario{}
+	checks, err := scenario.Verify(context.Background(), counterVersionCollection{version: 2}, LedgerSnapshot{
+		Attempts: 3,
+		Matched:  2,
+		Modified: 2,
+		NoMatch:  1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, check := range checks {
+		if check.Name == "allAcknowledgedWritesMatched" {
+			if check.Passed || check.Skipped {
+				t.Fatalf("no-match accounting check did not fail: %+v", check)
+			}
+			return
+		}
+	}
+	t.Fatal("allAcknowledgedWritesMatched check is missing")
 }
 
 func TestDisjointSetWorkerWithoutMatchRequiresAbsentField(t *testing.T) {
