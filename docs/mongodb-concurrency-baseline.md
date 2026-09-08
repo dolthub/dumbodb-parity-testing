@@ -34,7 +34,12 @@ Command:
 
 The complete machine-readable report is stored at
 `docs/evidence/mongodb-8.0.28-cas-corrected-30m.json` with SHA-256
-`e25eef402e6068369872af1164f549c39eef0a772d04bcb54d5718b0b3445751`.
+recorded below. The artifact was migrated from the original
+`CommandErrors`/`ClientErrors` schema to the unified
+`Rejected`/`Indeterminate` vocabulary without changing its measured values.
+It predates tracker memory-size fields.
+
+    SHA-256: 2540417a7305c3f653372c989583737522a15ce945bdfb495b096f5a497a336d
 
 ## Results
 
@@ -42,15 +47,16 @@ The complete machine-readable report is stored at
     matched: 2,066,934
     no match: 24,563,585
     modified: 2,066,934
-    command errors: 0
-    client errors: 0
+    rejected: 0
+    indeterminate: 0
     operations per second: 14,794.7
 
 The CAS match rate was 0.0776152. Its 95 percent Wilson interval was
 [0.0775137, 0.0777169]. The no-match rate was 0.9223848 with interval
 [0.9222831, 0.9224863].
 
-The upper bound of the 95 percent interval for each unobserved error rate was
+The upper bound of the 95 percent interval for each unobserved rejected or
+indeterminate rate was
 0.0000001443.
 
 Latency buckets:

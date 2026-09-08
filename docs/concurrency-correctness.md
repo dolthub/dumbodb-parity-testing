@@ -18,14 +18,14 @@ terminal client-visible outcome:
 
 - `matched`: the command succeeded and matched one document.
 - `noMatch`: the command succeeded and matched no document.
-- `commandError`: the server returned an error.
-- `clientError`: the driver could not establish whether the server applied the
+- `rejected`: the server definitively rejected the operation before applying it.
+- `indeterminate`: the driver could not establish whether the server applied the
   operation, including timeout and connection loss.
 
 `modified` is an attribute of a matched outcome, not a separate terminal
 outcome. An update may match a document without changing its stored value.
 
-The harness must not count a client error as either applied or unapplied. Such
+The harness must not count an indeterminate outcome as either applied or unapplied. Such
 an outcome is indeterminate unless a scenario-specific operation identifier can
 be recovered from stored state.
 
@@ -34,7 +34,7 @@ be recovered from stored state.
 For every completed run:
 
 ```text
-attempts = matched + noMatch + commandError + clientError
+attempts = matched + noMatch + rejected + indeterminate
 0 <= modified <= matched
 ```
 
@@ -54,6 +54,13 @@ preserved for investigation.
 The runner fails on an accounting imbalance, an unreadable final state, an
 unexpected document shape, or a violated scenario invariant. Statistical
 comparisons never soften these failures.
+
+Every report has one of three verdicts. `conclusivePass` means every evaluable
+hard check passed with no indeterminate operations or interruption. `failed`
+means an evaluable zero-tolerance invariant failed. `inconclusive` means no
+evaluable invariant failed, but interruption or an indeterminate operation made
+exact conservation unknowable. Such conservation checks are marked skipped,
+and the command exits with status 3 rather than the failure status 1.
 
 ## Initial scenarios
 
@@ -90,10 +97,10 @@ one may match.
 ### Blind increment
 
 Each attempt submits `$inc: { version: 1 }` using only the document identity as
-its filter. With no indeterminate client errors:
+its filter. With no indeterminate indeterminate:
 
 ```text
-matched = attempts - commandError
+matched = attempts - rejected
 modified = matched
 final version = initial version + matched
 ```
@@ -164,7 +171,7 @@ Scheduler-sensitive observations are reported as rates with their sample size:
 - CAS match and no-match rate;
 - operations per second;
 - response latency distribution;
-- server and client error rate;
+- rejected and indeterminate rate;
 - observed contention-window width.
 
 Latency covers the complete read-and-update attempt for CAS scenarios and only

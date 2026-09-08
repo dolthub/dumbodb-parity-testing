@@ -83,15 +83,25 @@ func main() {
 		finalize(&result, true)
 		os.Exit(1)
 	}
-	preserve := cfg.KeepData || result.Truncated || runErr != nil || !result.Passed()
+	preserve := cfg.KeepData || result.Truncated || runErr != nil || result.Verdict() != concurrency.VerdictConclusivePass
 	finalize(&result, preserve)
+	exitCode := resultExitCode(result, runErr)
 	if runErr != nil {
 		fmt.Fprintln(os.Stderr, runErr)
-		os.Exit(1)
 	}
-	if !result.Passed() {
-		os.Exit(1)
+	if exitCode != 0 {
+		os.Exit(exitCode)
 	}
+}
+
+func resultExitCode(result concurrency.LifecycleResult, runErr error) int {
+	if runErr != nil || result.Verdict() == concurrency.VerdictFailed {
+		return 1
+	}
+	if result.Verdict() == concurrency.VerdictInconclusive {
+		return 3
+	}
+	return 0
 }
 
 func finalize(result *concurrency.LifecycleResult, preserve bool) {

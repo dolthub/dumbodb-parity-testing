@@ -40,8 +40,8 @@ func TestCalculateStatisticsUsesAllAttempts(t *testing.T) {
 		Attempts:      100,
 		Matched:       20,
 		NoMatch:       70,
-		CommandErrors: 5,
-		ClientErrors:  5,
+		Rejected:      5,
+		Indeterminate: 5,
 	})
 	if statistics.MatchRate.Rate != 0.2 || statistics.NoMatchRate.Rate != 0.7 {
 		t.Fatalf("unexpected statistics: %+v", statistics)

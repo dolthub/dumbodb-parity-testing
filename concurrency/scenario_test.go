@@ -162,6 +162,27 @@ func TestCounterChecksRejectDoubleMatch(t *testing.T) {
 	if snapshot.CAS.DuplicateMatches != 1 {
 		t.Fatalf("duplicate matches = %d, want 1", snapshot.CAS.DuplicateMatches)
 	}
+	if len(snapshot.CAS.Findings) != 1 || snapshot.CAS.Findings[0].Reason != "duplicateMatch" ||
+		snapshot.CAS.Findings[0].FirstSequence != 1 || snapshot.CAS.Findings[0].CompetingSequence != 2 {
+		t.Fatalf("missing duplicate evidence: %+v", snapshot.CAS.Findings)
+	}
+	if snapshot.CAS.ObservedGenerationSlots != 1 || snapshot.CAS.TrackerBytes == 0 {
+		t.Fatalf("missing tracker memory evidence: %+v", snapshot.CAS)
+	}
+}
+
+func TestCounterChecksSkipUnknownConservationButRetainHardChecks(t *testing.T) {
+	checks := counterChecks(7, LedgerSnapshot{Attempts: 1, Indeterminate: 1})
+	if !checks[0].Skipped || !checks[len(checks)-1].Skipped {
+		t.Fatalf("indeterminate conservation checks were evaluable: %+v", checks)
+	}
+	if !ChecksPassed(checks) {
+		t.Fatalf("skipped conservation rendered as failure: %+v", checks)
+	}
+	checks[2] = Check{Name: "oneMatchPerObservedGeneration", Passed: false}
+	if ChecksPassed(checks) {
+		t.Fatalf("hard CAS failure was hidden by indeterminacy: %+v", checks)
+	}
 }
 
 func TestDisjointSetWorkerWithoutMatchRequiresAbsentField(t *testing.T) {
@@ -193,7 +214,7 @@ func TestDisjointSetWorkerWithoutMatchRequiresAbsentField(t *testing.T) {
 }
 
 func TestSetScenariosSeparateIndeterminateOutcomesFromMatchAccounting(t *testing.T) {
-	ledger := LedgerSnapshot{Attempts: 3, Matched: 1, CommandErrors: 1, ClientErrors: 1}
+	ledger := LedgerSnapshot{Attempts: 3, Matched: 1, Rejected: 1, Indeterminate: 1}
 	disjoint := newDisjointSetScenario(1, "")
 	disjoint.acknowledged[0].Store(1)
 	disjointChecks, err := disjoint.Verify(context.Background(), finalDocumentCollection{document: bson.M{
@@ -204,6 +225,9 @@ func TestSetScenariosSeparateIndeterminateOutcomesFromMatchAccounting(t *testing
 	}
 	if !ChecksPassed(disjointChecks) {
 		t.Fatalf("disjoint accounting folded errors into failure: %+v", disjointChecks)
+	}
+	if !disjointChecks[1].Skipped {
+		t.Fatalf("indeterminate final-state check was not skipped: %+v", disjointChecks)
 	}
 
 	same := &sameFieldSetScenario{}

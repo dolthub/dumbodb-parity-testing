@@ -30,8 +30,8 @@ func TestLedgerBalancesTerminalOutcomes(t *testing.T) {
 		{Kind: OutcomeMatched, Modified: true},
 		{Kind: OutcomeMatched},
 		{Kind: OutcomeNoMatch},
-		{Kind: OutcomeCommandError},
-		{Kind: OutcomeClientError},
+		{Kind: OutcomeRejected},
+		{Kind: OutcomeIndeterminate},
 	}
 	for _, outcome := range outcomes {
 		if err := ledger.Record(outcome, time.Millisecond); err != nil {
@@ -106,32 +106,32 @@ func TestUpdateOutcome(t *testing.T) {
 	}{
 		{name: "matched", got: UpdateOutcome(WriteResult{Matched: 1, Modified: 1}, nil), want: OutcomeMatched},
 		{name: "no match", got: UpdateOutcome(WriteResult{}, nil), want: OutcomeNoMatch},
-		{name: "command", got: UpdateOutcome(WriteResult{}, mongo.CommandError{Code: 1}), want: OutcomeCommandError},
+		{name: "command", got: UpdateOutcome(WriteResult{}, mongo.CommandError{Code: 1}), want: OutcomeRejected},
 		{
 			name: "network-labeled command",
 			got: UpdateOutcome(WriteResult{}, mongo.CommandError{
 				Code:   1,
 				Labels: []string{"NetworkError"},
 			}),
-			want: OutcomeClientError,
+			want: OutcomeIndeterminate,
 		},
 		{
 			name: "write concern only",
 			got: UpdateOutcome(WriteResult{}, mongo.WriteException{
 				WriteConcernError: &mongo.WriteConcernError{Code: 64},
 			}),
-			want: OutcomeClientError,
+			want: OutcomeIndeterminate,
 		},
 		{
 			name: "write rejection",
 			got: UpdateOutcome(WriteResult{}, mongo.WriteException{
 				WriteErrors: mongo.WriteErrors{{Code: 11000}},
 			}),
-			want: OutcomeCommandError,
+			want: OutcomeRejected,
 		},
-		{name: "canceled", got: UpdateOutcome(WriteResult{}, context.Canceled), want: OutcomeClientError},
-		{name: "deadline", got: UpdateOutcome(WriteResult{}, context.DeadlineExceeded), want: OutcomeClientError},
-		{name: "client", got: UpdateOutcome(WriteResult{}, errors.New("network")), want: OutcomeClientError},
+		{name: "canceled", got: UpdateOutcome(WriteResult{}, context.Canceled), want: OutcomeIndeterminate},
+		{name: "deadline", got: UpdateOutcome(WriteResult{}, context.DeadlineExceeded), want: OutcomeIndeterminate},
+		{name: "client", got: UpdateOutcome(WriteResult{}, errors.New("network")), want: OutcomeIndeterminate},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

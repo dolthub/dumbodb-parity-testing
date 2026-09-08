@@ -36,7 +36,7 @@ type Collection interface {
 
 type Target interface {
 	Ping(context.Context) error
-	Identity(context.Context) (serverInfo, error)
+	Identity(context.Context) (ServerInfo, error)
 	Collection(database, collection string) Collection
 	DropDatabase(context.Context, string) error
 	Disconnect(context.Context) error
@@ -58,16 +58,16 @@ func (t *mongoTarget) Ping(ctx context.Context) error {
 	return t.client.Ping(ctx, nil)
 }
 
-func (t *mongoTarget) Identity(ctx context.Context) (serverInfo, error) {
+func (t *mongoTarget) Identity(ctx context.Context) (ServerInfo, error) {
 	var response bson.M
 	if err := t.client.Database("admin").RunCommand(ctx, bson.D{{Key: "buildInfo", Value: 1}}).Decode(&response); err != nil {
-		return serverInfo{}, fmt.Errorf("buildInfo: %w", err)
+		return ServerInfo{}, fmt.Errorf("buildInfo: %w", err)
 	}
 	version, _ := response["version"].(string)
 	if version == "" {
-		return serverInfo{}, fmt.Errorf("buildInfo did not return a version")
+		return ServerInfo{}, fmt.Errorf("buildInfo did not return a version")
 	}
-	return serverInfo{Product: "MongoDB", Version: version}, nil
+	return ServerInfo{Product: "MongoDB", Version: version}, nil
 }
 
 func (t *mongoTarget) Collection(database, collection string) Collection {

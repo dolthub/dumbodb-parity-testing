@@ -36,6 +36,8 @@ type LifecycleResult struct {
 	Statistics         RunStatistics
 	Truncated          bool
 	StopReason         string
+	RunError           string
+	VerdictValue       Verdict `json:"Verdict"`
 	target             Target
 	database           string
 	keepData           bool
@@ -116,7 +118,7 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 		keepData: cfg.KeepData,
 	}
 	if err := scenario.Setup(ctx, collection); err != nil {
-		return result, fmt.Errorf("setup %s: %w", scenario.Name(), err)
+		return lifecycleFailure(result, fmt.Errorf("setup %s: %w", scenario.Name(), err))
 	}
 	var issued atomic.Int64
 	ledger := &Ledger{}
@@ -150,6 +152,10 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 				}
 				started := time.Now()
 				outcome := scenario.Execute(ctx, collection, id, sequence)
+				if outcome.CAS != nil {
+					outcome.MaximumObservedGeneration = issued.Load() - 1
+					outcome.ObservedGenerationBounded = true
+				}
 				if err := ledger.Record(outcome, time.Since(started)); err != nil {
 					recordErrOnce.Do(func() {
 						recordErr = fmt.Errorf("record operation %d: %w", sequence, err)
@@ -171,19 +177,19 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 	}
 
 	if recordErr != nil {
-		return result, recordErr
+		return lifecycleFailure(result, recordErr)
 	}
 	result.Ledger = ledger.Snapshot()
 	if reserved := issued.Load(); reserved != result.Ledger.Attempts {
-		return result, fmt.Errorf(
+		return lifecycleFailure(result, fmt.Errorf(
 			"reserved operations %d != recorded attempts %d",
 			reserved,
 			result.Ledger.Attempts,
-		)
+		))
 	}
 	result.Statistics = calculateStatistics(result.Ledger)
 	if err := result.Ledger.Validate(); err != nil {
-		return result, err
+		return lifecycleFailure(result, err)
 	}
 	verifyCtx, verifyCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer verifyCancel()
@@ -193,16 +199,22 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 		case <-timer.C:
 		case <-verifyCtx.Done():
 			timer.Stop()
-			return result, verifyCtx.Err()
+			return lifecycleFailure(result, verifyCtx.Err())
 		}
 	}
 	checks, err := scenario.Verify(verifyCtx, collection, result.Ledger)
 	if err != nil {
-		return result, fmt.Errorf("verify %s: %w", scenario.Name(), err)
+		return lifecycleFailure(result, fmt.Errorf("verify %s: %w", scenario.Name(), err))
 	}
 	result.Checks = checks
 	result.FinishedAt = time.Now().UTC()
 	return result, nil
+}
+
+func lifecycleFailure(result LifecycleResult, err error) (LifecycleResult, error) {
+	result.RunError = err.Error()
+	result.FinishedAt = time.Now().UTC()
+	return result, err
 }
 
 func scenarioLatencyScope(name string) string {
@@ -227,7 +239,8 @@ func reserveOperation(issued *atomic.Int64, limit int64) (int64, bool) {
 	}
 }
 
-type serverInfo struct {
+// ServerInfo identifies the server behind a Target.
+type ServerInfo struct {
 	Product string
 	Version string
 }

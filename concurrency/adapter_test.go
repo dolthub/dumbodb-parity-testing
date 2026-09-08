@@ -32,8 +32,8 @@ func (t *fakeTarget) Ping(context.Context) error {
 	return nil
 }
 
-func (t *fakeTarget) Identity(context.Context) (serverInfo, error) {
-	return serverInfo{Product: "fake", Version: "1"}, nil
+func (t *fakeTarget) Identity(context.Context) (ServerInfo, error) {
+	return ServerInfo{Product: "fake", Version: "1"}, nil
 }
 
 func (t *fakeTarget) Collection(string, string) Collection {
@@ -75,6 +75,25 @@ type invalidOutcomeScenario struct {
 	countingScenario
 }
 
+type absurdGenerationScenario struct {
+	countingScenario
+}
+
+func (s *absurdGenerationScenario) Execute(context.Context, Collection, int, int64) Outcome {
+	return Outcome{
+		Kind:     OutcomeMatched,
+		Modified: true,
+		CAS: &CASOperation{
+			ObservedGeneration: 1 << 40,
+			ProposedGeneration: (1 << 40) + 1,
+		},
+	}
+}
+
+func (s *absurdGenerationScenario) Verify(_ context.Context, _ Collection, ledger LedgerSnapshot) ([]Check, error) {
+	return []Check{{Name: "validEdges", Passed: ledger.CAS.InvalidEdges == 0}}, nil
+}
+
 type interruptedScenario struct {
 	started           chan struct{}
 	verifySawCanceled atomic.Bool
@@ -95,7 +114,7 @@ func (s *interruptedScenario) Execute(ctx context.Context, _ Collection, _ int, 
 		close(s.started)
 	}
 	<-ctx.Done()
-	return Outcome{Kind: OutcomeClientError, Err: ctx.Err()}
+	return Outcome{Kind: OutcomeIndeterminate, Err: ctx.Err()}
 }
 
 func (s *interruptedScenario) Verify(ctx context.Context, _ Collection, _ LedgerSnapshot) ([]Check, error) {
@@ -122,8 +141,39 @@ func TestRunWithTargetFailsOnLedgerRecordError(t *testing.T) {
 		Collection: "documents",
 		Scenario:   "invalid",
 	}
-	if _, err := RunWithTarget(context.Background(), cfg, scenario, target); err == nil {
+	result, err := RunWithTarget(context.Background(), cfg, scenario, target)
+	if err == nil {
 		t.Fatal("expected invalid outcome to fail the run")
+	}
+	if result.RunError == "" || result.Verdict() != VerdictFailed {
+		t.Fatalf("runner error was not reported as failed: %+v", result)
+	}
+}
+
+func TestRunWithTargetRejectsAbsurdObservedGenerationWithBoundedMemory(t *testing.T) {
+	target := &fakeTarget{collection: unusedCollection{}}
+	result, err := RunWithTarget(context.Background(), Config{
+		TargetURI:  "mongodb://unused",
+		Operations: 1,
+		Workers:    1,
+		Database:   "test",
+		Collection: "documents",
+		Scenario:   "absurd",
+	}, &absurdGenerationScenario{}, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Verdict() != VerdictFailed || result.Ledger.CAS.InvalidEdges != 1 {
+		t.Fatalf("absurd generation was not a clean failure: %+v", result)
+	}
+	if result.Ledger.CAS.ObservedGenerationSlots != 0 || result.Ledger.CAS.TrackerBytes != 0 {
+		t.Fatalf("absurd generation allocated dense tracking: %+v", result.Ledger.CAS)
+	}
+	if len(result.Ledger.CAS.Findings) != 1 || result.Ledger.CAS.Findings[0].ObservedGeneration != 1<<40 {
+		t.Fatalf("missing bounded invalid-edge evidence: %+v", result.Ledger.CAS.Findings)
+	}
+	if err := result.Finalize(context.Background(), true); err != nil {
+		t.Fatal(err)
 	}
 }
 

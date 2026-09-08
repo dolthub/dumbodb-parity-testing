@@ -34,8 +34,26 @@ type RunConfig struct {
 	LatencyScope string
 }
 
+type Verdict string
+
+const (
+	VerdictConclusivePass Verdict = "conclusivePass"
+	VerdictInconclusive   Verdict = "inconclusive"
+	VerdictFailed         Verdict = "failed"
+)
+
+func (r LifecycleResult) Verdict() Verdict {
+	if r.RunError != "" || r.Ledger.Validate() != nil || !ChecksPassed(r.Checks) {
+		return VerdictFailed
+	}
+	if r.Truncated || r.Ledger.Indeterminate > 0 {
+		return VerdictInconclusive
+	}
+	return VerdictConclusivePass
+}
+
 func (r LifecycleResult) Passed() bool {
-	return !r.Truncated && r.Ledger.ClientErrors == 0 && r.Ledger.Validate() == nil && ChecksPassed(r.Checks)
+	return r.Verdict() == VerdictConclusivePass
 }
 
 func (r LifecycleResult) OperationsPerSecond() float64 {
@@ -48,20 +66,22 @@ func (r LifecycleResult) OperationsPerSecond() float64 {
 
 func (r LifecycleResult) Summary() string {
 	return fmt.Sprintf(
-		"%s %s scenario=%s attempts=%d matched=%d noMatch=%d errors=%d opsPerSecond=%.1f passed=%t",
+		"%s %s scenario=%s attempts=%d matched=%d noMatch=%d rejected=%d indeterminate=%d opsPerSecond=%.1f verdict=%s",
 		r.Product,
 		r.Version,
 		r.Scenario,
 		r.Ledger.Attempts,
 		r.Ledger.Matched,
 		r.Ledger.NoMatch,
-		r.Ledger.CommandErrors+r.Ledger.ClientErrors,
+		r.Ledger.Rejected,
+		r.Ledger.Indeterminate,
 		r.OperationsPerSecond(),
-		r.Passed(),
+		r.Verdict(),
 	)
 }
 
 func (r LifecycleResult) WriteJSON(writer io.Writer) error {
+	r.VerdictValue = r.Verdict()
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(r)
