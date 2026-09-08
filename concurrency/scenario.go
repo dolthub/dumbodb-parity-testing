@@ -59,7 +59,7 @@ func newScenario(name string, workers, payloadBytes int, seed int64, casDelay ti
 	}
 	payload := makePayload(payloadBytes)
 	if strings.HasPrefix(name, fieldDivergentMatrixPrefix) {
-		return newFieldDivergentMatrixScenario(name)
+		return newFieldDivergentMatrixScenario(name, payload)
 	}
 	switch name {
 	case "cas":

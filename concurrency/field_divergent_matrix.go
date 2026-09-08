@@ -65,17 +65,18 @@ const matrixSetBOne matrixChangeKind = "set-b-one"
 
 type fieldDivergentMatrixScenario struct {
 	row           fieldDivergentMatrixRow
+	payload       string
 	mu            sync.Mutex
 	main          BranchCollection
 	mergeResponse bson.M
 	mergeErr      error
 }
 
-func newFieldDivergentMatrixScenario(name string) (Scenario, error) {
+func newFieldDivergentMatrixScenario(name, payload string) (Scenario, error) {
 	rowName := strings.TrimPrefix(name, fieldDivergentMatrixPrefix)
 	for _, row := range fieldDivergentMatrixRows {
 		if row.Name == rowName {
-			return &fieldDivergentMatrixScenario{row: row}, nil
+			return &fieldDivergentMatrixScenario{row: row, payload: payload}, nil
 		}
 	}
 	return nil, fmt.Errorf("unknown fieldDivergent matrix row %q", rowName)
@@ -92,7 +93,7 @@ func (s *fieldDivergentMatrixScenario) Setup(ctx context.Context, collection Col
 	}
 	database := branchCollection.DatabaseName()
 	if s.row.Base != nil {
-		if err := branchCollection.InsertOne(ctx, s.row.Base); err != nil {
+		if err := branchCollection.InsertOne(ctx, matrixDocumentWithPayload(s.row.Base, s.payload)); err != nil {
 			return err
 		}
 	}
@@ -113,13 +114,13 @@ func (s *fieldDivergentMatrixScenario) Setup(ctx context.Context, collection Col
 	}
 	feature := branchCollection.AtDatabase(database + "@feature")
 	main := branchCollection.AtDatabase(mainDatabase)
-	if err := applyMatrixChange(ctx, feature, s.row.FeatureChange); err != nil {
+	if err := applyMatrixChange(ctx, feature, s.row.FeatureChange, s.payload); err != nil {
 		return err
 	}
 	if err := commitMatrixChange(ctx, feature, s.row.FeatureChange, "feature change"); err != nil {
 		return err
 	}
-	if err := applyMatrixChange(ctx, main, s.row.MainChange); err != nil {
+	if err := applyMatrixChange(ctx, main, s.row.MainChange, s.payload); err != nil {
 		return err
 	}
 	if err := commitMatrixChange(ctx, main, s.row.MainChange, "main change"); err != nil {
@@ -155,10 +156,11 @@ func (s *fieldDivergentMatrixScenario) Verify(ctx context.Context, _ Collection,
 		return nil, err
 	}
 	statePassed := false
-	if s.row.ExpectedDocument == nil {
+	expectedDocument := matrixDocumentWithPayload(s.row.ExpectedDocument, s.payload)
+	if expectedDocument == nil {
 		statePassed = absent
 	} else {
-		statePassed = !absent && reflect.DeepEqual(document, s.row.ExpectedDocument)
+		statePassed = !absent && reflect.DeepEqual(document, expectedDocument)
 	}
 	conflictCount := 0
 	if conflicted {
@@ -179,7 +181,7 @@ func (s *fieldDivergentMatrixScenario) Verify(ctx context.Context, _ Collection,
 		{
 			Name:   "finalStateMatchesFieldDivergent",
 			Passed: statePassed,
-			Detail: fmt.Sprintf("row=%s absent=%t document=%v expected=%v", s.row.Name, absent, document, s.row.ExpectedDocument),
+			Detail: fmt.Sprintf("row=%s absent=%t document=%v expected=%v", s.row.Name, absent, document, expectedDocument),
 		},
 		{
 			Name:   "expectedConflictIsRecorded",
@@ -193,7 +195,19 @@ func matrixDocument(a, b int64) bson.M {
 	return bson.M{"_id": "matrix", "a": a, "b": b}
 }
 
-func applyMatrixChange(ctx context.Context, collection BranchCollection, change matrixChangeKind) error {
+func matrixDocumentWithPayload(document bson.M, payload string) bson.M {
+	if document == nil {
+		return nil
+	}
+	withPayload := make(bson.M, len(document)+1)
+	for key, value := range document {
+		withPayload[key] = value
+	}
+	withPayload["payload"] = payload
+	return withPayload
+}
+
+func applyMatrixChange(ctx context.Context, collection BranchCollection, change matrixChangeKind, payload string) error {
 	switch change {
 	case matrixNoChange:
 		return nil
@@ -206,9 +220,9 @@ func applyMatrixChange(ctx context.Context, collection BranchCollection, change 
 	case matrixSetAOneBOne:
 		return updateMatrixFields(ctx, collection, bson.M{"a": int64(1), "b": int64(1)})
 	case matrixInsertAOne:
-		return collection.InsertOne(ctx, matrixDocument(1, 0))
+		return collection.InsertOne(ctx, matrixDocumentWithPayload(matrixDocument(1, 0), payload))
 	case matrixInsertATwo:
-		return collection.InsertOne(ctx, matrixDocument(2, 0))
+		return collection.InsertOne(ctx, matrixDocumentWithPayload(matrixDocument(2, 0), payload))
 	case matrixDelete:
 		result, err := collection.DeleteOne(ctx, bson.M{"_id": "matrix"})
 		if err == nil && result.Matched != 1 {

@@ -14,7 +14,11 @@
 
 package concurrency
 
-import "testing"
+import (
+	"testing"
+
+	"go.mongodb.org/mongo-driver/bson"
+)
 
 func TestFieldDivergentMatrixCoversNineDistinctRows(t *testing.T) {
 	if len(fieldDivergentMatrixRows) != 9 {
@@ -46,5 +50,16 @@ func TestFieldDivergentMatrixCoversNineDistinctRows(t *testing.T) {
 func TestFieldDivergentMatrixRejectsUnknownRow(t *testing.T) {
 	if _, err := NewScenario(fieldDivergentMatrixPrefix+"unknown", 1, 0); err == nil {
 		t.Fatal("expected unknown matrix row to fail")
+	}
+}
+
+func TestMatrixDocumentCarriesPayloadWithoutMutatingOracle(t *testing.T) {
+	original := bson.M{"_id": "matrix", "a": int64(1)}
+	withPayload := matrixDocumentWithPayload(original, "payload")
+	if withPayload["payload"] != "payload" {
+		t.Fatalf("payload = %v", withPayload["payload"])
+	}
+	if _, exists := original["payload"]; exists {
+		t.Fatal("matrix oracle document was mutated")
 	}
 }
