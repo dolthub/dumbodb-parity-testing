@@ -62,6 +62,20 @@ func (defaultFixture) CreateCollection(_ context.Context, target Target, cfg Con
 	return target.Collection(cfg.Database, cfg.Collection), nil
 }
 
+type configuredCollectionTarget interface {
+	CreateCollection(context.Context, string, string, string) (Collection, error)
+}
+
+type mergeModeFixture struct{}
+
+func (mergeModeFixture) CreateCollection(ctx context.Context, target Target, cfg Config) (Collection, error) {
+	creator, ok := target.(configuredCollectionTarget)
+	if !ok {
+		return nil, fmt.Errorf("target does not support configured collection creation")
+	}
+	return creator.CreateCollection(ctx, cfg.Database, cfg.Collection, cfg.MergeMode)
+}
+
 func (r *LifecycleResult) Finalize(ctx context.Context, preserve bool) error {
 	if r.target == nil {
 		return nil
@@ -94,7 +108,11 @@ func Run(ctx context.Context, cfg Config, scenario Scenario) (LifecycleResult, e
 }
 
 func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Target) (LifecycleResult, error) {
-	return RunWithFixture(ctx, cfg, scenario, target, defaultFixture{})
+	fixture := Fixture(defaultFixture{})
+	if cfg.MergeMode != "" {
+		fixture = mergeModeFixture{}
+	}
+	return RunWithFixture(ctx, cfg, scenario, target, fixture)
 }
 
 // RunWithFixture runs a scenario using caller-supplied collection creation.
@@ -120,6 +138,10 @@ func RunWithFixture(ctx context.Context, cfg Config, scenario Scenario, target T
 		_ = target.Disconnect(context.Background())
 		return LifecycleResult{}, err
 	}
+	if cfg.MergeMode != "" && identity.Product != "DumboDB" {
+		_ = target.Disconnect(context.Background())
+		return LifecycleResult{}, fmt.Errorf("merge mode requires DumboDB, got %s", identity.Product)
+	}
 
 	result := LifecycleResult{
 		Product:   identity.Product,
@@ -138,6 +160,7 @@ func RunWithFixture(ctx context.Context, cfg Config, scenario Scenario, target T
 			PayloadBytes: cfg.PayloadBytes,
 			CASDelay:     cfg.CASDelay.String(),
 			LatencyScope: scenarioLatencyScope(scenario.Name()),
+			MergeMode:    cfg.MergeMode,
 		},
 		target:   target,
 		database: cfg.Database,

@@ -44,6 +44,7 @@ func TestConfigValidate(t *testing.T) {
 		{name: "scenario", mutate: func(c *Config) { c.Scenario = "" }},
 		{name: "payload", mutate: func(c *Config) { c.PayloadBytes = -1 }},
 		{name: "CAS delay", mutate: func(c *Config) { c.CASDelay = -time.Nanosecond }},
+		{name: "merge mode", mutate: func(c *Config) { c.MergeMode = "documentTouchd" }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

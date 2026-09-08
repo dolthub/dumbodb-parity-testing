@@ -86,6 +86,20 @@ func (t *mongoTarget) Collection(database, collection string) Collection {
 	return mongoCollection{collection: t.client.Database(database).Collection(collection)}
 }
 
+func (t *mongoTarget) CreateCollection(ctx context.Context, database, collection, mergeMode string) (Collection, error) {
+	if err := t.client.Database(database).RunCommand(ctx, mergeModeCreateCommand(collection, mergeMode)).Err(); err != nil {
+		return nil, err
+	}
+	return t.Collection(database, collection), nil
+}
+
+func mergeModeCreateCommand(collection, mergeMode string) bson.D {
+	return bson.D{
+		{Key: "create", Value: collection},
+		{Key: "mergeMode", Value: mergeMode},
+	}
+}
+
 func (t *mongoTarget) DropDatabase(ctx context.Context, database string) error {
 	return t.client.Database(database).Drop(ctx)
 }
