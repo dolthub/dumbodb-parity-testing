@@ -97,7 +97,7 @@ one may match.
 ### Blind increment
 
 Each attempt submits `$inc: { version: 1 }` using only the document identity as
-its filter. With no indeterminate indeterminate:
+its filter. With no indeterminate outcomes:
 
 ```text
 matched = attempts - rejected
