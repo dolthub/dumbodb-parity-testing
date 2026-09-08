@@ -2,14 +2,14 @@
 
 ## Scope
 
-The first implementation phase characterizes MongoDB 8.0 behavior. It does not
-run DumboDB and does not test configurable merge modes. MongoDB applies each
-single-document write atomically; it does not expose a three-way document merge
-policy.
+The harness characterizes MongoDB 8.0 behavior and runs the same validated
+workloads against DumboDB. MongoDB applies each single-document write atomically;
+it does not expose a three-way document merge policy. The current DumboDB phase
+measures behavior before configurable merge-mode coverage is added.
 
-The eventual DumboDB `fieldTouched` mode is expected to preserve the same CAS
-safety property, but that is a later comparison. `fieldTouched` is not a name
-for MongoDB behavior.
+DumboDB `fieldTouched` mode is expected to preserve the same CAS safety property.
+The MongoDB results provide the behavioral baseline for that comparison;
+`fieldTouched` is not a name for MongoDB behavior.
 
 ## Terms
 
@@ -146,7 +146,7 @@ writes were durable.
 
 ## Workload dimensions
 
-The MongoDB phase currently varies:
+The MongoDB and current DumboDB workloads vary:
 
 - worker count;
 - small inline-shaped documents and large payload documents;
@@ -159,8 +159,8 @@ release are planned dimensions. The current runner uses one client with the
 driver's default pool and continuously releases operations.
 
 Document size is a workload dimension even though MongoDB has no DumboDB
-inline/out-of-band storage boundary. The same generated documents will later be
-used for DumboDB comparison.
+inline/out-of-band storage boundary. Both products receive the same generated
+documents.
 
 ## Statistics
 
@@ -180,9 +180,9 @@ this scope explicitly, so latency distributions with different scopes are not
 treated as comparable. Throughput uses only the worker execution window; setup,
 final reconciliation, and interruption grace time are excluded.
 
-MongoDB and DumboDB raw counts will not be required to match. Later comparisons
-will use normalized rates and confidence intervals. A statistical difference
-is reported separately from a correctness failure.
+MongoDB and DumboDB raw counts are not required to match. Comparisons use
+normalized rates and confidence intervals. A statistical difference is reported
+separately from a correctness failure.
 
 No confidence threshold may be chosen until the MongoDB baseline contains at
 least one sustained 30-minute run and hundreds of thousands of attempts for the
@@ -206,12 +206,16 @@ The generator must derive all workload choices from the recorded seed. Runtime
 scheduling is not reproducible, so a seed reproduces inputs and coordination
 strategy, not an exact interleaving.
 
-## Phase gate
+## Phase status
 
-DumboDB support must not begin until the MongoDB-only runner:
+The MongoDB-only phase gate required the runner to:
 
-1. completes the initial scenario set;
-2. balances every accounting equation;
-3. detects an intentionally corrupted ledger and every scenario's final state;
-4. emits bounded machine-readable evidence;
-5. completes a sustained MongoDB 8.0.28 characterization run.
+1. complete the initial scenario set;
+2. balance every accounting equation;
+3. detect an intentionally corrupted ledger and every scenario's final state;
+4. emit bounded machine-readable evidence;
+5. complete a sustained MongoDB 8.0.28 characterization run.
+
+That gate is complete. The harness now records current DumboDB behavior against
+the MongoDB-validated workloads. Coverage of DumboDB's four configurable merge
+modes remains a subsequent phase.
