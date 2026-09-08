@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -67,7 +68,18 @@ func (t *mongoTarget) Identity(ctx context.Context) (ServerInfo, error) {
 	if version == "" {
 		return ServerInfo{}, fmt.Errorf("buildInfo did not return a version")
 	}
-	return ServerInfo{Product: "MongoDB", Version: version}, nil
+	revision, _ := response["gitVersion"].(string)
+	return ServerInfo{Product: productFromBuildInfo(response), Version: version, Revision: revision}, nil
+}
+
+func productFromBuildInfo(response bson.M) string {
+	engines, _ := response["storageEngines"].(primitive.A)
+	for _, engine := range engines {
+		if engine == "dolt" {
+			return "DumboDB"
+		}
+	}
+	return "MongoDB"
 }
 
 func (t *mongoTarget) Collection(database, collection string) Collection {

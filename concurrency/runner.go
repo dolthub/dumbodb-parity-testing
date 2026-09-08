@@ -25,6 +25,7 @@ import (
 type LifecycleResult struct {
 	Product            string
 	Version            string
+	Revision           string
 	Scenario           string
 	StartedAt          time.Time
 	FinishedAt         time.Time
@@ -99,6 +100,7 @@ func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Ta
 	result := LifecycleResult{
 		Product:   identity.Product,
 		Version:   identity.Version,
+		Revision:  identity.Revision,
 		Scenario:  scenario.Name(),
 		StartedAt: time.Now().UTC(),
 		Config: RunConfig{
@@ -241,6 +243,7 @@ func reserveOperation(issued *atomic.Int64, limit int64) (int64, bool) {
 
 // ServerInfo identifies the server behind a Target.
 type ServerInfo struct {
-	Product string
-	Version string
+	Product  string
+	Version  string
+	Revision string
 }

@@ -20,6 +20,9 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type fakeTarget struct {
@@ -33,7 +36,16 @@ func (t *fakeTarget) Ping(context.Context) error {
 }
 
 func (t *fakeTarget) Identity(context.Context) (ServerInfo, error) {
-	return ServerInfo{Product: "fake", Version: "1"}, nil
+	return ServerInfo{Product: "fake", Version: "1", Revision: "test"}, nil
+}
+
+func TestProductFromBuildInfo(t *testing.T) {
+	if got := productFromBuildInfo(bson.M{"storageEngines": primitive.A{"wiredTiger"}}); got != "MongoDB" {
+		t.Fatalf("MongoDB product=%q", got)
+	}
+	if got := productFromBuildInfo(bson.M{"storageEngines": primitive.A{"dolt"}}); got != "DumboDB" {
+		t.Fatalf("DumboDB product=%q", got)
+	}
 }
 
 func (t *fakeTarget) Collection(string, string) Collection {
