@@ -2,10 +2,10 @@
 
 ## Scope
 
-The harness characterizes MongoDB 8.0 behavior and runs the same validated
-workloads against DumboDB. MongoDB applies each single-document write atomically;
-it does not expose a three-way document merge policy. The current DumboDB phase
-measures behavior before configurable merge-mode coverage is added.
+The harness characterizes MongoDB 8.0 behavior and runs validated workloads
+against DumboDB. MongoDB applies each single-document write atomically; it does
+not expose a three-way document merge policy. DumboDB mode-specific phases use
+the same lifecycle while applying merge-mode-specific correctness oracles.
 
 DumboDB `fieldTouched` mode is expected to preserve the same CAS safety property.
 The MongoDB results provide the behavioral baseline for that comparison;
@@ -216,6 +216,9 @@ The MongoDB-only phase gate required the runner to:
 4. emit bounded machine-readable evidence;
 5. complete a sustained MongoDB 8.0.28 characterization run.
 
-That gate is complete. The harness now records current DumboDB behavior against
-the MongoDB-validated workloads. Coverage of DumboDB's four configurable merge
-modes remains a subsequent phase.
+That gate is complete. The `fieldTouched` baseline explicitly configures its
+collection mode. The `fieldDivergent` phase now covers deterministic branch
+reconciliation, concurrent workloads, both adaptive storage paths, and a
+30-minute soak. Its contract and results are documented in
+`field-divergent-correctness.md` and `dumbodb-field-divergent-results.md`.
+Coverage of the remaining configurable modes is subsequent work.
