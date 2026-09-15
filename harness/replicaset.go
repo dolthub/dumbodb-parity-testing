@@ -340,7 +340,40 @@ func (rs *ReplicaSet) WaitForState(ctx context.Context, m *Member, want string, 
 		}
 		time.Sleep(300 * time.Millisecond)
 	}
-	return fmt.Errorf("member %s did not reach %s within %s (last state %s)", m.Addr, want, timeout, got)
+	return fmt.Errorf("member %s did not reach %s within %s (last state %s)%s",
+		m.Addr, want, timeout, got, rs.heartbeatDiagnosis(ctx, m.Addr))
+}
+
+// heartbeatDiagnosis returns the set's own explanation for why a member is
+// unhealthy. "not reachable/healthy" is a symptom; lastHeartbeatMessage carries
+// the reason, and without it every join failure looks identical.
+func (rs *ReplicaSet) heartbeatDiagnosis(ctx context.Context, addr string) string {
+	for _, peer := range rs.Members {
+		if peer.Addr == addr {
+			continue
+		}
+		cli, err := rs.client(ctx, peer.Addr)
+		if err != nil {
+			continue
+		}
+		status, err := replSetGetStatus(ctx, cli)
+		if err != nil {
+			continue
+		}
+		for _, raw := range asArray(status["members"]) {
+			m, ok := raw.(bson.M)
+			if !ok || asString(m["name"]) != addr {
+				continue
+			}
+			msg := asString(m["lastHeartbeatMessage"])
+			if msg == "" {
+				continue
+			}
+			return fmt.Sprintf("; %s reports health=%d lastHeartbeatMessage=%q",
+				peer.Addr, asInt64(m["health"]), msg)
+		}
+	}
+	return ""
 }
 
 // memberStates maps member address to stateStr, asked of whichever member
