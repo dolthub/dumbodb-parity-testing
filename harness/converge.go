@@ -97,20 +97,43 @@ func (rs *ReplicaSet) Progress(ctx context.Context, addr string) (MemberProgress
 	if out.State == "" {
 		out.State = stateName(asInt64(status["myState"]))
 	}
-	optimes, _ := status["optimes"].(bson.M)
-	if optimes == nil {
-		return out, nil
+	if optimes, ok := status["optimes"].(bson.M); ok {
+		out.Applied = readOpTime(optimes["appliedOpTime"])
+		out.Durable = readOpTime(optimes["durableOpTime"])
+		out.Written = readOpTime(optimes["writtenOpTime"])
+		if wall, ok := optimes["lastAppliedWallTime"].(primitive.DateTime); ok {
+			out.AppliedWall = wall.Time()
+		}
 	}
-	out.Applied = readOpTime(optimes["appliedOpTime"])
-	out.Durable = readOpTime(optimes["durableOpTime"])
-	out.Written = readOpTime(optimes["writtenOpTime"])
+
+	// Fall back to the self entry in members[]. DumboDB does not emit the
+	// top-level optimes document that MongoDB provides, so without this the
+	// harness reads zero and misreports a replicating member as stalled.
+	if out.Applied.IsZero() {
+		if self := selfMember(status); self != nil {
+			out.Applied = readOpTime(self["optime"])
+			if wall, ok := self["optimeDate"].(primitive.DateTime); ok {
+				out.AppliedWall = wall.Time()
+			}
+		}
+	}
 	if out.Written.IsZero() {
 		out.Written = out.Applied
 	}
-	if wall, ok := optimes["lastAppliedWallTime"].(primitive.DateTime); ok {
-		out.AppliedWall = wall.Time()
-	}
 	return out, nil
+}
+
+func selfMember(status bson.M) bson.M {
+	for _, raw := range asArray(status["members"]) {
+		m, ok := raw.(bson.M)
+		if !ok {
+			continue
+		}
+		if self, _ := m["self"].(bool); self {
+			return m
+		}
+	}
+	return nil
 }
 
 func readOpTime(v interface{}) OpTime {

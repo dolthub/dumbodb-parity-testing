@@ -29,13 +29,15 @@ import (
 // convergence, compare stored state.
 //
 // Its purpose is to prove the apparatus before coverage is written against it.
-// The expected outcome while replication is being built is that the control
-// converges and matches (the harness works) and the subject does not (reported
-// as XFAIL, not as a build failure). Both halves are the deliverable.
+// As of dumbodb v0.6.3-43-g2ee7a63 both the control and the subject converge and
+// match, so this is a live parity test rather than a placeholder.
 func TestReplication_TenDocuments(t *testing.T) {
 	harness.ReplicaTest(t, harness.ReplicaCase{
-		Name:    "Replication_TenDocuments",
-		Support: harness.DumboDBXFail,
+		Name: "Replication_TenDocuments",
+		// Promoted from DumboDBXFail after dumbodb v0.6.3-43-g2ee7a63 replicated
+		// this correctly. The XPASS that forced the promotion is the ratchet
+		// working: from here a regression fails the build.
+		Support: harness.DumboDBFull,
 		Workload: func(ctx context.Context, primary *mongo.Client) error {
 			coll := primary.Database("skeleton").Collection("docs")
 			docs := make([]interface{}, 0, 10)
