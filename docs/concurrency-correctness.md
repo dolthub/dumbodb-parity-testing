@@ -4,12 +4,13 @@
 
 The harness characterizes MongoDB 8.0 behavior and runs the same validated
 workloads against DumboDB. MongoDB applies each single-document write atomically;
-it does not expose a three-way document merge policy. The current DumboDB phase
-measures behavior before configurable merge-mode coverage is added.
+it does not expose a three-way document merge policy.
 
-DumboDB `fieldTouched` mode is expected to preserve the same CAS safety property.
-The MongoDB results provide the behavioral baseline for that comparison;
-`fieldTouched` is not a name for MongoDB behavior.
+DumboDB now defaults a collection to `fieldTouched`, which preserves the same
+CAS safety property. The MongoDB results remain the behavioral baseline for
+that comparison; `fieldTouched` is not a name for MongoDB behavior, and a
+DumboDB run passing these workloads is evidence about DumboDB, not a claim that
+the two implementations agree on everything.
 
 ## Terms
 
@@ -216,6 +217,23 @@ The MongoDB-only phase gate required the runner to:
 4. emit bounded machine-readable evidence;
 5. complete a sustained MongoDB 8.0.28 characterization run.
 
-That gate is complete. The harness now records current DumboDB behavior against
-the MongoDB-validated workloads. Coverage of DumboDB's four configurable merge
-modes remains a subsequent phase.
+That gate is complete.
+
+## DumboDB status
+
+DumboDB failed these workloads when they were first run against it, and passes
+them now. Both results are kept: `evidence/dumbodb-current-cas-30m.json` is the
+failing run and `evidence/dumbodb-fixed-cas-30m.json` the passing one, so the
+difference is inspectable rather than asserted. See `dumbodb-cas-results.md`.
+
+Coverage of DumboDB's four configurable merge modes is a separate axis and is
+being built on the `codex-tests-cas` branch, which adds a `-merge-mode` flag and
+a deterministic merge matrix. The runs recorded here declare no mode and
+therefore exercise the default, `fieldTouched`.
+
+Not yet covered, and the reason the mode axis is not the whole remaining story:
+every scenario here reconciles at the end of the command. A fork that outlives
+the command -- `--session-isolation`, or an explicit transaction -- acknowledges
+a write before its boundary runs, so conservation there has to be counted
+against acknowledged BOUNDARIES rather than acknowledged writes. That needs its
+own accounting, not a new expectation on the existing one.

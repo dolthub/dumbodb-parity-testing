@@ -1,0 +1,115 @@
+{
+  "Product": "DumboDB",
+  "Version": "8.0.28",
+  "Revision": "f5cbcf347ef30ada9eb842cdde0e6ff6301e0b99",
+  "Scenario": "cas",
+  "StartedAt": "2026-09-16T00:08:34.680287869Z",
+  "FinishedAt": "2026-09-16T00:38:34.726196225Z",
+  "WorkloadStartedAt": "2026-09-16T00:08:34.708226213Z",
+  "WorkloadFinishedAt": "2026-09-16T00:38:34.725510148Z",
+  "Ledger": {
+    "Attempts": 1592780,
+    "Matched": 85173,
+    "NoMatch": 1507607,
+    "Modified": 85173,
+    "Rejected": 0,
+    "Indeterminate": 0,
+    "Latency": {
+      "LessThan100us": 0,
+      "LessThan1ms": 0,
+      "LessThan10ms": 362,
+      "LessThan100ms": 1582441,
+      "LessThan1s": 9977,
+      "AtLeast1s": 0
+    },
+    "ErrorSamples": null,
+    "CAS": {
+      "MatchedEdges": 85173,
+      "DuplicateMatches": 0,
+      "InvalidEdges": 0,
+      "HighestObserved": 85172,
+      "ObservedGenerationSlots": 85173,
+      "MatchedOperationWords": 24888,
+      "TrackerBytes": 1647045,
+      "Findings": null
+    }
+  },
+  "Checks": [
+    {
+      "Name": "storedVersionEqualsMatched",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "version=85173 matched=85173"
+    },
+    {
+      "Name": "everyMatchModified",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "modified=85173 matched=85173"
+    },
+    {
+      "Name": "oneMatchPerObservedGeneration",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "duplicateMatches=0"
+    },
+    {
+      "Name": "matchedEdgesAreSuccessive",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "edges=85173 invalid=0 matched=85173"
+    },
+    {
+      "Name": "matchedEdgesFormCompleteChain",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "highestObserved=85172 version=85173"
+    }
+  ],
+  "Config": {
+    "Target": "mongodb://127.0.0.1:27071",
+    "Duration": "30m0s",
+    "Operations": 0,
+    "Workers": 32,
+    "Seed": 1,
+    "Database": "dumbo_cas_fixed_30m_20260916",
+    "Collection": "documents",
+    "PayloadBytes": 0,
+    "CASDelay": "0s",
+    "LatencyScope": "read-and-update"
+  },
+  "Statistics": {
+    "MatchRate": {
+      "Count": 85173,
+      "SampleSize": 1592780,
+      "Rate": 0.05347442835796532,
+      "Lower95": 0.05312611487016262,
+      "Upper95": 0.05382489569684463
+    },
+    "NoMatchRate": {
+      "Count": 1507607,
+      "SampleSize": 1592780,
+      "Rate": 0.9465255716420347,
+      "Lower95": 0.9461751043031553,
+      "Upper95": 0.9468738851298374
+    },
+    "RejectedRate": {
+      "Count": 0,
+      "SampleSize": 1592780,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.000002411789171075315
+    },
+    "IndeterminateRate": {
+      "Count": 0,
+      "SampleSize": 1592780,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.000002411789171075315
+    }
+  },
+  "Truncated": false,
+  "StopReason": "",
+  "RunError": "",
+  "Verdict": "conclusivePass"
+}
