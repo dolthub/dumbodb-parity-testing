@@ -48,10 +48,10 @@ func TestOpTime_OrdersByTermThenTimestamp(t *testing.T) {
 func TestConvergenceTimeout_ExplainsWhoIsBehind(t *testing.T) {
 	watermark := OpTime{Seconds: 100, Increment: 1, Term: 1}
 	addrs := []string{"127.0.0.1:1", "127.0.0.1:2", "127.0.0.1:3"}
-	last := map[string]MemberProgress{
-		"127.0.0.1:1": {Addr: "127.0.0.1:1", State: StateSecondary, Applied: watermark},
-		"127.0.0.1:2": {Addr: "127.0.0.1:2", State: StateSecondary, Applied: OpTime{Seconds: 70, Increment: 1, Term: 1}},
-		"127.0.0.1:3": {Addr: "127.0.0.1:3", State: StateStartup2},
+	last := map[string]memberSample{
+		"127.0.0.1:1": {progress: MemberProgress{Addr: "127.0.0.1:1", State: StateSecondary, Applied: watermark}},
+		"127.0.0.1:2": {progress: MemberProgress{Addr: "127.0.0.1:2", State: StateSecondary, Applied: OpTime{Seconds: 70, Increment: 1, Term: 1}}},
+		"127.0.0.1:3": {progress: MemberProgress{Addr: "127.0.0.1:3", State: StateStartup2}},
 	}
 
 	err := convergenceTimeout(watermark, 30*time.Second, addrs, last)
@@ -60,8 +60,11 @@ func TestConvergenceTimeout_ExplainsWhoIsBehind(t *testing.T) {
 	}
 	msg := err.Error()
 
-	if contains(msg, "127.0.0.1:1") {
-		t.Errorf("a member that reached the watermark should not be listed as behind:\n%s", msg)
+	// A member that reached the watermark is still named, but as having got
+	// there out of step rather than as lagging. An empty report is the failure
+	// mode this function exists to prevent.
+	if !contains(msg, "not in the same pass") {
+		t.Errorf("a member that reached the watermark should be explained, not omitted:\n%s", msg)
 	}
 	if !contains(msg, "30 seconds behind") {
 		t.Errorf("a lagging member should report how far behind it is:\n%s", msg)
@@ -78,12 +81,12 @@ func TestConvergenceTimeout_ExplainsWhoIsBehind(t *testing.T) {
 
 func TestConvergenceTimeout_ReportsUnreachableMembers(t *testing.T) {
 	err := convergenceTimeout(OpTime{Seconds: 5, Term: 1}, time.Second,
-		[]string{"127.0.0.1:9"}, map[string]MemberProgress{})
+		[]string{"127.0.0.1:9"}, map[string]memberSample{})
 	if err == nil {
 		t.Fatal("expected an error")
 	}
-	if !contains(err.Error(), "never answered") {
-		t.Errorf("an unreachable member should be reported as such: %v", err)
+	if !contains(err.Error(), "never sampled") {
+		t.Errorf("an unsampled member should be reported as such: %v", err)
 	}
 }
 
@@ -190,5 +193,32 @@ func TestConverge_UnreachableMemberTimesOutLegibly(t *testing.T) {
 	// down member.
 	if elapsed > 15*time.Second {
 		t.Errorf("a 3s convergence timeout took %s; the deadline is not bounding the progress reads", elapsed)
+	}
+}
+
+// A member that was caught up and then died must still be named, with the
+// reason it stopped answering. The empty report this prevents is what an
+// adversarial kill produced: every member skipped, nothing printed.
+func TestConvergenceTimeout_NamesAMemberThatStoppedAnswering(t *testing.T) {
+	watermark := OpTime{Seconds: 100, Increment: 1, Term: 1}
+	last := map[string]memberSample{
+		"127.0.0.1:1": {
+			progress: MemberProgress{Addr: "127.0.0.1:1", State: StateSecondary, Applied: watermark},
+			err:      context.DeadlineExceeded,
+		},
+	}
+	err := convergenceTimeout(watermark, 30*time.Second, []string{"127.0.0.1:1"}, last)
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	msg := err.Error()
+	if !contains(msg, "not answering") {
+		t.Errorf("should report that the member stopped answering:\n%s", msg)
+	}
+	if !contains(msg, "last known position") {
+		t.Errorf("should report the last known position:\n%s", msg)
+	}
+	if contains(msg, "harness bug") {
+		t.Errorf("report should not have fallen through to the empty-list guard:\n%s", msg)
 	}
 }

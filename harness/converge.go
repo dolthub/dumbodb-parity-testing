@@ -24,6 +24,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // OpTime is a replication position: a BSON timestamp plus the election term.
@@ -240,7 +241,7 @@ func (rs *ReplicaSet) WaitConverged(ctx context.Context, timeout time.Duration, 
 	}
 
 	deadline := time.Now().Add(timeout)
-	last := map[string]MemberProgress{}
+	last := map[string]memberSample{}
 	for time.Now().Before(deadline) {
 		caughtUp := 0
 		for _, addr := range addrs {
@@ -248,10 +249,8 @@ func (rs *ReplicaSet) WaitConverged(ctx context.Context, timeout time.Duration, 
 			// server selection for ~30s, so the caller's timeout is ignored and
 			// every failure involving a down member costs half a minute.
 			progress, err := rs.progressBounded(ctx, addr, pollBudget(deadline))
-			if err == nil {
-				last[addr] = progress
-			}
-			if progress.Applied.Compare(watermark) >= 0 {
+			last[addr] = memberSample{progress: progress, err: err, at: time.Now()}
+			if err == nil && progress.Applied.Compare(watermark) >= 0 {
 				caughtUp++
 			}
 		}
@@ -265,33 +264,55 @@ func (rs *ReplicaSet) WaitConverged(ctx context.Context, timeout time.Duration, 
 
 // convergenceTimeout explains which members are behind and by how much. A bare
 // timeout here would cost an hour of manual re-derivation every time.
-func convergenceTimeout(watermark OpTime, timeout time.Duration, addrs []string, last map[string]MemberProgress) error {
-	var behind []string
+func convergenceTimeout(watermark OpTime, timeout time.Duration, addrs []string, last map[string]memberSample) error {
+	var lines []string
 	sorted := append([]string(nil), addrs...)
 	sort.Strings(sorted)
 
 	for _, addr := range sorted {
-		progress, seen := last[addr]
-		if !seen {
-			behind = append(behind, fmt.Sprintf("  %s never answered replSetGetStatus", addr))
-			continue
-		}
-		if progress.Applied.Compare(watermark) >= 0 {
-			continue
-		}
+		sample, seen := last[addr]
 		switch {
-		case progress.Applied.IsZero():
-			behind = append(behind, fmt.Sprintf(
+		case !seen:
+			lines = append(lines, fmt.Sprintf("  %s was never sampled", addr))
+		case sample.err != nil:
+			// The member stopped answering. Its last known position is still
+			// worth printing: it says whether it died caught up or behind.
+			lines = append(lines, fmt.Sprintf(
+				"  %s is not answering replSetGetStatus (%v); last known position %s, state %s",
+				addr, sample.err, sample.progress.Applied, sample.progress.State))
+		case sample.progress.Applied.IsZero():
+			lines = append(lines, fmt.Sprintf(
 				"  %s reports NO progress at all (applied optime is zero), state %s -- it is not replicating, not merely lagging",
-				addr, progress.State))
+				addr, sample.progress.State))
+		case sample.progress.Applied.Compare(watermark) >= 0:
+			// Reaching here means every member looked caught up on its own last
+			// sample yet the run still timed out, so the reads were not all
+			// succeeding in the same pass. Saying nothing would leave an empty
+			// report, which is what this function exists to prevent.
+			lines = append(lines, fmt.Sprintf(
+				"  %s reported reaching %s, but not in the same pass as the others",
+				addr, sample.progress.Applied))
 		default:
-			behind = append(behind, fmt.Sprintf(
+			lines = append(lines, fmt.Sprintf(
 				"  %s applied %s, %d seconds behind the watermark, state %s",
-				addr, progress.Applied, int64(watermark.Seconds)-int64(progress.Applied.Seconds), progress.State))
+				addr, sample.progress.Applied,
+				int64(watermark.Seconds)-int64(sample.progress.Applied.Seconds), sample.progress.State))
 		}
 	}
+	if len(lines) == 0 {
+		lines = append(lines, "  (no members were named, which is itself a harness bug)")
+	}
 	return fmt.Errorf("members did not converge on %s within %s:\n%s",
-		watermark, timeout, strings.Join(behind, "\n"))
+		watermark, timeout, strings.Join(lines, "\n"))
+}
+
+// memberSample is one poll of a member: what it said, or why it could not be
+// asked, and when. Keeping the error means a member that stopped answering is
+// reported as such rather than silently retaining a stale caught-up reading.
+type memberSample struct {
+	progress MemberProgress
+	err      error
+	at       time.Time
 }
 
 // MustConverge fails the test if the members do not converge.
@@ -330,3 +351,9 @@ func (rs *ReplicaSet) Hello(ctx context.Context, addr string) (bson.M, error) {
 
 // ReadOpTime extracts an OpTime from a replSetGetStatus optimes field.
 func ReadOpTime(v interface{}) OpTime { return readOpTime(v) }
+
+// ClientFor returns a caller-owned client pinned to an address, for members
+// addressed by string rather than by *Member.
+func (rs *ReplicaSet) ClientFor(ctx context.Context, addr string) (*mongo.Client, error) {
+	return directClient(ctx, addr)
+}
