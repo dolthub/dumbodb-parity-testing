@@ -32,6 +32,7 @@ type RunConfig struct {
 	PayloadBytes int
 	CASDelay     string
 	LatencyScope string
+	MergeMode    string
 }
 
 type Verdict string

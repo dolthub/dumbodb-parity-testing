@@ -1,0 +1,305 @@
+{
+  "Product": "DumboDB",
+  "Version": "8.0.28",
+  "Revision": "8c8049898e512efa07c8fa913c49e90168ee5474",
+  "Scenario": "uuid-cas",
+  "StartedAt": "2026-09-08T21:52:04.035115885Z",
+  "FinishedAt": "2026-09-08T22:22:04.079460476Z",
+  "WorkloadStartedAt": "2026-09-08T21:52:04.063476497Z",
+  "WorkloadFinishedAt": "2026-09-08T22:22:04.078793929Z",
+  "Ledger": {
+    "Attempts": 1499121,
+    "Matched": 440675,
+    "NoMatch": 1056848,
+    "Modified": 440675,
+    "Rejected": 48,
+    "Indeterminate": 1550,
+    "Latency": {
+      "LessThan100us": 0,
+      "LessThan1ms": 1550,
+      "LessThan10ms": 56288,
+      "LessThan100ms": 1436223,
+      "LessThan1s": 5054,
+      "AtLeast1s": 6
+    },
+    "ErrorSamples": [
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid",
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid",
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid",
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid",
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid",
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid",
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid",
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid",
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid",
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid",
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid",
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid",
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid",
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid",
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid",
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid",
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid",
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid",
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid",
+      "(ErrorCode(225)) session was taken over by a newer connection on this lsid"
+    ],
+    "CAS": {
+      "MatchedEdges": 440675,
+      "DuplicateMatches": 414955,
+      "InvalidEdges": 0,
+      "HighestObserved": 25719,
+      "UniqueObserved": 25720,
+      "ObservedGenerationSlots": 25720,
+      "MatchedOperationWords": 23424,
+      "TrackerBytes": 624632,
+      "Findings": [
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 31,
+          "FirstWorker": 19,
+          "CompetingSequence": 36,
+          "CompetingWorker": 12
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 31,
+          "FirstWorker": 19,
+          "CompetingSequence": 35,
+          "CompetingWorker": 16
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 31,
+          "FirstWorker": 19,
+          "CompetingSequence": 32,
+          "CompetingWorker": 22
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 31,
+          "FirstWorker": 19,
+          "CompetingSequence": 34,
+          "CompetingWorker": 6
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 31,
+          "FirstWorker": 19,
+          "CompetingSequence": 39,
+          "CompetingWorker": 26
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 31,
+          "FirstWorker": 19,
+          "CompetingSequence": 33,
+          "CompetingWorker": 31
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 31,
+          "FirstWorker": 19,
+          "CompetingSequence": 40,
+          "CompetingWorker": 25
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 31,
+          "FirstWorker": 19,
+          "CompetingSequence": 37,
+          "CompetingWorker": 4
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 31,
+          "FirstWorker": 19,
+          "CompetingSequence": 38,
+          "CompetingWorker": 1
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 2,
+          "FirstSequence": 86,
+          "FirstWorker": 5,
+          "CompetingSequence": 85,
+          "CompetingWorker": 4
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 2,
+          "FirstSequence": 86,
+          "FirstWorker": 5,
+          "CompetingSequence": 90,
+          "CompetingWorker": 0
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 2,
+          "FirstSequence": 86,
+          "FirstWorker": 5,
+          "CompetingSequence": 89,
+          "CompetingWorker": 15
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 2,
+          "FirstSequence": 86,
+          "FirstWorker": 5,
+          "CompetingSequence": 84,
+          "CompetingWorker": 25
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 2,
+          "FirstSequence": 86,
+          "FirstWorker": 5,
+          "CompetingSequence": 88,
+          "CompetingWorker": 9
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 2,
+          "FirstSequence": 86,
+          "FirstWorker": 5,
+          "CompetingSequence": 92,
+          "CompetingWorker": 13
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 2,
+          "FirstSequence": 86,
+          "FirstWorker": 5,
+          "CompetingSequence": 87,
+          "CompetingWorker": 1
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 2,
+          "FirstSequence": 86,
+          "FirstWorker": 5,
+          "CompetingSequence": 91,
+          "CompetingWorker": 19
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 2,
+          "FirstSequence": 86,
+          "FirstWorker": 5,
+          "CompetingSequence": 97,
+          "CompetingWorker": 21
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 2,
+          "FirstSequence": 86,
+          "FirstWorker": 5,
+          "CompetingSequence": 93,
+          "CompetingWorker": 12
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 2,
+          "FirstSequence": 86,
+          "FirstWorker": 5,
+          "CompetingSequence": 99,
+          "CompetingWorker": 2
+        }
+      ]
+    }
+  },
+  "Checks": [
+    {
+      "Name": "storedAppliedEqualsMatched",
+      "Passed": false,
+      "Skipped": true,
+      "Detail": "applied=25720 matched=440675"
+    },
+    {
+      "Name": "everyMatchModified",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "modified=440675 matched=440675"
+    },
+    {
+      "Name": "finalTokenIsUUID",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "subtype=4 bytes=16"
+    },
+    {
+      "Name": "finalTokenMatchesIssuedOperation",
+      "Passed": true,
+      "Skipped": true,
+      "Detail": "lastOperation=1499118 attempts=1499121"
+    },
+    {
+      "Name": "oneMatchPerObservedGeneration",
+      "Passed": false,
+      "Skipped": false,
+      "Detail": "duplicateMatches=414955"
+    },
+    {
+      "Name": "matchedEdgesFormCompleteChain",
+      "Passed": true,
+      "Skipped": true,
+      "Detail": "edges=440675 invalid=0 highestObserved=25719 applied=25720"
+    }
+  ],
+  "Config": {
+    "Target": "mongodb://127.0.0.1:27018",
+    "Duration": "30m0s",
+    "Operations": 0,
+    "Workers": 32,
+    "Seed": 1,
+    "Database": "field_divergent_uuid_cas_soak_20260908",
+    "Collection": "documents",
+    "PayloadBytes": 0,
+    "CASDelay": "0s",
+    "LatencyScope": "read-and-update",
+    "MergeMode": "fieldDivergent"
+  },
+  "Statistics": {
+    "MatchRate": {
+      "Count": 440675,
+      "SampleSize": 1499121,
+      "Rate": 0.2939555913098409,
+      "Lower95": 0.2932268529394993,
+      "Upper95": 0.2946853856444214
+    },
+    "NoMatchRate": {
+      "Count": 1056848,
+      "SampleSize": 1499121,
+      "Rate": 0.7049784507054467,
+      "Lower95": 0.7042478897626543,
+      "Upper95": 0.7057079611469657
+    },
+    "RejectedRate": {
+      "Count": 48,
+      "SampleSize": 1499121,
+      "Rate": 0.00003201876299511514,
+      "Lower95": 0.000024151922328288197,
+      "Upper95": 0.000042447907158585564
+    },
+    "IndeterminateRate": {
+      "Count": 1550,
+      "SampleSize": 1499121,
+      "Rate": 0.0010339392217172596,
+      "Lower95": 0.000983755867045546,
+      "Upper95": 0.0010866797451082085
+    }
+  },
+  "Truncated": false,
+  "StopReason": "",
+  "RunError": "",
+  "Verdict": "failed"
+}

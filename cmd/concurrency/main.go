@@ -37,9 +37,10 @@ func main() {
 	flag.StringVar(&cfg.Database, "database", fmt.Sprintf("concurrency_%d", time.Now().UnixNano()), "isolated run database")
 	flag.StringVar(&cfg.Collection, "collection", "documents", "run collection")
 	flag.BoolVar(&cfg.KeepData, "keep-data", false, "retain the run database")
-	flag.StringVar(&cfg.Scenario, "scenario", "cas", "scenario: cas, uuid-cas, blind-inc, disjoint-set, or same-set")
+	flag.StringVar(&cfg.Scenario, "scenario", "cas", "scenario name")
 	flag.IntVar(&cfg.PayloadBytes, "payload-bytes", 0, "padding bytes retained in the contended document")
 	flag.DurationVar(&cfg.CASDelay, "cas-delay", 0, "maximum deterministic delay between CAS read and update")
+	flag.StringVar(&cfg.MergeMode, "merge-mode", "", "DumboDB collection merge mode")
 	flag.StringVar(&outputPath, "output", "", "write indented JSON report to this path")
 	flag.Parse()
 	if err := cfg.Validate(); err != nil {
@@ -49,7 +50,7 @@ func main() {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	scenario, err := concurrency.NewScenarioWithWorkload(cfg.Scenario, cfg.Workers, cfg.PayloadBytes, cfg.Seed, cfg.CASDelay)
+	scenario, err := concurrency.NewScenarioForConfig(cfg)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
