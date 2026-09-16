@@ -249,18 +249,17 @@ func TestInitialSync_CollectionDroppedDuringClone(t *testing.T) {
 	})
 }
 
-// A source holding a BSON type DumboDB cannot decode must fail honestly rather
-// than retry forever.
+// A source holding a BSON type DumboDB cannot represent must fail honestly:
+// stop trying, never claim readiness, and say what and where.
 //
-// Written as a direct test rather than a ReplicaCase because convergence
-// grading cannot express the distinction: the member fails to converge both
-// when it loops indefinitely and when it stops cleanly, so an XFail on
-// convergence would report the same result either way and never flip.
+// Promoted from XFail after dumbodb 90cbaaa. Written as a direct test rather
+// than a ReplicaCase because convergence grading cannot express the
+// distinction: the member fails to converge both when it retries forever and
+// when it stops cleanly.
 //
-// Two assertions. It must never claim SECONDARY while holding data it could not
-// clone, which holds today. And it must eventually stop trying, which does not:
-// it currently re-runs initial sync about once a second forever. See
-// workspace-lhm.
+// The unsupported types themselves are not going to be supported, by owner
+// direction. The deliverable is the error, so that a user who hits this can
+// come and ask for the type rather than filing "replication does not work".
 func TestInitialSync_UndecodableTypesFailHonestly(t *testing.T) {
 	rs := harness.StartReplicaSet(t, 2)
 
@@ -289,23 +288,56 @@ func TestInitialSync_UndecodableTypesFailHonestly(t *testing.T) {
 	subject := rs.JoinDumboDB(t)
 	commit, _ := subject.Commit(ctx)
 
-	// Sample for long enough that a bounded retry policy would have given up.
-	deadline := time.Now().Add(90 * time.Second)
-	var last harness.MemberProgress
+	// It must stop. Sample until the failure is reported, failing if it is
+	// still cycling through initial sync at the deadline.
+	deadline := time.Now().Add(120 * time.Second)
+	var status bson.M
 	for time.Now().Before(deadline) {
 		p, err := rs.Progress(ctx, subject.Addr)
-		if err == nil {
-			last = p
-			if p.State == harness.StateSecondary {
-				t.Fatalf("dumbodb %s claims SECONDARY while holding a collection it could not clone", commit)
+		if err == nil && p.State == harness.StateSecondary {
+			t.Fatalf("dumbodb %s claims SECONDARY while holding a collection it could not clone", commit)
+		}
+		if s, err := rs.Status(ctx, subject.Addr); err == nil {
+			if _, reported := s["initialSyncStatus"]; reported {
+				status = s
+				break
 			}
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
-
-	if last.State == harness.StateStartup2 {
-		t.Skipf("XFAIL dumbodb %s: still in %s after 90s, so initial sync is still retrying rather than "+
-			"reporting a terminal failure naming the unsupported type (workspace-lhm)", commit, last.State)
+	if status == nil {
+		t.Fatalf("dumbodb %s never reported a terminal initial-sync failure; it is still retrying", commit)
 	}
-	t.Logf("dumbodb %s reached terminal state %s without claiming SECONDARY", commit, last.State)
+
+	// The message is the deliverable, so assert its content rather than its
+	// presence. A user reading this should learn the type and where it is.
+	sync, ok := status["initialSyncStatus"].(bson.M)
+	if !ok {
+		t.Fatalf("initialSyncStatus is %T, want a document", status["initialSyncStatus"])
+	}
+	for field, want := range map[string]string{
+		"bsonType":  "JavaScript",
+		"namespace": syncDB + ".undecodable",
+	} {
+		got, _ := sync[field].(string)
+		if got != want {
+			t.Errorf("initialSyncStatus.%s = %q, want %q", field, got, want)
+		}
+	}
+	message, _ := sync["initialSyncFailure"].(string)
+	for _, fragment := range []string{"does not support", "JavaScript", syncDB + ".undecodable"} {
+		if !contains(message, fragment) {
+			t.Errorf("initialSyncFailure message %q does not mention %q", message, fragment)
+		}
+	}
+	t.Logf("dumbodb %s stopped with: %s", commit, message)
+}
+
+func contains(s, sub string) bool {
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
 }
