@@ -18,6 +18,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func requireDumboDB(t *testing.T) {
@@ -151,4 +153,52 @@ func TestDumboMember_ReachesSecondary(t *testing.T) {
 		t.Skipf("XFAIL dumbodb %s: subject did not reach SECONDARY: %v", commit, err)
 	}
 	t.Logf("dumbodb %s reached SECONDARY", commit)
+}
+
+// replSetGetStatus must carry the top-level optimes document. That is where
+// mongosh, monitoring and anything computing replication lag read a member's
+// own position; a member without it reads as having made no progress.
+//
+// The harness has a fallback to the self entry in members[], added when this was
+// missing. This test is what allows that fallback to be removed, and what
+// notices if the field disappears again.
+func TestDumboMember_ReportsStandardOptimes(t *testing.T) {
+	requireDumboDB(t)
+	rs := StartReplicaSet(t, 2)
+	d := rs.JoinDumboDB(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
+
+	if err := rs.WaitForState(ctx, d.Member, StateSecondary, 120*time.Second); err != nil {
+		t.Skipf("subject did not reach SECONDARY, optimes not meaningful yet: %v", err)
+	}
+
+	cli, err := rs.client(ctx, d.Addr)
+	if err != nil {
+		t.Fatalf("client: %v", err)
+	}
+	status, err := replSetGetStatus(ctx, cli)
+	if err != nil {
+		t.Fatalf("replSetGetStatus: %v", err)
+	}
+
+	optimes, ok := status["optimes"].(bson.M)
+	if !ok {
+		t.Fatal("replSetGetStatus has no top-level optimes document")
+	}
+	for _, field := range []string{
+		"lastCommittedOpTime", "appliedOpTime", "durableOpTime", "writtenOpTime",
+		"lastAppliedWallTime", "lastDurableWallTime",
+	} {
+		if _, ok := optimes[field]; !ok {
+			t.Errorf("optimes is missing %q", field)
+		}
+	}
+
+	applied := readOpTime(optimes["appliedOpTime"])
+	if applied.IsZero() {
+		t.Error("appliedOpTime is zero on a member reporting SECONDARY")
+	}
+	t.Logf("optimes.appliedOpTime = %s", applied)
 }
