@@ -200,16 +200,17 @@ func GenerateDocument(r *rand.Rand, id string) bson.D {
 			{Key: "clicks", Value: int32(r.Intn(10_000))},
 		}})
 	}
-	if r.Intn(4) == 0 {
-		items := bson.A{}
-		for i := 0; i < r.Intn(4)+1; i++ {
-			items = append(items, bson.D{
-				{Key: "sku", Value: pickWord(r)},
-				{Key: "qty", Value: int32(r.Intn(50))},
-			})
-		}
-		d = append(d, bson.E{Key: "items", Value: items})
+	// items is always present: the positional operators ($[], $[<id>], $) error
+	// when the path is missing, so making it optional meant they mostly targeted
+	// documents without an array and exercised nothing.
+	items := bson.A{}
+	for i := 0; i < r.Intn(4)+1; i++ {
+		items = append(items, bson.D{
+			{Key: "sku", Value: pickWord(r)},
+			{Key: "qty", Value: int32(r.Intn(50))},
+		})
 	}
+	d = append(d, bson.E{Key: "items", Value: items})
 	// Payload sizes mirror soak's distribution: mostly small, occasionally large
 	// enough to cross storage and batching boundaries.
 	if pad := payloadSize(r); pad > 0 {
@@ -441,8 +442,17 @@ func CatalogOps() []Op {
 			return err
 		}},
 		{"dropIndex", func(ctx context.Context, db *mongo.Database, r *rand.Rand) error {
-			field := []string{"score", "label", "total"}[r.Intn(3)]
-			_, err := coll(db).Indexes().DropOne(ctx, field+"_1")
+			// Create then drop, so the drop always has a target. Picking a
+			// random existing index name meant the operation failed on every
+			// attempt in short runs and exercised nothing.
+			name := fmt.Sprintf("transient_%d", r.Intn(1_000_000))
+			if _, err := coll(db).Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "score", Value: int32(1)}, {Key: "label", Value: int32(-1)}},
+				Options: options.Index().SetName(name),
+			}); err != nil {
+				return err
+			}
+			_, err := coll(db).Indexes().DropOne(ctx, name)
 			return err
 		}},
 		{"renameCollection", func(ctx context.Context, db *mongo.Database, r *rand.Rand) error {
