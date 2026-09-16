@@ -228,9 +228,21 @@ Coverage of the remaining configurable modes is subsequent work.
 ## DumboDB status
 
 DumboDB failed these workloads when they were first run against it, and passes
-them now. Both results are kept: `evidence/dumbodb-current-cas-30m.json` is the
-failing run and `evidence/dumbodb-fixed-cas-30m.json` the passing one, so the
-difference is inspectable rather than asserted. See `dumbodb-cas-results.md`.
+them now in the default mode. Both results are kept:
+`evidence/dumbodb-current-cas-30m.json` is the failing run and
+`evidence/dumbodb-fixed-cas-30m.json` the passing one, so the difference is
+inspectable rather than asserted. See `dumbodb-cas-results.md`.
+
+Read the two sets of DumboDB results together, because they disagree and the
+disagreement is not yet resolved. The default-mode runs pass against a revision
+recorded in their reports. The retained `fieldDivergent` failures in
+`dumbodb-field-divergent-results.md` were measured against revision `6afd317`,
+which does not exist in the dumbodb repository and cannot be fetched, so they
+cannot be reproduced or dated from here. Re-running those three scenarios with
+the merged runner against a revision that does exist gives conclusivePass at
+both payload sizes; see the fieldDivergent disagreement section of
+`dumbodb-cas-results.md`. Neither set is discarded on the strength of the
+other.
 
 Not yet covered, and the reason the mode axis is not the whole remaining story:
 every scenario here reconciles at the end of the command. A fork that outlives
