@@ -303,3 +303,30 @@ func (rs *ReplicaSet) MustConverge(t *testing.T, ctx context.Context, timeout ti
 	}
 	return watermark
 }
+
+// Status returns a member's raw replSetGetStatus response.
+func (rs *ReplicaSet) Status(ctx context.Context, addr string) (bson.M, error) {
+	cli, err := rs.client(ctx, addr)
+	if err != nil {
+		return nil, err
+	}
+	return replSetGetStatus(ctx, cli)
+}
+
+// Hello returns a member's raw hello response. The honesty checks compare it
+// against replSetGetStatus: a member whose two self-descriptions disagree is
+// misreporting to somebody.
+func (rs *ReplicaSet) Hello(ctx context.Context, addr string) (bson.M, error) {
+	cli, err := rs.client(ctx, addr)
+	if err != nil {
+		return nil, err
+	}
+	var res bson.M
+	if err := cli.Database("admin").RunCommand(ctx, bson.D{{Key: "hello", Value: 1}}).Decode(&res); err != nil {
+		return nil, fmt.Errorf("hello %s: %w", addr, err)
+	}
+	return res, nil
+}
+
+// ReadOpTime extracts an OpTime from a replSetGetStatus optimes field.
+func ReadOpTime(v interface{}) OpTime { return readOpTime(v) }
