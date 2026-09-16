@@ -45,8 +45,10 @@ func TestDumboMember_JoinsAsHiddenNonVoting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
-	if commit == "" {
-		t.Error("buildInfo.gitVersion is empty; the subject build carries no commit stamp, so failures will not be attributable")
+	// "unknown" is what the build emits when the version stamp was not set, so
+	// checking for empty alone let an unattributable binary pass unnoticed.
+	if commit == "" || commit == "unknown" {
+		t.Errorf("buildInfo.gitVersion is %q; the subject build carries no commit stamp, so no result from it is attributable", commit)
 	}
 	t.Logf("subject under test: dumbodb %s at %s", commit, d.Addr)
 }
