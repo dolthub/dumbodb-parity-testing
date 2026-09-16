@@ -565,7 +565,8 @@ func BSONTypeCorpus() []interface{} {
 		bson.D{{Key: "_id", Value: "t-double-neg-zero"}, {Key: "v", Value: math.Copysign(0, -1)}},
 		bson.D{{Key: "_id", Value: "t-double-inf"}, {Key: "v", Value: math.Inf(1)}},
 		bson.D{{Key: "_id", Value: "t-string"}, {Key: "v", Value: "hello"}},
-		bson.D{{Key: "_id", Value: "t-string-unicode"}, {Key: "v", Value: "é中文\U0001f600"}},
+		// Escaped rather than literal: the repo requires 7-bit ASCII source.
+		bson.D{{Key: "_id", Value: "t-string-unicode"}, {Key: "v", Value: "\u00e9\u4e2d\u6587\U0001f600"}},
 		bson.D{{Key: "_id", Value: "t-string-empty"}, {Key: "v", Value: ""}},
 		bson.D{{Key: "_id", Value: "t-object"}, {Key: "v", Value: bson.D{{Key: "a", Value: int32(1)}, {Key: "b", Value: bson.D{{Key: "c", Value: "deep"}}}}}},
 		bson.D{{Key: "_id", Value: "t-object-empty"}, {Key: "v", Value: bson.D{}}},
