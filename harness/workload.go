@@ -17,12 +17,15 @@ package harness
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -544,3 +547,101 @@ func SeedRand(seed int64) *rand.Rand { return rand.New(rand.NewSource(seed)) }
 // target for index i. Seeding a collection with these ids is what makes those
 // operations match something instead of silently doing nothing.
 func DocIDFor(i int) string { return fmt.Sprintf("doc-%09d", i) }
+
+// BSONTypeCorpus returns documents covering the BSON types DumboDB can decode,
+// one type per document so a divergence names the type.
+//
+// The types it cannot decode are in UndecodableTypeCorpus, kept separate so a
+// single unsupported type does not block verification of the rest. See
+// workspace-lhm.
+//
+// Authored here rather than lifted from tests/bson_types_test.go, which holds
+// its values inside ~80 inline closures with no extractable corpus.
+func BSONTypeCorpus() []interface{} {
+	oid := primitive.NewObjectID()
+	dec, _ := primitive.ParseDecimal128("1234.5678901234567890123456789")
+	return []interface{}{
+		bson.D{{Key: "_id", Value: "t-double"}, {Key: "v", Value: float64(3.14159)}},
+		bson.D{{Key: "_id", Value: "t-double-neg-zero"}, {Key: "v", Value: math.Copysign(0, -1)}},
+		bson.D{{Key: "_id", Value: "t-double-inf"}, {Key: "v", Value: math.Inf(1)}},
+		bson.D{{Key: "_id", Value: "t-string"}, {Key: "v", Value: "hello"}},
+		bson.D{{Key: "_id", Value: "t-string-unicode"}, {Key: "v", Value: "é中文\U0001f600"}},
+		bson.D{{Key: "_id", Value: "t-string-empty"}, {Key: "v", Value: ""}},
+		bson.D{{Key: "_id", Value: "t-object"}, {Key: "v", Value: bson.D{{Key: "a", Value: int32(1)}, {Key: "b", Value: bson.D{{Key: "c", Value: "deep"}}}}}},
+		bson.D{{Key: "_id", Value: "t-object-empty"}, {Key: "v", Value: bson.D{}}},
+		bson.D{{Key: "_id", Value: "t-array"}, {Key: "v", Value: bson.A{int32(1), "two", 3.0, nil, bson.D{{Key: "k", Value: "v"}}}}},
+		bson.D{{Key: "_id", Value: "t-array-empty"}, {Key: "v", Value: bson.A{}}},
+		bson.D{{Key: "_id", Value: "t-array-nested"}, {Key: "v", Value: bson.A{bson.A{bson.A{int32(1)}}}}},
+		bson.D{{Key: "_id", Value: "t-binary-generic"}, {Key: "v", Value: primitive.Binary{Subtype: 0x00, Data: []byte{0, 1, 2, 255}}}},
+		bson.D{{Key: "_id", Value: "t-binary-uuid"}, {Key: "v", Value: primitive.Binary{Subtype: 0x04, Data: make([]byte, 16)}}},
+		bson.D{{Key: "_id", Value: "t-binary-md5"}, {Key: "v", Value: primitive.Binary{Subtype: 0x05, Data: make([]byte, 16)}}},
+		bson.D{{Key: "_id", Value: "t-objectid"}, {Key: "v", Value: oid}},
+		bson.D{{Key: "_id", Value: "t-bool-true"}, {Key: "v", Value: true}},
+		bson.D{{Key: "_id", Value: "t-bool-false"}, {Key: "v", Value: false}},
+		bson.D{{Key: "_id", Value: "t-date"}, {Key: "v", Value: primitive.NewDateTimeFromTime(time.Unix(1700000000, 0).UTC())}},
+		bson.D{{Key: "_id", Value: "t-date-epoch"}, {Key: "v", Value: primitive.NewDateTimeFromTime(time.Unix(0, 0).UTC())}},
+		bson.D{{Key: "_id", Value: "t-null"}, {Key: "v", Value: nil}},
+		bson.D{{Key: "_id", Value: "t-regex"}, {Key: "v", Value: primitive.Regex{Pattern: "^a.*z$", Options: "im"}}},
+		bson.D{{Key: "_id", Value: "t-int32"}, {Key: "v", Value: int32(2147483647)}},
+		bson.D{{Key: "_id", Value: "t-int32-min"}, {Key: "v", Value: int32(-2147483648)}},
+		bson.D{{Key: "_id", Value: "t-timestamp"}, {Key: "v", Value: primitive.Timestamp{T: 1700000000, I: 7}}},
+		bson.D{{Key: "_id", Value: "t-int64"}, {Key: "v", Value: int64(9223372036854775807)}},
+		bson.D{{Key: "_id", Value: "t-int64-min"}, {Key: "v", Value: int64(-9223372036854775808)}},
+		bson.D{{Key: "_id", Value: "t-decimal128"}, {Key: "v", Value: dec}},
+		// MinKey/MaxKey are supported: internal/bson has a dedicated decode path
+		// (ToDocumentHandlingMinMaxKey) that bson.ToDocument tries first.
+		bson.D{{Key: "_id", Value: "t-minkey"}, {Key: "v", Value: primitive.MinKey{}}},
+		bson.D{{Key: "_id", Value: "t-maxkey"}, {Key: "v", Value: primitive.MaxKey{}}},
+		// Same numeric value in three widths: a replica that collapses numeric
+		// types looks correct until these are compared.
+		bson.D{{Key: "_id", Value: "t-num-int32"}, {Key: "v", Value: int32(42)}},
+		bson.D{{Key: "_id", Value: "t-num-int64"}, {Key: "v", Value: int64(42)}},
+		bson.D{{Key: "_id", Value: "t-num-double"}, {Key: "v", Value: float64(42)}},
+		// Field order inside _id is identity in MongoDB, so these are two
+		// distinct documents rather than one.
+		bson.D{{Key: "_id", Value: bson.D{{Key: "a", Value: int32(1)}, {Key: "b", Value: int32(2)}}}, {Key: "v", Value: "ab"}},
+		bson.D{{Key: "_id", Value: bson.D{{Key: "b", Value: int32(2)}, {Key: "a", Value: int32(1)}}}, {Key: "v", Value: "ba"}},
+	}
+}
+
+// LargeDocumentCorpus returns documents that stress size and shape boundaries.
+func LargeDocumentCorpus() []interface{} {
+	deep := bson.D{{Key: "leaf", Value: int32(1)}}
+	for i := 0; i < 40; i++ {
+		deep = bson.D{{Key: "n", Value: deep}}
+	}
+	bigArray := bson.A{}
+	for i := 0; i < 5000; i++ {
+		bigArray = append(bigArray, int32(i))
+	}
+	return []interface{}{
+		bson.D{{Key: "_id", Value: "big-payload-4mb"}, {Key: "v", Value: strings.Repeat("x", 4*1024*1024)}},
+		bson.D{{Key: "_id", Value: "big-payload-12mb"}, {Key: "v", Value: strings.Repeat("y", 12*1024*1024)}},
+		bson.D{{Key: "_id", Value: "deep-nesting"}, {Key: "v", Value: deep}},
+		bson.D{{Key: "_id", Value: "large-array"}, {Key: "v", Value: bigArray}},
+		bson.D{{Key: "_id", Value: "many-fields"}, {Key: "v", Value: manyFields(1000)}},
+	}
+}
+
+func manyFields(n int) bson.D {
+	d := make(bson.D, 0, n)
+	for i := 0; i < n; i++ {
+		d = append(d, bson.E{Key: fmt.Sprintf("f%04d", i), Value: int32(i)})
+	}
+	return d
+}
+
+// UndecodableTypeCorpus holds values DumboDB's BSON decoder rejects outright
+// (github.com/FerretDB/wire wirebson/decode.go). Most are deprecated in
+// MongoDB; MinKey, MaxKey and the JavaScript code type are not.
+//
+// These are kept out of the main corpus deliberately. The question they answer
+// is not "does this replicate" but "does the member fail honestly when it
+// cannot", which is a different assertion.
+func UndecodableTypeCorpus() []interface{} {
+	return []interface{}{
+		bson.D{{Key: "_id", Value: "u-javascript"}, {Key: "v", Value: primitive.JavaScript("function () { return 1; }")}},
+		bson.D{{Key: "_id", Value: "u-symbol"}, {Key: "v", Value: primitive.Symbol("sym")}},
+		bson.D{{Key: "_id", Value: "u-undefined"}, {Key: "v", Value: primitive.Undefined{}}},
+	}
+}

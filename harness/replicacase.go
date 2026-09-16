@@ -48,6 +48,20 @@ type ReplicaCase struct {
 	// Timeout bounds the whole case. Zero means four minutes.
 	Timeout time.Duration
 
+	// SeedBeforeJoin runs against the primary BEFORE the subject joins, so its
+	// data must arrive through initial sync rather than the oplog. That is the
+	// only way to test the clone path: anything written after the join arrives
+	// as ordinary steady-state replication.
+	SeedBeforeJoin func(ctx context.Context, primary *mongo.Client) error
+
+	// DuringClone runs concurrently with the subject's initial sync, starting
+	// immediately after the join and without waiting for SECONDARY.
+	//
+	// This is the case the buffered-oplog design exists for: the clone is not a
+	// single instant, and these writes must be reconciled by the oplog rather
+	// than lost or double-applied.
+	DuringClone func(ctx context.Context, primary *mongo.Client) error
+
 	// Setup prepares the primary before the subject is expected to be caught
 	// up. Data written here still replicates; it is separated from Workload
 	// only for readability.
@@ -98,6 +112,30 @@ func ReplicaTest(t *testing.T, tc ReplicaCase) TestResult {
 
 	rs := StartReplicaSet(t, members)
 
+	// Seeding must happen before the join so the data travels through initial
+	// sync. Resolve the primary first for that reason.
+	seedPrimary, err := rs.Primary(ctx)
+	if err != nil {
+		t.Fatalf("%s: %v", tc.Name, err)
+	}
+	seedClient, err := rs.DirectClient(ctx, seedPrimary)
+	if err != nil {
+		t.Fatalf("%s: primary client: %v", tc.Name, err)
+	}
+	if tc.SeedBeforeJoin != nil {
+		if err := tc.SeedBeforeJoin(ctx, seedClient); err != nil {
+			_ = seedClient.Disconnect(context.Background())
+			t.Fatalf("%s: seeding the primary before the join failed: %v", tc.Name, err)
+		}
+		// Let the reference catch up, so the seed is genuinely source state
+		// rather than still in flight when the subject starts cloning.
+		if _, err := rs.WaitConverged(ctx, defaultConvergeWait, seedPrimary.Addr); err != nil {
+			_ = seedClient.Disconnect(context.Background())
+			t.Fatalf("%s: primary did not settle after seeding: %v", tc.Name, err)
+		}
+	}
+	_ = seedClient.Disconnect(context.Background())
+
 	var subject *DumboMember
 	if tc.Support != DumboDBMongoOnly {
 		subject = rs.JoinDumboDB(t)
@@ -113,6 +151,14 @@ func ReplicaTest(t *testing.T, tc ReplicaCase) TestResult {
 	}
 	defer func() { _ = primaryClient.Disconnect(context.Background()) }()
 
+	// Runs without waiting for SECONDARY, so it overlaps the clone.
+	cloneDone := make(chan error, 1)
+	if tc.DuringClone != nil {
+		go func() { cloneDone <- tc.DuringClone(ctx, primaryClient) }()
+	} else {
+		cloneDone <- nil
+	}
+
 	if tc.Setup != nil {
 		if err := tc.Setup(ctx, primaryClient); err != nil {
 			t.Fatalf("%s: setup on the primary failed: %v", tc.Name, err)
@@ -123,6 +169,9 @@ func ReplicaTest(t *testing.T, tc ReplicaCase) TestResult {
 	}
 	if err := tc.Workload(ctx, primaryClient); err != nil {
 		t.Fatalf("%s: workload on the primary failed: %v", tc.Name, err)
+	}
+	if err := <-cloneDone; err != nil {
+		t.Fatalf("%s: concurrent-with-clone workload failed: %v", tc.Name, err)
 	}
 
 	reference, err := rs.AnySecondary(ctx)
