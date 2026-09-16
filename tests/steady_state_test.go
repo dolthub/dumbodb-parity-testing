@@ -17,6 +17,8 @@
 // Each case is one workload plus the default comparison, which is what makes a
 // matrix this size affordable: adding coverage means adding operations, not
 // writing assertion logic.
+//go:build replication
+
 package tests
 
 import (

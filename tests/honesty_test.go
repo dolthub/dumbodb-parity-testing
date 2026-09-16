@@ -18,6 +18,8 @@
 // position it has not actually reached, the gate certifies bad data and every
 // comparison built on it is meaningless. These are the checks that make the
 // rest of the suite worth running.
+//go:build replication
+
 package tests
 
 import (

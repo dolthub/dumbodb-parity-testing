@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build replication
+
 package harness
 
 import (
@@ -237,15 +239,4 @@ func TestReplicaSet_WaitForStateReportsActualState(t *testing.T) {
 	if want := "last state PRIMARY"; !contains(err.Error(), want) {
 		t.Fatalf("error must name the state reached; got %q, want it to contain %q", err, want)
 	}
-}
-
-func contains(s, sub string) bool {
-	return len(s) >= len(sub) && (func() bool {
-		for i := 0; i+len(sub) <= len(s); i++ {
-			if s[i:i+len(sub)] == sub {
-				return true
-			}
-		}
-		return false
-	})()
 }

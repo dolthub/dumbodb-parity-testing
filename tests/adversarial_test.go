@@ -17,6 +17,8 @@
 // Everything proven so far assumes nothing goes wrong mid-flight. These cases
 // break the subject on purpose and then require it to reach exactly the state a
 // stock secondary reached, with no gap and no double-apply.
+//go:build replication
+
 package tests
 
 import (

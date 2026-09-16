@@ -16,6 +16,8 @@
 //
 // Every case here seeds the primary BEFORE the subject joins, so the data must
 // travel through initial sync rather than the oplog.
+//go:build replication
+
 package tests
 
 import (
