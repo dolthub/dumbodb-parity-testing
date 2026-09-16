@@ -74,6 +74,25 @@ against the new tip rather than reported as a non-match, so a blind increment
 still lands. Only the two compare-and-swap scenarios have non-matches, and
 those are real: a precondition that no longer holds.
 
+## The fieldDivergent disagreement
+
+`dumbodb-field-divergent-results.md` retains failures for `uuid-cas`,
+`divergent-cas` and `disjoint-set` in `fieldDivergent` mode, measured against
+DumboDB revision `6afd317`. That revision is not in the dumbodb repository and
+cannot be fetched, so those runs can be neither reproduced nor dated from this
+workspace.
+
+Re-running the same three scenarios with the merged runner -- the same oracle,
+the same `-merge-mode=fieldDivergent`, both payload sizes -- against
+`f5cbcf347ef3` gives `conclusivePass` on all six, with zero rejected and zero
+indeterminate. Those reports are kept next to the failures as
+`dumbodb-f5cbcf3-field-divergent-*.json`.
+
+Both sets stand. The most likely reading is that `6afd317` predates the server
+work or is a local rebase that lost some of it, but that is a guess about a
+commit nobody here can inspect, and it should be confirmed by re-running
+against a pushed revision rather than assumed.
+
 ## What this does not cover
 
 Every scenario here reconciles at the end of the command. A fork that outlives

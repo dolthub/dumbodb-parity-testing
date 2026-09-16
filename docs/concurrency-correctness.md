@@ -238,8 +238,11 @@ disagreement is not yet resolved. The default-mode runs pass against a revision
 recorded in their reports. The retained `fieldDivergent` failures in
 `dumbodb-field-divergent-results.md` were measured against revision `6afd317`,
 which does not exist in the dumbodb repository and cannot be fetched, so they
-cannot be reproduced or dated from here. Neither set is discarded on the
-strength of the other.
+cannot be reproduced or dated from here. Re-running those three scenarios with
+the merged runner against a revision that does exist gives conclusivePass at
+both payload sizes; see the fieldDivergent disagreement section of
+`dumbodb-cas-results.md`. Neither set is discarded on the strength of the
+other.
 
 Not yet covered, and the reason the mode axis is not the whole remaining story:
 every scenario here reconciles at the end of the command. A fork that outlives
