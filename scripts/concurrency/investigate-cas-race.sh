@@ -58,6 +58,16 @@ CONFIGS=(
 log "starting DumboDB (auto-commit), revision $(git -C "$DUMBODB_DIR" describe --tags --always 2>/dev/null || echo unknown)"
 ./server.sh start auto-commit >/dev/null 2>&1 || { ./server.sh start auto-commit; die "server failed to start"; }
 
+# Build the harness here, because the runs below pass SKIP_BUILD=1 to run.sh to
+# avoid rebuilding the SERVER -- and run.sh reads that same variable to skip
+# building the HARNESS. Without this the harness binary never exists, every run
+# dies unseen, and this script reports "no double-accepts" having executed
+# nothing at all.
+ensure_dirs
+log "building harness (GOWORK=off)"
+( cd "$HARNESS_DIR" && GOWORK=off go build -o "$HARNESS_BIN" ./cmd/concurrency ) \
+  || die "harness build failed"
+
 total_dupes=0
 printf '\n%-12s %-14s %-15s %-9s %-11s %s\n' NAME SCENARIO MODE MATCHES DUPLICATES RESULT
 
@@ -69,13 +79,24 @@ for cfg in "${CONFIGS[@]}"; do
 
   log "running $name ($scen / $mode) for $DURATION ..."
   SKIP_BUILD=1 ./run.sh --scenario "$scen" --mode "$mode" --workers 32 \
-    --duration "$DURATION" --name "investigate-$name" >/dev/null 2>&1
+    --duration "$DURATION" --name "investigate-$name" > "${RESULTS_DIR}/investigate-${name}.out" 2>&1
+  run_code=$?
   json="${RESULTS_DIR}/investigate-${name}.json"
+
+  # A run that did not happen is not a clean run. Exit code 1 is a real harness
+  # failure verdict and is expected here; anything else, or a missing report,
+  # means this config produced no evidence and must not be counted as one.
+  if [ "$run_code" != 0 ] && [ "$run_code" != 1 ] && [ "$run_code" != 3 ]; then
+    tail -n 5 "${RESULTS_DIR}/investigate-${name}.out" >&2 || true
+    die "$name did not run (exit $run_code); see ${RESULTS_DIR}/investigate-${name}.out"
+  fi
+  [ -f "$json" ] || die "$name produced no report at $json"
+
   read -r matches dupes < <(python3 -c "
 import json,sys
 r=json.load(open(sys.argv[1])); L=r['Ledger']
 print(L.get('Matched',0), L.get('CAS',{}).get('DuplicateMatches',0))
-" "$json" 2>/dev/null || echo "0 0")
+" "$json") || die "$name wrote an unreadable report at $json"
   total_dupes=$((total_dupes + dupes))
   result=$([ "$dupes" -gt 0 ] && echo REPRODUCED || echo "clean(inconclusive)")
   printf '%-12s %-14s %-15s %-9s %-11s %s\n' "$name" "$scen" "$mode" "$matches" "$dupes" "$result"
@@ -101,4 +122,6 @@ if [ "$total_dupes" -gt 0 ]; then
 fi
 echo "RESULT: no double-accepts observed. Either the bug is fixed, or the runs were"
 echo "too short to hit it -- rerun with a longer --duration to raise confidence."
+echo "Match counts above are the evidence: a config showing 0 matches did not"
+echo "exercise the race and says nothing either way."
 exit 0
