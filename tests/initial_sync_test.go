@@ -341,3 +341,151 @@ func contains(s, sub string) bool {
 	}
 	return false
 }
+
+// memberIdentity returns the set name and this member's configured _id, which
+// live in replication control state. If that state is lost and recreated, they
+// are what gets lost with it.
+func memberIdentity(t *testing.T, ctx context.Context, rs *harness.ReplicaSet, addr string) (string, int64, bool) {
+	t.Helper()
+	status, err := rs.Status(ctx, addr)
+	if err != nil {
+		return "", 0, false
+	}
+	setName, _ := status["set"].(string)
+	members, _ := status["members"].(bson.A)
+	for _, raw := range members {
+		m, ok := raw.(bson.M)
+		if !ok {
+			continue
+		}
+		if self, _ := m["self"].(bool); !self {
+			continue
+		}
+		switch id := m["_id"].(type) {
+		case int32:
+			return setName, int64(id), true
+		case int64:
+			return setName, id, true
+		}
+	}
+	return setName, 0, false
+}
+
+// A hard kill while the clone is running must leave the member able to finish,
+// without losing who it is.
+//
+// This covers two things the suite was missing. The tier 1 requirement that a
+// member killed mid-initial-sync either finishes or restarts cleanly and never
+// reports SECONDARY holding partial data. And the reset window addressed by
+// dumbodb 9be6976, where resetting replicated admin data also removed
+// admin.system.dumbodb.replication, so a kill in that window lost member
+// identity and replica configuration.
+func TestInitialSync_KilledMidCloneKeepsIdentityAndFinishes(t *testing.T) {
+	rs := harness.StartReplicaSet(t, 2)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Minute)
+	defer cancel()
+
+	primary, err := rs.Primary(ctx)
+	if err != nil {
+		t.Fatalf("Primary: %v", err)
+	}
+	cli, err := rs.DirectClient(ctx, primary)
+	if err != nil {
+		t.Fatalf("primary client: %v", err)
+	}
+	// Large enough that the clone takes long enough to interrupt.
+	r := harness.SeedRand(23)
+	for batch := 0; batch < 6; batch++ {
+		docs := make([]interface{}, 0, 150)
+		for i := 0; i < 150; i++ {
+			docs = append(docs, harness.GenerateDocument(r, harness.DocIDFor(batch*150+i)))
+		}
+		if _, err := cli.Database(syncDB).Collection("bulk").InsertMany(ctx, docs); err != nil {
+			_ = cli.Disconnect(context.Background())
+			t.Fatalf("seeding batch %d: %v", batch, err)
+		}
+	}
+	_ = cli.Disconnect(context.Background())
+
+	if _, err := rs.WaitConverged(ctx, 120*time.Second, primary.Addr); err != nil {
+		t.Fatalf("primary did not settle: %v", err)
+	}
+
+	subject := rs.JoinDumboDB(t)
+	commit, _ := subject.Commit(ctx)
+
+	setBefore, idBefore, haveBefore := "", int64(0), false
+	killedIn := "<never observed>"
+	deadline := time.Now().Add(90 * time.Second)
+	for time.Now().Before(deadline) {
+		p, err := rs.Progress(ctx, subject.Addr)
+		if err == nil {
+			if p.State == harness.StateSecondary {
+				// The clone finished before the kill landed. Still worth
+				// killing, but say so: this run did not exercise mid-clone.
+				killedIn = p.State
+				break
+			}
+			if p.State == harness.StateStartup2 {
+				if !haveBefore {
+					setBefore, idBefore, haveBefore = memberIdentity(t, ctx, rs, subject.Addr)
+				}
+				killedIn = p.State
+				break
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Logf("killing dumbodb %s while it reported %s", commit, killedIn)
+	subject.Kill()
+	subject.Start()
+
+	// It must finish, and must never have claimed readiness with partial data.
+	if err := rs.WaitForState(ctx, subject.Member, harness.StateSecondary, 180*time.Second); err != nil {
+		t.Fatalf("subject did not reach SECONDARY after being killed during the clone: %v", err)
+	}
+
+	setAfter, idAfter, haveAfter := memberIdentity(t, ctx, rs, subject.Addr)
+	if !haveAfter {
+		t.Fatal("subject reports no self entry after restart; it does not know which member it is")
+	}
+	if setAfter != rs.Name {
+		t.Errorf("subject reports set %q after restart, want %q; replica configuration was lost", setAfter, rs.Name)
+	}
+	if haveBefore && (setBefore != setAfter || idBefore != idAfter) {
+		t.Errorf("member identity changed across the kill: was set=%q id=%d, now set=%q id=%d",
+			setBefore, idBefore, setAfter, idAfter)
+	}
+
+	// And the data must be right.
+	if _, err := rs.WaitConverged(ctx, 180*time.Second, subject.Addr); err != nil {
+		t.Fatalf("subject did not converge after the interrupted clone: %v", err)
+	}
+	reference, err := rs.AnySecondary(ctx)
+	if err != nil {
+		t.Fatalf("no reference secondary: %v", err)
+	}
+	refCli, err := rs.ClientFor(ctx, reference.Addr)
+	if err != nil {
+		t.Fatalf("reference client: %v", err)
+	}
+	defer func() { _ = refCli.Disconnect(context.Background()) }()
+	subCli, err := subject.Client(ctx)
+	if err != nil {
+		t.Fatalf("subject client: %v", err)
+	}
+	defer func() { _ = subCli.Disconnect(context.Background()) }()
+
+	refState, err := harness.CaptureServerState(ctx, refCli, "reference")
+	if err != nil {
+		t.Fatalf("capturing reference: %v", err)
+	}
+	subState, err := harness.CaptureServerState(ctx, subCli, "subject")
+	if err != nil {
+		t.Fatalf("capturing subject: %v", err)
+	}
+	if d := harness.DiffServerState(refState, subState); len(d) > 0 {
+		t.Errorf("subject diverged from the reference after an interrupted clone, %d place(s); first: %s", len(d), d[0])
+	}
+}
