@@ -122,15 +122,29 @@ for spec in "${CASES[@]}"; do
 
   log "[$total/${#CASES[@]}] $name ($scenario / $mode, expect $expect)"
   SKIP_BUILD=1 ./run.sh --scenario "$scenario" --mode "$mode" --workers "$WORKERS" \
-    "${scale[@]}" --payload "$payload" --name "$name" >/dev/null 2>&1
+    "${scale[@]}" --payload "$payload" --name "$name" > "${RESULTS_DIR}/${name}.out" 2>&1
+  run_code=$?
   json="${RESULTS_DIR}/${name}.json"
-  verdict=$(verdict_of "$json"); dups=$(duplicates_of "$json")
 
-  # Classify against expectation.
-  if [ "$expect" = pass ]; then
-    if [ "$verdict" = conclusivePass ]; then result=PASS; else result=FAIL; fails=$((fails + 1)); fi
-  else # xfail
-    if [ "$verdict" = conclusivePass ]; then result=XPASS; xpasses=$((xpasses + 1)); else result=xfail; fi
+  # A run that did not produce a report produced no evidence. It must never be
+  # classified -- least of all as an "expected" xfail -- or a crash reads as the
+  # known bug. Harness exit codes 0/1/3 are real verdicts; anything else, or a
+  # missing report, is an ERROR that fails the suite.
+  if { [ "$run_code" != 0 ] && [ "$run_code" != 1 ] && [ "$run_code" != 3 ]; } || [ ! -f "$json" ]; then
+    result=ERROR; fails=$((fails + 1))
+    tail -n 5 "${RESULTS_DIR}/${name}.out" >&2 || true
+    verdict="no-report"; dups=-
+  else
+    verdict=$(verdict_of "$json"); dups=$(duplicates_of "$json")
+    if [ "$expect" = pass ]; then
+      if [ "$verdict" = conclusivePass ]; then result=PASS; else result=FAIL; fails=$((fails + 1)); fi
+    else # xfail: only a genuine failing verdict counts as the known bug
+      case "$verdict" in
+        conclusivePass) result=XPASS; xpasses=$((xpasses + 1)) ;;
+        failed)         result=xfail ;;
+        *)              result=ERROR; fails=$((fails + 1)) ;;  # inconclusive/unknown is not evidence
+      esac
+    fi
   fi
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$name" "$scenario" "$mode" "$expect" "$verdict" "$result" "$dups" >> "$SUMMARY_TSV"
 done
