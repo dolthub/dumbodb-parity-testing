@@ -17,7 +17,6 @@ package concurrency
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -58,8 +57,8 @@ func newScenario(name string, workers, payloadBytes int, seed int64, casDelay ti
 		return nil, fmt.Errorf("CAS delay cannot be negative")
 	}
 	payload := makePayload(payloadBytes)
-	if strings.HasPrefix(name, fieldDivergentMatrixPrefix) {
-		return newFieldDivergentMatrixScenario(name, payload)
+	if scenario, matched, err := newMergeMatrixScenario(name, payload, mergeMode); matched {
+		return scenario, err
 	}
 	switch name {
 	case "cas":
