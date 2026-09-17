@@ -28,6 +28,7 @@ import (
 
 const fieldDivergentMatrixPrefix = "field-divergent-matrix-"
 const documentTouchedMatrixPrefix = "document-touched-matrix-"
+const documentDivergentMatrixPrefix = "document-divergent-matrix-"
 
 type matrixChangeKind string
 
@@ -74,6 +75,18 @@ var documentTouchedMatrixRows = []mergeMatrixRow{
 	{Name: "both-delete", Base: matrixDocument(0, 0), FeatureChange: matrixDelete, MainChange: matrixDelete, ExpectConflict: true},
 }
 
+var documentDivergentMatrixRows = []mergeMatrixRow{
+	{Name: "one-sided", Base: matrixDocument(0, 0), FeatureChange: matrixSetAOne, MainChange: matrixNoChange, ExpectedDocument: matrixDocument(1, 0)},
+	{Name: "disjoint-fields", Base: matrixDocument(0, 0), FeatureChange: matrixSetAOne, MainChange: matrixSetBOne, ExpectConflict: true, ExpectedDocument: matrixDocument(0, 1)},
+	{Name: "same-field-same-value", Base: matrixDocument(0, 0), FeatureChange: matrixSetAOne, MainChange: matrixSetAOne, ExpectedDocument: matrixDocument(1, 0)},
+	{Name: "same-value-plus-disjoint", Base: matrixDocument(0, 0), FeatureChange: matrixSetAOneBOne, MainChange: matrixSetAOne, ExpectConflict: true, ExpectedDocument: matrixDocument(1, 0)},
+	{Name: "same-field-different-values", Base: matrixDocument(0, 0), FeatureChange: matrixSetAOne, MainChange: matrixSetATwo, ExpectConflict: true, ExpectedDocument: matrixDocument(2, 0)},
+	{Name: "modify-delete", Base: matrixDocument(0, 0), FeatureChange: matrixSetAOne, MainChange: matrixDelete, ExpectConflict: true},
+	{Name: "add-add-identical", FeatureChange: matrixInsertAOne, MainChange: matrixInsertAOne, ExpectedDocument: matrixDocument(1, 0)},
+	{Name: "add-add-different", FeatureChange: matrixInsertAOne, MainChange: matrixInsertATwo, ExpectConflict: true, ExpectedDocument: matrixDocument(2, 0)},
+	{Name: "both-delete", Base: matrixDocument(0, 0), FeatureChange: matrixDelete, MainChange: matrixDelete},
+}
+
 const matrixSetBOne matrixChangeKind = "set-b-one"
 
 type mergeMatrixDefinition struct {
@@ -87,6 +100,11 @@ var mergeMatrixDefinitions = []mergeMatrixDefinition{
 		Mode:   MergeModeDocumentTouched,
 		Prefix: documentTouchedMatrixPrefix,
 		Rows:   documentTouchedMatrixRows,
+	},
+	{
+		Mode:   MergeModeDocumentDivergent,
+		Prefix: documentDivergentMatrixPrefix,
+		Rows:   documentDivergentMatrixRows,
 	},
 	{
 		Mode:   MergeModeFieldDivergent,

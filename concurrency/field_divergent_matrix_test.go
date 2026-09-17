@@ -147,6 +147,57 @@ func TestDocumentTouchedMatrixDestinationStates(t *testing.T) {
 	}
 }
 
+func TestDocumentDivergentMatrixCoversNineDistinctRows(t *testing.T) {
+	if len(documentDivergentMatrixRows) != 9 {
+		t.Fatalf("matrix rows = %d, want 9", len(documentDivergentMatrixRows))
+	}
+	seen := make(map[string]bool, len(documentDivergentMatrixRows))
+	conflicts := 0
+	for _, row := range documentDivergentMatrixRows {
+		if seen[row.Name] {
+			t.Fatalf("duplicate matrix row %q", row.Name)
+		}
+		seen[row.Name] = true
+		if row.ExpectConflict {
+			conflicts++
+		}
+		scenario, err := NewScenarioForConfig(Config{
+			Scenario:   documentDivergentMatrixPrefix + row.Name,
+			Workers:    1,
+			MergeMode:  MergeModeDocumentDivergent,
+			Operations: 1,
+		})
+		if err != nil {
+			t.Fatalf("construct %s: %v", row.Name, err)
+		}
+		if scenario.Name() != documentDivergentMatrixPrefix+row.Name {
+			t.Fatalf("scenario name = %q", scenario.Name())
+		}
+	}
+	if conflicts != 5 {
+		t.Fatalf("conflict rows = %d, want 5", conflicts)
+	}
+}
+
+func TestDocumentDivergentMatrixDestinationStates(t *testing.T) {
+	want := map[string]bson.M{
+		"one-sided":                   matrixDocument(1, 0),
+		"disjoint-fields":             matrixDocument(0, 1),
+		"same-field-same-value":       matrixDocument(1, 0),
+		"same-value-plus-disjoint":    matrixDocument(1, 0),
+		"same-field-different-values": matrixDocument(2, 0),
+		"modify-delete":               nil,
+		"add-add-identical":           matrixDocument(1, 0),
+		"add-add-different":           matrixDocument(2, 0),
+		"both-delete":                 nil,
+	}
+	for _, row := range documentDivergentMatrixRows {
+		if !reflect.DeepEqual(row.ExpectedDocument, want[row.Name]) {
+			t.Fatalf("row %s document = %v, want %v", row.Name, row.ExpectedDocument, want[row.Name])
+		}
+	}
+}
+
 func TestFieldDivergentMatrixRejectsUnknownRow(t *testing.T) {
 	if _, err := NewScenarioForConfig(Config{
 		Scenario:  fieldDivergentMatrixPrefix + "unknown",
