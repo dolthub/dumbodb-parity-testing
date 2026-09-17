@@ -1,28 +1,32 @@
 {
   "Product": "DumboDB",
   "Version": "8.0.28",
-  "Revision": "fcc433c692ac24bd1b0f05f26350dbef72ca49e9",
+  "Revision": "v0.6.3-44-gfcc433c",
   "Scenario": "blind-inc",
-  "StartedAt": "2026-09-17T20:42:05.192209056Z",
-  "FinishedAt": "2026-09-17T20:42:08.906631669Z",
-  "WorkloadStartedAt": "2026-09-17T20:42:05.222763152Z",
-  "WorkloadFinishedAt": "2026-09-17T20:42:08.905589099Z",
+  "StartedAt": "2026-09-17T21:55:50.50073648Z",
+  "FinishedAt": "2026-09-17T21:55:54.34782555Z",
+  "WorkloadStartedAt": "2026-09-17T21:55:50.53335819Z",
+  "WorkloadFinishedAt": "2026-09-17T21:55:54.346745218Z",
+  "FirstMatchedAt": "2026-09-17T21:55:50.545367785Z",
+  "LastMatchedAt": "2026-09-17T21:55:54.346737508Z",
   "Ledger": {
     "Attempts": 1000,
-    "Matched": 999,
+    "Matched": 997,
     "NoMatch": 0,
-    "Modified": 999,
-    "Rejected": 1,
+    "Modified": 997,
+    "Rejected": 3,
     "Indeterminate": 0,
     "Latency": {
       "LessThan100us": 0,
       "LessThan1ms": 0,
-      "LessThan10ms": 1,
-      "LessThan100ms": 933,
-      "LessThan1s": 66,
+      "LessThan10ms": 0,
+      "LessThan100ms": 917,
+      "LessThan1s": 83,
       "AtLeast1s": 0
     },
     "ErrorSamples": [
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
       "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit"
     ],
     "CAS": {
@@ -42,19 +46,19 @@
       "Name": "storedVersionDoesNotExceedMatched",
       "Passed": true,
       "Skipped": false,
-      "Detail": "version=82 matched=999 coalesced=917"
+      "Detail": "version=87 matched=997 coalesced=910"
     },
     {
       "Name": "everyMatchModified",
       "Passed": true,
       "Skipped": false,
-      "Detail": "modified=999 matched=999"
+      "Detail": "modified=997 matched=997"
     },
     {
       "Name": "allAcknowledgedWritesMatched",
       "Passed": true,
       "Skipped": false,
-      "Detail": "matched=999 attempts=1000 rejected=1 indeterminate=0"
+      "Detail": "matched=997 attempts=1000 rejected=3 indeterminate=0"
     },
     {
       "Name": "payloadRetained",
@@ -69,7 +73,7 @@
     "Operations": 1000,
     "Workers": 16,
     "Seed": 1,
-    "Database": "storage_document_divergent_inline_blind_inc",
+    "Database": "dd_inline_blind_inc",
     "Collection": "documents",
     "PayloadBytes": 0,
     "CASDelay": "0s",
@@ -78,11 +82,11 @@
   },
   "Statistics": {
     "MatchRate": {
-      "Count": 999,
+      "Count": 997,
       "SampleSize": 1000,
-      "Rate": 0.999,
-      "Lower95": 0.9943574414020421,
-      "Upper95": 0.9998234536293739
+      "Rate": 0.997,
+      "Lower95": 0.9912169859464969,
+      "Upper95": 0.9989792161188614
     },
     "NoMatchRate": {
       "Count": 0,
@@ -92,11 +96,11 @@
       "Upper95": 0.0038267584855551234
     },
     "RejectedRate": {
-      "Count": 1,
+      "Count": 3,
       "SampleSize": 1000,
-      "Rate": 0.001,
-      "Lower95": 0.00017654637062607765,
-      "Upper95": 0.0056425585979579355
+      "Rate": 0.003,
+      "Lower95": 0.0010207838811386186,
+      "Upper95": 0.008783014053503173
     },
     "IndeterminateRate": {
       "Count": 0,

@@ -1,37 +1,39 @@
 {
   "Product": "DumboDB",
   "Version": "8.0.28",
-  "Revision": "fcc433c692ac24bd1b0f05f26350dbef72ca49e9",
+  "Revision": "v0.6.3-44-gfcc433c",
   "Scenario": "whole-document-divergent",
-  "StartedAt": "2026-09-17T20:43:12.010313267Z",
-  "FinishedAt": "2026-09-17T20:43:13.48993847Z",
-  "WorkloadStartedAt": "2026-09-17T20:43:12.049853763Z",
-  "WorkloadFinishedAt": "2026-09-17T20:43:13.489327044Z",
+  "StartedAt": "2026-09-17T21:57:00.805605836Z",
+  "FinishedAt": "2026-09-17T21:57:02.369536283Z",
+  "WorkloadStartedAt": "2026-09-17T21:57:00.840408164Z",
+  "WorkloadFinishedAt": "2026-09-17T21:57:02.368921666Z",
+  "FirstMatchedAt": "2026-09-17T21:57:00.851546691Z",
+  "LastMatchedAt": "2026-09-17T21:57:02.368264789Z",
   "Ledger": {
     "Attempts": 1000,
-    "Matched": 113,
-    "NoMatch": 887,
-    "Modified": 113,
+    "Matched": 112,
+    "NoMatch": 888,
+    "Modified": 112,
     "Rejected": 0,
     "Indeterminate": 0,
     "Latency": {
       "LessThan100us": 0,
       "LessThan1ms": 0,
-      "LessThan10ms": 22,
-      "LessThan100ms": 978,
+      "LessThan10ms": 13,
+      "LessThan100ms": 987,
       "LessThan1s": 0,
       "AtLeast1s": 0
     },
     "ErrorSamples": null,
     "CAS": {
-      "MatchedEdges": 113,
+      "MatchedEdges": 112,
       "DuplicateMatches": 0,
       "InvalidEdges": 0,
-      "HighestObserved": 112,
-      "UniqueObserved": 113,
-      "ObservedGenerationSlots": 113,
+      "HighestObserved": 111,
+      "UniqueObserved": 112,
+      "ObservedGenerationSlots": 112,
       "MatchedOperationWords": 16,
-      "TrackerBytes": 2049,
+      "TrackerBytes": 2032,
       "Findings": null
     }
   },
@@ -40,19 +42,19 @@
       "Name": "wholeDocumentShapeIsValid",
       "Passed": true,
       "Skipped": false,
-      "Detail": "generation=113 state=113 payloadBytes=8192"
+      "Detail": "generation=112 state=112 payloadBytes=8192"
     },
     {
       "Name": "storedVersionEqualsMatched",
       "Passed": true,
       "Skipped": false,
-      "Detail": "version=113 matched=113"
+      "Detail": "version=112 matched=112"
     },
     {
       "Name": "everyMatchModified",
       "Passed": true,
       "Skipped": false,
-      "Detail": "modified=113 matched=113"
+      "Detail": "modified=112 matched=112"
     },
     {
       "Name": "oneMatchPerObservedGeneration",
@@ -64,13 +66,13 @@
       "Name": "matchedEdgesAreSuccessive",
       "Passed": true,
       "Skipped": false,
-      "Detail": "edges=113 invalid=0 matched=113"
+      "Detail": "edges=112 invalid=0 matched=112"
     },
     {
       "Name": "matchedEdgesFormCompleteChain",
       "Passed": true,
       "Skipped": false,
-      "Detail": "highestObserved=112 version=113"
+      "Detail": "highestObserved=111 version=112"
     },
     {
       "Name": "workerFieldsBelongToMatchedOperations",
@@ -82,13 +84,13 @@
       "Name": "refusedCASReturnsNoMatch",
       "Passed": true,
       "Skipped": false,
-      "Detail": "rejected=0 noMatch=887"
+      "Detail": "rejected=0 noMatch=888"
     },
     {
       "Name": "everyConclusiveCASAttemptHasCommandResult",
       "Passed": true,
       "Skipped": false,
-      "Detail": "matched=113 noMatch=887 attempts=1000 indeterminate=0"
+      "Detail": "matched=112 noMatch=888 attempts=1000 indeterminate=0"
     }
   ],
   "Config": {
@@ -97,7 +99,7 @@
     "Operations": 1000,
     "Workers": 16,
     "Seed": 1,
-    "Database": "storage_document_divergent_oob_whole_document_divergent",
+    "Database": "dd_oob_whole_document_divergent",
     "Collection": "documents",
     "PayloadBytes": 8192,
     "CASDelay": "0s",
@@ -106,18 +108,18 @@
   },
   "Statistics": {
     "MatchRate": {
-      "Count": 113,
+      "Count": 112,
       "SampleSize": 1000,
-      "Rate": 0.113,
-      "Lower95": 0.09484035831643467,
-      "Upper95": 0.13412155275138501
+      "Rate": 0.112,
+      "Lower95": 0.09391954090888108,
+      "Upper95": 0.1330500236759097
     },
     "NoMatchRate": {
-      "Count": 887,
+      "Count": 888,
       "SampleSize": 1000,
-      "Rate": 0.887,
-      "Lower95": 0.8658784472486151,
-      "Upper95": 0.9051596416835653
+      "Rate": 0.888,
+      "Lower95": 0.8669499763240903,
+      "Upper95": 0.906080459091119
     },
     "RejectedRate": {
       "Count": 0,
