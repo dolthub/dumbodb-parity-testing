@@ -93,31 +93,6 @@ func ok(reply bson.M) bool {
 	return false
 }
 
-// inventedFieldBead tracks the fields below.
-const inventedFieldBead = "yiv"
-
-// knownInventedFields are reply fields DumboDB sends that a real mongod member
-// does not, graded as known deviations rather than a red build.
-//
-// Established against mongod 8.0.28 with a live probe, because "mongod never
-// sends this" is a claim about a server rather than about documentation:
-//
-//	replSetGetConfig   a plain call returns ok, config, $clusterTime,
-//	                   operationTime and nothing else; asking a secondary for
-//	                   commitmentStatus is refused outright with ok: 0.
-//	replSetHeartbeat   config appears ONLY when the sender's configVersion is
-//	                   stale, which is the optimisation of not reshipping a
-//	                   configuration the sender already has. A current
-//	                   configVersion gets a reply without it. time never
-//	                   appears at all.
-//
-// Inverted: if a field stops being invented the case fails, demanding it be
-// removed from here rather than left to rot.
-var knownInventedFields = map[string]map[string]bool{
-	"replSetGetConfig": {"commitmentStatus": true},
-	"replSetHeartbeat": {"config": true, "time": true},
-}
-
 // TestMemberProtocol_InboundCommandShapes compares each inbound command's
 // reply against the reference member's.
 //
@@ -201,23 +176,13 @@ func TestMemberProtocol_InboundCommandShapes(t *testing.T) {
 						f.commit, c.name, field)
 				}
 			}
+			// No exemptions. workspace-yiv removed the last three invented
+			// fields, so any reply field a real member does not send is a
+			// regression rather than a known deviation.
 			for field := range subjectReply {
 				if _, present := referenceReply[field]; !present {
-					if knownInventedFields[c.name][field] {
-						t.Logf("XFAIL %s.%s (workspace-%s): carried by dumbodb %s, never sent by a real member",
-							c.name, field, inventedFieldBead, f.commit)
-						continue
-					}
 					t.Errorf("dumbodb %s: %s reply carries %q, which a real mongod member never sends",
 						f.commit, c.name, field)
-				}
-			}
-			for field := range knownInventedFields[c.name] {
-				_, onSubject := subjectReply[field]
-				_, onReference := referenceReply[field]
-				if !onSubject || onReference {
-					t.Errorf("XPASS %s.%s: dumbodb %s no longer invents this field, so remove it from knownInventedFields (workspace-%s)",
-						c.name, field, f.commit, inventedFieldBead)
 				}
 			}
 			// Omissions are tolerated rather than failed: the other members
