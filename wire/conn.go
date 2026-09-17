@@ -59,12 +59,34 @@ func (c *Conn) Close() error { return c.c.Close() }
 
 func (c *Conn) SetDeadline(t time.Time) error { return c.c.SetDeadline(t) }
 
+// OP_MSG flag bits.
+const (
+	// FlagMoreToCome is set by a server on each response of an exhaust
+	// stream except the last, and by a client on a fire-and-forget request.
+	FlagMoreToCome uint32 = 1 << 1
+	// FlagExhaustAllowed is set by a client to tell the server it may reply
+	// with an exhaust stream.
+	FlagExhaustAllowed uint32 = 1 << 16
+)
+
 // RunCommand sends cmd as the body section of an OP_MSG.
 // cmd must include "$db".
 func (c *Conn) RunCommand(cmd interface{}) (bson.M, error) {
+	reply, _, err := c.RunCommandFlags(cmd, 0)
+	return reply, err
+}
+
+// RunCommandFlags is RunCommand with control over the request's OP_MSG flag
+// bits, returning the response's flag bits alongside its body.
+//
+// The flags are the point of several member-protocol assertions: an exhaust
+// hello is a request carrying FlagExhaustAllowed and a reply carrying
+// FlagMoreToCome, and neither is visible through the Go driver or through
+// RunCommand, which sends zero and discards what comes back.
+func (c *Conn) RunCommandFlags(cmd interface{}, flags uint32) (bson.M, uint32, error) {
 	body, err := bson.Marshal(cmd)
 	if err != nil {
-		return nil, fmt.Errorf("marshal cmd: %w", err)
+		return nil, 0, fmt.Errorf("marshal cmd: %w", err)
 	}
 
 	c.reqID++
@@ -78,46 +100,47 @@ func (c *Conn) RunCommand(cmd interface{}) (bson.M, error) {
 	out = appendI32(out, c.reqID)
 	out = appendI32(out, 0) // responseTo
 	out = appendI32(out, opMsg)
-	out = appendI32(out, 0) // flagBits
-	out = append(out, 0)    // section kind 0 (body)
+	out = appendI32(out, int32(flags))
+	out = append(out, 0) // section kind 0 (body)
 	out = append(out, body...)
 
 	if _, err := c.c.Write(out); err != nil {
-		return nil, fmt.Errorf("write: %w", err)
+		return nil, 0, fmt.Errorf("write: %w", err)
 	}
 
 	var hdr [headerLen]byte
 	if _, err := io.ReadFull(c.c, hdr[:]); err != nil {
-		return nil, fmt.Errorf("read header: %w", err)
+		return nil, 0, fmt.Errorf("read header: %w", err)
 	}
 	replyLen := int32(binary.LittleEndian.Uint32(hdr[0:4]))
 	if replyLen < headerLen+flagBitsLen+sectionKindLen {
-		return nil, fmt.Errorf("short OP_MSG reply: %d bytes", replyLen)
+		return nil, 0, fmt.Errorf("short OP_MSG reply: %d bytes", replyLen)
 	}
 	replyOp := int32(binary.LittleEndian.Uint32(hdr[12:16]))
 	if replyOp != opMsg {
-		return nil, fmt.Errorf("unexpected reply opcode %d (want OP_MSG)", replyOp)
+		return nil, 0, fmt.Errorf("unexpected reply opcode %d (want OP_MSG)", replyOp)
 	}
 
 	rest := make([]byte, replyLen-headerLen)
 	if _, err := io.ReadFull(c.c, rest); err != nil {
-		return nil, fmt.Errorf("read body: %w", err)
+		return nil, 0, fmt.Errorf("read body: %w", err)
 	}
 
 	// rest layout: [4 flagBits][1 sectionKind][body...]
 	if len(rest) < 5 {
-		return nil, errors.New("malformed OP_MSG reply: truncated section header")
+		return nil, 0, errors.New("malformed OP_MSG reply: truncated section header")
 	}
+	replyFlags := binary.LittleEndian.Uint32(rest[0:4])
 	sectionKind := rest[4]
 	if sectionKind != 0 {
-		return nil, fmt.Errorf("unexpected section kind %d (only kind 0 supported)", sectionKind)
+		return nil, 0, fmt.Errorf("unexpected section kind %d (only kind 0 supported)", sectionKind)
 	}
 
 	var reply bson.M
 	if err := bson.Unmarshal(rest[5:], &reply); err != nil {
-		return nil, fmt.Errorf("decode reply: %w", err)
+		return nil, 0, fmt.Errorf("decode reply: %w", err)
 	}
-	return reply, nil
+	return reply, replyFlags, nil
 }
 
 // NewLsid returns a random UUID v4 as a BSON subtype-4 binary, suitable as
