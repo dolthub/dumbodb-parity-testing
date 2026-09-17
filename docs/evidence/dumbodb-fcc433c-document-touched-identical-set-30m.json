@@ -3,24 +3,24 @@
   "Version": "8.0.28",
   "Revision": "v0.6.3-44-gfcc433c",
   "Scenario": "identical-set",
-  "StartedAt": "2026-09-17T20:49:30.62848708Z",
-  "FinishedAt": "2026-09-17T20:49:30.804799734Z",
-  "WorkloadStartedAt": "2026-09-17T20:49:30.657797163Z",
-  "WorkloadFinishedAt": "2026-09-17T20:49:30.804212398Z",
-  "FirstMatchedAt": "2026-09-17T20:49:30.666127939Z",
-  "LastMatchedAt": "2026-09-17T20:49:30.804206748Z",
+  "StartedAt": "2026-09-17T21:21:45.247789607Z",
+  "FinishedAt": "2026-09-17T21:51:45.28754734Z",
+  "WorkloadStartedAt": "2026-09-17T21:21:45.281837365Z",
+  "WorkloadFinishedAt": "2026-09-17T21:51:45.286938163Z",
+  "FirstMatchedAt": "2026-09-17T21:21:45.290996265Z",
+  "LastMatchedAt": "2026-09-17T21:51:45.286932403Z",
   "Ledger": {
-    "Attempts": 1000,
-    "Matched": 1000,
+    "Attempts": 11747180,
+    "Matched": 11747180,
     "NoMatch": 0,
     "Modified": 1,
     "Rejected": 0,
     "Indeterminate": 0,
     "Latency": {
       "LessThan100us": 0,
-      "LessThan1ms": 130,
-      "LessThan10ms": 862,
-      "LessThan100ms": 8,
+      "LessThan1ms": 2984,
+      "LessThan10ms": 11735826,
+      "LessThan100ms": 8370,
       "LessThan1s": 0,
       "AtLeast1s": 0
     },
@@ -42,7 +42,7 @@
       "Name": "allAcknowledgedWritesMatched",
       "Passed": true,
       "Skipped": false,
-      "Detail": "matched=1000 attempts=1000 rejected=0 indeterminate=0"
+      "Detail": "matched=11747180 attempts=11747180 rejected=0 indeterminate=0"
     },
     {
       "Name": "convergentValueRetained",
@@ -55,15 +55,21 @@
       "Passed": true,
       "Skipped": false,
       "Detail": "payloadBytes=8192"
+    },
+    {
+      "Name": "hotDocumentMakesProgressThroughRun",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "duration=30m0.005100798s matchSpan=29m59.995936138s lastMatchLag=5.76µs"
     }
   ],
   "Config": {
     "Target": "mongodb://127.0.0.1:27018",
     "Duration": "30m0s",
-    "Operations": 1000,
-    "Workers": 16,
+    "Operations": 0,
+    "Workers": 32,
     "Seed": 1,
-    "Database": "conc_oob_identical_set",
+    "Database": "conc_document_touched_identical_set_30m",
     "Collection": "documents",
     "PayloadBytes": 8192,
     "CASDelay": "0s",
@@ -72,32 +78,32 @@
   },
   "Statistics": {
     "MatchRate": {
-      "Count": 1000,
-      "SampleSize": 1000,
+      "Count": 11747180,
+      "SampleSize": 11747180,
       "Rate": 1,
-      "Lower95": 0.996173241514445,
+      "Lower95": 0.9999996729889589,
       "Upper95": 1
     },
     "NoMatchRate": {
       "Count": 0,
-      "SampleSize": 1000,
+      "SampleSize": 11747180,
       "Rate": 0,
       "Lower95": 0,
-      "Upper95": 0.0038267584855551234
+      "Upper95": 3.2701104133031726e-7
     },
     "RejectedRate": {
       "Count": 0,
-      "SampleSize": 1000,
+      "SampleSize": 11747180,
       "Rate": 0,
       "Lower95": 0,
-      "Upper95": 0.0038267584855551234
+      "Upper95": 3.2701104133031726e-7
     },
     "IndeterminateRate": {
       "Count": 0,
-      "SampleSize": 1000,
+      "SampleSize": 11747180,
       "Rate": 0,
       "Lower95": 0,
-      "Upper95": 0.0038267584855551234
+      "Upper95": 3.2701104133031726e-7
     }
   },
   "Truncated": false,

@@ -31,6 +31,8 @@ type LifecycleResult struct {
 	FinishedAt         time.Time
 	WorkloadStartedAt  time.Time
 	WorkloadFinishedAt time.Time
+	FirstMatchedAt     time.Time
+	LastMatchedAt      time.Time
 	Ledger             LedgerSnapshot
 	Checks             []Check
 	Config             RunConfig
@@ -177,6 +179,8 @@ func RunWithFixture(ctx context.Context, cfg Config, scenario Scenario, target T
 		return lifecycleFailure(result, fmt.Errorf("setup %s: %w", scenario.Name(), err))
 	}
 	var issued atomic.Int64
+	var firstMatchedNanos atomic.Int64
+	var lastMatchedNanos atomic.Int64
 	ledger := &Ledger{}
 	var workers sync.WaitGroup
 	var recordErr error
@@ -208,6 +212,11 @@ func RunWithFixture(ctx context.Context, cfg Config, scenario Scenario, target T
 				}
 				started := time.Now()
 				outcome := scenario.Execute(ctx, collection, id, sequence)
+				if outcome.Kind == OutcomeMatched {
+					matchedAt := time.Now().UTC().UnixNano()
+					firstMatchedNanos.CompareAndSwap(0, matchedAt)
+					storeMaximum(&lastMatchedNanos, matchedAt)
+				}
 				if outcome.CAS != nil {
 					outcome.MaximumObservedGeneration = issued.Load() - 1
 					outcome.ObservedGenerationBounded = true
@@ -227,6 +236,12 @@ func RunWithFixture(ctx context.Context, cfg Config, scenario Scenario, target T
 	}
 	workers.Wait()
 	result.WorkloadFinishedAt = time.Now().UTC()
+	if first := firstMatchedNanos.Load(); first != 0 {
+		result.FirstMatchedAt = time.Unix(0, first).UTC()
+	}
+	if last := lastMatchedNanos.Load(); last != 0 {
+		result.LastMatchedAt = time.Unix(0, last).UTC()
+	}
 	result.Truncated = ctx.Err() != nil
 	if result.Truncated {
 		result.StopReason = ctx.Err().Error()
@@ -262,9 +277,39 @@ func RunWithFixture(ctx context.Context, cfg Config, scenario Scenario, target T
 	if err != nil {
 		return lifecycleFailure(result, fmt.Errorf("verify %s: %w", scenario.Name(), err))
 	}
+	checks = append(checks, hotDocumentProgressChecks(result)...)
 	result.Checks = checks
 	result.FinishedAt = time.Now().UTC()
 	return result, nil
+}
+
+func storeMaximum(value *atomic.Int64, candidate int64) {
+	for current := value.Load(); candidate > current; current = value.Load() {
+		if value.CompareAndSwap(current, candidate) {
+			return
+		}
+	}
+}
+
+func hotDocumentProgressChecks(result LifecycleResult) []Check {
+	if result.Config.MergeMode != MergeModeDocumentTouched ||
+		(result.Scenario != "blind-inc" && result.Scenario != "identical-set") {
+		return nil
+	}
+	duration := result.WorkloadFinishedAt.Sub(result.WorkloadStartedAt)
+	tolerance := 5 * time.Second
+	if duration < tolerance {
+		tolerance = duration
+	}
+	lastLag := result.WorkloadFinishedAt.Sub(result.LastMatchedAt)
+	matchSpan := result.LastMatchedAt.Sub(result.FirstMatchedAt)
+	return []Check{
+		{
+			Name:   "hotDocumentMakesProgressThroughRun",
+			Passed: !result.FirstMatchedAt.IsZero() && !result.LastMatchedAt.IsZero() && lastLag <= tolerance && matchSpan+tolerance >= duration,
+			Detail: fmt.Sprintf("duration=%s matchSpan=%s lastMatchLag=%s", duration, matchSpan, lastLag),
+		},
+	}
 }
 
 func lifecycleFailure(result LifecycleResult, err error) (LifecycleResult, error) {

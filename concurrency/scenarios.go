@@ -332,6 +332,13 @@ func (s *blindIncrementScenario) Verify(ctx context.Context, collection Collecti
 			},
 		}
 	}
+	if s.mergeMode == MergeModeDocumentTouched {
+		checks = append(checks, Check{
+			Name:   "hotDocumentRetriesDoNotExhaust",
+			Passed: ledger.Rejected == 0,
+			Detail: fmt.Sprintf("rejected=%d", ledger.Rejected),
+		})
+	}
 	payloadCheck, err := retainedPayloadCheck(ctx, collection, "counter", s.payload)
 	if err != nil {
 		return nil, err

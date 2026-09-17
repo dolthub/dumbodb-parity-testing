@@ -1,12 +1,14 @@
 {
   "Product": "DumboDB",
   "Version": "8.0.28",
-  "Revision": "fcc433c692ac24bd1b0f05f26350dbef72ca49e9",
+  "Revision": "v0.6.3-44-gfcc433c",
   "Scenario": "disjoint-set",
-  "StartedAt": "2026-09-17T20:41:00.199160518Z",
-  "FinishedAt": "2026-09-17T20:41:11.077270609Z",
-  "WorkloadStartedAt": "2026-09-17T20:41:00.228895872Z",
-  "WorkloadFinishedAt": "2026-09-17T20:41:11.076706243Z",
+  "StartedAt": "2026-09-17T20:48:32.644539402Z",
+  "FinishedAt": "2026-09-17T20:48:43.026011717Z",
+  "WorkloadStartedAt": "2026-09-17T20:48:32.674620584Z",
+  "WorkloadFinishedAt": "2026-09-17T20:48:43.02528333Z",
+  "FirstMatchedAt": "2026-09-17T20:48:32.68295074Z",
+  "LastMatchedAt": "2026-09-17T20:48:43.02527383Z",
   "Ledger": {
     "Attempts": 1000,
     "Matched": 1000,
@@ -17,9 +19,9 @@
     "Latency": {
       "LessThan100us": 0,
       "LessThan1ms": 0,
-      "LessThan10ms": 43,
-      "LessThan100ms": 385,
-      "LessThan1s": 568,
+      "LessThan10ms": 34,
+      "LessThan100ms": 358,
+      "LessThan1s": 604,
       "AtLeast1s": 4
     },
     "ErrorSamples": null,
@@ -46,67 +48,67 @@
       "Name": "worker_0RetainsLastAcknowledgement",
       "Passed": true,
       "Skipped": false,
-      "Detail": "present=true stored=990 acknowledged=990"
+      "Detail": "present=true stored=986 acknowledged=986"
     },
     {
       "Name": "worker_1RetainsLastAcknowledgement",
       "Passed": true,
       "Skipped": false,
-      "Detail": "present=true stored=996 acknowledged=996"
+      "Detail": "present=true stored=992 acknowledged=992"
     },
     {
       "Name": "worker_2RetainsLastAcknowledgement",
       "Passed": true,
       "Skipped": false,
-      "Detail": "present=true stored=993 acknowledged=993"
+      "Detail": "present=true stored=994 acknowledged=994"
     },
     {
       "Name": "worker_3RetainsLastAcknowledgement",
       "Passed": true,
       "Skipped": false,
-      "Detail": "present=true stored=977 acknowledged=977"
+      "Detail": "present=true stored=985 acknowledged=985"
     },
     {
       "Name": "worker_4RetainsLastAcknowledgement",
       "Passed": true,
       "Skipped": false,
-      "Detail": "present=true stored=988 acknowledged=988"
+      "Detail": "present=true stored=987 acknowledged=987"
     },
     {
       "Name": "worker_5RetainsLastAcknowledgement",
       "Passed": true,
       "Skipped": false,
-      "Detail": "present=true stored=994 acknowledged=994"
+      "Detail": "present=true stored=995 acknowledged=995"
     },
     {
       "Name": "worker_6RetainsLastAcknowledgement",
       "Passed": true,
       "Skipped": false,
-      "Detail": "present=true stored=961 acknowledged=961"
+      "Detail": "present=true stored=999 acknowledged=999"
     },
     {
       "Name": "worker_7RetainsLastAcknowledgement",
       "Passed": true,
       "Skipped": false,
-      "Detail": "present=true stored=995 acknowledged=995"
+      "Detail": "present=true stored=970 acknowledged=970"
     },
     {
       "Name": "worker_8RetainsLastAcknowledgement",
       "Passed": true,
       "Skipped": false,
-      "Detail": "present=true stored=998 acknowledged=998"
+      "Detail": "present=true stored=984 acknowledged=984"
     },
     {
       "Name": "worker_9RetainsLastAcknowledgement",
       "Passed": true,
       "Skipped": false,
-      "Detail": "present=true stored=989 acknowledged=989"
+      "Detail": "present=true stored=977 acknowledged=977"
     },
     {
       "Name": "worker_10RetainsLastAcknowledgement",
       "Passed": true,
       "Skipped": false,
-      "Detail": "present=true stored=997 acknowledged=997"
+      "Detail": "present=true stored=998 acknowledged=998"
     },
     {
       "Name": "worker_11RetainsLastAcknowledgement",
@@ -118,25 +120,25 @@
       "Name": "worker_12RetainsLastAcknowledgement",
       "Passed": true,
       "Skipped": false,
-      "Detail": "present=true stored=999 acknowledged=999"
+      "Detail": "present=true stored=988 acknowledged=988"
     },
     {
       "Name": "worker_13RetainsLastAcknowledgement",
       "Passed": true,
       "Skipped": false,
-      "Detail": "present=true stored=985 acknowledged=985"
+      "Detail": "present=true stored=951 acknowledged=951"
     },
     {
       "Name": "worker_14RetainsLastAcknowledgement",
       "Passed": true,
       "Skipped": false,
-      "Detail": "present=true stored=991 acknowledged=991"
+      "Detail": "present=true stored=996 acknowledged=996"
     },
     {
       "Name": "worker_15RetainsLastAcknowledgement",
       "Passed": true,
       "Skipped": false,
-      "Detail": "present=true stored=992 acknowledged=992"
+      "Detail": "present=true stored=997 acknowledged=997"
     },
     {
       "Name": "payloadRetained",
@@ -151,7 +153,7 @@
     "Operations": 1000,
     "Workers": 16,
     "Seed": 1,
-    "Database": "storage_document_touched_inline_disjoint_set",
+    "Database": "conc_inline_disjoint_set",
     "Collection": "documents",
     "PayloadBytes": 0,
     "CASDelay": "0s",

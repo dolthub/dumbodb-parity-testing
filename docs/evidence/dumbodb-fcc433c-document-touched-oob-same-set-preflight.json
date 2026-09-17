@@ -1,12 +1,14 @@
 {
   "Product": "DumboDB",
   "Version": "8.0.28",
-  "Revision": "fcc433c692ac24bd1b0f05f26350dbef72ca49e9",
+  "Revision": "v0.6.3-44-gfcc433c",
   "Scenario": "same-set",
-  "StartedAt": "2026-09-17T20:41:47.83640462Z",
-  "FinishedAt": "2026-09-17T20:41:58.466158575Z",
-  "WorkloadStartedAt": "2026-09-17T20:41:47.865806034Z",
-  "WorkloadFinishedAt": "2026-09-17T20:41:58.465491948Z",
+  "StartedAt": "2026-09-17T20:49:19.628508295Z",
+  "FinishedAt": "2026-09-17T20:49:30.607781806Z",
+  "WorkloadStartedAt": "2026-09-17T20:49:19.662234419Z",
+  "WorkloadFinishedAt": "2026-09-17T20:49:30.607034498Z",
+  "FirstMatchedAt": "2026-09-17T20:49:19.670574127Z",
+  "LastMatchedAt": "2026-09-17T20:49:30.607022058Z",
   "Ledger": {
     "Attempts": 1000,
     "Matched": 1000,
@@ -17,10 +19,10 @@
     "Latency": {
       "LessThan100us": 0,
       "LessThan1ms": 0,
-      "LessThan10ms": 30,
-      "LessThan100ms": 356,
-      "LessThan1s": 614,
-      "AtLeast1s": 0
+      "LessThan10ms": 34,
+      "LessThan100ms": 324,
+      "LessThan1s": 641,
+      "AtLeast1s": 1
     },
     "ErrorSamples": null,
     "CAS": {
@@ -46,7 +48,7 @@
       "Name": "finalValueWasIssued",
       "Passed": true,
       "Skipped": false,
-      "Detail": "value=967 attempts=1000"
+      "Detail": "value=1000 attempts=1000"
     },
     {
       "Name": "payloadRetained",
@@ -61,7 +63,7 @@
     "Operations": 1000,
     "Workers": 16,
     "Seed": 1,
-    "Database": "storage_document_touched_oob_same_set",
+    "Database": "conc_oob_same_set",
     "Collection": "documents",
     "PayloadBytes": 8192,
     "CASDelay": "0s",

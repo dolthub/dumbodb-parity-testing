@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -27,6 +28,51 @@ import (
 type memoryCollection struct {
 	mu       sync.Mutex
 	document bson.M
+}
+
+func TestHotDocumentProgressChecksAcceptContinuousProgress(t *testing.T) {
+	started := time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC)
+	for _, scenario := range []string{"blind-inc", "identical-set"} {
+		result := LifecycleResult{
+			Scenario:           scenario,
+			Config:             RunConfig{MergeMode: MergeModeDocumentTouched},
+			WorkloadStartedAt:  started,
+			WorkloadFinishedAt: started.Add(30 * time.Minute),
+			FirstMatchedAt:     started.Add(time.Second),
+			LastMatchedAt:      started.Add(30*time.Minute - time.Second),
+		}
+		checks := hotDocumentProgressChecks(result)
+		if len(checks) != 1 || !checks[0].Passed {
+			t.Fatalf("scenario=%s checks=%+v, want one passing progress check", scenario, checks)
+		}
+	}
+}
+
+func TestHotDocumentProgressChecksRejectStalledRun(t *testing.T) {
+	started := time.Date(2026, time.September, 17, 10, 0, 0, 0, time.UTC)
+	result := LifecycleResult{
+		Scenario:           "blind-inc",
+		Config:             RunConfig{MergeMode: MergeModeDocumentTouched},
+		WorkloadStartedAt:  started,
+		WorkloadFinishedAt: started.Add(30 * time.Minute),
+		FirstMatchedAt:     started.Add(time.Second),
+		LastMatchedAt:      started.Add(10 * time.Minute),
+	}
+	checks := hotDocumentProgressChecks(result)
+	if len(checks) != 1 || checks[0].Passed {
+		t.Fatalf("checks=%+v, want one failing progress check", checks)
+	}
+}
+
+func TestHotDocumentProgressChecksIgnoreOtherWorkloads(t *testing.T) {
+	for _, result := range []LifecycleResult{
+		{Scenario: "cas", Config: RunConfig{MergeMode: MergeModeDocumentTouched}},
+		{Scenario: "blind-inc", Config: RunConfig{MergeMode: MergeModeFieldTouched}},
+	} {
+		if checks := hotDocumentProgressChecks(result); checks != nil {
+			t.Fatalf("checks=%+v, want no progress check", checks)
+		}
+	}
 }
 
 func (c *memoryCollection) InsertOne(_ context.Context, document interface{}) error {
