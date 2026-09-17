@@ -264,3 +264,20 @@ func (rs *ReplicaSet) removeMember(ctx context.Context, addr string) error {
 	}
 	return nil
 }
+
+// RemoveMember drops a member from the replica set configuration. This is
+// MongoDB's way to stop a member replicating, and since dumbodb 3f3bc13 it is
+// the only way: the dumboReplicationDetach command was removed in favour of it.
+func (rs *ReplicaSet) RemoveMember(ctx context.Context, addr string) error {
+	return rs.removeMember(ctx, addr)
+}
+
+// AddMember re-adds a member to the configuration as hidden, priority 0,
+// votes 0, which is how a member removed with RemoveMember rejoins.
+func (rs *ReplicaSet) AddMember(ctx context.Context, m *Member) error {
+	if err := rs.addHiddenMember(ctx, m); err != nil {
+		return err
+	}
+	rs.Members = append(rs.Members, m)
+	return nil
+}
