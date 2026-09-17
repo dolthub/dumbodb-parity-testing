@@ -189,6 +189,23 @@ func TestCounterChecksRejectDoubleMatch(t *testing.T) {
 	}
 }
 
+func TestDocumentTouchedCASRequiresNoMatchInsteadOfRejection(t *testing.T) {
+	passing := LedgerSnapshot{Attempts: 2, Matched: 1, NoMatch: 1, Modified: 1}
+	if !ChecksPassed(strictCASClientOutcomeChecks(passing)) {
+		t.Fatalf("clean no-match failed: %+v", strictCASClientOutcomeChecks(passing))
+	}
+
+	rejected := LedgerSnapshot{Attempts: 2, Matched: 1, Rejected: 1, Modified: 1}
+	if ChecksPassed(strictCASClientOutcomeChecks(rejected)) {
+		t.Fatal("client-visible CAS rejection passed")
+	}
+
+	missing := LedgerSnapshot{Attempts: 2, Matched: 1, Modified: 1}
+	if ChecksPassed(strictCASClientOutcomeChecks(missing)) {
+		t.Fatal("unaccounted conclusive CAS attempt passed")
+	}
+}
+
 func TestFieldDivergentCounterAllowsConvergentMatches(t *testing.T) {
 	ledger := &Ledger{}
 	for sequence := int64(1); sequence <= 2; sequence++ {

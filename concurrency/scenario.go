@@ -64,7 +64,7 @@ func newScenario(name string, workers, payloadBytes int, seed int64, casDelay ti
 	case "cas":
 		return &casScenario{payload: payload, seed: seed, maxDelay: casDelay, mergeMode: mergeMode}, nil
 	case "uuid-cas":
-		return &uuidCASScenario{payload: payload, seed: seed, maxDelay: casDelay}, nil
+		return &uuidCASScenario{payload: payload, seed: seed, maxDelay: casDelay, mergeMode: mergeMode}, nil
 	case "blind-inc":
 		return &blindIncrementScenario{payload: payload, mergeMode: mergeMode}, nil
 	case "disjoint-set":
@@ -74,7 +74,7 @@ func newScenario(name string, workers, payloadBytes int, seed int64, casDelay ti
 	case "identical-set":
 		return &identicalSetScenario{payload: payload}, nil
 	case "divergent-cas":
-		return &divergentCASScenario{payload: payload, seed: seed, maxDelay: casDelay}, nil
+		return &divergentCASScenario{payload: payload, seed: seed, maxDelay: casDelay, mergeMode: mergeMode}, nil
 	default:
 		return nil, fmt.Errorf("unknown scenario %q", name)
 	}
