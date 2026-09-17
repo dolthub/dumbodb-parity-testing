@@ -28,8 +28,8 @@ func TestResultExitCodeDistinguishesVerdicts(t *testing.T) {
 		err    error
 		want   int
 	}{
-		{name: "pass", result: concurrency.LifecycleResult{}, want: 0},
-		{name: "inconclusive", result: concurrency.LifecycleResult{Truncated: true}, want: 3},
+		{name: "pass", result: concurrency.LifecycleResult{Checks: []concurrency.Check{{Name: "verified", Passed: true}}}, want: 0},
+		{name: "inconclusive", result: concurrency.LifecycleResult{Truncated: true, Checks: []concurrency.Check{{Name: "verified", Passed: true}}}, want: 3},
 		{name: "failed", result: concurrency.LifecycleResult{Checks: []concurrency.Check{{Passed: false}}}, want: 1},
 		{name: "runner error", result: concurrency.LifecycleResult{}, err: errors.New("runner"), want: 1},
 	}

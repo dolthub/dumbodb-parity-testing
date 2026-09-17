@@ -83,6 +83,13 @@ func TestReportPassAndFailure(t *testing.T) {
 	}
 }
 
+func TestReportWithoutChecksFails(t *testing.T) {
+	result := LifecycleResult{Ledger: LedgerSnapshot{Attempts: 1, Matched: 1}}
+	if result.Verdict() != VerdictFailed {
+		t.Fatalf("empty evidence verdict = %s", result.Verdict())
+	}
+}
+
 func TestLedgerBoundsErrorSamplesAndBucketsLatency(t *testing.T) {
 	ledger := &Ledger{}
 	for i := 0; i < maxErrorSamples+5; i++ {
