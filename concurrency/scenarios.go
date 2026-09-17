@@ -64,9 +64,10 @@ type uuidCASDocument struct {
 }
 
 type uuidCASScenario struct {
-	payload  string
-	seed     int64
-	maxDelay time.Duration
+	payload   string
+	seed      int64
+	maxDelay  time.Duration
+	mergeMode string
 }
 
 func (s *uuidCASScenario) Name() string {
@@ -126,7 +127,7 @@ func (s *uuidCASScenario) Verify(ctx context.Context, collection Collection, led
 	expectedToken := uuidToken(document.LastOperation)
 	tokenMatchesOperation := binaryTokensEqual(document.Token, expectedToken)
 	operationWasIssued := document.LastOperation > 0 && document.LastOperation <= ledger.Attempts
-	return []Check{
+	checks := []Check{
 		{
 			Name:    "storedAppliedEqualsMatched",
 			Passed:  document.Applied == ledger.Matched,
@@ -169,7 +170,11 @@ func (s *uuidCASScenario) Verify(ctx context.Context, collection Collection, led
 				document.Applied,
 			),
 		},
-	}, nil
+	}
+	if s.mergeMode == MergeModeDocumentTouched {
+		checks = append(checks, strictCASClientOutcomeChecks(ledger)...)
+	}
+	return checks, nil
 }
 
 func uuidToken(sequence int64) primitive.Binary {
@@ -257,7 +262,11 @@ func (s *casScenario) Verify(ctx context.Context, collection Collection, ledger 
 	if s.mergeMode == MergeModeFieldDivergent {
 		return fieldDivergentCounterChecks(version, ledger), nil
 	}
-	return counterChecks(version, ledger), nil
+	checks := counterChecks(version, ledger)
+	if s.mergeMode == MergeModeDocumentTouched {
+		checks = append(checks, strictCASClientOutcomeChecks(ledger)...)
+	}
+	return checks, nil
 }
 
 type blindIncrementScenario struct {
@@ -508,9 +517,10 @@ type divergentCASDocument struct {
 }
 
 type divergentCASScenario struct {
-	payload  string
-	seed     int64
-	maxDelay time.Duration
+	payload   string
+	seed      int64
+	maxDelay  time.Duration
+	mergeMode string
 }
 
 func (s *divergentCASScenario) Name() string {
@@ -557,6 +567,9 @@ func (s *divergentCASScenario) Verify(ctx context.Context, collection Collection
 		return nil, err
 	}
 	checks := counterChecks(document.Generation, ledger)
+	if s.mergeMode == MergeModeDocumentTouched {
+		checks = append(checks, strictCASClientOutcomeChecks(ledger)...)
+	}
 	checks = append(checks, Check{
 		Name: "finalValueBelongsToAcceptedOperation",
 		Passed: document.Value > 0 && document.Value <= ledger.Attempts &&
@@ -565,6 +578,21 @@ func (s *divergentCASScenario) Verify(ctx context.Context, collection Collection
 		Detail:  fmt.Sprintf("value=%d attempts=%d", document.Value, ledger.Attempts),
 	})
 	return checks, nil
+}
+
+func strictCASClientOutcomeChecks(ledger LedgerSnapshot) []Check {
+	return []Check{
+		{
+			Name:   "refusedCASReturnsNoMatch",
+			Passed: ledger.Rejected == 0,
+			Detail: fmt.Sprintf("rejected=%d noMatch=%d", ledger.Rejected, ledger.NoMatch),
+		},
+		{
+			Name:   "everyConclusiveCASAttemptHasCommandResult",
+			Passed: ledger.Matched+ledger.NoMatch == ledger.Attempts-ledger.Indeterminate,
+			Detail: fmt.Sprintf("matched=%d noMatch=%d attempts=%d indeterminate=%d", ledger.Matched, ledger.NoMatch, ledger.Attempts, ledger.Indeterminate),
+		},
+	}
 }
 
 func (s *sameFieldSetScenario) Name() string {
