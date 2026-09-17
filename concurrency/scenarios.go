@@ -171,7 +171,7 @@ func (s *uuidCASScenario) Verify(ctx context.Context, collection Collection, led
 			),
 		},
 	}
-	if s.mergeMode == MergeModeDocumentTouched {
+	if s.mergeMode == MergeModeDocumentTouched || s.mergeMode == MergeModeDocumentDivergent {
 		checks = append(checks, strictCASClientOutcomeChecks(ledger)...)
 	}
 	return checks, nil
@@ -262,6 +262,10 @@ func (s *casScenario) Verify(ctx context.Context, collection Collection, ledger 
 	if s.mergeMode == MergeModeFieldDivergent {
 		return fieldDivergentCounterChecks(version, ledger), nil
 	}
+	if s.mergeMode == MergeModeDocumentDivergent {
+		checks := fieldDivergentCounterChecks(version, ledger)
+		return append(checks, strictCASClientOutcomeChecks(ledger)...), nil
+	}
 	checks := counterChecks(version, ledger)
 	if s.mergeMode == MergeModeDocumentTouched {
 		checks = append(checks, strictCASClientOutcomeChecks(ledger)...)
@@ -295,7 +299,7 @@ func (s *blindIncrementScenario) Verify(ctx context.Context, collection Collecti
 	if err != nil {
 		return nil, err
 	}
-	if s.mergeMode == MergeModeFieldDivergent {
+	if s.mergeMode == MergeModeFieldDivergent || s.mergeMode == MergeModeDocumentDivergent {
 		return fieldDivergentBlindIncrementChecks(version, ledger), nil
 	}
 	return []Check{
@@ -567,7 +571,7 @@ func (s *divergentCASScenario) Verify(ctx context.Context, collection Collection
 		return nil, err
 	}
 	checks := counterChecks(document.Generation, ledger)
-	if s.mergeMode == MergeModeDocumentTouched {
+	if s.mergeMode == MergeModeDocumentTouched || s.mergeMode == MergeModeDocumentDivergent {
 		checks = append(checks, strictCASClientOutcomeChecks(ledger)...)
 	}
 	checks = append(checks, Check{
@@ -593,6 +597,115 @@ func strictCASClientOutcomeChecks(ledger LedgerSnapshot) []Check {
 			Detail: fmt.Sprintf("matched=%d noMatch=%d attempts=%d indeterminate=%d", ledger.Matched, ledger.NoMatch, ledger.Attempts, ledger.Indeterminate),
 		},
 	}
+}
+
+type wholeDocumentCASScenario struct {
+	name      string
+	payload   string
+	seed      int64
+	maxDelay  time.Duration
+	divergent bool
+}
+
+type wholeDocumentCASState struct {
+	Generation int64
+}
+
+func (s *wholeDocumentCASScenario) Name() string {
+	return s.name
+}
+
+func (s *wholeDocumentCASScenario) Setup(ctx context.Context, collection Collection) error {
+	return collection.InsertOne(ctx, bson.D{
+		{Key: "_id", Value: "whole-document"},
+		{Key: "generation", Value: int64(0)},
+		{Key: "state", Value: int64(0)},
+		{Key: "payload", Value: s.payload},
+	})
+}
+
+func (s *wholeDocumentCASScenario) Execute(ctx context.Context, collection Collection, worker int, sequence int64) Outcome {
+	var observed wholeDocumentCASState
+	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "whole-document"}}, &observed); err != nil {
+		return Outcome{Kind: OutcomeIndeterminate, Err: err}
+	}
+	if err := waitCASDelay(ctx, s.seed, sequence, s.maxDelay); err != nil {
+		return Outcome{Kind: OutcomeIndeterminate, Err: err}
+	}
+	nextGeneration := observed.Generation + 1
+	fields := bson.D{
+		{Key: "generation", Value: nextGeneration},
+		{Key: "state", Value: nextGeneration},
+	}
+	if s.divergent {
+		fields = append(fields, bson.E{Key: fmt.Sprintf("worker_%d", worker), Value: sequence})
+	}
+	result, err := collection.UpdateOne(ctx,
+		bson.D{
+			{Key: "_id", Value: "whole-document"},
+			{Key: "generation", Value: observed.Generation},
+		},
+		bson.D{{Key: "$set", Value: fields}},
+	)
+	outcome := UpdateOutcome(result, err)
+	outcome.Sequence = sequence
+	outcome.Worker = worker
+	outcome.CAS = &CASOperation{ObservedGeneration: observed.Generation, ProposedGeneration: nextGeneration}
+	return outcome
+}
+
+func (s *wholeDocumentCASScenario) Verify(ctx context.Context, collection Collection, ledger LedgerSnapshot) ([]Check, error) {
+	var document bson.M
+	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "whole-document"}}, &document); err != nil {
+		return nil, err
+	}
+	generation, generationOK := numericInt64(document["generation"])
+	state, stateOK := numericInt64(document["state"])
+	checks := []Check{
+		{
+			Name:   "wholeDocumentShapeIsValid",
+			Passed: generationOK && stateOK && state == generation && document["payload"] == s.payload,
+			Detail: fmt.Sprintf("generation=%d state=%d payloadBytes=%d", generation, state, len(s.payload)),
+		},
+	}
+	if s.divergent {
+		checks = append(checks, counterChecks(generation, ledger)...)
+		workerFields := 0
+		invalidWorkerFields := 0
+		for key, value := range document {
+			if !strings.HasPrefix(key, "worker_") {
+				continue
+			}
+			workerFields++
+			sequence, numeric := numericInt64(value)
+			if !numeric || sequence <= 0 || !ledger.CAS.OperationMatched(sequence) {
+				invalidWorkerFields++
+			}
+		}
+		checks = append(checks, Check{
+			Name:    "workerFieldsBelongToMatchedOperations",
+			Passed:  (ledger.Matched == 0 || workerFields > 0) && invalidWorkerFields == 0,
+			Skipped: ledger.Indeterminate > 0,
+			Detail:  fmt.Sprintf("workerFields=%d invalid=%d", workerFields, invalidWorkerFields),
+		})
+	} else {
+		checks = append(checks, fieldDivergentCounterChecks(generation, ledger)...)
+		unexpectedFields := 0
+		for key := range document {
+			switch key {
+			case "_id", "generation", "state", "payload":
+			default:
+				unexpectedFields++
+			}
+		}
+		checks = append(checks, Check{
+			Name:   "convergentWholeDocumentIsExact",
+			Passed: unexpectedFields == 0,
+			Detail: fmt.Sprintf("unexpectedFields=%d", unexpectedFields),
+		})
+	}
+	checks = append(checks, strictCASClientOutcomeChecks(ledger)...)
+	return checks, nil
 }
 
 func (s *sameFieldSetScenario) Name() string {

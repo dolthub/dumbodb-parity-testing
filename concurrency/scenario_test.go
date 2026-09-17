@@ -97,6 +97,59 @@ func TestNewScenario(t *testing.T) {
 	}
 }
 
+func TestWholeDocumentScenariosRequireDocumentDivergent(t *testing.T) {
+	for _, name := range []string{"whole-document-convergent", "whole-document-divergent"} {
+		for _, mode := range []string{"", MergeModeDocumentTouched, MergeModeFieldTouched, MergeModeFieldDivergent} {
+			if _, err := NewScenarioForConfig(Config{Scenario: name, Workers: 2, MergeMode: mode}); err == nil {
+				t.Fatalf("scenario %s accepted mode %q", name, mode)
+			}
+		}
+		scenario, err := NewScenarioForConfig(Config{Scenario: name, Workers: 2, MergeMode: MergeModeDocumentDivergent})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if scenario.Name() != name {
+			t.Fatalf("scenario name = %q, want %q", scenario.Name(), name)
+		}
+	}
+}
+
+func TestWholeDocumentOracleSeparatesConvergenceFromDivergence(t *testing.T) {
+	ledger := &Ledger{}
+	for sequence := int64(1); sequence <= 2; sequence++ {
+		if err := ledger.Record(Outcome{
+			Kind:     OutcomeMatched,
+			Modified: true,
+			Sequence: sequence,
+			CAS: &CASOperation{
+				ObservedGeneration: 0,
+				ProposedGeneration: 1,
+			},
+		}, 0); err != nil {
+			t.Fatal(err)
+		}
+	}
+	snapshot := ledger.Snapshot()
+	convergent := &wholeDocumentCASScenario{name: "whole-document-convergent"}
+	checks, err := convergent.Verify(context.Background(), finalDocumentCollection{document: bson.M{
+		"_id": "whole-document", "generation": int64(1), "state": int64(1), "payload": "",
+	}}, snapshot)
+	if err != nil || !ChecksPassed(checks) {
+		t.Fatalf("convergent duplicate matches failed: checks=%+v err=%v", checks, err)
+	}
+
+	divergent := &wholeDocumentCASScenario{name: "whole-document-divergent", divergent: true}
+	checks, err = divergent.Verify(context.Background(), finalDocumentCollection{document: bson.M{
+		"_id": "whole-document", "generation": int64(1), "state": int64(1), "payload": "", "worker_0": int64(1),
+	}}, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ChecksPassed(checks) {
+		t.Fatalf("divergent duplicate matches passed: %+v", checks)
+	}
+}
+
 func TestUUIDTokenIsDeterministicUniqueSubtypeFour(t *testing.T) {
 	first := uuidToken(1)
 	again := uuidToken(1)

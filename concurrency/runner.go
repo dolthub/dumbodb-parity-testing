@@ -274,7 +274,8 @@ func lifecycleFailure(result LifecycleResult, err error) (LifecycleResult, error
 }
 
 func scenarioLatencyScope(name string) string {
-	if name == "cas" || name == "uuid-cas" {
+	if name == "cas" || name == "uuid-cas" || name == "divergent-cas" ||
+		name == "whole-document-convergent" || name == "whole-document-divergent" {
 		return "read-and-update"
 	}
 	return "update"
