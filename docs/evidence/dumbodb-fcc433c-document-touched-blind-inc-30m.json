@@ -3,26 +3,26 @@
   "Version": "8.0.28",
   "Revision": "v0.6.3-44-gfcc433c",
   "Scenario": "blind-inc",
-  "StartedAt": "2026-09-17T20:48:57.38151234Z",
-  "FinishedAt": "2026-09-17T20:49:07.807626859Z",
-  "WorkloadStartedAt": "2026-09-17T20:48:57.411729828Z",
-  "WorkloadFinishedAt": "2026-09-17T20:49:07.806428007Z",
-  "FirstMatchedAt": "2026-09-17T20:48:57.419993432Z",
-  "LastMatchedAt": "2026-09-17T20:49:07.806420947Z",
+  "StartedAt": "2026-09-17T20:50:00.698271617Z",
+  "FinishedAt": "2026-09-17T21:20:01.078508052Z",
+  "WorkloadStartedAt": "2026-09-17T20:50:00.732303411Z",
+  "WorkloadFinishedAt": "2026-09-17T21:20:01.077261429Z",
+  "FirstMatchedAt": "2026-09-17T20:50:00.74133138Z",
+  "LastMatchedAt": "2026-09-17T21:20:01.077251879Z",
   "Ledger": {
-    "Attempts": 1000,
-    "Matched": 1000,
+    "Attempts": 112164,
+    "Matched": 112164,
     "NoMatch": 0,
-    "Modified": 1000,
+    "Modified": 112164,
     "Rejected": 0,
     "Indeterminate": 0,
     "Latency": {
       "LessThan100us": 0,
       "LessThan1ms": 0,
-      "LessThan10ms": 51,
-      "LessThan100ms": 350,
-      "LessThan1s": 596,
-      "AtLeast1s": 3
+      "LessThan10ms": 171,
+      "LessThan100ms": 8226,
+      "LessThan1s": 89991,
+      "AtLeast1s": 13776
     },
     "ErrorSamples": null,
     "CAS": {
@@ -42,19 +42,19 @@
       "Name": "storedVersionEqualsMatched",
       "Passed": true,
       "Skipped": false,
-      "Detail": "version=1000 matched=1000"
+      "Detail": "version=112164 matched=112164"
     },
     {
       "Name": "everyMatchModified",
       "Passed": true,
       "Skipped": false,
-      "Detail": "modified=1000 matched=1000"
+      "Detail": "modified=112164 matched=112164"
     },
     {
       "Name": "allAcknowledgedWritesMatched",
       "Passed": true,
       "Skipped": false,
-      "Detail": "matched=1000 attempts=1000 rejected=0 indeterminate=0"
+      "Detail": "matched=112164 attempts=112164 rejected=0 indeterminate=0"
     },
     {
       "Name": "hotDocumentRetriesDoNotExhaust",
@@ -72,16 +72,16 @@
       "Name": "hotDocumentMakesProgressThroughRun",
       "Passed": true,
       "Skipped": false,
-      "Detail": "duration=10.394698179s matchSpan=10.386427515s lastMatchLag=7.06µs"
+      "Detail": "duration=30m0.344958018s matchSpan=30m0.335920499s lastMatchLag=9.55µs"
     }
   ],
   "Config": {
     "Target": "mongodb://127.0.0.1:27018",
     "Duration": "30m0s",
-    "Operations": 1000,
-    "Workers": 16,
+    "Operations": 0,
+    "Workers": 32,
     "Seed": 1,
-    "Database": "conc_oob_blind_inc",
+    "Database": "conc_document_touched_blind_inc_30m",
     "Collection": "documents",
     "PayloadBytes": 8192,
     "CASDelay": "0s",
@@ -90,32 +90,32 @@
   },
   "Statistics": {
     "MatchRate": {
-      "Count": 1000,
-      "SampleSize": 1000,
+      "Count": 112164,
+      "SampleSize": 112164,
       "Rate": 1,
-      "Lower95": 0.996173241514445,
+      "Lower95": 0.9999657525831761,
       "Upper95": 1
     },
     "NoMatchRate": {
       "Count": 0,
-      "SampleSize": 1000,
+      "SampleSize": 112164,
       "Rate": 0,
       "Lower95": 0,
-      "Upper95": 0.0038267584855551234
+      "Upper95": 0.000034247416824049424
     },
     "RejectedRate": {
       "Count": 0,
-      "SampleSize": 1000,
+      "SampleSize": 112164,
       "Rate": 0,
       "Lower95": 0,
-      "Upper95": 0.0038267584855551234
+      "Upper95": 0.000034247416824049424
     },
     "IndeterminateRate": {
       "Count": 0,
-      "SampleSize": 1000,
+      "SampleSize": 112164,
       "Rate": 0,
       "Lower95": 0,
-      "Upper95": 0.0038267584855551234
+      "Upper95": 0.000034247416824049424
     }
   },
   "Truncated": false,

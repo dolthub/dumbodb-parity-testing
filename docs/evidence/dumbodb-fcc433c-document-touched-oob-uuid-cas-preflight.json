@@ -1,37 +1,39 @@
 {
   "Product": "DumboDB",
   "Version": "8.0.28",
-  "Revision": "fcc433c692ac24bd1b0f05f26350dbef72ca49e9",
+  "Revision": "v0.6.3-44-gfcc433c",
   "Scenario": "uuid-cas",
-  "StartedAt": "2026-09-17T20:41:22.493739311Z",
-  "FinishedAt": "2026-09-17T20:41:23.930984568Z",
-  "WorkloadStartedAt": "2026-09-17T20:41:22.522941092Z",
-  "WorkloadFinishedAt": "2026-09-17T20:41:23.929944258Z",
+  "StartedAt": "2026-09-17T20:48:54.360395826Z",
+  "FinishedAt": "2026-09-17T20:48:55.870081769Z",
+  "WorkloadStartedAt": "2026-09-17T20:48:54.391559614Z",
+  "WorkloadFinishedAt": "2026-09-17T20:48:55.868974917Z",
+  "FirstMatchedAt": "2026-09-17T20:48:54.40293875Z",
+  "LastMatchedAt": "2026-09-17T20:48:55.866839116Z",
   "Ledger": {
     "Attempts": 1000,
-    "Matched": 111,
-    "NoMatch": 889,
-    "Modified": 111,
+    "Matched": 116,
+    "NoMatch": 884,
+    "Modified": 116,
     "Rejected": 0,
     "Indeterminate": 0,
     "Latency": {
       "LessThan100us": 0,
       "LessThan1ms": 0,
-      "LessThan10ms": 25,
-      "LessThan100ms": 975,
+      "LessThan10ms": 17,
+      "LessThan100ms": 983,
       "LessThan1s": 0,
       "AtLeast1s": 0
     },
     "ErrorSamples": null,
     "CAS": {
-      "MatchedEdges": 111,
+      "MatchedEdges": 116,
       "DuplicateMatches": 0,
       "InvalidEdges": 0,
-      "HighestObserved": 110,
-      "UniqueObserved": 111,
-      "ObservedGenerationSlots": 111,
+      "HighestObserved": 115,
+      "UniqueObserved": 116,
+      "ObservedGenerationSlots": 116,
       "MatchedOperationWords": 16,
-      "TrackerBytes": 2015,
+      "TrackerBytes": 2100,
       "Findings": null
     }
   },
@@ -40,13 +42,13 @@
       "Name": "storedAppliedEqualsMatched",
       "Passed": true,
       "Skipped": false,
-      "Detail": "applied=111 matched=111"
+      "Detail": "applied=116 matched=116"
     },
     {
       "Name": "everyMatchModified",
       "Passed": true,
       "Skipped": false,
-      "Detail": "modified=111 matched=111"
+      "Detail": "modified=116 matched=116"
     },
     {
       "Name": "finalTokenIsUUID",
@@ -58,7 +60,7 @@
       "Name": "finalTokenMatchesIssuedOperation",
       "Passed": true,
       "Skipped": false,
-      "Detail": "lastOperation=996 attempts=1000"
+      "Detail": "lastOperation=999 attempts=1000"
     },
     {
       "Name": "oneMatchPerObservedGeneration",
@@ -70,19 +72,19 @@
       "Name": "matchedEdgesFormCompleteChain",
       "Passed": true,
       "Skipped": false,
-      "Detail": "edges=111 invalid=0 highestObserved=110 applied=111"
+      "Detail": "edges=116 invalid=0 highestObserved=115 applied=116"
     },
     {
       "Name": "refusedCASReturnsNoMatch",
       "Passed": true,
       "Skipped": false,
-      "Detail": "rejected=0 noMatch=889"
+      "Detail": "rejected=0 noMatch=884"
     },
     {
       "Name": "everyConclusiveCASAttemptHasCommandResult",
       "Passed": true,
       "Skipped": false,
-      "Detail": "matched=111 noMatch=889 attempts=1000 indeterminate=0"
+      "Detail": "matched=116 noMatch=884 attempts=1000 indeterminate=0"
     },
     {
       "Name": "payloadRetained",
@@ -97,7 +99,7 @@
     "Operations": 1000,
     "Workers": 16,
     "Seed": 1,
-    "Database": "storage_document_touched_oob_uuid_cas",
+    "Database": "conc_oob_uuid_cas",
     "Collection": "documents",
     "PayloadBytes": 8192,
     "CASDelay": "0s",
@@ -106,18 +108,18 @@
   },
   "Statistics": {
     "MatchRate": {
-      "Count": 111,
+      "Count": 116,
       "SampleSize": 1000,
-      "Rate": 0.111,
-      "Lower95": 0.09299921045824965,
-      "Upper95": 0.13197800764351225
+      "Rate": 0.116,
+      "Lower95": 0.09760567703963383,
+      "Upper95": 0.13733327347727253
     },
     "NoMatchRate": {
-      "Count": 889,
+      "Count": 884,
       "SampleSize": 1000,
-      "Rate": 0.889,
-      "Lower95": 0.8680219923564878,
-      "Upper95": 0.9070007895417505
+      "Rate": 0.884,
+      "Lower95": 0.8626667265227275,
+      "Upper95": 0.9023943229603661
     },
     "RejectedRate": {
       "Count": 0,
