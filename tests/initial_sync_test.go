@@ -299,10 +299,19 @@ func TestInitialSync_UndecodableTypesFailHonestly(t *testing.T) {
 		if err == nil && p.State == harness.StateSecondary {
 			t.Fatalf("dumbodb %s claims SECONDARY while holding a collection it could not clone", commit)
 		}
+		// Wait for the FAILURE to be reported, not merely for
+		// initialSyncStatus to exist. Since dumbodb 381a449 aligned the
+		// observability surface with MongoDB, that document is present
+		// throughout a healthy initial sync to report progress, which is what
+		// mongod does. Breaking on its presence caught the first progress
+		// poll and then asserted on failure fields that were legitimately
+		// still empty.
 		if s, err := rs.Status(ctx, subject.Addr); err == nil {
-			if _, reported := s["initialSyncStatus"]; reported {
-				status = s
-				break
+			if sync, ok := s["initialSyncStatus"].(bson.M); ok {
+				if message, _ := sync["initialSyncFailure"].(string); message != "" {
+					status = s
+					break
+				}
 			}
 		}
 		time.Sleep(500 * time.Millisecond)

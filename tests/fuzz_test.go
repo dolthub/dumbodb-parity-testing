@@ -28,6 +28,7 @@
 package tests
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
@@ -37,6 +38,7 @@ import (
 	"testing"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
@@ -491,13 +493,17 @@ func TestFuzz_DetectsInjectedDivergence(t *testing.T) {
 	const seed = 424242
 	f.trial++
 	dbName := fmt.Sprintf("fuzz_control_%d", f.trial)
-	if err := seedFuzzTargets(ctx, primaryClient.Database(dbName)); err != nil {
-		t.Fatalf("seeding the control: %v", err)
+	// Seed the corruption corpus rather than the fuzz targets. The corruptions
+	// address specific field names, and GenerateDocument produces none of
+	// them: retypeInt looks for "n", finds nothing, and returns the document
+	// unchanged, after which the comparator correctly reports identical and
+	// the control blames it for a difference that was never injected.
+	if err := harness.SeedCorruptionCorpus(ctx, primaryClient, dbName); err != nil {
+		t.Fatalf("seeding the corruption corpus: %v", err)
 	}
-	// A non-destructive sequence, so every corruption has a document, an index
-	// and a collection to corrupt. A drawn sequence can drop the collection,
-	// and then most of the corpus cannot be applied and the control silently
-	// checks a fraction of what it claims to.
+	// A non-destructive sequence on top, so the control still exercises a
+	// replicated workload rather than a static corpus. A drawn sequence can
+	// drop the collection, and then most of the corpus has nothing to corrupt.
 	workload := harness.Workload{Name: dbName, Seed: seed, Ops: nonDestructiveSequence(seed, 20)}
 	if _, err := workload.Run(ctx, primaryClient.Database(dbName)); err != nil {
 		t.Fatalf("running the control workload: %v", err)
@@ -523,10 +529,59 @@ func TestFuzz_DetectsInjectedDivergence(t *testing.T) {
 			if err := c.Apply(corrupted); err != nil {
 				t.Skipf("corruption %q does not apply to this trial's shape: %v", c.Name, err)
 			}
+			// A corruption that silently changed nothing would look exactly
+			// like a comparator that missed a real difference, and the second
+			// reading is far more alarming than the first. Separate them here
+			// rather than leave the reader to guess which one happened.
+			if !statesDiffer(subjectState, corrupted) {
+				t.Fatalf("corruption %q left the captured state byte-identical, so it injected nothing and this case tests nothing. %s",
+					c.Name, c.Rationale)
+			}
 			if d := harness.DiffServerState(referenceState, corrupted); len(d) == 0 {
-				t.Errorf("the fuzz comparison reported IDENTICAL after injecting %q. %s", c.Name, c.Rationale)
+				t.Errorf("the fuzz comparison reported IDENTICAL after injecting %q, which did change the captured state. %s",
+					c.Name, c.Rationale)
 				return
 			}
 		})
 	}
+}
+
+// statesDiffer reports whether two captures hold any different bytes, without
+// going through DiffServerState, which is the thing under test here.
+func statesDiffer(a, b *harness.ServerState) bool {
+	if len(a.Databases) != len(b.Databases) {
+		return true
+	}
+	for name, dbA := range a.Databases {
+		dbB, present := b.Databases[name]
+		if !present || len(dbA.Collections) != len(dbB.Collections) {
+			return true
+		}
+		for collName, collA := range dbA.Collections {
+			collB, present := dbB.Collections[collName]
+			if !present {
+				return true
+			}
+			if !bytes.Equal(collA.Options, collB.Options) {
+				return true
+			}
+			if mapsDiffer(collA.Documents, collB.Documents) || mapsDiffer(collA.Indexes, collB.Indexes) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func mapsDiffer(a, b map[string]bson.Raw) bool {
+	if len(a) != len(b) {
+		return true
+	}
+	for key, valueA := range a {
+		valueB, present := b[key]
+		if !present || !bytes.Equal(valueA, valueB) {
+			return true
+		}
+	}
+	return false
 }
