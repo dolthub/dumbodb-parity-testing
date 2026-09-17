@@ -1,0 +1,147 @@
+name: Replication Suite
+
+# Split out of parity.yml deliberately. This suite spawns its own multi-member
+# replica sets and runs for the better part of an hour, so attaching it to every
+# pull request would make unrelated parity work wait on it.
+#
+# It also verifies a subject that lives in a DIFFERENT repository: the job builds
+# DumboDB from dolthub/dumbodb. A replication change there cannot trigger a
+# workflow here, so pull-request triggering would miss exactly the regressions
+# this suite exists to catch. The schedule is the real safety net; the pull
+# request trigger only guards changes to the suite itself.
+
+on:
+  # Nightly against dumbodb main. This is what catches a replication regression
+  # landed in the other repository.
+  schedule:
+    - cron: "0 3 * * *"
+
+  # On demand, optionally against a specific dumbodb branch or commit, for
+  # checking a change before it merges.
+  workflow_dispatch:
+    inputs:
+      dumbodb_ref:
+        description: "dumbodb branch or commit to build (default: matching branch, else main)"
+        required: false
+        type: string
+
+  # Only when the suite itself changes. Editing a parity CRUD test should not
+  # cost an hour of runner time.
+  pull_request:
+    paths:
+      - "harness/**"
+      - "wire/**"
+      - "tests/adversarial_test.go"
+      - "tests/honesty_test.go"
+      - "tests/initial_sync_test.go"
+      - "tests/negative_control_test.go"
+      - "tests/replication_test.go"
+      - "tests/steady_state_test.go"
+      - "tests/workload_test.go"
+      - ".github/workflows/replication.yml"
+
+jobs:
+  replication:
+    # Separate from the parity job on purpose. These cases spawn their own
+    # multi-member replica sets and take far longer than the 15m parity budget,
+    # and a red replication suite must not obscure CRUD parity results while
+    # replication is still being built out.
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.7"
+          cache: true
+
+      - name: Install mongod binary
+        run: |
+          codename=$(. /etc/os-release && echo "$VERSION_CODENAME")
+          curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc \
+            | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg
+          echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu ${codename}/mongodb-org/8.0 multiverse" \
+            | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+          sudo apt-get update
+          # 8.0.28 is the oracle the replication design document is written
+          # against; the harness spawns its own sets from this binary.
+          sudo apt-get install -y mongodb-org-server=8.0.28
+          mongod --version
+
+      - name: Build DumboDB
+        env:
+          # An explicit ref from workflow_dispatch wins; otherwise fall back to a
+          # same-named branch in dumbodb, otherwise main.
+          REQUESTED: ${{ inputs.dumbodb_ref }}
+          CANDIDATE: ${{ github.head_ref || github.ref_name }}
+        run: |
+          git clone --depth 1 https://x:${{ secrets.DUMBODB_READ_TOKEN }}@github.com/dolthub/dumbodb.git /tmp/dumbodb
+          cd /tmp/dumbodb
+
+          if [ -n "$REQUESTED" ]; then
+            echo "Building dumbodb from requested ref: ${REQUESTED}"
+            # Unshallow enough to reach an arbitrary commit, not just a branch tip.
+            git fetch origin "$REQUESTED" || git fetch origin
+            git checkout FETCH_HEAD 2>/dev/null || git checkout "$REQUESTED"
+          elif [ -n "$CANDIDATE" ] && [ "$CANDIDATE" != "main" ] && \
+             git ls-remote --exit-code --heads origin "refs/heads/${CANDIDATE}" >/dev/null 2>&1; then
+            echo "Building dumbodb from matching branch: ${CANDIDATE}"
+            git fetch --depth 1 origin "$CANDIDATE"
+            git checkout FETCH_HEAD
+          else
+            echo "Building dumbodb from: main"
+          fi
+
+          # make build, not go build: the Makefile sets the -ldflags version
+          # stamp that the binary reports through buildInfo.gitVersion. The
+          # harness fails a run it cannot attribute to a commit, and a plain
+          # go build reports "unknown".
+          #
+          # A shallow clone has no tags, so git describe falls back to "unknown"
+          # too. Fetch them.
+          git fetch --depth 1 origin +refs/tags/*:refs/tags/* 2>/dev/null || true
+          make build
+          sudo cp .runtime/bin/dumbodb /usr/local/bin/dumbodb
+
+          # Refuse to run an unattributable binary rather than discover it in a
+          # failing assertion later.
+          reported=$(dumbodb --version | awk '{print $2}')
+          echo "dumbodb reports: ${reported}"
+          echo "### Subject: dumbodb \`${reported}\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "$reported" ] || [ "$reported" = "unknown" ]; then
+            echo "dumbodb has no version stamp; results would not be attributable" >&2
+            exit 1
+          fi
+
+      - name: Run replication suite
+        env:
+          MONGOD_BIN: /usr/bin/mongod
+          DUMBODB_BIN: /usr/local/bin/dumbodb
+        run: |
+          set -o pipefail
+          mkdir -p results
+          # -tags replication selects the cases that spawn real replica sets;
+          # without it they are excluded from the default build entirely.
+          go test -tags replication ./harness/ ./tests/ \
+            -v -timeout 80m -json | tee results/replication.json
+
+      - name: Upload replication results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: replication-results
+          path: results/
+          if-no-files-found: ignore
+
+      - name: Dump server logs on failure
+        if: failure()
+        run: |
+          # The member logs carry the reason a subject stopped replicating,
+          # which the test output alone does not always show.
+          for f in /tmp/dumbodb-member-*.log /tmp/mongod-*.log; do
+            [ -f "$f" ] || continue
+            echo "=============== $f ==============="
+            tail -100 "$f"
+          done
