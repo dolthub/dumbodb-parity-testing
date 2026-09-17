@@ -174,6 +174,11 @@ func (s *uuidCASScenario) Verify(ctx context.Context, collection Collection, led
 	if s.mergeMode == MergeModeDocumentTouched || s.mergeMode == MergeModeDocumentDivergent {
 		checks = append(checks, strictCASClientOutcomeChecks(ledger)...)
 	}
+	payloadCheck, err := retainedPayloadCheck(ctx, collection, "uuid-counter", s.payload)
+	if err != nil {
+		return nil, err
+	}
+	checks = append(checks, payloadCheck)
 	return checks, nil
 }
 
@@ -259,17 +264,22 @@ func (s *casScenario) Verify(ctx context.Context, collection Collection, ledger 
 	if err != nil {
 		return nil, err
 	}
+	var checks []Check
 	if s.mergeMode == MergeModeFieldDivergent {
-		return fieldDivergentCounterChecks(version, ledger), nil
+		checks = fieldDivergentCounterChecks(version, ledger)
+	} else if s.mergeMode == MergeModeDocumentDivergent {
+		checks = append(fieldDivergentCounterChecks(version, ledger), strictCASClientOutcomeChecks(ledger)...)
+	} else {
+		checks = counterChecks(version, ledger)
 	}
-	if s.mergeMode == MergeModeDocumentDivergent {
-		checks := fieldDivergentCounterChecks(version, ledger)
-		return append(checks, strictCASClientOutcomeChecks(ledger)...), nil
-	}
-	checks := counterChecks(version, ledger)
 	if s.mergeMode == MergeModeDocumentTouched {
 		checks = append(checks, strictCASClientOutcomeChecks(ledger)...)
 	}
+	payloadCheck, err := retainedPayloadCheck(ctx, collection, "counter", s.payload)
+	if err != nil {
+		return nil, err
+	}
+	checks = append(checks, payloadCheck)
 	return checks, nil
 }
 
@@ -299,27 +309,34 @@ func (s *blindIncrementScenario) Verify(ctx context.Context, collection Collecti
 	if err != nil {
 		return nil, err
 	}
+	var checks []Check
 	if s.mergeMode == MergeModeFieldDivergent || s.mergeMode == MergeModeDocumentDivergent {
-		return fieldDivergentBlindIncrementChecks(version, ledger), nil
+		checks = fieldDivergentBlindIncrementChecks(version, ledger)
+	} else {
+		checks = []Check{
+			{
+				Name:    "storedVersionEqualsMatched",
+				Passed:  version == ledger.Matched,
+				Skipped: ledger.Indeterminate > 0,
+				Detail:  fmt.Sprintf("version=%d matched=%d", version, ledger.Matched),
+			},
+			{
+				Name:   "everyMatchModified",
+				Passed: ledger.Modified == ledger.Matched,
+				Detail: fmt.Sprintf("modified=%d matched=%d", ledger.Modified, ledger.Matched),
+			},
+			{
+				Name:   "allAcknowledgedWritesMatched",
+				Passed: ledger.Matched == ledger.Attempts-ledger.Rejected-ledger.Indeterminate,
+				Detail: fmt.Sprintf("matched=%d attempts=%d rejected=%d indeterminate=%d", ledger.Matched, ledger.Attempts, ledger.Rejected, ledger.Indeterminate),
+			},
+		}
 	}
-	return []Check{
-		{
-			Name:    "storedVersionEqualsMatched",
-			Passed:  version == ledger.Matched,
-			Skipped: ledger.Indeterminate > 0,
-			Detail:  fmt.Sprintf("version=%d matched=%d", version, ledger.Matched),
-		},
-		{
-			Name:   "everyMatchModified",
-			Passed: ledger.Modified == ledger.Matched,
-			Detail: fmt.Sprintf("modified=%d matched=%d", ledger.Modified, ledger.Matched),
-		},
-		{
-			Name:   "allAcknowledgedWritesMatched",
-			Passed: ledger.Matched == ledger.Attempts-ledger.Rejected-ledger.Indeterminate,
-			Detail: fmt.Sprintf("matched=%d attempts=%d rejected=%d indeterminate=%d", ledger.Matched, ledger.Attempts, ledger.Rejected, ledger.Indeterminate),
-		},
-	}, nil
+	payloadCheck, err := retainedPayloadCheck(ctx, collection, "counter", s.payload)
+	if err != nil {
+		return nil, err
+	}
+	return append(checks, payloadCheck), nil
 }
 
 func fieldDivergentCounterChecks(version int64, ledger LedgerSnapshot) []Check {
@@ -463,6 +480,11 @@ func (s *disjointSetScenario) Verify(ctx context.Context, collection Collection,
 			Detail:  fmt.Sprintf("present=%t stored=%d acknowledged=%d", present, got, want),
 		})
 	}
+	checks = append(checks, Check{
+		Name:   "payloadRetained",
+		Passed: document["payload"] == s.payload,
+		Detail: fmt.Sprintf("payloadBytes=%d", len(s.payload)),
+	})
 	return checks, nil
 }
 
@@ -496,7 +518,8 @@ func (s *identicalSetScenario) Execute(ctx context.Context, collection Collectio
 
 func (s *identicalSetScenario) Verify(ctx context.Context, collection Collection, ledger LedgerSnapshot) ([]Check, error) {
 	var document struct {
-		Value int64
+		Value   int64
+		Payload string
 	}
 	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "identical-field"}}, &document); err != nil {
 		return nil, err
@@ -511,6 +534,11 @@ func (s *identicalSetScenario) Verify(ctx context.Context, collection Collection
 			Name:   "convergentValueRetained",
 			Passed: document.Value == 1,
 			Detail: fmt.Sprintf("value=%d", document.Value),
+		},
+		{
+			Name:   "payloadRetained",
+			Passed: document.Payload == s.payload,
+			Detail: fmt.Sprintf("payloadBytes=%d", len(s.payload)),
 		},
 	}, nil
 }
@@ -581,6 +609,11 @@ func (s *divergentCASScenario) Verify(ctx context.Context, collection Collection
 		Skipped: ledger.Indeterminate > 0,
 		Detail:  fmt.Sprintf("value=%d attempts=%d", document.Value, ledger.Attempts),
 	})
+	payloadCheck, err := retainedPayloadCheck(ctx, collection, "divergent-cas", s.payload)
+	if err != nil {
+		return nil, err
+	}
+	checks = append(checks, payloadCheck)
 	return checks, nil
 }
 
@@ -731,7 +764,8 @@ func (s *sameFieldSetScenario) Execute(ctx context.Context, collection Collectio
 
 func (s *sameFieldSetScenario) Verify(ctx context.Context, collection Collection, ledger LedgerSnapshot) ([]Check, error) {
 	var document struct {
-		Value int64
+		Value   int64
+		Payload string
 	}
 	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: "field"}}, &document); err != nil {
 		return nil, err
@@ -748,6 +782,25 @@ func (s *sameFieldSetScenario) Verify(ctx context.Context, collection Collection
 			Skipped: ledger.Indeterminate > 0,
 			Detail:  fmt.Sprintf("value=%d attempts=%d", document.Value, ledger.Attempts),
 		},
+		{
+			Name:   "payloadRetained",
+			Passed: document.Payload == s.payload,
+			Detail: fmt.Sprintf("payloadBytes=%d", len(s.payload)),
+		},
+	}, nil
+}
+
+func retainedPayloadCheck(ctx context.Context, collection Collection, id, expected string) (Check, error) {
+	var document struct {
+		Payload string
+	}
+	if err := collection.FindOne(ctx, bson.D{{Key: "_id", Value: id}}, &document); err != nil {
+		return Check{}, err
+	}
+	return Check{
+		Name:   "payloadRetained",
+		Passed: document.Payload == expected,
+		Detail: fmt.Sprintf("payloadBytes=%d", len(expected)),
 	}, nil
 }
 

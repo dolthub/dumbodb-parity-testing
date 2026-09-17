@@ -28,6 +28,7 @@ type finalDocumentCollection struct {
 
 type counterVersionCollection struct {
 	version int64
+	payload string
 }
 
 func TestDeterministicDelayUsesSeedAndSequence(t *testing.T) {
@@ -70,9 +71,11 @@ func (c counterVersionCollection) UpdateOne(context.Context, interface{}, interf
 }
 
 func (c counterVersionCollection) FindOne(_ context.Context, _ interface{}, result interface{}) error {
-	document := result.(*counterDocument)
-	document.Version = c.version
-	return nil
+	encoded, err := bson.Marshal(bson.M{"_id": "counter", "version": c.version, "payload": c.payload})
+	if err != nil {
+		return err
+	}
+	return bson.Unmarshal(encoded, result)
 }
 
 func TestNewScenario(t *testing.T) {
@@ -147,6 +150,21 @@ func TestWholeDocumentOracleSeparatesConvergenceFromDivergence(t *testing.T) {
 	}
 	if ChecksPassed(checks) {
 		t.Fatalf("divergent duplicate matches passed: %+v", checks)
+	}
+}
+
+func TestRetainedPayloadCheckDetectsCorruption(t *testing.T) {
+	collection := counterVersionCollection{payload: "stored"}
+	check, err := retainedPayloadCheck(context.Background(), collection, "counter", "stored")
+	if err != nil || !check.Passed {
+		t.Fatalf("matching payload failed: check=%+v err=%v", check, err)
+	}
+	check, err = retainedPayloadCheck(context.Background(), collection, "counter", "different")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if check.Passed {
+		t.Fatal("corrupted payload passed")
 	}
 }
 
@@ -337,6 +355,7 @@ func TestDisjointSetWorkerWithoutMatchRequiresAbsentField(t *testing.T) {
 	checks, err := scenario.Verify(context.Background(), finalDocumentCollection{document: bson.M{
 		"_id":      "fields",
 		"worker_0": int64(1),
+		"payload":  "",
 	}}, ledger)
 	if err != nil {
 		t.Fatal(err)
@@ -349,6 +368,7 @@ func TestDisjointSetWorkerWithoutMatchRequiresAbsentField(t *testing.T) {
 		"_id":      "fields",
 		"worker_0": int64(1),
 		"worker_1": int64(9),
+		"payload":  "",
 	}}, ledger)
 	if err != nil {
 		t.Fatal(err)
@@ -364,6 +384,7 @@ func TestSetScenariosSeparateIndeterminateOutcomesFromMatchAccounting(t *testing
 	disjoint.acknowledged[0].Store(1)
 	disjointChecks, err := disjoint.Verify(context.Background(), finalDocumentCollection{document: bson.M{
 		"worker_0": int64(1),
+		"payload":  "",
 	}}, ledger)
 	if err != nil {
 		t.Fatal(err)
@@ -386,7 +407,8 @@ func TestSetScenariosSeparateIndeterminateOutcomesFromMatchAccounting(t *testing
 }
 
 type finalStructCollection struct {
-	value int64
+	value   int64
+	payload string
 }
 
 func (c finalStructCollection) InsertOne(context.Context, interface{}) error {
@@ -398,7 +420,9 @@ func (c finalStructCollection) UpdateOne(context.Context, interface{}, interface
 }
 
 func (c finalStructCollection) FindOne(_ context.Context, _ interface{}, result interface{}) error {
-	document := result.(*struct{ Value int64 })
-	document.Value = c.value
-	return nil
+	encoded, err := bson.Marshal(bson.M{"value": c.value, "payload": c.payload})
+	if err != nil {
+		return err
+	}
+	return bson.Unmarshal(encoded, result)
 }

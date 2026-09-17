@@ -1,0 +1,105 @@
+{
+  "Product": "DumboDB",
+  "Version": "8.0.28",
+  "Revision": "fcc433c692ac24bd1b0f05f26350dbef72ca49e9",
+  "Scenario": "document-divergent-matrix-both-delete",
+  "StartedAt": "2026-09-17T20:40:19.191981824Z",
+  "FinishedAt": "2026-09-17T20:40:19.257373497Z",
+  "WorkloadStartedAt": "2026-09-17T20:40:19.249827159Z",
+  "WorkloadFinishedAt": "2026-09-17T20:40:19.256847452Z",
+  "Ledger": {
+    "Attempts": 1,
+    "Matched": 1,
+    "NoMatch": 0,
+    "Modified": 1,
+    "Rejected": 0,
+    "Indeterminate": 0,
+    "Latency": {
+      "LessThan100us": 0,
+      "LessThan1ms": 0,
+      "LessThan10ms": 1,
+      "LessThan100ms": 0,
+      "LessThan1s": 0,
+      "AtLeast1s": 0
+    },
+    "ErrorSamples": null,
+    "CAS": {
+      "MatchedEdges": 0,
+      "DuplicateMatches": 0,
+      "InvalidEdges": 0,
+      "HighestObserved": 0,
+      "UniqueObserved": 0,
+      "ObservedGenerationSlots": 0,
+      "MatchedOperationWords": 0,
+      "TrackerBytes": 0,
+      "Findings": null
+    }
+  },
+  "Checks": [
+    {
+      "Name": "mergeVerdictMatchesMode",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "mode=documentDivergent row=both-delete conflict=false expected=false error=\u003cnil\u003e"
+    },
+    {
+      "Name": "finalStateMatchesMode",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "mode=documentDivergent row=both-delete absent=true document=map[] expected=map[]"
+    },
+    {
+      "Name": "expectedConflictIsRecorded",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "row=both-delete conflicts=0"
+    }
+  ],
+  "Config": {
+    "Target": "mongodb://127.0.0.1:27018",
+    "Duration": "30m0s",
+    "Operations": 1,
+    "Workers": 1,
+    "Seed": 1,
+    "Database": "storage_document_divergent_oob_both_delete",
+    "Collection": "documents",
+    "PayloadBytes": 8192,
+    "CASDelay": "0s",
+    "LatencyScope": "update",
+    "MergeMode": "documentDivergent"
+  },
+  "Statistics": {
+    "MatchRate": {
+      "Count": 1,
+      "SampleSize": 1,
+      "Rate": 1,
+      "Lower95": 0.20654931437723745,
+      "Upper95": 1
+    },
+    "NoMatchRate": {
+      "Count": 0,
+      "SampleSize": 1,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.7934506856227626
+    },
+    "RejectedRate": {
+      "Count": 0,
+      "SampleSize": 1,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.7934506856227626
+    },
+    "IndeterminateRate": {
+      "Count": 0,
+      "SampleSize": 1,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.7934506856227626
+    }
+  },
+  "Truncated": false,
+  "StopReason": "",
+  "RunError": "",
+  "Verdict": "conclusivePass"
+}
