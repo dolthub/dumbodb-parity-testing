@@ -48,19 +48,17 @@ esac
 
 # Declarative matrix. Expected values reflect DumboDB merge-mode-cas behavior;
 # confirm on first green run and adjust as the server changes.
-# Race-sensitive CAS cases (see investigate-cas-race.sh) share one open defect,
-# workspace-1bk.4.5: a residual double-accept on one observed generation. They
-# are flaky at smoke scale (0 or 1 duplicate) so they cannot gate a per-commit
-# run -- marked skip in smoke, xfail in soak where they reliably fail. cas-ft is
-# the exception: convergent CAS is ~6x rarer, so it passes reliably at smoke
-# scale and only fails in a soak.
+# The CAS-family cases (see investigate-cas-race.sh) guard against
+# workspace-1bk.4.5, the residual double-accept fixed at dumbodb fcc433c. They
+# expect pass at both scales now; if 4.5 regresses, the soak profile reliably
+# reproduces it and these fail. Run soak against fcc433c or later.
 CASES=(
   # group      | name         | scenario       | mode           | payload | smoke | soak
-  "concurrent  | cas-ft       | cas            | fieldTouched   | 0       | pass  | xfail"  # 4.5 convergent (soak-only)
+  "concurrent  | cas-ft       | cas            | fieldTouched   | 0       | pass  | pass"   # 4.5 regression guard (fixed fcc433c)
   "concurrent  | cas-fd       | cas            | fieldDivergent | 0       | pass  | pass"   # convergent coalescing allowed
-  "concurrent  | uuidcas-ft   | uuid-cas       | fieldTouched   | 0       | skip  | xfail"  # 4.5 divergent (flaky at smoke)
-  "concurrent  | uuidcas-fd   | uuid-cas       | fieldDivergent | 0       | skip  | xfail"  # 4.5 divergent (flaky at smoke)
-  "concurrent  | divcas-fd    | divergent-cas  | fieldDivergent | 0       | skip  | xfail"  # 4.5 divergent (flaky at smoke)
+  "concurrent  | uuidcas-ft   | uuid-cas       | fieldTouched   | 0       | pass  | pass"   # 4.5 regression guard
+  "concurrent  | uuidcas-fd   | uuid-cas       | fieldDivergent | 0       | pass  | pass"   # 4.5 regression guard
+  "concurrent  | divcas-fd    | divergent-cas  | fieldDivergent | 0       | pass  | pass"   # 4.5 regression guard
   "concurrent  | disjoint-fd  | disjoint-set   | fieldDivergent | 0       | pass  | pass"
   "concurrent  | blindinc-ft  | blind-inc      | fieldTouched   | 0       | pass  | pass"
   "concurrent  | identical-fd | identical-set  | fieldDivergent | 0       | pass  | pass"
