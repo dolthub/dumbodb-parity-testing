@@ -44,7 +44,7 @@ const (
 )
 
 func (r LifecycleResult) Verdict() Verdict {
-	if r.RunError != "" || r.Ledger.Validate() != nil || !ChecksPassed(r.Checks) {
+	if r.RunError != "" || r.Ledger.Validate() != nil || len(r.Checks) == 0 || !ChecksPassed(r.Checks) {
 		return VerdictFailed
 	}
 	if r.Truncated || r.Ledger.Indeterminate > 0 {
