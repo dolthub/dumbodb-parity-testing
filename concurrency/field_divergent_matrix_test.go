@@ -34,7 +34,12 @@ func TestFieldDivergentMatrixCoversNineDistinctRows(t *testing.T) {
 		if row.ExpectConflict {
 			conflicts++
 		}
-		scenario, err := NewScenario(fieldDivergentMatrixPrefix+row.Name, 1, 0)
+		scenario, err := NewScenarioForConfig(Config{
+			Scenario:   fieldDivergentMatrixPrefix + row.Name,
+			Workers:    1,
+			MergeMode:  MergeModeFieldDivergent,
+			Operations: 1,
+		})
 		if err != nil {
 			t.Fatalf("construct %s: %v", row.Name, err)
 		}
@@ -48,8 +53,45 @@ func TestFieldDivergentMatrixCoversNineDistinctRows(t *testing.T) {
 }
 
 func TestFieldDivergentMatrixRejectsUnknownRow(t *testing.T) {
-	if _, err := NewScenario(fieldDivergentMatrixPrefix+"unknown", 1, 0); err == nil {
+	if _, err := NewScenarioForConfig(Config{
+		Scenario:  fieldDivergentMatrixPrefix + "unknown",
+		Workers:   1,
+		MergeMode: MergeModeFieldDivergent,
+	}); err == nil {
 		t.Fatal("expected unknown matrix row to fail")
+	}
+}
+
+func TestMergeMatrixRequiresItsConfiguredMode(t *testing.T) {
+	name := fieldDivergentMatrixPrefix + "one-sided"
+	for _, mergeMode := range []string{"", MergeModeDocumentTouched, MergeModeFieldTouched, MergeModeDocumentDivergent} {
+		_, err := NewScenarioForConfig(Config{Scenario: name, Workers: 1, MergeMode: mergeMode})
+		if err == nil {
+			t.Fatalf("merge mode %q unexpectedly accepted", mergeMode)
+		}
+	}
+	scenario, err := NewScenarioForConfig(Config{Scenario: name, Workers: 1, MergeMode: MergeModeFieldDivergent})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if scenario.Name() != name {
+		t.Fatalf("scenario name = %q, want %q", scenario.Name(), name)
+	}
+}
+
+func TestMergeMatrixEngineAcceptsEveryModeDefinition(t *testing.T) {
+	row := mergeMatrixRow{Name: "one-sided", ExpectedDocument: matrixDocument(1, 0)}
+	for _, mode := range []string{
+		MergeModeDocumentTouched,
+		MergeModeFieldTouched,
+		MergeModeFieldDivergent,
+		MergeModeDocumentDivergent,
+	} {
+		definition := mergeMatrixDefinition{Mode: mode, Prefix: mode + "-matrix-", Rows: []mergeMatrixRow{row}}
+		scenario := &mergeMatrixScenario{definition: definition, row: row}
+		if scenario.Name() != definition.Prefix+row.Name {
+			t.Fatalf("mode %s scenario name = %q", mode, scenario.Name())
+		}
 	}
 }
 

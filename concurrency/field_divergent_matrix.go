@@ -40,7 +40,7 @@ const (
 	matrixDelete      matrixChangeKind = "delete"
 )
 
-type fieldDivergentMatrixRow struct {
+type mergeMatrixRow struct {
 	Name             string
 	Base             bson.M
 	FeatureChange    matrixChangeKind
@@ -49,7 +49,7 @@ type fieldDivergentMatrixRow struct {
 	ExpectedDocument bson.M
 }
 
-var fieldDivergentMatrixRows = []fieldDivergentMatrixRow{
+var fieldDivergentMatrixRows = []mergeMatrixRow{
 	{Name: "one-sided", Base: matrixDocument(0, 0), FeatureChange: matrixSetAOne, MainChange: matrixNoChange, ExpectedDocument: matrixDocument(1, 0)},
 	{Name: "disjoint-fields", Base: matrixDocument(0, 0), FeatureChange: matrixSetAOne, MainChange: matrixSetBOne, ExpectedDocument: matrixDocument(1, 1)},
 	{Name: "same-field-same-value", Base: matrixDocument(0, 0), FeatureChange: matrixSetAOne, MainChange: matrixSetAOne, ExpectedDocument: matrixDocument(1, 0)},
@@ -63,8 +63,23 @@ var fieldDivergentMatrixRows = []fieldDivergentMatrixRow{
 
 const matrixSetBOne matrixChangeKind = "set-b-one"
 
-type fieldDivergentMatrixScenario struct {
-	row           fieldDivergentMatrixRow
+type mergeMatrixDefinition struct {
+	Mode   string
+	Prefix string
+	Rows   []mergeMatrixRow
+}
+
+var mergeMatrixDefinitions = []mergeMatrixDefinition{
+	{
+		Mode:   MergeModeFieldDivergent,
+		Prefix: fieldDivergentMatrixPrefix,
+		Rows:   fieldDivergentMatrixRows,
+	},
+}
+
+type mergeMatrixScenario struct {
+	definition    mergeMatrixDefinition
+	row           mergeMatrixRow
 	payload       string
 	mu            sync.Mutex
 	main          BranchCollection
@@ -72,24 +87,43 @@ type fieldDivergentMatrixScenario struct {
 	mergeErr      error
 }
 
-func newFieldDivergentMatrixScenario(name, payload string) (Scenario, error) {
-	rowName := strings.TrimPrefix(name, fieldDivergentMatrixPrefix)
-	for _, row := range fieldDivergentMatrixRows {
+func newMergeMatrixScenario(name, payload, mergeMode string) (Scenario, bool, error) {
+	definition, matched := mergeMatrixDefinitionForName(name)
+	if !matched {
+		return nil, false, nil
+	}
+	if mergeMode == "" {
+		return nil, true, fmt.Errorf("matrix scenario %q requires merge mode %q", name, definition.Mode)
+	}
+	if mergeMode != definition.Mode {
+		return nil, true, fmt.Errorf("matrix scenario %q requires merge mode %q, got %q", name, definition.Mode, mergeMode)
+	}
+	rowName := strings.TrimPrefix(name, definition.Prefix)
+	for _, row := range definition.Rows {
 		if row.Name == rowName {
-			return &fieldDivergentMatrixScenario{row: row, payload: payload}, nil
+			return &mergeMatrixScenario{definition: definition, row: row, payload: payload}, true, nil
 		}
 	}
-	return nil, fmt.Errorf("unknown fieldDivergent matrix row %q", rowName)
+	return nil, true, fmt.Errorf("unknown %s matrix row %q", definition.Mode, rowName)
 }
 
-func (s *fieldDivergentMatrixScenario) Name() string {
-	return fieldDivergentMatrixPrefix + s.row.Name
+func mergeMatrixDefinitionForName(name string) (mergeMatrixDefinition, bool) {
+	for _, definition := range mergeMatrixDefinitions {
+		if strings.HasPrefix(name, definition.Prefix) {
+			return definition, true
+		}
+	}
+	return mergeMatrixDefinition{}, false
 }
 
-func (s *fieldDivergentMatrixScenario) Setup(ctx context.Context, collection Collection) error {
+func (s *mergeMatrixScenario) Name() string {
+	return s.definition.Prefix + s.row.Name
+}
+
+func (s *mergeMatrixScenario) Setup(ctx context.Context, collection Collection) error {
 	branchCollection, ok := collection.(BranchCollection)
 	if !ok {
-		return errors.New("fieldDivergent matrix requires branch-capable collection")
+		return fmt.Errorf("%s matrix requires branch-capable collection", s.definition.Mode)
 	}
 	database := branchCollection.DatabaseName()
 	if s.row.Base != nil {
@@ -130,7 +164,7 @@ func (s *fieldDivergentMatrixScenario) Setup(ctx context.Context, collection Col
 	return nil
 }
 
-func (s *fieldDivergentMatrixScenario) Execute(ctx context.Context, _ Collection, _ int, _ int64) Outcome {
+func (s *mergeMatrixScenario) Execute(ctx context.Context, _ Collection, _ int, _ int64) Outcome {
 	response, err := s.main.RunCommand(ctx, s.main.DatabaseName(), bson.D{
 		{Key: "doltMerge", Value: int32(1)},
 		{Key: "mergeIn", Value: "feature"},
@@ -145,7 +179,7 @@ func (s *fieldDivergentMatrixScenario) Execute(ctx context.Context, _ Collection
 	return Outcome{Kind: OutcomeRejected, Err: err}
 }
 
-func (s *fieldDivergentMatrixScenario) Verify(ctx context.Context, _ Collection, _ LedgerSnapshot) ([]Check, error) {
+func (s *mergeMatrixScenario) Verify(ctx context.Context, _ Collection, _ LedgerSnapshot) ([]Check, error) {
 	s.mu.Lock()
 	response := s.mergeResponse
 	mergeErr := s.mergeErr
@@ -174,14 +208,14 @@ func (s *fieldDivergentMatrixScenario) Verify(ctx context.Context, _ Collection,
 	}
 	return []Check{
 		{
-			Name:   "mergeVerdictMatchesFieldDivergent",
+			Name:   "mergeVerdictMatchesMode",
 			Passed: conflicted == s.row.ExpectConflict,
-			Detail: fmt.Sprintf("row=%s conflict=%t expected=%t error=%v", s.row.Name, conflicted, s.row.ExpectConflict, mergeErr),
+			Detail: fmt.Sprintf("mode=%s row=%s conflict=%t expected=%t error=%v", s.definition.Mode, s.row.Name, conflicted, s.row.ExpectConflict, mergeErr),
 		},
 		{
-			Name:   "finalStateMatchesFieldDivergent",
+			Name:   "finalStateMatchesMode",
 			Passed: statePassed,
-			Detail: fmt.Sprintf("row=%s absent=%t document=%v expected=%v", s.row.Name, absent, document, expectedDocument),
+			Detail: fmt.Sprintf("mode=%s row=%s absent=%t document=%v expected=%v", s.definition.Mode, s.row.Name, absent, document, expectedDocument),
 		},
 		{
 			Name:   "expectedConflictIsRecorded",
