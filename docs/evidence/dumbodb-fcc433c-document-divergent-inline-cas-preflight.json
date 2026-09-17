@@ -1,0 +1,293 @@
+{
+  "Product": "DumboDB",
+  "Version": "8.0.28",
+  "Revision": "fcc433c692ac24bd1b0f05f26350dbef72ca49e9",
+  "Scenario": "cas",
+  "StartedAt": "2026-09-17T20:41:58.847885242Z",
+  "FinishedAt": "2026-09-17T20:42:02.124953125Z",
+  "WorkloadStartedAt": "2026-09-17T20:41:58.879125435Z",
+  "WorkloadFinishedAt": "2026-09-17T20:42:02.123898794Z",
+  "Ledger": {
+    "Attempts": 1000,
+    "Matched": 849,
+    "NoMatch": 149,
+    "Modified": 849,
+    "Rejected": 2,
+    "Indeterminate": 0,
+    "Latency": {
+      "LessThan100us": 0,
+      "LessThan1ms": 0,
+      "LessThan10ms": 0,
+      "LessThan100ms": 1000,
+      "LessThan1s": 0,
+      "AtLeast1s": 0
+    },
+    "ErrorSamples": [
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit"
+    ],
+    "CAS": {
+      "MatchedEdges": 849,
+      "DuplicateMatches": 774,
+      "InvalidEdges": 0,
+      "HighestObserved": 74,
+      "UniqueObserved": 75,
+      "ObservedGenerationSlots": 75,
+      "MatchedOperationWords": 16,
+      "TrackerBytes": 1403,
+      "Findings": [
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 0,
+          "FirstSequence": 4,
+          "FirstWorker": 0,
+          "CompetingSequence": 3,
+          "CompetingWorker": 10
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 0,
+          "FirstSequence": 4,
+          "FirstWorker": 0,
+          "CompetingSequence": 2,
+          "CompetingWorker": 6
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 0,
+          "FirstSequence": 4,
+          "FirstWorker": 0,
+          "CompetingSequence": 1,
+          "CompetingWorker": 15
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 0,
+          "FirstSequence": 4,
+          "FirstWorker": 0,
+          "CompetingSequence": 9,
+          "CompetingWorker": 9
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 0,
+          "FirstSequence": 4,
+          "FirstWorker": 0,
+          "CompetingSequence": 5,
+          "CompetingWorker": 11
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 0,
+          "FirstSequence": 4,
+          "FirstWorker": 0,
+          "CompetingSequence": 11,
+          "CompetingWorker": 7
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 0,
+          "FirstSequence": 4,
+          "FirstWorker": 0,
+          "CompetingSequence": 7,
+          "CompetingWorker": 12
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 0,
+          "FirstSequence": 4,
+          "FirstWorker": 0,
+          "CompetingSequence": 6,
+          "CompetingWorker": 8
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 0,
+          "FirstSequence": 4,
+          "FirstWorker": 0,
+          "CompetingSequence": 13,
+          "CompetingWorker": 4
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 0,
+          "FirstSequence": 4,
+          "FirstWorker": 0,
+          "CompetingSequence": 15,
+          "CompetingWorker": 3
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 18,
+          "FirstWorker": 10,
+          "CompetingSequence": 21,
+          "CompetingWorker": 15
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 18,
+          "FirstWorker": 10,
+          "CompetingSequence": 19,
+          "CompetingWorker": 6
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 18,
+          "FirstWorker": 10,
+          "CompetingSequence": 20,
+          "CompetingWorker": 5
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 18,
+          "FirstWorker": 10,
+          "CompetingSequence": 22,
+          "CompetingWorker": 9
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 18,
+          "FirstWorker": 10,
+          "CompetingSequence": 24,
+          "CompetingWorker": 14
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 18,
+          "FirstWorker": 10,
+          "CompetingSequence": 23,
+          "CompetingWorker": 11
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 18,
+          "FirstWorker": 10,
+          "CompetingSequence": 26,
+          "CompetingWorker": 2
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 18,
+          "FirstWorker": 10,
+          "CompetingSequence": 25,
+          "CompetingWorker": 13
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 2,
+          "FirstSequence": 30,
+          "FirstWorker": 8,
+          "CompetingSequence": 32,
+          "CompetingWorker": 3
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 2,
+          "FirstSequence": 30,
+          "FirstWorker": 8,
+          "CompetingSequence": 31,
+          "CompetingWorker": 4
+        }
+      ]
+    }
+  },
+  "Checks": [
+    {
+      "Name": "storedVersionEqualsUniqueObservedChain",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "version=75 uniqueObserved=75 matched=849"
+    },
+    {
+      "Name": "everyMatchModified",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "modified=849 matched=849"
+    },
+    {
+      "Name": "matchedEdgesAreSuccessive",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "edges=849 invalid=0 matched=849"
+    },
+    {
+      "Name": "observedGenerationsFormCompleteChain",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "highestObserved=74 version=75"
+    },
+    {
+      "Name": "refusedCASReturnsNoMatch",
+      "Passed": false,
+      "Skipped": false,
+      "Detail": "rejected=2 noMatch=149"
+    },
+    {
+      "Name": "everyConclusiveCASAttemptHasCommandResult",
+      "Passed": false,
+      "Skipped": false,
+      "Detail": "matched=849 noMatch=149 attempts=1000 indeterminate=0"
+    },
+    {
+      "Name": "payloadRetained",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "payloadBytes=0"
+    }
+  ],
+  "Config": {
+    "Target": "mongodb://127.0.0.1:27018",
+    "Duration": "30m0s",
+    "Operations": 1000,
+    "Workers": 16,
+    "Seed": 1,
+    "Database": "storage_document_divergent_inline_cas",
+    "Collection": "documents",
+    "PayloadBytes": 0,
+    "CASDelay": "0s",
+    "LatencyScope": "read-and-update",
+    "MergeMode": "documentDivergent"
+  },
+  "Statistics": {
+    "MatchRate": {
+      "Count": 849,
+      "SampleSize": 1000,
+      "Rate": 0.849,
+      "Lower95": 0.8254750432083057,
+      "Upper95": 0.8698538793687768
+    },
+    "NoMatchRate": {
+      "Count": 149,
+      "SampleSize": 1000,
+      "Rate": 0.149,
+      "Lower95": 0.12827436093693598,
+      "Upper95": 0.1724120235199237
+    },
+    "RejectedRate": {
+      "Count": 2,
+      "SampleSize": 1000,
+      "Rate": 0.002,
+      "Lower95": 0.0005486435881207272,
+      "Upper95": 0.007262807863492176
+    },
+    "IndeterminateRate": {
+      "Count": 0,
+      "SampleSize": 1000,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.0038267584855551234
+    }
+  },
+  "Truncated": false,
+  "StopReason": "",
+  "RunError": "",
+  "Verdict": "failed"
+}

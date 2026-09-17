@@ -1,0 +1,107 @@
+{
+  "Product": "DumboDB",
+  "Version": "8.0.28",
+  "Revision": "fcc433c692ac24bd1b0f05f26350dbef72ca49e9",
+  "Scenario": "document-touched-matrix-same-value-plus-disjoint",
+  "StartedAt": "2026-09-17T20:40:15.202052977Z",
+  "FinishedAt": "2026-09-17T20:40:15.267050946Z",
+  "WorkloadStartedAt": "2026-09-17T20:40:15.261856572Z",
+  "WorkloadFinishedAt": "2026-09-17T20:40:15.266119566Z",
+  "Ledger": {
+    "Attempts": 1,
+    "Matched": 0,
+    "NoMatch": 0,
+    "Modified": 0,
+    "Rejected": 1,
+    "Indeterminate": 0,
+    "Latency": {
+      "LessThan100us": 0,
+      "LessThan1ms": 0,
+      "LessThan10ms": 1,
+      "LessThan100ms": 0,
+      "LessThan1s": 0,
+      "AtLeast1s": 0
+    },
+    "ErrorSamples": [
+      "dumboMerge: unresolved conflicts in 1 collection(s)"
+    ],
+    "CAS": {
+      "MatchedEdges": 0,
+      "DuplicateMatches": 0,
+      "InvalidEdges": 0,
+      "HighestObserved": 0,
+      "UniqueObserved": 0,
+      "ObservedGenerationSlots": 0,
+      "MatchedOperationWords": 0,
+      "TrackerBytes": 0,
+      "Findings": null
+    }
+  },
+  "Checks": [
+    {
+      "Name": "mergeVerdictMatchesMode",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "mode=documentTouched row=same-value-plus-disjoint conflict=true expected=true error=dumboMerge: unresolved conflicts in 1 collection(s)"
+    },
+    {
+      "Name": "finalStateMatchesMode",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "mode=documentTouched row=same-value-plus-disjoint absent=false document=map[_id:matrix a:1 b:0 payload:] expected=map[_id:matrix a:1 b:0 payload:]"
+    },
+    {
+      "Name": "expectedConflictIsRecorded",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "row=same-value-plus-disjoint conflicts=1"
+    }
+  ],
+  "Config": {
+    "Target": "mongodb://127.0.0.1:27018",
+    "Duration": "30m0s",
+    "Operations": 1,
+    "Workers": 1,
+    "Seed": 1,
+    "Database": "storage_document_touched_inline_same_value_plus_disjoint",
+    "Collection": "documents",
+    "PayloadBytes": 0,
+    "CASDelay": "0s",
+    "LatencyScope": "update",
+    "MergeMode": "documentTouched"
+  },
+  "Statistics": {
+    "MatchRate": {
+      "Count": 0,
+      "SampleSize": 1,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.7934506856227626
+    },
+    "NoMatchRate": {
+      "Count": 0,
+      "SampleSize": 1,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.7934506856227626
+    },
+    "RejectedRate": {
+      "Count": 1,
+      "SampleSize": 1,
+      "Rate": 1,
+      "Lower95": 0.20654931437723745,
+      "Upper95": 1
+    },
+    "IndeterminateRate": {
+      "Count": 0,
+      "SampleSize": 1,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.7934506856227626
+    }
+  },
+  "Truncated": false,
+  "StopReason": "",
+  "RunError": "",
+  "Verdict": "conclusivePass"
+}
