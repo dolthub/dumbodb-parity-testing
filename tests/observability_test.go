@@ -318,26 +318,12 @@ func TestObservability_CountersAdvanceWithWorkload(t *testing.T) {
 
 	beforeOps := subdoc(t, before, "opcountersRepl")
 	afterOps := subdoc(t, after, "opcountersRepl")
-	for _, field := range []string{"update", "delete"} {
+	for _, field := range []string{"insert", "update", "delete"} {
 		got := number(t, afterOps, field) - number(t, beforeOps, field)
 		if got != want[field] {
 			t.Errorf("dumbodb %s: opcountersRepl.%s advanced by %d; the primary oplog it replicated holds %d such operations",
 				f.commit, field, got, want[field])
 		}
-	}
-
-	// insert is workspace-8a9: the counter switches on the outer operation, so
-	// the inserts inside an applyOps batch are never tallied and the counter
-	// sits at zero while data replicates. Graded as a known defect rather than
-	// a red build, and inverted so that fixing it fails here until insert is
-	// moved back into the loop above.
-	insert := number(t, afterOps, "insert") - number(t, beforeOps, "insert")
-	if insert == want["insert"] {
-		t.Errorf("XPASS opcountersRepl.insert: dumbodb %s now counts %d inserts as the oplog holds; workspace-8a9 is fixed, so move insert back into the loop above and delete this block",
-			f.commit, insert)
-	} else {
-		t.Logf("XFAIL opcountersRepl.insert (workspace-8a9): dumbodb %s advanced by %d, the oplog holds %d",
-			f.commit, insert, want["insert"])
 	}
 
 	total := want["insert"] + want["update"] + want["delete"]
