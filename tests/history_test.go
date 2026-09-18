@@ -66,6 +66,7 @@ func commitIDs(ctx context.Context, cli *mongo.Client, db string) ([]string, err
 // that the no-ops actually arrived: without it, a subject that had stopped
 // replicating entirely would pass.
 func TestHistory_IdlePrimaryAddsNoCommits(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 
@@ -138,6 +139,7 @@ func TestHistory_IdlePrimaryAddsNoCommits(t *testing.T) {
 // and keep every commit it made, because that history is the reason to run
 // DumboDB as the secondary rather than a mongod.
 func TestHistory_RemovedMemberKeepsHistory(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 
@@ -231,6 +233,7 @@ func TestHistory_RemovedMemberKeepsHistory(t *testing.T) {
 // so the assertion that matters is that the commits made before the removal
 // are still the same commits afterwards.
 func TestHistory_RejoinResumesWithoutRewriting(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 

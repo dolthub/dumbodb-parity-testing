@@ -39,6 +39,7 @@ const syncDB = "initsync"
 func noWorkload(ctx context.Context, primary *mongo.Client) error { return nil }
 
 func TestInitialSync_EmptySource(t *testing.T) {
+	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
 		Name:     "InitialSync_EmptySource",
 		Support:  harness.DumboDBFull,
@@ -47,6 +48,7 @@ func TestInitialSync_EmptySource(t *testing.T) {
 }
 
 func TestInitialSync_EveryBSONType(t *testing.T) {
+	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
 		Name:    "InitialSync_EveryBSONType",
 		Support: harness.DumboDBFull,
@@ -69,6 +71,7 @@ func TestInitialSync_EveryBSONType(t *testing.T) {
 // Sizes and shapes that cross clone batching and storage boundaries, including
 // documents close to the 16MB BSON limit.
 func TestInitialSync_LargeAndDeepDocuments(t *testing.T) {
+	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
 		Name:    "InitialSync_LargeAndDeepDocuments",
 		Support: harness.DumboDBFull,
@@ -88,6 +91,7 @@ func TestInitialSync_LargeAndDeepDocuments(t *testing.T) {
 // Many databases and collections, to check the clone enumerates the whole
 // catalog rather than the first namespace it finds.
 func TestInitialSync_ManyDatabasesAndCollections(t *testing.T) {
+	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
 		Name:    "InitialSync_ManyDatabasesAndCollections",
 		Support: harness.DumboDBFull,
@@ -128,6 +132,7 @@ func TestInitialSync_ManyDatabasesAndCollections(t *testing.T) {
 // Indexes, validators and collection options are cloned separately from
 // documents and can be lost on their own.
 func TestInitialSync_IndexesAndValidators(t *testing.T) {
+	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
 		Name:    "InitialSync_IndexesAndValidators",
 		Support: harness.DumboDBFull,
@@ -177,6 +182,7 @@ func TestInitialSync_IndexesAndValidators(t *testing.T) {
 // instant; writes landing while it runs must be reconciled through the oplog
 // rather than lost or double-applied.
 func TestInitialSync_WritesConcurrentWithClone(t *testing.T) {
+	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
 		Name:    "InitialSync_WritesConcurrentWithClone",
 		Support: harness.DumboDBFull,
@@ -207,6 +213,7 @@ func TestInitialSync_WritesConcurrentWithClone(t *testing.T) {
 // A collection dropped while the clone is running. The clone must not fail, and
 // must not resurrect the dropped collection.
 func TestInitialSync_CollectionDroppedDuringClone(t *testing.T) {
+	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
 		Name:    "InitialSync_CollectionDroppedDuringClone",
 		Support: harness.DumboDBFull,
@@ -263,6 +270,7 @@ func TestInitialSync_CollectionDroppedDuringClone(t *testing.T) {
 // direction. The deliverable is the error, so that a user who hits this can
 // come and ask for the type rather than filing "replication does not work".
 func TestInitialSync_UndecodableTypesFailHonestly(t *testing.T) {
+	t.Parallel()
 	rs := harness.StartReplicaSet(t, 2)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
@@ -392,6 +400,7 @@ func memberIdentity(t *testing.T, ctx context.Context, rs *harness.ReplicaSet, a
 // admin.system.dumbodb.replication, so a kill in that window lost member
 // identity and replica configuration.
 func TestInitialSync_KilledMidCloneKeepsIdentityAndFinishes(t *testing.T) {
+	t.Parallel()
 	rs := harness.StartReplicaSet(t, 2)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Minute)

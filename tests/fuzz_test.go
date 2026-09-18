@@ -330,6 +330,7 @@ func fuzzEnvInt(name string, fallback int) int {
 // main, so this runs in the gated CI at a size that fits, and explores further
 // on demand.
 func TestFuzz_DifferentialConvergence(t *testing.T) {
+	t.Parallel()
 	seeds := fuzzEnvInt("REPLICATION_FUZZ_SEEDS", defaultFuzzSeeds)
 	length := fuzzEnvInt("REPLICATION_FUZZ_LENGTH", defaultFuzzLength)
 	base := int64(fuzzEnvInt("REPLICATION_FUZZ_BASE_SEED", 20260917))
@@ -444,6 +445,7 @@ func divergenceStrings(divergences []harness.Divergence) []string {
 // If a seed did not produce the same sequence twice, every repro line this
 // suite prints would be a lie.
 func TestFuzz_SequenceIsReproducible(t *testing.T) {
+	t.Parallel()
 	first := opNames(fuzzSequence(99, 50))
 	second := opNames(fuzzSequence(99, 50))
 	if strings.Join(first, ",") != strings.Join(second, ",") {
@@ -467,6 +469,7 @@ func TestFuzz_SequenceIsReproducible(t *testing.T) {
 // Running it against a real trial rather than a synthetic state is the point:
 // it exercises narrowTo, which the existing negative control does not.
 func TestFuzz_DetectsInjectedDivergence(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Minute)
 	defer cancel()
 

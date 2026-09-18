@@ -139,6 +139,7 @@ func number(t *testing.T, doc bson.M, key string) int64 {
 // operator would reach for do not contradict each other, and that DumboDB's
 // repl section invents no fields a real secondary does not have.
 func TestObservability_ReplSectionAgreesWithStatus(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 
@@ -264,6 +265,7 @@ func asStringField(v interface{}) string {
 // Its insert and delete counters did match the oplog, which is what establishes
 // that a real secondary unwraps applyOps and counts the inner operations.
 func TestObservability_CountersAdvanceWithWorkload(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 
@@ -349,6 +351,7 @@ func TestObservability_CountersAdvanceWithWorkload(t *testing.T) {
 // against each other. A fetch position behind the applied position means the
 // server is reporting progress it cannot have made.
 func TestObservability_FetchedPositionTracksApplied(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 
@@ -402,6 +405,7 @@ func TestObservability_FetchedPositionTracksApplied(t *testing.T) {
 // because an operator scripting {serverStatus: 1, repl: 0} against a fleet
 // should get the same shape from every member of it.
 func TestObservability_SectionFilterParity(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 

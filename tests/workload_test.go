@@ -31,6 +31,11 @@ import (
 // operation that always errors contributes nothing to the oplog and would
 // otherwise be invisible: coverage would count it as "ran".
 func TestWorkload_VocabularyExercisesEveryOperation(t *testing.T) {
+	t.Parallel()
+	// Per test rather than a package variable: two cases running at once would
+	// each assert against whichever finished last, and this assertion exists to
+	// catch a case that exercised nothing.
+	var workloadCoverage *harness.Coverage
 	harness.ReplicaTest(t, harness.ReplicaCase{
 		Name:    "Workload_VocabularyExercisesEveryOperation",
 		Support: harness.DumboDBMongoOnly,
@@ -106,8 +111,6 @@ func TestWorkload_VocabularyExercisesEveryOperation(t *testing.T) {
 	})
 }
 
-var workloadCoverage *harness.Coverage
-
 func existingDocID(i int) string {
 	return harness.DocIDFor(i)
 }
@@ -115,6 +118,7 @@ func existingDocID(i int) string {
 // A workload must replay identically from its seed, or a failing run cannot be
 // reproduced.
 func TestWorkload_DeterministicFromSeed(t *testing.T) {
+	t.Parallel()
 	first := generateSequence(20260916)
 	second := generateSequence(20260916)
 	third := generateSequence(20260917)

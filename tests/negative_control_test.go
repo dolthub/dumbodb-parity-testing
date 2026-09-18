@@ -31,6 +31,7 @@ import (
 // primary and hold identical state. If this fails the apparatus is broken, and
 // every subject result produced by it is meaningless.
 func TestControl_ReferenceSecondaryMatchesPrimary(t *testing.T) {
+	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
 		Name:    "Control_ReferenceSecondaryMatchesPrimary",
 		Support: harness.DumboDBMongoOnly,
@@ -62,6 +63,7 @@ func TestControl_ReferenceSecondaryMatchesPrimary(t *testing.T) {
 // also proves the capture path feeds the comparator the fields it needs. The
 // unit tests cover the comparison logic; this covers the wiring.
 func TestControl_ComparatorCatchesSeededCorruption(t *testing.T) {
+	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
 		Name:    "Control_ComparatorCatchesSeededCorruption",
 		Support: harness.DumboDBMongoOnly,

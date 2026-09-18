@@ -46,7 +46,12 @@ func seedTargets(ctx context.Context, primary *mongo.Client, n int) error {
 }
 
 // steadyCase builds a tier 2 case from a slice of the vocabulary.
+//
+// Coverage is captured per case rather than in a package variable. Two cases
+// running at once would otherwise each assert against whichever finished last,
+// and the assertion exists precisely to catch a case that exercised nothing.
 func steadyCase(name string, support harness.DumboDBSupport, ops []harness.Op, repeat int) harness.ReplicaCase {
+	var coverage *harness.Coverage
 	return harness.ReplicaCase{
 		Name:    name,
 		Support: support,
@@ -58,31 +63,29 @@ func steadyCase(name string, support harness.DumboDBSupport, ops []harness.Op, r
 			w := harness.Workload{Name: name, Seed: 20260916, Ops: ops, Repeat: repeat}
 			cov, err := w.Run(ctx, primary.Database(steadyDB))
 			if cov != nil {
-				steadyCoverage = cov
+				coverage = cov
 			}
 			return err
 		},
 		Assert: func(t *testing.T, res harness.ReplicaResult) {
-			assertEveryOperationContributed(t, ops)
+			assertEveryOperationContributed(t, coverage, ops)
 		},
 	}
 }
-
-var steadyCoverage *harness.Coverage
 
 // A comparison passes trivially for an operation that never produced an oplog
 // entry. Without this the case reports coverage it did not have: the array
 // positional operators failed on every attempt for a while and the test still
 // passed.
-func assertEveryOperationContributed(t *testing.T, ops []harness.Op) {
+func assertEveryOperationContributed(t *testing.T, coverage *harness.Coverage, ops []harness.Op) {
 	t.Helper()
-	if steadyCoverage == nil {
+	if coverage == nil {
 		t.Fatal("workload reported no coverage")
 	}
-	t.Logf("coverage: %s", steadyCoverage)
+	t.Logf("coverage: %s", coverage)
 	for _, op := range ops {
-		ran := steadyCoverage.Ran[op.Name]
-		failed := steadyCoverage.Failures[op.Name]
+		ran := coverage.Ran[op.Name]
+		failed := coverage.Failures[op.Name]
 		if ran == 0 {
 			t.Errorf("operation %q never ran, so this case proves nothing about it", op.Name)
 			continue
@@ -96,6 +99,7 @@ func assertEveryOperationContributed(t *testing.T, ops []harness.Op) {
 // Every update operator the design document lists, applied to a primary the
 // subject is already following.
 func TestSteady_UpdateOperators(t *testing.T) {
+	t.Parallel()
 	harness.ReplicaTest(t, steadyCase("Steady_UpdateOperators", harness.DumboDBFull, harness.WriteOps(), 3))
 }
 
@@ -103,17 +107,20 @@ func TestSteady_UpdateOperators(t *testing.T) {
 // wrongly here leaves the document subtly different rather than failing, so only
 // a byte-exact comparison against a reference notices.
 func TestSteady_ArrayOperators(t *testing.T) {
+	t.Parallel()
 	harness.ReplicaTest(t, steadyCase("Steady_ArrayOperators", harness.DumboDBFull, harness.ArrayOps(), 3))
 }
 
 // Catalog operations travel the oplog as commands rather than document writes.
 func TestSteady_CatalogOperations(t *testing.T) {
+	t.Parallel()
 	harness.ReplicaTest(t, steadyCase("Steady_CatalogOperations", harness.DumboDBFull, harness.CatalogOps(), 2))
 }
 
 // Transactions reach the oplog as applyOps entries that may span several
 // records. An aborted transaction must leave no trace on either member.
 func TestSteady_Transactions(t *testing.T) {
+	t.Parallel()
 	harness.ReplicaTest(t, steadyCase("Steady_Transactions", harness.DumboDBFull, harness.TransactionOps(), 3))
 }
 
@@ -121,6 +128,8 @@ func TestSteady_Transactions(t *testing.T) {
 // Ordering defects need concurrency to surface; a serial workload cannot
 // produce them.
 func TestSteady_FullVocabularyConcurrent(t *testing.T) {
+	t.Parallel()
+	var coverage *harness.Coverage
 	tc := harness.ReplicaCase{
 		Name:    "Steady_FullVocabularyConcurrent",
 		Support: harness.DumboDBFull,
@@ -138,12 +147,12 @@ func TestSteady_FullVocabularyConcurrent(t *testing.T) {
 			}
 			cov, err := w.Run(ctx, primary.Database(steadyDB))
 			if cov != nil {
-				steadyCoverage = cov
+				coverage = cov
 			}
 			return err
 		},
 		Assert: func(t *testing.T, res harness.ReplicaResult) {
-			assertEveryOperationContributed(t, harness.StandardVocabulary())
+			assertEveryOperationContributed(t, coverage, harness.StandardVocabulary())
 		},
 	}
 	harness.ReplicaTest(t, tc)

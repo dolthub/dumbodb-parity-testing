@@ -55,6 +55,7 @@ func countOn(ctx context.Context, cli *mongo.Client, db string) (int64, error) {
 // joined must already be present. A member that announces itself ready while
 // still cloning would be handed reads it cannot answer.
 func TestHonesty_NoSecondaryBeforeInitialSyncCompletes(t *testing.T) {
+	t.Parallel()
 	rs, subject, ctx, cancel := joinWithSeed(t, 500)
 	defer cancel()
 
@@ -101,6 +102,7 @@ func TestHonesty_NoSecondaryBeforeInitialSyncCompletes(t *testing.T) {
 // immediately afterwards. That gives an exact mapping from a reported position
 // to the set of documents that position must cover.
 func TestHonesty_ReportedOptimeImpliesDataPresent(t *testing.T) {
+	t.Parallel()
 	rs, subject, ctx, cancel := joinWithSeed(t, 0)
 	defer cancel()
 
@@ -212,6 +214,7 @@ func missingUpTo(ctx context.Context, cli *mongo.Client, highest int) ([]int32, 
 // A durable claim must survive a crash. Reporting an optime as durable means
 // the data behind it is on disk, not merely in memory.
 func TestHonesty_DurableOptimeSurvivesHardKill(t *testing.T) {
+	t.Parallel()
 	rs, subject, ctx, cancel := joinWithSeed(t, 200)
 	defer cancel()
 
@@ -264,6 +267,7 @@ func TestHonesty_DurableOptimeSurvivesHardKill(t *testing.T) {
 // member whose two accounts disagree is misreporting to one audience or the
 // other, and drivers and operators read different ones.
 func TestHonesty_HelloAgreesWithReplSetGetStatus(t *testing.T) {
+	t.Parallel()
 	rs, subject, ctx, cancel := joinWithSeed(t, 100)
 	defer cancel()
 

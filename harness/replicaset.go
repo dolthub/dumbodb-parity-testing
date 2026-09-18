@@ -123,6 +123,12 @@ func (rs *ReplicaSet) spawnMongod(bin string, id int) (*Member, error) {
 		"--dbpath", dir,
 		"--bind_ip", "127.0.0.1",
 		"--nounixsocket",
+		// Cap the cache. mongod otherwise sizes WiredTiger at about half of
+		// system memory minus a gigabyte, which is harmless for one server and
+		// ruinous once tests run in parallel: every mongod reserves for the
+		// whole box at once. These sets hold test fixtures measured in
+		// megabytes, so the cache is oversized either way.
+		"--wiredTigerCacheSizeGB", "0.25",
 	)
 	proc, err := startProc(cmd, fmt.Sprintf("mongod-%s-%d", rs.Name, id), dir)
 	if err != nil {

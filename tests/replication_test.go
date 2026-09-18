@@ -34,6 +34,7 @@ import (
 // As of dumbodb v0.6.3-43-g2ee7a63 both the control and the subject converge and
 // match, so this is a live parity test rather than a placeholder.
 func TestReplication_TenDocuments(t *testing.T) {
+	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
 		Name: "Replication_TenDocuments",
 		// Promoted from DumboDBXFail after dumbodb v0.6.3-43-g2ee7a63 replicated
@@ -59,6 +60,7 @@ func TestReplication_TenDocuments(t *testing.T) {
 // Same apparatus with the subject skipped. This is the control on its own: if
 // this fails, the harness is broken independently of anything DumboDB does.
 func TestReplication_ControlOnly(t *testing.T) {
+	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
 		Name:    "Replication_ControlOnly",
 		Support: harness.DumboDBMongoOnly,

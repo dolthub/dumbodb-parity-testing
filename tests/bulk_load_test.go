@@ -55,6 +55,7 @@ const bulkDB = "bulkload"
 // Size is the whole point. A handful of documents fits in one applyOps and
 // never chains, so a smaller load does not exercise this at all.
 func TestBulkLoad_LargeInsertManyKeepsReplicating(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 

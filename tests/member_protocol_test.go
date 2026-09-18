@@ -101,6 +101,7 @@ func ok(reply bson.M) bool {
 // mongod never sends is a field no MongoDB tooling expects, and it is the kind
 // of divergence that looks harmless until something keys off it.
 func TestMemberProtocol_InboundCommandShapes(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 
@@ -208,6 +209,7 @@ func TestMemberProtocol_InboundCommandShapes(t *testing.T) {
 // use to work out which configuration entry is their own. A member that
 // answers this wrongly can conclude it is not in its own set.
 func TestMemberProtocol_IsSelfIdentifiesTheMember(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 
@@ -242,6 +244,7 @@ func TestMemberProtocol_IsSelfIdentifiesTheMember(t *testing.T) {
 // the subject's actual state, since that is what the driver's topology
 // monitor and the other members act on.
 func TestMemberProtocol_HelloReportsSecondaryState(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 
@@ -296,6 +299,7 @@ func TestMemberProtocol_HelloReportsSecondaryState(t *testing.T) {
 // server, which is why this is asserted as a lower bound on elapsed time
 // rather than as a reply shape.
 func TestMemberProtocol_AwaitableHelloBlocks(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 
@@ -367,6 +371,7 @@ func awaitHello(t *testing.T, addr string, awaitMS int64) (time.Duration, bool) 
 // is invisible to the Go driver and to a plain OP_MSG send: it lives entirely
 // in the flag bits.
 func TestMemberProtocol_ExhaustHelloSetsMoreToCome(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 
@@ -430,6 +435,7 @@ func TestMemberProtocol_ExhaustHelloSetsMoreToCome(t *testing.T) {
 // is. A hang here would stall the member that tried to chain, which is a worse
 // outcome than the refusal itself.
 func TestMemberProtocol_RefusesDownstreamSyncPromptly(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 
@@ -512,6 +518,7 @@ func TestMemberProtocol_RefusesDownstreamSyncPromptly(t *testing.T) {
 // above is a deliberate DumboDB deviation rather than something the apparatus
 // blocks. Without this the refusal tests would pass against a broken harness.
 func TestMemberProtocol_ReferenceServesItsOwnOplog(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 
