@@ -17,6 +17,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 )
@@ -34,6 +35,37 @@ var backendFactories = []struct {
 }{
 	{"Dolt", func(ctx context.Context) (Backend, error) { return NewDoltBackend(ctx) }},
 	{"DumboDB", func(ctx context.Context) (Backend, error) { return NewDumboDBBackend(ctx) }},
+}
+
+// requireEveryBackendMeasured fails unless every backend produced a
+// measurement.
+//
+// These tests are comparisons. A table holding one backend is not a weaker
+// result than a table holding two, it answers a different question: it says
+// nothing at all about the thing the test exists to measure. Printing it in
+// the same table shape makes an absence look like an output.
+//
+// That is not hypothetical. DumboDB stopped being able to create a branch when
+// dumbodb f00a772 made an action argument required, and for two weeks these
+// tests printed a results table containing only Dolt. The subtest failure did
+// surface, but the table beneath it still read like a result.
+func requireEveryBackendMeasured(t *testing.T, measured []string) {
+	t.Helper()
+	seen := make(map[string]bool, len(measured))
+	for _, name := range measured {
+		seen[name] = true
+	}
+	missing := make([]string, 0, len(backendFactories))
+	for _, bf := range backendFactories {
+		if !seen[bf.name] {
+			missing = append(missing, bf.name)
+		}
+	}
+	if len(missing) > 0 {
+		t.Fatalf("%v produced no measurement, so the comparison below is not one. "+
+			"Any table printed here reports %v alone and must not be read as a result",
+			missing, measured)
+	}
 }
 
 // insertDocs inserts n sequentially-keyed documents into b.
@@ -145,6 +177,12 @@ func TestMergeStorage_LargeBaseTinyDiff(t *testing.T) {
 		})
 	}
 
+	measured := make([]string, 0, len(results))
+	for _, r := range results {
+		measured = append(measured, r.name)
+	}
+	requireEveryBackendMeasured(t, measured)
+
 	headers := []string{"Backend", "Merge duration", "Storage before", "Storage after", "Delta"}
 	rows := make([][]string, len(results))
 	for i, r := range results {
@@ -221,6 +259,12 @@ func TestMergeTime_ScalesWithBase(t *testing.T) {
 		})
 	}
 
+	measured := make([]string, 0, len(results))
+	for _, r := range results {
+		measured = append(measured, r.backend)
+	}
+	requireEveryBackendMeasured(t, measured)
+
 	// Summary table.
 	headers := []string{"Base size", "Backend", "Merge duration"}
 	rows := make([][]string, len(results))
@@ -291,6 +335,12 @@ func TestIndexLookup_PostMerge(t *testing.T) {
 	const lookups = 1000
 	const lookupBase = 1_000
 
+	// This one reports through t.Logf rather than a table, so a backend that
+	// dropped out left no trace at all: the surviving log line looked like the
+	// whole answer.
+	var mu sync.Mutex
+	measured := make([]string, 0, len(backendFactories))
+
 	for _, bf := range backendFactories {
 		bf := bf
 		t.Run(bf.name, func(t *testing.T) {
@@ -341,8 +391,14 @@ func TestIndexLookup_PostMerge(t *testing.T) {
 			p50 := percentile(durations, 50)
 			p99 := percentile(durations, 99)
 			t.Logf("%s post-merge index lookup: p50=%v p99=%v", b.Name(), p50.Round(time.Microsecond), p99.Round(time.Microsecond))
+
+			mu.Lock()
+			measured = append(measured, b.Name())
+			mu.Unlock()
 		})
 	}
+
+	requireEveryBackendMeasured(t, measured)
 }
 
 // percentile returns the p-th percentile of a duration slice.
