@@ -205,6 +205,20 @@ func GenerateDocument(r *rand.Rand, id string) bson.D {
 		}
 		d = append(d, bson.E{Key: "tags", Value: tags})
 	}
+	// mutable is always present and always holds every word, which is what
+	// makes the destructive array operators able to contribute.
+	//
+	// They used to target tags, which GenerateDocument includes about half the
+	// time and fills with one to five random words. Since each operation picks
+	// its own random document, $pull for a specific word, $pop, and
+	// $push with $position mostly found no array to act on and wrote nothing.
+	// MongoDB reports success for those, so they counted as covered while
+	// never reaching the oplog and therefore never reaching DumboDB at all.
+	mutable := bson.A{}
+	for _, w := range words {
+		mutable = append(mutable, w)
+	}
+	d = append(d, bson.E{Key: "mutable", Value: mutable})
 	if r.Intn(3) == 0 {
 		d = append(d, bson.E{Key: "address", Value: bson.D{
 			{Key: "street", Value: fmt.Sprintf("%d %s St", r.Intn(9999), pickWord(r))},
@@ -289,7 +303,10 @@ func WriteOps() []Op {
 			return err
 		}},
 		{"update-$set", updateOp(func(r *rand.Rand) bson.D {
-			return bson.D{{Key: "$set", Value: bson.D{{Key: "label", Value: pickWord(r)}}}}
+			// A value the document cannot already hold. Setting label to one
+			// of eight words rewrote the value it already had often enough to
+			// contribute nothing across a short run.
+			return bson.D{{Key: "$set", Value: bson.D{{Key: "label", Value: fmt.Sprintf("%s-%d", pickWord(r), r.Intn(1_000_000_000))}}}}
 		})},
 		{"update-$unset", updateOp(func(r *rand.Rand) bson.D {
 			return bson.D{{Key: "$unset", Value: bson.D{{Key: "label", Value: ""}}}}
@@ -301,10 +318,18 @@ func WriteOps() []Op {
 			return bson.D{{Key: "$mul", Value: bson.D{{Key: "score", Value: int32(2)}}}}
 		})},
 		{"update-$min", updateOp(func(r *rand.Rand) bson.D {
-			return bson.D{{Key: "$min", Value: bson.D{{Key: "score", Value: int32(r.Intn(500))}}}}
+			// Below anything score can hold, for the same reason $max needs a
+			// value above it: $min only writes when the candidate is smaller,
+			// so drawing from the same range as the data made contributing a
+			// coin flip, and a short run can lose it every time.
+			return bson.D{{Key: "$min", Value: bson.D{{Key: "score", Value: int32(-1_000_000 - r.Intn(1_000_000))}}}}
 		})},
 		{"update-$max", updateOp(func(r *rand.Rand) bson.D {
-			return bson.D{{Key: "$max", Value: bson.D{{Key: "score", Value: int32(r.Intn(500))}}}}
+			// Above every seeded score, which GenerateDocument draws from
+			// [0,1000). $max only writes when the candidate is greater, so a
+			// value from the same range as the data wrote nothing most of the
+			// time and nothing at all across a short run.
+			return bson.D{{Key: "$max", Value: bson.D{{Key: "score", Value: int32(1000 + r.Intn(1_000_000))}}}}
 		})},
 		{"update-$rename", updateOp(func(r *rand.Rand) bson.D {
 			return bson.D{{Key: "$rename", Value: bson.D{{Key: "label", Value: "moved_label"}}}}
@@ -382,33 +407,43 @@ func ArrayOps() []Op {
 			return bson.D{{Key: "$push", Value: bson.D{{Key: "tags", Value: pickWord(r)}}}}
 		})},
 		{"array-$push-$each-$slice-$sort", updateOp(func(r *rand.Rand) bson.D {
+			// Negative values, so the ascending sort always keeps them and the
+			// slice always drops something else. Pushing from [0,100) meant
+			// that once scores held five small values the new ones were sliced
+			// straight back off, and the operation wrote nothing: it
+			// contributed once in eight runs of the concurrent case, which is
+			// close enough to zero to fail intermittently.
 			return bson.D{{Key: "$push", Value: bson.D{{Key: "scores", Value: bson.D{
-				{Key: "$each", Value: bson.A{int32(r.Intn(100)), int32(r.Intn(100))}},
+				{Key: "$each", Value: bson.A{int32(-1 - r.Intn(1_000_000)), int32(-1 - r.Intn(1_000_000))}},
 				{Key: "$sort", Value: int32(1)},
 				{Key: "$slice", Value: int32(5)},
 			}}}}}
 		})},
 		{"array-$push-$position", updateOp(func(r *rand.Rand) bson.D {
-			return bson.D{{Key: "$push", Value: bson.D{{Key: "tags", Value: bson.D{
+			return bson.D{{Key: "$push", Value: bson.D{{Key: "mutable", Value: bson.D{
 				{Key: "$each", Value: bson.A{pickWord(r)}},
 				{Key: "$position", Value: int32(0)},
 			}}}}}
 		})},
 		{"array-$addToSet", updateOp(func(r *rand.Rand) bson.D {
-			return bson.D{{Key: "$addToSet", Value: bson.D{{Key: "tags", Value: pickWord(r)}}}}
+			// A value the set cannot already contain. Adding one of eight
+			// words to an array that often already held it did nothing five
+			// times in eight, and $addToSet declining a duplicate is the one
+			// case where doing nothing is correct rather than interesting.
+			return bson.D{{Key: "$addToSet", Value: bson.D{{Key: "tags", Value: fmt.Sprintf("%s-%d", pickWord(r), r.Intn(1_000_000_000))}}}}
 		})},
 		{"array-$pull", updateOp(func(r *rand.Rand) bson.D {
-			return bson.D{{Key: "$pull", Value: bson.D{{Key: "tags", Value: pickWord(r)}}}}
+			return bson.D{{Key: "$pull", Value: bson.D{{Key: "mutable", Value: pickWord(r)}}}}
 		})},
 		{"array-$pullAll", updateOp(func(r *rand.Rand) bson.D {
-			return bson.D{{Key: "$pullAll", Value: bson.D{{Key: "tags", Value: bson.A{pickWord(r), pickWord(r)}}}}}
+			return bson.D{{Key: "$pullAll", Value: bson.D{{Key: "mutable", Value: bson.A{pickWord(r), pickWord(r)}}}}}
 		})},
 		{"array-$pop", updateOp(func(r *rand.Rand) bson.D {
 			side := int32(1)
 			if r.Intn(2) == 0 {
 				side = -1
 			}
-			return bson.D{{Key: "$pop", Value: bson.D{{Key: "tags", Value: side}}}}
+			return bson.D{{Key: "$pop", Value: bson.D{{Key: "mutable", Value: side}}}}
 		})},
 		{"array-positional-all", updateOp(func(r *rand.Rand) bson.D {
 			return bson.D{{Key: "$inc", Value: bson.D{{Key: "items.$[].qty", Value: int32(1)}}}}
