@@ -99,6 +99,12 @@ func (d *DumboMember) launch() {
 	if !waitPort(d.Addr, 60*time.Second) {
 		d.t.Fatalf("dumbodb did not listen on %s (log %s)", d.Addr, proc.log)
 	}
+	// Same reason the mongod spawn waits for a real response: the reconfig
+	// that adds this member runs a quorum check against it, and an open port
+	// is not an answer.
+	if err := waitServerReady(d.Addr, 60*time.Second); err != nil {
+		d.t.Fatalf("dumbodb on %s never became ready (log %s): %v", d.Addr, proc.log, err)
+	}
 }
 
 // Stop shuts the member down gracefully, leaving its data directory intact.

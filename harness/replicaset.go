@@ -152,6 +152,15 @@ func (rs *ReplicaSet) spawnMongod(bin string, id int) (*Member, error) {
 	if !waitPort(addr, 40*time.Second) {
 		return nil, fmt.Errorf("mongod %s did not listen on %s (log %s)", rs.Name, addr, proc.log)
 	}
+	// Accepting a connection is not the same as being ready to answer one.
+	// replSetInitiate runs a quorum check that connects to every proposed
+	// member, and a mongod still starting up refuses it, failing the whole set
+	// with NodeNotFound before any test has run. That became likely once the
+	// suite went parallel: four cases at once start eight mongods together,
+	// and CI hardware is slower than anything this reproduces on.
+	if err := waitServerReady(addr, 60*time.Second); err != nil {
+		return nil, fmt.Errorf("mongod %s on %s never became ready (log %s): %w", rs.Name, addr, proc.log, err)
+	}
 	return &Member{ID: id, Addr: addr, URI: "mongodb://" + addr, proc: proc}, nil
 }
 

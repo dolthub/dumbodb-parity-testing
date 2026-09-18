@@ -16,6 +16,7 @@ package harness
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -394,4 +395,34 @@ func indexByte(s string, b byte) int {
 		}
 	}
 	return -1
+}
+
+// waitServerReady blocks until the server answers a command, not merely until
+// it accepts a connection.
+//
+// waitPort returning true only means something is listening. A mongod that has
+// opened its port but not finished starting refuses commands, and the caller
+// that acts on the earlier signal fails for a reason that looks nothing like
+// startup: replSetInitiate reports NodeNotFound and a quorum check failure.
+func waitServerReady(addr string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	var last error
+	for time.Now().Before(deadline) {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		cli, err := directClient(ctx, addr)
+		if err == nil {
+			err = cli.Database("admin").RunCommand(ctx, bson.D{{Key: "ping", Value: 1}}).Err()
+			_ = cli.Disconnect(context.Background())
+		}
+		cancel()
+		if err == nil {
+			return nil
+		}
+		last = err
+		time.Sleep(250 * time.Millisecond)
+	}
+	if last == nil {
+		last = errors.New("no attempt completed")
+	}
+	return fmt.Errorf("no response to ping within %s: %w", timeout, last)
 }
