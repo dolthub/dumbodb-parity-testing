@@ -63,12 +63,40 @@ CASES=(
   "concurrent  | blindinc-ft  | blind-inc      | fieldTouched   | 0       | pass  | pass"
   "concurrent  | identical-fd | identical-set  | fieldDivergent | 0       | pass  | pass"
   "concurrent  | sameset-fd   | same-set       | fieldDivergent | 0       | pass  | pass"
+
+  # documentTouched ordinary writes. CAS soak is xfail until 1bk.9.8.14 is fixed.
+  "concurrent  | cas-dt       | cas            | documentTouched | 0      | pass  | xfail"
+  "concurrent  | uuidcas-dt   | uuid-cas       | documentTouched | 0      | pass  | pass"
+  "concurrent  | divcas-dt    | divergent-cas  | documentTouched | 0      | pass  | pass"
+  "concurrent  | blindinc-dt  | blind-inc      | documentTouched | 0      | pass  | pass"
+  "concurrent  | disjoint-dt  | disjoint-set   | documentTouched | 0      | pass  | pass"
+  "concurrent  | identical-dt | identical-set  | documentTouched | 0      | pass  | pass"
+  "concurrent  | sameset-dt   | same-set       | documentTouched | 0      | pass  | pass"
+
+  # documentDivergent ordinary writes and full-document discriminators.
+  # Numeric CAS and convergent full-document writes are xfail until the
+  # dataset-head ancestry race in 1bk.9.8.8.1 is fixed.
+  "concurrent  | cas-dd       | cas                       | documentDivergent | 0 | xfail | xfail"
+  "concurrent  | uuidcas-dd   | uuid-cas                  | documentDivergent | 0 | pass  | pass"
+  "concurrent  | divcas-dd    | divergent-cas             | documentDivergent | 0 | pass  | pass"
+  "concurrent  | blindinc-dd  | blind-inc                 | documentDivergent | 0 | pass  | pass"
+  "concurrent  | disjoint-dd  | disjoint-set              | documentDivergent | 0 | pass  | pass"
+  "concurrent  | identical-dd | identical-set             | documentDivergent | 0 | pass  | pass"
+  "concurrent  | sameset-dd   | same-set                  | documentDivergent | 0 | pass  | pass"
+  "concurrent  | wholeconv-dd | whole-document-convergent | documentDivergent | 8192 | xfail | xfail"
+  "concurrent  | wholediv-dd  | whole-document-divergent  | documentDivergent | 8192 | pass  | pass"
 )
-# Deterministic merge matrix: one case per row (payload 0 = inline).
+# Deterministic merge matrices run on the bare branch-merge path. Document
+# modes cover both inline and out-of-band storage because canonical whole-
+# document equality is storage-sensitive.
 MATRIX_ROWS=(one-sided disjoint-fields same-field-same-value same-value-plus-disjoint
              same-field-different-values modify-delete add-add-identical add-add-different both-delete)
 for row in "${MATRIX_ROWS[@]}"; do
-  CASES+=("matrix | matrix-$row | field-divergent-matrix-$row | fieldDivergent | 0 | pass | pass")
+  CASES+=("matrix | matrix-fd-$row | field-divergent-matrix-$row | fieldDivergent | 0 | pass | pass")
+  CASES+=("matrix | matrix-dt-inline-$row | document-touched-matrix-$row | documentTouched | 0 | pass | pass")
+  CASES+=("matrix | matrix-dt-oob-$row | document-touched-matrix-$row | documentTouched | 8192 | pass | pass")
+  CASES+=("matrix | matrix-dd-inline-$row | document-divergent-matrix-$row | documentDivergent | 0 | pass | pass")
+  CASES+=("matrix | matrix-dd-oob-$row | document-divergent-matrix-$row | documentDivergent | 8192 | pass | pass")
 done
 
 ensure_dirs
