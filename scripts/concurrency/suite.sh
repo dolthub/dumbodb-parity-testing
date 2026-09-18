@@ -15,7 +15,8 @@
 #
 # The matrix is declared in CASES below -- add a line to add coverage. Fields:
 #   group | name | scenario | mode | payload | expect-smoke | expect-soak
-#     group          concurrent (auto-commit server) or matrix (bare server)
+#     group          concurrent (auto-commit), concurrent-reap (auto-commit
+#                    with accelerated session reap in soak), or matrix (bare)
 #     expect-smoke   expected result in the smoke profile
 #     expect-soak    expected result in the soak profile
 #       pass  = must reach conclusivePass
@@ -39,6 +40,8 @@ PROFILE=${1:-smoke}
 WORKERS=${WORKERS:-32}
 SMOKE_OPS=${SMOKE_OPS:-50000}
 SOAK_DURATION=${SOAK_DURATION:-30m}
+REAP_SESSION_TIMEOUT=3s
+REAP_SESSION_SWEEP_PERIOD=1s
 
 case "$PROFILE" in
   smoke) SCALE=( --operations "$SMOKE_OPS" ) ;;
@@ -65,13 +68,13 @@ CASES=(
   "concurrent  | sameset-fd   | same-set       | fieldDivergent | 0       | pass  | pass"
 
   # documentTouched ordinary writes. CAS soak is xfail until 1bk.9.8.14 is fixed.
-  "concurrent  | cas-dt       | cas            | documentTouched | 0      | pass  | xfail"
-  "concurrent  | uuidcas-dt   | uuid-cas       | documentTouched | 0      | pass  | pass"
-  "concurrent  | divcas-dt    | divergent-cas  | documentTouched | 0      | pass  | pass"
-  "concurrent  | blindinc-dt  | blind-inc      | documentTouched | 0      | pass  | pass"
-  "concurrent  | disjoint-dt  | disjoint-set   | documentTouched | 0      | pass  | pass"
-  "concurrent  | identical-dt | identical-set  | documentTouched | 0      | pass  | pass"
-  "concurrent  | sameset-dt   | same-set       | documentTouched | 0      | pass  | pass"
+  "concurrent-reap | cas-dt       | cas            | documentTouched | 0   | pass  | xfail"
+  "concurrent-reap | uuidcas-dt   | uuid-cas       | documentTouched | 0   | pass  | pass"
+  "concurrent-reap | divcas-dt    | divergent-cas  | documentTouched | 0   | pass  | pass"
+  "concurrent-reap | blindinc-dt  | blind-inc      | documentTouched | 0   | pass  | pass"
+  "concurrent-reap | disjoint-dt  | disjoint-set   | documentTouched | 0   | pass  | pass"
+  "concurrent-reap | identical-dt | identical-set  | documentTouched | 0   | pass  | pass"
+  "concurrent-reap | sameset-dt   | same-set       | documentTouched | 0   | pass  | pass"
 
   # documentDivergent ordinary writes and full-document discriminators.
   # Numeric CAS and convergent full-document writes are xfail until the
@@ -135,12 +138,21 @@ for spec in "${CASES[@]}"; do
 
   # Start the right server for this group (only when it changes).
   want_server=$([ "$group" = matrix ] && echo bare || echo auto-commit)
-  if [ "$want_server" != "$current_server" ]; then
-    log "=== switching server to $want_server for $group cases ==="
-    SKIP_BUILD=${SUITE_SERVER_BUILT:-0} ./server.sh start "$want_server" >/dev/null 2>&1 \
-      || { ./server.sh start "$want_server"; die "server failed to start ($want_server)"; }
+  session_timeout=""
+  session_sweep_period=""
+  if [ "$PROFILE" = soak ] && [ "$group" = concurrent-reap ]; then
+    session_timeout=$REAP_SESSION_TIMEOUT
+    session_sweep_period=$REAP_SESSION_SWEEP_PERIOD
+  fi
+  server_key="${want_server}:${session_timeout:-default}:${session_sweep_period:-default}"
+  if [ "$server_key" != "$current_server" ]; then
+    log "=== switching server to $server_key for $group cases ==="
+    SESSION_TIMEOUT=$session_timeout SESSION_SWEEP_PERIOD=$session_sweep_period \
+      SKIP_BUILD=${SUITE_SERVER_BUILT:-0} ./server.sh start "$want_server" >/dev/null 2>&1 \
+      || { SESSION_TIMEOUT=$session_timeout SESSION_SWEEP_PERIOD=$session_sweep_period \
+           ./server.sh start "$want_server"; die "server failed to start ($server_key)"; }
     SUITE_SERVER_BUILT=1   # build once; reuse binary for later group switches
-    current_server="$want_server"
+    current_server=$server_key
   fi
 
   # Matrix cases are a single deterministic merge; concurrent cases use profile scale.

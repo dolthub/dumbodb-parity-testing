@@ -11,7 +11,8 @@
 # scenarios exercise. Do not use bare mode for CAS tests: it does not reconcile,
 # and the numbers are meaningless.
 #
-# Env overrides (see lib.sh): DUMBODB_DIR, PORT, DATA_DIR, SKIP_BUILD=1.
+# Env overrides (see lib.sh): DUMBODB_DIR, PORT, DATA_DIR, SKIP_BUILD=1,
+# SESSION_TIMEOUT, SESSION_SWEEP_PERIOD.
 set -euo pipefail
 cd "$(dirname "$0")"
 . ./lib.sh
@@ -34,13 +35,16 @@ do_stop() {
 }
 
 do_start() {
-  local mode=${1:-auto-commit} flag=""
-  case "$mode" in
-    auto-commit)       flag="-auto-commit" ;;
-    session-isolation) flag="-session-isolation" ;;
-    bare)              flag="" ;;
-    *) die "unknown mode '$mode' (use auto-commit, session-isolation, or bare)" ;;
-  esac
+	local mode=${1:-auto-commit}
+	local -a flags=()
+	case "$mode" in
+		auto-commit)       flags+=("-auto-commit") ;;
+		session-isolation) flags+=("-session-isolation") ;;
+		bare) ;;
+		*) die "unknown mode '$mode' (use auto-commit, session-isolation, or bare)" ;;
+	esac
+	[ -z "${SESSION_TIMEOUT:-}" ] || flags+=("-session-timeout" "$SESSION_TIMEOUT")
+	[ -z "${SESSION_SWEEP_PERIOD:-}" ] || flags+=("-session-sweep-period" "$SESSION_SWEEP_PERIOD")
 
   ensure_dirs
   do_stop
@@ -54,8 +58,8 @@ do_start() {
 
   rm -rf "$DATA_DIR"; mkdir -p "$DATA_DIR"
   : > "$SERVER_LOG"
-  log "starting server ($mode) on ${HOST}:${PORT}, revision $(server_revision)"
-  nohup "$DUMBODB_BIN" -addr "${HOST}:${PORT}" $flag \
+	log "starting server ($mode) on ${HOST}:${PORT}, revision $(server_revision), session-timeout=${SESSION_TIMEOUT:-default}, session-sweep-period=${SESSION_SWEEP_PERIOD:-default}"
+	nohup "$DUMBODB_BIN" -addr "${HOST}:${PORT}" "${flags[@]}" \
     -data-dir "$DATA_DIR" -log-level info > "$SERVER_LOG" 2>&1 &
   echo $! > "$SERVER_PID_FILE"
   disown 2>/dev/null || true
