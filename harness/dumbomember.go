@@ -218,6 +218,18 @@ func (d *DumboMember) AssertHiddenNonVoting(ctx context.Context) {
 // cases that deliberately exercise clean shutdown, which is test content
 // rather than cleanup.
 func (d *DumboMember) teardown() {
+	// A set this harness spawned dies moments from now, so removing the member
+	// from its configuration first is wasted work. An adopted set does not:
+	// MONGO_REPL_SET_URI points at something that outlives the test, and
+	// leaving a dead member behind means later tests adopt a corpse and wait
+	// out their convergence deadline against a member that will never report.
+	if d.rs.external {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := d.rs.removeMember(ctx, d.Addr); err != nil {
+			d.t.Logf("removing %s from the adopted set %s: %v", d.Addr, d.rs.Name, err)
+		}
+	}
 	d.Kill()
 	if d.DataDir != "" {
 		_ = os.RemoveAll(d.DataDir)

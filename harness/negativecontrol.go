@@ -15,10 +15,13 @@
 package harness
 
 import (
+	"time"
+
 	"context"
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -60,7 +63,14 @@ func Corruptions() []Corruption {
 		{
 			Name:      "changed date",
 			Rationale: "CompareResponses collapses every date to a single sentinel",
-			Apply:     mutateFirstDocument(func(d bson.D) bson.D { return setField(d, "when", "1999-01-01") }),
+			// A real primitive.DateTime, not a string that looks like a date.
+			// The seeded value used to be the string "2026-01-01" and this
+			// wrote the string "1999-01-01", so the case duplicated the
+			// changed-scalar check and never once exercised BSON DateTime,
+			// which is the whole thing the rationale claims it covers.
+			Apply: mutateFirstDocument(func(d bson.D) bson.D {
+				return setField(d, "when", primitive.NewDateTimeFromTime(time.Unix(915148800, 0).UTC()))
+			}),
 		},
 		{
 			Name:      "missing document",
@@ -248,7 +258,7 @@ func SeedCorruptionCorpus(ctx context.Context, cli *mongo.Client, dbName string)
 			{Key: "_id", Value: int32(i)},
 			{Key: "n", Value: int32(i)},
 			{Key: "payload", Value: "original"},
-			{Key: "when", Value: "2026-01-01"},
+			{Key: "when", Value: primitive.NewDateTimeFromTime(time.Unix(1767225600, 0).UTC())},
 		})
 	}
 	if _, err := coll.InsertMany(ctx, docs); err != nil {

@@ -29,6 +29,11 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// externalSetMu serializes tests that adopt the single set named by
+// replSetURIEnv. Tests that spawn their own sets are isolated by construction
+// and never touch it.
+var externalSetMu sync.Mutex
+
 // replSetURIEnv names a pre-provisioned multi-member set. Deliberately not
 // MONGO_RS_URI: that one is the single-node set backing TopologyReplicaSet
 // transaction tests, and pointing replication tests at it would silently give
@@ -79,6 +84,15 @@ func StartReplicaSet(t *testing.T, n int) *ReplicaSet {
 	}
 
 	if uri := os.Getenv(replSetURIEnv); uri != "" {
+		// One adopted set serves every test, and the replication cases run in
+		// parallel. Concurrent reconfigs and writes against a shared set would
+		// invalidate both the convergence gate and the state comparison, and
+		// would do it intermittently, which is the worst way to find out.
+		//
+		// Serialize instead. t.Parallel only means the runner may interleave
+		// tests; holding this until cleanup makes them queue for the set.
+		externalSetMu.Lock()
+		t.Cleanup(externalSetMu.Unlock)
 		return adoptReplicaSet(t, uri)
 	}
 

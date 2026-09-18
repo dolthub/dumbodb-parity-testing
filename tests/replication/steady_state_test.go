@@ -90,8 +90,14 @@ func assertEveryOperationContributed(t *testing.T, coverage *harness.Coverage, o
 			t.Errorf("operation %q never ran, so this case proves nothing about it", op.Name)
 			continue
 		}
-		if failed == ran {
-			t.Errorf("operation %q failed on all %d attempts; it produced no oplog entry and was not actually compared", op.Name, ran)
+		// A nil error is not proof of contribution. MongoDB reports success for
+		// an update or delete that matched nothing, so an operation can run
+		// every time, never fail, and never reach the oplog. Those runs come
+		// back as ErrNoContribution and are counted separately.
+		noops := coverage.NoOps[op.Name]
+		if failed+noops == ran {
+			t.Errorf("operation %q contributed nothing across %d attempts (%d failed, %d changed nothing); it produced no oplog entry and was not actually compared",
+				op.Name, ran, failed, noops)
 		}
 	}
 }

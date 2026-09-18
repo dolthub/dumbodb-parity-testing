@@ -243,6 +243,21 @@ func TestHonesty_DurableOptimeSurvivesHardKill(t *testing.T) {
 		t.Fatalf("count before kill: %v", err)
 	}
 
+	// Remove the member before restarting it.
+	//
+	// A restart while it is still configured lets replication reconnect and
+	// re-apply from the source the moment it comes back, so a document that was
+	// never actually persisted is silently restored before the count is taken.
+	// The test would then pass on a subject that lost durable data, which is
+	// the exact failure it exists to catch. Out of the set, the count reflects
+	// only what survived on disk.
+	removeCtx, cancelRemove := context.WithTimeout(context.Background(), 30*time.Second)
+	if err := rs.RemoveMember(removeCtx, subject.Addr); err != nil {
+		cancelRemove()
+		t.Fatalf("removing the subject before the crash: %v", err)
+	}
+	cancelRemove()
+
 	subject.Kill()
 	subject.Start()
 

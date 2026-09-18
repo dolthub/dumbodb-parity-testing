@@ -376,13 +376,24 @@ func TestObservability_FetchedPositionTracksApplied(t *testing.T) {
 		t.Fatalf("dumbodb %s: metrics.repl.network.oplogFetcherHighestFetchedOptime is zero after converging to %s", f.commit, watermark)
 	}
 
+	// Compare against the watermark the convergence gate already established,
+	// not against a fresh Progress read.
+	//
+	// Sampling serverStatus and then replSetGetStatus leaves a gap, and a
+	// periodic no-op landing in that gap advances applied past a fetched
+	// snapshot taken microseconds earlier. The member would be behaving
+	// correctly and the test would report that it applied what it never read.
+	// The watermark predates both samples, so no such gap exists.
+	if fetched.Compare(watermark) < 0 {
+		t.Errorf("dumbodb %s: converged to %s but reports fetching only up to %s; it cannot have applied what it did not read",
+			f.commit, watermark, fetched)
+	}
 	progress, err := f.rs.Progress(ctx, f.subject.Addr)
 	if err != nil {
 		t.Fatalf("Progress: %v", err)
 	}
-	if fetched.Compare(progress.Applied) < 0 {
-		t.Errorf("dumbodb %s: reports applied %s but only fetched %s; it cannot have applied what it did not read",
-			f.commit, progress.Applied, fetched)
+	if progress.Applied.Compare(watermark) < 0 {
+		t.Errorf("dumbodb %s: converged to %s but now reports applied %s", f.commit, watermark, progress.Applied)
 	}
 
 	// The data has to be there, not merely claimed. A position is a promise

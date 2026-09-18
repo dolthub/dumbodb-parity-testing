@@ -26,6 +26,7 @@ package replication
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -44,14 +45,24 @@ func commitIDs(ctx context.Context, cli *mongo.Client, db string) ([]string, err
 	if err != nil {
 		return nil, err
 	}
-	raw, _ := res["commits"].(bson.A)
+	// Every malformed entry is an error rather than a skip. These ids are what
+	// the history assertions compare, so quietly dropping an entry, or
+	// appending an empty string for one with no commitId, lets a truncated or
+	// malformed dumboLog reply satisfy a test about history being preserved.
+	raw, isArray := res["commits"].(bson.A)
+	if !isArray {
+		return nil, fmt.Errorf("dumboLog on %s returned commits of type %T, want an array", db, res["commits"])
+	}
 	ids := make([]string, 0, len(raw))
-	for _, entry := range raw {
-		doc, ok := entry.(bson.M)
-		if !ok {
-			continue
+	for i, entry := range raw {
+		doc, isDoc := entry.(bson.M)
+		if !isDoc {
+			return nil, fmt.Errorf("dumboLog on %s: commit %d is %T, want a document", db, i, entry)
 		}
-		id, _ := doc["commitId"].(string)
+		id, isString := doc["commitId"].(string)
+		if !isString || id == "" {
+			return nil, fmt.Errorf("dumboLog on %s: commit %d has commitId %v of type %T, want a non-empty string", db, i, doc["commitId"], doc["commitId"])
+		}
 		ids = append(ids, id)
 	}
 	return ids, nil

@@ -151,12 +151,34 @@ func ReplicaTest(t *testing.T, tc ReplicaCase) TestResult {
 	}
 	defer func() { _ = primaryClient.Disconnect(context.Background()) }()
 
-	// Runs without waiting for SECONDARY, so it overlaps the clone.
+	// Synchronize before dispatching, because "during the clone" and "after
+	// the subject is caught up" are different tests and neither happens by
+	// accident.
+	//
+	// DuringClone waits for STARTUP2 so the writes genuinely overlap cloning.
+	// Firing it the instant the member joins raced the clone starting, and on
+	// a small fixture the clone could finish first, quietly turning a
+	// concurrent-clone case into an ordinary steady-state one.
+	//
+	// Everything else waits for SECONDARY. Without that, tier 2 ran its
+	// workload while the subject was still cloning, so operations meant to
+	// exercise steady-state application were exercising initial sync instead.
+	// The comparison at the end still held, which is why this was invisible.
 	cloneDone := make(chan error, 1)
 	if tc.DuringClone != nil {
+		if subject != nil {
+			if err := rs.WaitForState(ctx, subject.Member, StateStartup2, defaultConvergeWait); err != nil {
+				t.Logf("%s: subject did not report STARTUP2 before DuringClone (%v); the clone may already have finished", tc.Name, err)
+			}
+		}
 		go func() { cloneDone <- tc.DuringClone(ctx, primaryClient) }()
 	} else {
 		cloneDone <- nil
+		if subject != nil {
+			if err := rs.WaitForState(ctx, subject.Member, StateSecondary, defaultConvergeWait); err != nil {
+				t.Fatalf("%s: subject did not reach SECONDARY before the workload, so this case would have exercised initial sync rather than steady-state application: %v", tc.Name, err)
+			}
+		}
 	}
 
 	if tc.Setup != nil {
@@ -191,7 +213,11 @@ func ReplicaTest(t *testing.T, tc ReplicaCase) TestResult {
 	// makes every result unreproducible, so surface the reason rather than
 	// printing "unknown".
 	res.SubjectCommit, err = subject.Commit(ctx)
-	if err != nil || res.SubjectCommit == "" {
+	// "unknown" is what a binary built without the version stamp reports, and
+	// it is exactly as unattributable as an empty string. Every other entry
+	// point rejects it; this one used to accept it and label the result as
+	// though it named a build.
+	if err != nil || res.SubjectCommit == "" || res.SubjectCommit == "unknown" {
 		t.Errorf("%s: could not read the subject's build commit (buildInfo.gitVersion): %v", tc.Name, err)
 		res.SubjectCommit = "UNATTRIBUTED"
 	}

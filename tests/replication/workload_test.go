@@ -85,8 +85,13 @@ func TestWorkload_VocabularyExercisesEveryOperation(t *testing.T) {
 					t.Errorf("operation %q never ran", op.Name)
 					continue
 				}
-				if failed == ran {
-					t.Errorf("operation %q failed on all %d attempts; it contributes nothing to the oplog", op.Name, ran)
+				// Same reasoning as the steady-state tier: a nil error does not
+				// mean the operation reached the oplog, because MongoDB reports
+				// success for an update or delete that matched nothing.
+				noops := workloadCoverage.NoOps[op.Name]
+				if failed+noops == ran {
+					t.Errorf("operation %q contributed nothing across %d attempts (%d failed, %d changed nothing); it never reached the oplog",
+						op.Name, ran, failed, noops)
 				}
 			}
 

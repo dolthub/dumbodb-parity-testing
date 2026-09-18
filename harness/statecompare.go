@@ -277,17 +277,19 @@ func describeID(a, b bson.Raw) string {
 // double are three different values even when they denote the same number.
 func compareRawDocuments(path string, a, b bson.Raw) *Divergence {
 	return compareRawValue(path, bson.RawValue{Type: bson.TypeEmbeddedDocument, Value: a},
-		bson.RawValue{Type: bson.TypeEmbeddedDocument, Value: b})
+		bson.RawValue{Type: bson.TypeEmbeddedDocument, Value: b}, true)
 }
 
-func compareRawValue(path string, a, b bson.RawValue) *Divergence {
+// compareRawValue compares two values. root marks the top-level document of a
+// stored record, which is the only place the order-sensitive _id rule applies.
+func compareRawValue(path string, a, b bson.RawValue, root bool) *Divergence {
 	if a.Type != b.Type {
 		return &Divergence{path, fmt.Sprintf("type %s != %s (values %s, %s)", a.Type, b.Type, a.String(), b.String())}
 	}
 
 	switch a.Type {
 	case bson.TypeEmbeddedDocument:
-		return compareDocumentValue(path, a, b)
+		return compareDocumentValue(path, a, b, root)
 	case bson.TypeArray:
 		return compareArrayValue(path, a, b)
 	default:
@@ -298,7 +300,7 @@ func compareRawValue(path string, a, b bson.RawValue) *Divergence {
 	}
 }
 
-func compareDocumentValue(path string, a, b bson.RawValue) *Divergence {
+func compareDocumentValue(path string, a, b bson.RawValue, root bool) *Divergence {
 	da, errA := bson.Raw(a.Value).Elements()
 	db, errB := bson.Raw(b.Value).Elements()
 	if errA != nil || errB != nil {
@@ -324,15 +326,21 @@ func compareDocumentValue(path string, a, b bson.RawValue) *Divergence {
 		case !inA:
 			return &Divergence{child, "field missing on the first server"}
 		}
-		// _id values compare byte-exact: MongoDB treats {a:1,b:2} and
-		// {b:2,a:1} as different _ids, so order is identity here.
-		if key == "_id" && va.Type == bson.TypeEmbeddedDocument {
+		// A document _id compares byte-exact, because MongoDB treats {a:1,b:2}
+		// and {b:2,a:1} as different _ids: order is identity there.
+		//
+		// Only at the root. This runs at every level of the recursion, so an
+		// ordinary nested field that happens to be called _id, say
+		// payload._id, was also being held to field order, which contradicts
+		// the documented policy of ignoring order for ordinary objects and
+		// would report a divergence DumboDB is entitled to produce.
+		if root && key == "_id" && va.Type == bson.TypeEmbeddedDocument {
 			if !va.Equal(vb) {
 				return &Divergence{child, fmt.Sprintf("_id documents differ including field order: %s != %s", va.String(), vb.String())}
 			}
 			continue
 		}
-		if d := compareRawValue(child, va, vb); d != nil {
+		if d := compareRawValue(child, va, vb, false); d != nil {
 			return d
 		}
 	}
@@ -349,7 +357,7 @@ func compareArrayValue(path string, a, b bson.RawValue) *Divergence {
 		return &Divergence{path, fmt.Sprintf("array length %d != %d", len(ea), len(eb))}
 	}
 	for i := range ea {
-		if d := compareRawValue(fmt.Sprintf("%s[%d]", path, i), ea[i].Value(), eb[i].Value()); d != nil {
+		if d := compareRawValue(fmt.Sprintf("%s[%d]", path, i), ea[i].Value(), eb[i].Value(), false); d != nil {
 			return d
 		}
 	}

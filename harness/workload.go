@@ -16,6 +16,7 @@ package harness
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -60,17 +61,24 @@ type Coverage struct {
 	mu       sync.Mutex
 	Ran      map[string]int
 	Failures map[string]int
+	// NoOps counts runs that returned ErrNoContribution: no error, and no
+	// oplog entry either. Kept apart from Failures because an operation that
+	// errors is visible and one that quietly changes nothing is not.
+	NoOps map[string]int
 }
 
 func newCoverage() *Coverage {
-	return &Coverage{Ran: map[string]int{}, Failures: map[string]int{}}
+	return &Coverage{Ran: map[string]int{}, Failures: map[string]int{}, NoOps: map[string]int{}}
 }
 
 func (c *Coverage) record(name string, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.Ran[name]++
-	if err != nil {
+	switch {
+	case errors.Is(err, ErrNoContribution):
+		c.NoOps[name]++
+	case err != nil:
 		c.Failures[name]++
 	}
 }
@@ -96,17 +104,24 @@ func (c *Coverage) String() string {
 		total += n
 	}
 	fmt.Fprintf(&b, "%d operations across %d kinds", total, len(c.Ran))
-	if len(c.Failures) > 0 {
-		fmt.Fprintf(&b, "; failures:")
-		names := make([]string, 0, len(c.Failures))
-		for name := range c.Failures {
+	appendCounts := func(label string, counts map[string]int) {
+		if len(counts) == 0 {
+			return
+		}
+		fmt.Fprintf(&b, "; %s:", label)
+		names := make([]string, 0, len(counts))
+		for name := range counts {
 			names = append(names, name)
 		}
 		sort.Strings(names)
 		for _, name := range names {
-			fmt.Fprintf(&b, " %s=%d", name, c.Failures[name])
+			fmt.Fprintf(&b, " %s=%d", name, counts[name])
 		}
 	}
+	appendCounts("failures", c.Failures)
+	// Reported alongside failures because a run that changed nothing is the
+	// quieter of the two and the easier to miss when reading coverage.
+	appendCounts("changed nothing", c.NoOps)
 	return b.String()
 }
 
@@ -315,25 +330,25 @@ func WriteOps() []Op {
 		{"updateMany", func(ctx context.Context, db *mongo.Database, r *rand.Rand) error {
 			// One command, one oplog entry per matched document. A classic
 			// place for a replica to diverge from its source.
-			_, err := coll(db).UpdateMany(ctx,
+			result, err := coll(db).UpdateMany(ctx,
 				bson.D{{Key: "score", Value: bson.D{{Key: "$lt", Value: int32(r.Intn(1000))}}}},
 				bson.D{{Key: "$inc", Value: bson.D{{Key: "bulkTouched", Value: int32(1)}}}})
-			return err
+			return contributed(err, result.ModifiedCount)
 		}},
 		{"replaceOne", func(ctx context.Context, db *mongo.Database, r *rand.Rand) error {
 			id := existingID(r)
-			_, err := coll(db).ReplaceOne(ctx,
+			result, err := coll(db).ReplaceOne(ctx,
 				bson.D{{Key: "_id", Value: id}}, GenerateDocument(r, id))
-			return err
+			return contributed(err, result.ModifiedCount+result.UpsertedCount)
 		}},
 		{"deleteOne", func(ctx context.Context, db *mongo.Database, r *rand.Rand) error {
-			_, err := coll(db).DeleteOne(ctx, bson.D{{Key: "_id", Value: existingID(r)}})
-			return err
+			result, err := coll(db).DeleteOne(ctx, bson.D{{Key: "_id", Value: existingID(r)}})
+			return contributed(err, result.DeletedCount)
 		}},
 		{"deleteMany", func(ctx context.Context, db *mongo.Database, r *rand.Rand) error {
-			_, err := coll(db).DeleteMany(ctx,
+			result, err := coll(db).DeleteMany(ctx,
 				bson.D{{Key: "label", Value: pickWord(r)}})
-			return err
+			return contributed(err, result.DeletedCount)
 		}},
 		{"findOneAndUpdate", func(ctx context.Context, db *mongo.Database, r *rand.Rand) error {
 			err := coll(db).FindOneAndUpdate(ctx,
@@ -525,11 +540,32 @@ func StandardVocabulary() []Op {
 	return ops
 }
 
+// ErrNoContribution marks an operation that completed without error and
+// changed nothing, so it wrote no oplog entry and replicated nothing.
+//
+// MongoDB returns success for an update or delete that matches no document,
+// and Collection.Drop suppresses NamespaceNotFound. Treating a nil error as
+// proof of contribution therefore lets an operation report full coverage
+// while never once reaching the oplog, which is the thing coverage exists to
+// rule out.
+var ErrNoContribution = errors.New("operation changed nothing and produced no oplog entry")
+
 func updateOp(build func(r *rand.Rand) bson.D) func(context.Context, *mongo.Database, *rand.Rand) error {
 	return func(ctx context.Context, db *mongo.Database, r *rand.Rand) error {
-		_, err := coll(db).UpdateOne(ctx, bson.D{{Key: "_id", Value: existingID(r)}}, build(r))
+		result, err := coll(db).UpdateOne(ctx, bson.D{{Key: "_id", Value: existingID(r)}}, build(r))
+		return contributed(err, result.ModifiedCount+result.UpsertedCount)
+	}
+}
+
+// contributed converts a successful but empty operation into ErrNoContribution.
+func contributed(err error, changed int64) error {
+	if err != nil {
 		return err
 	}
+	if changed == 0 {
+		return ErrNoContribution
+	}
+	return nil
 }
 
 func ignoreNoDocuments(err error) error {
