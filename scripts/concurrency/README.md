@@ -55,6 +55,12 @@ settings are part of `suite.sh`, not a manual reproduction knob.
 - `run.sh --scenario NAME [flags]` -- run one scenario, print a PASS/FAIL
   summary and any collision findings, exit with the harness code (0/1/3).
 - `repro-4.5.sh [--fast]` -- the canned CAS reproduction.
+- `weekend-loop.sh [profile] [timeout]` -- run the suite in a loop until Ctrl-C,
+  for unattended multi-day soak hunting. Keeps going after a failing pass and
+  archives full evidence per failure under `RUN_DIR/weekend-archive/`. Default
+  profile `soak` (~12-13h/pass); pass `smoke` for a fast regression hammer.
+  Run detached so a disconnect does not kill it, e.g.
+  `nohup ./weekend-loop.sh soak > weekend.out 2>&1 &`.
 - `lib.sh` -- shared config; override paths/ports via environment variables.
 
 ## Configuration (environment variables)
