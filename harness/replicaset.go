@@ -556,12 +556,28 @@ func (rs *ReplicaSet) client(ctx context.Context, addr string) (*mongo.Client, e
 	return c, nil
 }
 
+// closePool disconnects the pooled clients.
+//
+// The bounded context is load bearing. Teardown stops the subject before this
+// runs, so the pool holds a client whose server is gone, and Disconnect on an
+// unbounded context waits for the driver to give up on it. Measured at about
+// thirty seconds per test, against a three second teardown when no such client
+// exists. Nothing here needs a clean disconnect: the processes are about to be
+// killed and the data directories removed.
 func (rs *ReplicaSet) closePool() {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	var wg sync.WaitGroup
 	for _, c := range rs.pool {
-		_ = c.Disconnect(context.Background())
+		wg.Add(1)
+		go func(c *mongo.Client) {
+			defer wg.Done()
+			_ = c.Disconnect(ctx)
+		}(c)
 	}
+	wg.Wait()
 	rs.pool = nil
 }
 
