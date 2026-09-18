@@ -18,7 +18,7 @@
 // travel through initial sync rather than the oplog.
 //go:build replication
 
-package tests
+package replication
 
 import (
 	"context"

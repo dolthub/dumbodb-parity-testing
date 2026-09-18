@@ -14,7 +14,7 @@
 
 //go:build replication
 
-package tests
+package replication
 
 import (
 	"context"

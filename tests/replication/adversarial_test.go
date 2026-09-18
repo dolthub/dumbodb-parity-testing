@@ -19,7 +19,7 @@
 // stock secondary reached, with no gap and no double-apply.
 //go:build replication
 
-package tests
+package replication
 
 import (
 	"context"

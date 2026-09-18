@@ -20,7 +20,7 @@
 // rest of the suite worth running.
 //go:build replication
 
-package tests
+package replication
 
 import (
 	"context"
