@@ -40,6 +40,12 @@ cd scripts/concurrency
 The server must run with `-auto-commit` (the per-write reconcile path).
 `server.sh start` uses it by default. Do not use `bare` mode for CAS tests.
 
+The soak profile runs the documentTouched group with a checked-in 3-second
+session timeout and 1-second sweep period. This repeatedly reaps pooled idle
+sessions and guards the reconnect behavior fixed by DumboDB f76ab32. Smoke
+runs retain the server defaults. These settings are part of `suite.sh`, not a
+manual reproduction knob.
+
 ## Scripts
 
 - `server.sh {start [mode] | stop | status}` -- build (via `make`) and manage the
@@ -57,6 +63,8 @@ The server must run with `-auto-commit` (the per-write reconcile path).
 | `PORT` | `27018` | server listen port |
 | `RUN_DIR` | `/tmp/dumbo-concurrency` | data dir, logs, and result JSON |
 | `SKIP_BUILD` | unset | set to `1` to reuse existing binaries |
+| `SESSION_TIMEOUT` | server default | optional `server.sh` idle-session timeout |
+| `SESSION_SWEEP_PERIOD` | server default | optional `server.sh` idle-session sweep cadence |
 
 Result JSON and the server log land under `RUN_DIR` (default
 `/tmp/dumbo-concurrency`), outside the repos.
