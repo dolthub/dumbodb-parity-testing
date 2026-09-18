@@ -27,7 +27,20 @@ import (
 const (
 	defaultReplicaMembers = 2
 	defaultReplicaTimeout = 4 * time.Minute
-	defaultConvergeWait   = 90 * time.Second
+	// defaultConvergeWait is generous on purpose.
+	//
+	// It was 90 seconds, chosen when five of the vocabulary's operators were
+	// silently writing nothing. Once they were fixed to actually mutate, the
+	// concurrent full-vocabulary case stopped finishing in time: the subject
+	// was reported SECONDARY, advancing steadily, and simply short of the
+	// watermark when the budget expired.
+	//
+	// A budget too short produces false failures against a working member,
+	// and its cost is paid on every failing run rather than every run. The
+	// convergence timeout now reports whether a member advanced while
+	// waiting, so a genuinely stuck one still says so rather than hiding
+	// behind the larger number.
+	defaultConvergeWait = 3 * time.Minute
 )
 
 // ReplicaCase is one replication parity test: a workload run against a real
