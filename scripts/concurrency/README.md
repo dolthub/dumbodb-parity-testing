@@ -67,7 +67,7 @@ settings are part of `suite.sh`, not a manual reproduction knob.
 
 | var | default | meaning |
 |-----|---------|---------|
-| `DUMBODB_DIR` | `/workspace/dumbodb` | server repo (checked out to the revision under test) |
+| `DUMBODB_DIR` | sibling `../dumbodb` of the parity repo | server repo (checked out to the revision under test); set this if yours is elsewhere |
 | `PORT` | `27018` | server listen port |
 | `RUN_DIR` | `/tmp/dumbo-concurrency` | data dir, logs, and result JSON |
 | `SKIP_BUILD` | unset | set to `1` to reuse existing binaries |

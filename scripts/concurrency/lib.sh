@@ -4,9 +4,20 @@
 # Override any of these with environment variables, e.g.:
 #   DUMBODB_DIR=/path/to/dumbodb PORT=27099 ./server.sh start
 
-# Repo locations.
+# Repo locations. The parity repo is found from this script's own path, so it
+# works from any checkout. The dumbodb server repo defaults to a sibling of the
+# parity repo (the side-by-side layout), which also holds in-container under
+# /workspace; override DUMBODB_DIR if yours lives elsewhere.
 HARNESS_DIR=${HARNESS_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}
-DUMBODB_DIR=${DUMBODB_DIR:-/workspace/dumbodb}
+DUMBODB_DIR=${DUMBODB_DIR:-$(cd "${HARNESS_DIR}/../dumbodb" 2>/dev/null && pwd || echo "${HARNESS_DIR}/../dumbodb")}
+
+# Fail loudly and early if the server repo is not where we think -- better than a
+# confusing build error mid-run.
+if [ ! -e "${DUMBODB_DIR}/cmd/dumbodb" ]; then
+  printf 'ERROR: dumbodb repo not found at DUMBODB_DIR=%s (no cmd/dumbodb).\n' "$DUMBODB_DIR" >&2
+  printf '       Set DUMBODB_DIR=/path/to/your/dumbodb checkout.\n' >&2
+  return 1 2>/dev/null || exit 1
+fi
 
 # Server endpoint.
 HOST=${HOST:-127.0.0.1}
