@@ -1,0 +1,578 @@
+// Copyright 2026 Dolthub, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//go:build replication
+
+package replication
+
+import (
+	"context"
+	"sort"
+	"strings"
+	"testing"
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
+
+	"github.com/dolthub/dumbodb-parity-testing/harness"
+	"github.com/dolthub/dumbodb-parity-testing/wire"
+)
+
+type memberFixture struct {
+	rs        *harness.ReplicaSet
+	subject   *harness.DumboMember
+	commit    string
+	reference *harness.Member
+}
+
+func startMemberProtocol(t *testing.T, ctx context.Context) *memberFixture {
+	t.Helper()
+
+	rs := harness.StartReplicaSet(t, 2)
+	reference, err := rs.AnySecondary(ctx)
+	if err != nil {
+		t.Fatalf("AnySecondary: %v", err)
+	}
+	subject := rs.JoinDumboDB(t)
+	commit, _ := subject.Commit(ctx)
+	if commit == "" || commit == "unknown" {
+		t.Fatalf("subject reports gitVersion %q; a failure that cannot name its build is not reproducible", commit)
+	}
+	if err := rs.WaitForState(ctx, subject.Member, harness.StateSecondary, 150*time.Second); err != nil {
+		t.Fatalf("dumbodb %s did not reach SECONDARY: %v", commit, err)
+	}
+	return &memberFixture{rs: rs, subject: subject, commit: commit, reference: reference}
+}
+
+func runOn(addr string, cmd bson.D) (bson.M, error) {
+	conn, err := wire.Dial(addr)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = conn.Close() }()
+	if err := conn.SetDeadline(time.Now().Add(20 * time.Second)); err != nil {
+		return nil, err
+	}
+	return conn.RunCommand(cmd)
+}
+
+func ok(reply bson.M) bool {
+	switch v := reply["ok"].(type) {
+	case float64:
+		return v == 1
+	case int32:
+		return v == 1
+	case int64:
+		return v == 1
+	}
+	return false
+}
+
+func TestMemberProtocol_InboundCommandShapes(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	defer cancel()
+
+	f := startMemberProtocol(t, ctx)
+
+	config, err := f.rs.Config(ctx)
+	if err != nil {
+		t.Fatalf("Config: %v", err)
+	}
+	setVersion := config["version"]
+
+	cases := []struct {
+		name     string
+		cmd      bson.D
+		required []string
+	}{
+		{
+			name:     "replSetGetStatus",
+			cmd:      bson.D{{Key: "replSetGetStatus", Value: 1}, {Key: "$db", Value: "admin"}},
+			required: []string{"set", "myState", "members", "optimes"},
+		},
+		{
+			name:     "replSetGetConfig",
+			cmd:      bson.D{{Key: "replSetGetConfig", Value: 1}, {Key: "$db", Value: "admin"}},
+			required: []string{"config"},
+		},
+		{
+			name:     "replSetGetRBID",
+			cmd:      bson.D{{Key: "replSetGetRBID", Value: 1}, {Key: "$db", Value: "admin"}},
+			required: []string{"rbid"},
+		},
+		{
+			name: "replSetHeartbeat",
+			cmd: bson.D{
+				{Key: "replSetHeartbeat", Value: f.rs.Name},
+				{Key: "configVersion", Value: setVersion},
+				{Key: "from", Value: ""},
+				{Key: "term", Value: int64(1)},
+				{Key: "$db", Value: "admin"},
+			},
+			required: []string{"set", "state"},
+		},
+		{
+			name:     "hello",
+			cmd:      bson.D{{Key: "hello", Value: 1}, {Key: "$db", Value: "admin"}},
+			required: []string{"isWritablePrimary", "setName", "me", "secondary", "hosts", "topologyVersion", "maxWireVersion"},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			subjectReply, err := runOn(f.subject.Addr, c.cmd)
+			if err != nil {
+				t.Fatalf("%s against the subject: %v", c.name, err)
+			}
+			referenceReply, err := runOn(f.reference.Addr, c.cmd)
+			if err != nil {
+				t.Fatalf("%s against the reference: %v", c.name, err)
+			}
+			if !ok(referenceReply) {
+				t.Skipf("the reference member refused %s (%v); nothing to compare against",
+					c.name, referenceReply["errmsg"])
+			}
+			if !ok(subjectReply) {
+				t.Fatalf("dumbodb %s refused %s, which a real member answers: %v",
+					f.commit, c.name, subjectReply["errmsg"])
+			}
+			for _, field := range c.required {
+				if _, present := subjectReply[field]; !present {
+					t.Errorf("dumbodb %s: %s reply has no %q; a real member sends it and the other members read it",
+						f.commit, c.name, field)
+				}
+			}
+			for field := range subjectReply {
+				if _, present := referenceReply[field]; !present {
+					t.Errorf("dumbodb %s: %s reply carries %q, which a real mongod member never sends",
+						f.commit, c.name, field)
+				}
+			}
+			var omitted []string
+			for field := range referenceReply {
+				if _, present := subjectReply[field]; !present {
+					omitted = append(omitted, field)
+				}
+			}
+			if len(omitted) > 0 {
+				sort.Strings(omitted)
+				t.Logf("dumbodb %s: %s omits %d field(s) a real member sends: %s",
+					f.commit, c.name, len(omitted), strings.Join(omitted, ", "))
+			}
+		})
+	}
+}
+
+func TestMemberProtocol_IsSelfIdentifiesTheMember(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	defer cancel()
+
+	f := startMemberProtocol(t, ctx)
+
+	cmd := bson.D{{Key: "_isSelf", Value: 1}, {Key: "$db", Value: "admin"}}
+	subjectReply, err := runOn(f.subject.Addr, cmd)
+	if err != nil {
+		t.Fatalf("_isSelf against the subject: %v", err)
+	}
+	referenceReply, err := runOn(f.reference.Addr, cmd)
+	if err != nil {
+		t.Fatalf("_isSelf against the reference: %v", err)
+	}
+	if !ok(referenceReply) {
+		t.Skipf("the reference member refused _isSelf (%v)", referenceReply["errmsg"])
+	}
+	if !ok(subjectReply) {
+		t.Fatalf("dumbodb %s refused _isSelf, which a real member answers: %v", f.commit, subjectReply["errmsg"])
+	}
+	if subjectReply["id"] == nil {
+		t.Errorf("dumbodb %s: _isSelf reply has no id", f.commit)
+	}
+	for field := range subjectReply {
+		if _, present := referenceReply[field]; !present {
+			t.Errorf("dumbodb %s: _isSelf reply carries %q, which a real mongod member never sends", f.commit, field)
+		}
+	}
+}
+
+func TestMemberProtocol_HelloReportsSecondaryState(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	defer cancel()
+
+	f := startMemberProtocol(t, ctx)
+
+	reply, err := runOn(f.subject.Addr, bson.D{{Key: "hello", Value: 1}, {Key: "$db", Value: "admin"}})
+	if err != nil {
+		t.Fatalf("hello: %v", err)
+	}
+	if reply["isWritablePrimary"] != false {
+		t.Errorf("dumbodb %s: hello.isWritablePrimary is %v, want false for a secondary", f.commit, reply["isWritablePrimary"])
+	}
+	if reply["secondary"] != true {
+		t.Errorf("dumbodb %s: hello.secondary is %v while the member is SECONDARY", f.commit, reply["secondary"])
+	}
+	if got, _ := reply["setName"].(string); got != f.rs.Name {
+		t.Errorf("dumbodb %s: hello.setName is %q, want %q", f.commit, got, f.rs.Name)
+	}
+	if got, _ := reply["me"].(string); got != f.subject.Addr {
+		t.Errorf("dumbodb %s: hello.me is %q, want %q", f.commit, got, f.subject.Addr)
+	}
+
+	if hosts, isArray := reply["hosts"].(bson.A); isArray {
+		for _, host := range hosts {
+			if host == f.subject.Addr {
+				t.Errorf("dumbodb %s: hello.hosts advertises the hidden member %s", f.commit, f.subject.Addr)
+			}
+		}
+	}
+
+	version, isDoc := reply["topologyVersion"].(bson.M)
+	if !isDoc {
+		t.Fatalf("dumbodb %s: hello.topologyVersion is %T, want a document", f.commit, reply["topologyVersion"])
+	}
+	for _, field := range []string{"processId", "counter"} {
+		if _, present := version[field]; !present {
+			t.Errorf("dumbodb %s: hello.topologyVersion has no %q", f.commit, field)
+		}
+	}
+}
+
+func TestMemberProtocol_AwaitableHelloBlocks(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	defer cancel()
+
+	f := startMemberProtocol(t, ctx)
+
+	const awaitMS = 2000
+	referenceElapsed, referenceOK := awaitHello(t, f.reference.Addr, awaitMS)
+	if !referenceOK || referenceElapsed < time.Duration(awaitMS)*time.Millisecond/2 {
+		t.Skipf("premise failed: the reference member returned after %s (ok=%v) for maxAwaitTimeMS=%d, so it is not demonstrating the awaitable contract and there is nothing to hold the subject to",
+			referenceElapsed, referenceOK, awaitMS)
+	}
+
+	subjectElapsed, subjectOK := awaitHello(t, f.subject.Addr, awaitMS)
+	if !subjectOK {
+		t.Fatalf("dumbodb %s refused an awaitable hello that the reference member answered", f.commit)
+	}
+	if subjectElapsed < time.Duration(awaitMS)*time.Millisecond/2 {
+		t.Errorf("dumbodb %s: awaitable hello returned after %s for maxAwaitTimeMS=%d, where the reference blocked for %s. An unchanged topology must block, or a driver monitoring this server spins, re-issuing hello as fast as the network allows",
+			f.commit, subjectElapsed, awaitMS, referenceElapsed)
+	}
+	t.Logf("dumbodb %s blocked %s, reference blocked %s", f.commit, subjectElapsed, referenceElapsed)
+}
+
+func awaitHello(t *testing.T, addr string, awaitMS int64) (time.Duration, bool) {
+	t.Helper()
+	conn, err := wire.Dial(addr)
+	if err != nil {
+		t.Fatalf("dial %s: %v", addr, err)
+	}
+	defer func() { _ = conn.Close() }()
+	if err := conn.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
+		t.Fatalf("deadline: %v", err)
+	}
+	seed, err := conn.RunCommand(bson.D{{Key: "hello", Value: 1}, {Key: "$db", Value: "admin"}})
+	if err != nil {
+		t.Fatalf("hello against %s: %v", addr, err)
+	}
+	version, isDoc := seed["topologyVersion"].(bson.M)
+	if !isDoc {
+		t.Fatalf("%s: hello carries no topologyVersion, so the awaitable form cannot be requested", addr)
+	}
+	start := time.Now()
+	reply, err := conn.RunCommand(bson.D{
+		{Key: "hello", Value: 1},
+		{Key: "topologyVersion", Value: bson.D{
+			{Key: "processId", Value: version["processId"]},
+			{Key: "counter", Value: version["counter"]},
+		}},
+		{Key: "maxAwaitTimeMS", Value: awaitMS},
+		{Key: "$db", Value: "admin"},
+	})
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("awaitable hello against %s: %v", addr, err)
+	}
+	return elapsed, ok(reply)
+}
+
+func TestMemberProtocol_ExhaustHelloSetsMoreToCome(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	defer cancel()
+
+	f := startMemberProtocol(t, ctx)
+
+	probe := func(addr string) (bson.M, uint32) {
+		conn, err := wire.Dial(addr)
+		if err != nil {
+			t.Fatalf("dial %s: %v", addr, err)
+		}
+		defer func() { _ = conn.Close() }()
+		if err := conn.SetDeadline(time.Now().Add(20 * time.Second)); err != nil {
+			t.Fatalf("deadline: %v", err)
+		}
+		seed, _, err := conn.RunCommandFlags(bson.D{{Key: "hello", Value: 1}, {Key: "$db", Value: "admin"}}, 0)
+		if err != nil {
+			t.Fatalf("hello against %s: %v", addr, err)
+		}
+		version, isDoc := seed["topologyVersion"].(bson.M)
+		if !isDoc {
+			t.Fatalf("%s: no topologyVersion, cannot request an exhaust stream", addr)
+		}
+		reply, flags, err := conn.RunCommandFlags(bson.D{
+			{Key: "hello", Value: 1},
+			{Key: "topologyVersion", Value: bson.D{
+				{Key: "processId", Value: version["processId"]},
+				{Key: "counter", Value: version["counter"]},
+			}},
+			{Key: "maxAwaitTimeMS", Value: int64(1000)},
+			{Key: "$db", Value: "admin"},
+		}, wire.FlagExhaustAllowed)
+		if err != nil {
+			t.Fatalf("exhaust hello against %s: %v", addr, err)
+		}
+		return reply, flags
+	}
+
+	referenceReply, referenceFlags := probe(f.reference.Addr)
+	if !ok(referenceReply) || referenceFlags&wire.FlagMoreToCome == 0 {
+		t.Skipf("the reference member did not open an exhaust stream (ok=%v flags=%#x); nothing to hold the subject to",
+			ok(referenceReply), referenceFlags)
+	}
+
+	subjectReply, subjectFlags := probe(f.subject.Addr)
+	if !ok(subjectReply) {
+		t.Fatalf("dumbodb %s refused an exhaust hello that the reference member accepted: %v",
+			f.commit, subjectReply["errmsg"])
+	}
+	if subjectFlags&wire.FlagMoreToCome == 0 {
+		t.Errorf("dumbodb %s: exhaust hello replied with flags %#x, moreToCome clear, where the reference set it. A driver that asked for a stream is left waiting for frames that never come",
+			f.commit, subjectFlags)
+	}
+}
+
+func TestMemberProtocol_RefusesDownstreamSyncPromptly(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	defer cancel()
+
+	f := startMemberProtocol(t, ctx)
+
+	const promptly = 5 * time.Second
+
+	cases := []struct {
+		name       string
+		cmd        bson.D
+		anyRefusal bool
+	}{
+		{
+			name: "find on local.oplog.rs",
+			cmd: bson.D{
+				{Key: "find", Value: "oplog.rs"},
+				{Key: "filter", Value: bson.D{}},
+				{Key: "limit", Value: int32(1)},
+				{Key: "$db", Value: "local"},
+			},
+		},
+		{
+			name: "getMore on local.oplog.rs",
+			cmd: bson.D{
+				{Key: "getMore", Value: int64(1)},
+				{Key: "collection", Value: "oplog.rs"},
+				{Key: "$db", Value: "local"},
+			},
+			anyRefusal: true,
+		},
+		{
+			name: "replSetUpdatePosition",
+			cmd: bson.D{
+				{Key: "replSetUpdatePosition", Value: 1},
+				{Key: "optimes", Value: bson.A{}},
+				{Key: "$db", Value: "admin"},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			start := time.Now()
+			reply, err := runOn(f.subject.Addr, c.cmd)
+			elapsed := time.Since(start)
+			if err != nil {
+				t.Fatalf("dumbodb %s: %s did not answer at all: %v. A refusal has to be a reply, not a dropped connection",
+					f.commit, c.name, err)
+			}
+			if elapsed > promptly {
+				t.Errorf("dumbodb %s: %s took %s to refuse; a member chaining from this one is stalled for that long",
+					f.commit, c.name, elapsed)
+			}
+			if ok(reply) {
+				t.Fatalf("dumbodb %s: %s succeeded. DumboDB does not serve downstream oplog replication, so a success here means a downstream member will start following a stream this server cannot honour",
+					f.commit, c.name)
+			}
+			message, _ := reply["errmsg"].(string)
+			if c.anyRefusal {
+				t.Logf("%s refused in %s: code=%v %q", c.name, elapsed, reply["code"], message)
+				return
+			}
+			if !strings.Contains(message, "downstream") {
+				t.Errorf("dumbodb %s: %s was refused with %q, which does not say what was refused. An operator reading this in a log of the member that tried to chain needs to learn that downstream sync is unsupported",
+					f.commit, c.name, message)
+			}
+			t.Logf("%s refused in %s: code=%v %q", c.name, elapsed, reply["code"], message)
+		})
+	}
+}
+
+func TestMemberProtocol_RefusesUnsolicitedCompressionPromptly(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	defer cancel()
+
+	f := startMemberProtocol(t, ctx)
+	conn, err := wire.Dial(f.subject.Addr)
+	if err != nil {
+		t.Fatalf("dial subject: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	const promptly = 5 * time.Second
+	if err := conn.SetDeadline(time.Now().Add(promptly)); err != nil {
+		t.Fatalf("deadline: %v", err)
+	}
+	start := time.Now()
+	reply, refusalErr := conn.RunZlibCompressedCommand(bson.D{
+		{Key: "ping", Value: int32(1)},
+		{Key: "$db", Value: "admin"},
+	})
+	elapsed := time.Since(start)
+	if elapsed > promptly {
+		t.Errorf("dumbodb %s took %s to refuse unsolicited OP_COMPRESSED", f.commit, elapsed)
+	}
+	if refusalErr == nil {
+		if ok(reply) {
+			t.Fatalf("dumbodb %s accepted unsolicited OP_COMPRESSED without negotiating compression", f.commit)
+		}
+		message, _ := reply["errmsg"].(string)
+		if !strings.Contains(strings.ToLower(message), "compress") {
+			t.Fatalf("dumbodb %s refused unsolicited OP_COMPRESSED with %q, which does not name compression", f.commit, message)
+		}
+		if _, err := conn.RunCommand(bson.D{{Key: "ping", Value: int32(1)}, {Key: "$db", Value: "admin"}}); err != nil {
+			t.Fatalf("dumbodb %s answered the refusal but left the connection unusable: %v", f.commit, err)
+		}
+		return
+	}
+
+	const logReason = "unhandled opcode OP_COMPRESSED"
+	logDeadline := time.Now().Add(2 * time.Second)
+	for {
+		contents, err := f.subject.ReadLog()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(contents, logReason) {
+			t.Logf("dumbodb %s closed unsolicited OP_COMPRESSED in %s and logged %q", f.commit, elapsed, logReason)
+			return
+		}
+		if time.Now().After(logDeadline) {
+			t.Fatalf("dumbodb %s closed unsolicited OP_COMPRESSED in %s with %v, but its log does not explain the refusal", f.commit, elapsed, refusalErr)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+func TestMemberProtocol_SecondaryRejectsDirectWrites(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	defer cancel()
+
+	f := startMemberProtocol(t, ctx)
+	const databaseName = "direct_write_guard"
+	const collectionName = "items"
+	command := bson.D{
+		{Key: "insert", Value: collectionName},
+		{Key: "documents", Value: bson.A{bson.D{{Key: "_id", Value: int32(1)}}}},
+		{Key: "$db", Value: databaseName},
+	}
+	subjectReply, err := runOn(f.subject.Addr, command)
+	if err != nil {
+		t.Fatalf("direct insert against dumbodb %s: %v", f.commit, err)
+	}
+	referenceReply, err := runOn(f.reference.Addr, command)
+	if err != nil {
+		t.Fatalf("direct insert against reference secondary: %v", err)
+	}
+	for _, member := range []struct {
+		name    string
+		reply   bson.M
+		errmsg  string
+		premise bool
+	}{
+		{"reference secondary", referenceReply, "not master", true},
+		{"dumbodb subject", subjectReply, "not primary", false},
+	} {
+		if ok(member.reply) {
+			if member.premise {
+				t.Fatalf("premise failed: the %s accepted a direct insert, so the apparatus is wrong and the subject's behavior proves nothing", member.name)
+			}
+			t.Fatalf("dumbodb %s accepted a direct insert to a secondary", f.commit)
+		}
+		if member.reply["code"] != int32(10107) || member.reply["codeName"] != "NotWritablePrimary" {
+			t.Fatalf("%s refusal = code %v, codeName %v; want 10107 and NotWritablePrimary, which must match mongod because clients retry on the code",
+				member.name, member.reply["code"], member.reply["codeName"])
+		}
+		if member.reply["errmsg"] != member.errmsg {
+			t.Fatalf("%s refusal errmsg = %q, want %q", member.name, member.reply["errmsg"], member.errmsg)
+		}
+	}
+
+	subjectClient, err := f.subject.Client(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = subjectClient.Disconnect(context.Background()) }()
+	count, err := subjectClient.Database(databaseName).Collection(collectionName).CountDocuments(ctx, bson.D{})
+	if err != nil {
+		t.Fatalf("counting direct-write collection on subject: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("dumbodb %s holds %d directly inserted documents after refusing the write", f.commit, count)
+	}
+}
+
+func TestMemberProtocol_ReferenceServesItsOwnOplog(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	defer cancel()
+
+	f := startMemberProtocol(t, ctx)
+
+	reply, err := runOn(f.reference.Addr, bson.D{
+		{Key: "find", Value: "oplog.rs"},
+		{Key: "filter", Value: bson.D{}},
+		{Key: "limit", Value: int32(1)},
+		{Key: "$db", Value: "local"},
+	})
+	if err != nil {
+		t.Fatalf("find on the reference oplog: %v", err)
+	}
+	if !ok(reply) {
+		t.Fatalf("premise failed: the reference mongod secondary refused to serve its own oplog (%v), so the subject's refusal proves nothing about DumboDB",
+			reply["errmsg"])
+	}
+}

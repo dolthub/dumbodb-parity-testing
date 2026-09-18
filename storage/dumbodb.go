@@ -140,6 +140,7 @@ func (b *DumboDBBackend) Commit(ctx context.Context, msg string) error {
 func (b *DumboDBBackend) CreateBranch(ctx context.Context, branch string) error {
 	return b.client.Database(b.encodedDB()).RunCommand(ctx, bson.D{
 		{Key: "dumboBranch", Value: 1},
+		{Key: "action", Value: "add"},
 		{Key: "branch", Value: branch},
 	}).Err()
 }
