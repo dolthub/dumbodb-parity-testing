@@ -195,13 +195,18 @@ func (d *DumboMember) AssertHiddenNonVoting(ctx context.Context) {
 	d.t.Fatalf("member %s is not in the configuration of %s", d.Addr, d.rs.Name)
 }
 
+// teardown ends the member the fast way: the set is disposable and about to be
+// killed with it, so nothing is gained by leaving it tidy.
+//
+// It used to reconfigure the member out of the set first, so the survivors
+// would not heartbeat a corpse, and then stop the process with SIGTERM and a
+// fifteen second grace. Both are pointless at the end of a test: the remaining
+// members are killed moments later, and no assertion can run after this. A
+// graceful stop is still available as Stop, for the restart and durability
+// cases that deliberately exercise clean shutdown, which is test content
+// rather than cleanup.
 func (d *DumboMember) teardown() {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	// Remove from the configuration before stopping so the remaining members do
-	// not spend the rest of the run heartbeating a corpse.
-	_ = d.rs.removeMember(ctx, d.Addr)
-	d.Stop()
+	d.Kill()
 	if d.DataDir != "" {
 		_ = os.RemoveAll(d.DataDir)
 	}
