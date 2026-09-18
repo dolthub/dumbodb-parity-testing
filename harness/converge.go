@@ -249,7 +249,18 @@ func (rs *ReplicaSet) WaitConverged(ctx context.Context, timeout time.Duration, 
 			// server selection for ~30s, so the caller's timeout is ignored and
 			// every failure involving a down member costs half a minute.
 			progress, err := rs.progressBounded(ctx, addr, pollBudget(deadline))
-			last[addr] = memberSample{progress: progress, err: err, at: time.Now()}
+			sample := memberSample{progress: progress, err: err, at: time.Now()}
+			if previous, seen := last[addr]; seen {
+				sample.first = previous.first
+				sample.samples = previous.samples + 1
+			} else {
+				sample.first = progress.Applied
+				sample.samples = 1
+			}
+			if sample.first.IsZero() {
+				sample.first = progress.Applied
+			}
+			last[addr] = sample
 			if err == nil && progress.Applied.Compare(watermark) >= 0 {
 				caughtUp++
 			}
@@ -293,10 +304,16 @@ func convergenceTimeout(watermark OpTime, timeout time.Duration, addrs []string,
 				"  %s reported reaching %s, but not in the same pass as the others",
 				addr, sample.progress.Applied))
 		default:
+			movement := "and it did not advance at all while waiting, so it is stuck rather than slow"
+			if sample.progress.Applied.Compare(sample.first) > 0 {
+				movement = fmt.Sprintf("and it advanced from %s while waiting, so it is slow rather than stuck; the budget may simply be too short for this hardware",
+					sample.first)
+			}
 			lines = append(lines, fmt.Sprintf(
-				"  %s applied %s, %d seconds behind the watermark, state %s",
+				"  %s applied %s, %d seconds behind the watermark, state %s, %s (%d samples)",
 				addr, sample.progress.Applied,
-				int64(watermark.Seconds)-int64(sample.progress.Applied.Seconds), sample.progress.State))
+				int64(watermark.Seconds)-int64(sample.progress.Applied.Seconds), sample.progress.State,
+				movement, sample.samples))
 		}
 	}
 	if len(lines) == 0 {
@@ -313,6 +330,13 @@ type memberSample struct {
 	progress MemberProgress
 	err      error
 	at       time.Time
+	// first is the earliest position seen for this member during the wait.
+	// A timeout says nothing on its own about whether the member was stuck or
+	// merely slow, and those call for opposite responses: one is a defect,
+	// the other a budget that no longer suits the hardware. Comparing the
+	// first and last positions separates them.
+	first   OpTime
+	samples int
 }
 
 // MustConverge fails the test if the members do not converge.

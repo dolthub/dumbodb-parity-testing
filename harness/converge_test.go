@@ -16,6 +16,7 @@ package harness
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 )
@@ -112,5 +113,33 @@ func TestConvergenceTimeout_NamesAMemberThatStoppedAnswering(t *testing.T) {
 	}
 	if contains(msg, "harness bug") {
 		t.Errorf("report should not have fallen through to the empty-list guard:\n%s", msg)
+	}
+}
+
+// A timeout must say whether the member was advancing. Stuck and slow call for
+// opposite responses -- one is a defect, the other a budget that no longer
+// suits the hardware -- and a message that cannot tell them apart sends the
+// reader to guess. This distinction was added after a CI timeout that could
+// not be reproduced locally and could have been either.
+func TestConvergenceTimeout_DistinguishesStuckFromSlow(t *testing.T) {
+	watermark := OpTime{Seconds: 100, Term: 1}
+	behind := MemberProgress{Applied: OpTime{Seconds: 90, Term: 1}, State: StateSecondary}
+
+	stuck := map[string]memberSample{
+		"127.0.0.1:1": {progress: behind, first: behind.Applied, samples: 40},
+	}
+	if got := convergenceTimeout(watermark, 30*time.Second, []string{"127.0.0.1:1"}, stuck).Error(); !strings.Contains(got, "stuck rather than slow") {
+		t.Errorf("a member that never advanced was not reported as stuck: %s", got)
+	}
+
+	slow := map[string]memberSample{
+		"127.0.0.1:1": {progress: behind, first: OpTime{Seconds: 50, Term: 1}, samples: 40},
+	}
+	got := convergenceTimeout(watermark, 30*time.Second, []string{"127.0.0.1:1"}, slow).Error()
+	if !strings.Contains(got, "slow rather than stuck") {
+		t.Errorf("a member that advanced was not reported as slow: %s", got)
+	}
+	if !strings.Contains(got, "{ts:50.0 t:1}") {
+		t.Errorf("the slow report does not say where it started: %s", got)
 	}
 }
