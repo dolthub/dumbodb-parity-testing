@@ -131,6 +131,69 @@ func TestHistory_IdlePrimaryAddsNoCommits(t *testing.T) {
 		f.commit, len(after), idle, beforeProgress.Applied, afterProgress.Applied)
 }
 
+func TestHistory_WriteDoesNotMoveUnrelatedDatabase(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	defer cancel()
+
+	f := startObservability(t, ctx)
+	activeDB := historyDB + "_active"
+	unrelatedDB := historyDB + "_unrelated"
+	if _, err := f.client.Database(activeDB).Collection("items").InsertOne(ctx,
+		bson.D{{Key: "_id", Value: 1}, {Key: "value", Value: "before"}}); err != nil {
+		t.Fatalf("seeding active database: %v", err)
+	}
+	if _, err := f.client.Database(unrelatedDB).Collection("items").InsertOne(ctx,
+		bson.D{{Key: "_id", Value: 1}, {Key: "value", Value: "unchanged"}}); err != nil {
+		t.Fatalf("seeding unrelated database: %v", err)
+	}
+	if _, err := f.rs.WaitConverged(ctx, 90*time.Second, f.subject.Addr); err != nil {
+		t.Fatalf("dumbodb %s did not converge after seeding: %v", f.commit, err)
+	}
+	subjectClient, err := f.rs.ClientFor(ctx, f.subject.Addr)
+	if err != nil {
+		t.Fatalf("subject client: %v", err)
+	}
+	activeBefore, err := commitIDs(ctx, subjectClient, activeDB)
+	if err != nil {
+		t.Fatalf("active dumboLog before update: %v", err)
+	}
+	unrelatedBefore, err := commitIDs(ctx, subjectClient, unrelatedDB)
+	if err != nil {
+		t.Fatalf("unrelated dumboLog before update: %v", err)
+	}
+
+	if _, err := f.client.Database(activeDB).Collection("items").UpdateOne(ctx,
+		bson.D{{Key: "_id", Value: 1}}, bson.D{{Key: "$set", Value: bson.D{{Key: "value", Value: "after"}}}}); err != nil {
+		t.Fatalf("updating active database: %v", err)
+	}
+	if _, err := f.rs.WaitConverged(ctx, 90*time.Second, f.subject.Addr); err != nil {
+		t.Fatalf("dumbodb %s did not converge after update: %v", f.commit, err)
+	}
+	activeAfter, err := commitIDs(ctx, subjectClient, activeDB)
+	if err != nil {
+		t.Fatalf("active dumboLog after update: %v", err)
+	}
+	unrelatedAfter, err := commitIDs(ctx, subjectClient, unrelatedDB)
+	if err != nil {
+		t.Fatalf("unrelated dumboLog after update: %v", err)
+	}
+	if len(activeAfter) != len(activeBefore)+1 {
+		t.Errorf("dumbodb %s: active database history grew from %d to %d commits, want exactly one new commit",
+			f.commit, len(activeBefore), len(activeAfter))
+	}
+	if len(unrelatedAfter) != len(unrelatedBefore) {
+		t.Fatalf("dumbodb %s: write to %s added %d commits to unrelated database %s",
+			f.commit, activeDB, len(unrelatedAfter)-len(unrelatedBefore), unrelatedDB)
+	}
+	for index := range unrelatedBefore {
+		if unrelatedAfter[index] != unrelatedBefore[index] {
+			t.Fatalf("dumbodb %s: unrelated database history changed at commit %d from %s to %s",
+				f.commit, index, unrelatedBefore[index], unrelatedAfter[index])
+		}
+	}
+}
+
 // TestHistory_RemovedMemberKeepsHistory covers the verify document's final
 // scenario: reconfiguring the member out of the set is how you stop
 // replication now that dumboReplicationDetach is gone.
