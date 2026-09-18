@@ -352,6 +352,93 @@ func TestInitialSync_UndecodableTypesFailHonestly(t *testing.T) {
 	t.Logf("dumbodb %s stopped with: %s", commit, message)
 }
 
+func TestInitialSync_UnsupportedCatalogKindsFailHonestly(t *testing.T) {
+	tests := []struct {
+		name      string
+		seed      func(context.Context, *mongo.Database) error
+		namespace string
+		kind      string
+	}{
+		{
+			name: "view",
+			seed: func(ctx context.Context, db *mongo.Database) error {
+				if _, err := db.Collection("orders").InsertOne(ctx, bson.D{{Key: "active", Value: true}}); err != nil {
+					return err
+				}
+				return db.CreateView(ctx, "active_orders", "orders", mongo.Pipeline{
+					bson.D{{Key: "$match", Value: bson.D{{Key: "active", Value: true}}}},
+				})
+			},
+			namespace: syncDB + ".active_orders",
+			kind:      "view replication is unsupported",
+		},
+		{
+			name: "time series",
+			seed: func(ctx context.Context, db *mongo.Database) error {
+				return db.RunCommand(ctx, bson.D{
+					{Key: "create", Value: "samples"},
+					{Key: "timeseries", Value: bson.D{{Key: "timeField", Value: "at"}}},
+				}).Err()
+			},
+			namespace: syncDB + ".samples",
+			kind:      "time-series replication is unsupported",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rs := harness.StartReplicaSet(t, 2)
+			ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
+			defer cancel()
+
+			primary, err := rs.Primary(ctx)
+			if err != nil {
+				t.Fatalf("Primary: %v", err)
+			}
+			cli, err := rs.DirectClient(ctx, primary)
+			if err != nil {
+				t.Fatalf("primary client: %v", err)
+			}
+			if err := test.seed(ctx, cli.Database(syncDB)); err != nil {
+				_ = cli.Disconnect(context.Background())
+				t.Fatalf("seeding %s: %v", test.name, err)
+			}
+			_ = cli.Disconnect(context.Background())
+			subject := rs.JoinDumboDB(t)
+			commit, _ := subject.Commit(ctx)
+			message := waitForInitialSyncFailure(t, ctx, rs, subject, commit)
+			for _, fragment := range []string{test.namespace, test.kind} {
+				if !contains(message, fragment) {
+					t.Errorf("initialSyncFailure message %q does not mention %q", message, fragment)
+				}
+			}
+			t.Logf("dumbodb %s stopped with: %s", commit, message)
+		})
+	}
+}
+
+func waitForInitialSyncFailure(t *testing.T, ctx context.Context, rs *harness.ReplicaSet, subject *harness.DumboMember, commit string) string {
+	t.Helper()
+	deadline := time.Now().Add(45 * time.Second)
+	for time.Now().Before(deadline) {
+		progress, err := rs.Progress(ctx, subject.Addr)
+		if err == nil && progress.State == harness.StateSecondary {
+			t.Fatalf("dumbodb %s claims SECONDARY after rejecting the source catalog", commit)
+		}
+		status, err := rs.Status(ctx, subject.Addr)
+		if err == nil {
+			if sync, ok := status["initialSyncStatus"].(bson.M); ok {
+				if message, _ := sync["initialSyncFailure"].(string); message != "" {
+					return message
+				}
+			}
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	logText, logErr := subject.ReadLog()
+	t.Fatalf("dumbodb %s never reported a terminal initial-sync failure; log error=%v log=%s", commit, logErr, logText)
+	return ""
+}
+
 func contains(s, sub string) bool {
 	for i := 0; i+len(sub) <= len(s); i++ {
 		if s[i:i+len(sub)] == sub {
