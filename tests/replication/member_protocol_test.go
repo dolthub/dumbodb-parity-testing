@@ -571,6 +571,51 @@ func TestMemberProtocol_RefusesUnsolicitedCompressionPromptly(t *testing.T) {
 	}
 }
 
+func TestMemberProtocol_SecondaryRejectsDirectWrites(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	defer cancel()
+
+	f := startMemberProtocol(t, ctx)
+	const databaseName = "direct_write_guard"
+	const collectionName = "items"
+	command := bson.D{
+		{Key: "insert", Value: collectionName},
+		{Key: "documents", Value: bson.A{bson.D{{Key: "_id", Value: int32(1)}}}},
+		{Key: "$db", Value: databaseName},
+	}
+	subjectReply, err := runOn(f.subject.Addr, command)
+	if err != nil {
+		t.Fatalf("direct insert against dumbodb %s: %v", f.commit, err)
+	}
+	referenceReply, err := runOn(f.reference.Addr, command)
+	if err != nil {
+		t.Fatalf("direct insert against reference secondary: %v", err)
+	}
+	for name, reply := range map[string]bson.M{"subject": subjectReply, "reference": referenceReply} {
+		if ok(reply) {
+			t.Fatalf("%s secondary accepted a direct insert", name)
+		}
+		if reply["code"] != int32(10107) || reply["codeName"] != "NotWritablePrimary" || reply["errmsg"] != "not master" {
+			t.Fatalf("%s refusal = code %v, codeName %v, errmsg %q; want 10107, NotWritablePrimary, not master",
+				name, reply["code"], reply["codeName"], reply["errmsg"])
+		}
+	}
+
+	subjectClient, err := f.subject.Client(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = subjectClient.Disconnect(context.Background()) }()
+	count, err := subjectClient.Database(databaseName).Collection(collectionName).CountDocuments(ctx, bson.D{})
+	if err != nil {
+		t.Fatalf("counting direct-write collection on subject: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("dumbodb %s holds %d directly inserted documents after refusing the write", f.commit, count)
+	}
+}
+
 // TestMemberProtocol_ReferenceServesItsOwnOplog establishes that the refusal
 // above is a deliberate DumboDB deviation rather than something the apparatus
 // blocks. Without this the refusal tests would pass against a broken harness.
