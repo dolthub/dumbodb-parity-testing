@@ -67,8 +67,9 @@ CASES=(
   "concurrent  | identical-fd | identical-set  | fieldDivergent | 0       | pass  | pass"
   "concurrent  | sameset-fd   | same-set       | fieldDivergent | 0       | pass  | pass"
 
-  # documentTouched ordinary writes. CAS soak is xfail until 1bk.9.8.14 is fixed.
-  "concurrent-reap | cas-dt       | cas            | documentTouched | 0   | pass  | xfail"
+  # documentTouched ordinary writes. CAS-family soaks accelerate session reap
+  # to guard the reconnect fix in DumboDB f76ab32.
+  "concurrent-reap | cas-dt       | cas            | documentTouched | 0   | pass  | pass"
   "concurrent-reap | uuidcas-dt   | uuid-cas       | documentTouched | 0   | pass  | pass"
   "concurrent-reap | divcas-dt    | divergent-cas  | documentTouched | 0   | pass  | pass"
   "concurrent-reap | blindinc-dt  | blind-inc      | documentTouched | 0   | pass  | pass"

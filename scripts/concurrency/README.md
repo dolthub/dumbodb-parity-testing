@@ -42,9 +42,11 @@ The server must run with `-auto-commit` (the per-write reconcile path).
 
 The soak profile runs the documentTouched group with a checked-in 3-second
 session timeout and 1-second sweep period. This repeatedly reaps pooled idle
-sessions and guards the reconnect behavior fixed by DumboDB f76ab32. Smoke
-runs retain the server defaults. These settings are part of `suite.sh`, not a
-manual reproduction knob.
+sessions and makes every documentTouched CAS-family case a regression guard for
+the reconnect behavior fixed by DumboDB f76ab32. Pre-fix fcc433c fails this
+configuration with code 251; f76ab32 and later must return matched or no-match,
+never a session-timeout rejection. Smoke runs retain the server defaults. These
+settings are part of `suite.sh`, not a manual reproduction knob.
 
 ## Scripts
 
