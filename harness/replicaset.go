@@ -29,18 +29,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// externalSetMu serializes tests that adopt the single set named by
-// replSetURIEnv. Tests that spawn their own sets are isolated by construction
-// and never touch it.
 var externalSetMu sync.Mutex
 
-// replSetURIEnv names a pre-provisioned multi-member set. Deliberately not
-// MONGO_RS_URI: that one is the single-node set backing TopologyReplicaSet
-// transaction tests, and pointing replication tests at it would silently give
-// them a set with no secondary to use as a reference.
 const replSetURIEnv = "MONGO_REPL_SET_URI"
 
-// Member states as reported in replSetGetStatus members[].stateStr.
 const (
 	StatePrimary    = "PRIMARY"
 	StateSecondary  = "SECONDARY"
@@ -48,10 +40,6 @@ const (
 	StateRecovering = "RECOVERING"
 )
 
-// ReplicaSet is a running MongoDB replica set owned by one test. It is the
-// apparatus replication parity tests are built on: a primary to drive, a stock
-// mongod secondary to use as the reference, and room to join DumboDB as a
-// third member.
 type ReplicaSet struct {
 	Name    string
 	Members []*Member
@@ -63,9 +51,6 @@ type ReplicaSet struct {
 	pool map[string]*mongo.Client
 }
 
-// Member is one participant in a ReplicaSet. Members this harness spawned carry
-// a proc; members joined from outside (a pre-provisioned set, or DumboDB) do
-// not, and are never stopped by ReplicaSet teardown.
 type Member struct {
 	ID   int
 	Addr string
@@ -74,9 +59,6 @@ type Member struct {
 	proc *serverProc
 }
 
-// StartReplicaSet provisions an n-member mongod replica set and waits for a
-// primary. Teardown is registered with t.Cleanup. When replSetURIEnv is set the
-// set is assumed to already exist and n is ignored.
 func StartReplicaSet(t *testing.T, n int) *ReplicaSet {
 	t.Helper()
 	if n < 1 {
@@ -84,13 +66,6 @@ func StartReplicaSet(t *testing.T, n int) *ReplicaSet {
 	}
 
 	if uri := os.Getenv(replSetURIEnv); uri != "" {
-		// One adopted set serves every test, and the replication cases run in
-		// parallel. Concurrent reconfigs and writes against a shared set would
-		// invalidate both the convergence gate and the state comparison, and
-		// would do it intermittently, which is the worst way to find out.
-		//
-		// Serialize instead. t.Parallel only means the runner may interleave
-		// tests; holding this until cleanup makes them queue for the set.
 		externalSetMu.Lock()
 		t.Cleanup(externalSetMu.Unlock)
 		return adoptReplicaSet(t, uri)
@@ -137,11 +112,6 @@ func (rs *ReplicaSet) spawnMongod(bin string, id int) (*Member, error) {
 		"--dbpath", dir,
 		"--bind_ip", "127.0.0.1",
 		"--nounixsocket",
-		// Cap the cache. mongod otherwise sizes WiredTiger at about half of
-		// system memory minus a gigabyte, which is harmless for one server and
-		// ruinous once tests run in parallel: every mongod reserves for the
-		// whole box at once. These sets hold test fixtures measured in
-		// megabytes, so the cache is oversized either way.
 		"--wiredTigerCacheSizeGB", "0.25",
 	)
 	proc, err := startProc(cmd, fmt.Sprintf("mongod-%s-%d", rs.Name, id), dir)
@@ -152,20 +122,12 @@ func (rs *ReplicaSet) spawnMongod(bin string, id int) (*Member, error) {
 	if !waitPort(addr, 40*time.Second) {
 		return nil, fmt.Errorf("mongod %s did not listen on %s (log %s)", rs.Name, addr, proc.log)
 	}
-	// Accepting a connection is not the same as being ready to answer one.
-	// replSetInitiate runs a quorum check that connects to every proposed
-	// member, and a mongod still starting up refuses it, failing the whole set
-	// with NodeNotFound before any test has run. That became likely once the
-	// suite went parallel: four cases at once start eight mongods together,
-	// and CI hardware is slower than anything this reproduces on.
 	if err := waitServerReady(addr, 60*time.Second); err != nil {
 		return nil, fmt.Errorf("mongod %s on %s never became ready (log %s): %w", rs.Name, addr, proc.log, err)
 	}
 	return &Member{ID: id, Addr: addr, URI: "mongodb://" + addr, proc: proc}, nil
 }
 
-// initiate configures the set with every spawned member and waits for an
-// elected primary.
 func (rs *ReplicaSet) initiate(ctx context.Context) error {
 	seed := rs.Members[0]
 	cli, err := directClient(ctx, seed.Addr)
@@ -192,13 +154,6 @@ func (rs *ReplicaSet) initiate(ctx context.Context) error {
 	return rs.WaitForSteadyState(ctx, 90*time.Second)
 }
 
-// WaitForSteadyState blocks until exactly one member reports PRIMARY and every
-// other member reports SECONDARY.
-//
-// Which member wins the election is not predictable, so this must not assume
-// Members[0] is the primary: doing so produces a test that passes or fails
-// depending on who won, which is the worst kind of flake because it looks like
-// a subject bug.
 func (rs *ReplicaSet) WaitForSteadyState(ctx context.Context, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	var last map[string]string
@@ -224,8 +179,6 @@ func (rs *ReplicaSet) WaitForSteadyState(ctx context.Context, timeout time.Durat
 	return fmt.Errorf("replica set %s did not reach steady state within %s (states: %v)", rs.Name, timeout, last)
 }
 
-// adoptReplicaSet takes over a set that already exists, discovering its members
-// from replSetGetStatus. Adopted members are never stopped on teardown.
 func adoptReplicaSet(t *testing.T, uri string) *ReplicaSet {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -273,7 +226,6 @@ func (rs *ReplicaSet) stop() {
 	}
 }
 
-// URI returns a replica-set-aware connection string naming every member.
 func (rs *ReplicaSet) URI() string {
 	hosts := make([]string, 0, len(rs.Members))
 	for _, m := range rs.Members {
@@ -282,12 +234,6 @@ func (rs *ReplicaSet) URI() string {
 	return fmt.Sprintf("mongodb://%s/?replicaSet=%s", strings.Join(hosts, ","), rs.Name)
 }
 
-// Primary returns the member that is accepting writes.
-//
-// The candidate comes from replSetGetStatus, but stateStr reports PRIMARY
-// during step-up before the node will accept a write, so the candidate is
-// confirmed with hello.isWritablePrimary. Trusting stateStr alone yields a
-// NotWritablePrimary error on the first insert of a freshly elected set.
 func (rs *ReplicaSet) Primary(ctx context.Context) (*Member, error) {
 	byAddr, err := rs.memberStates(ctx)
 	if err != nil {
@@ -322,7 +268,6 @@ func (rs *ReplicaSet) isWritablePrimary(ctx context.Context, addr string) (bool,
 	return w, nil
 }
 
-// Secondaries returns every member currently reporting SECONDARY.
 func (rs *ReplicaSet) Secondaries(ctx context.Context) ([]*Member, error) {
 	byAddr, err := rs.memberStates(ctx)
 	if err != nil {
@@ -337,7 +282,6 @@ func (rs *ReplicaSet) Secondaries(ctx context.Context) ([]*Member, error) {
 	return out, nil
 }
 
-// WaitForPrimary blocks until some member reports PRIMARY.
 func (rs *ReplicaSet) WaitForPrimary(ctx context.Context, timeout time.Duration) (*Member, error) {
 	deadline := time.Now().Add(timeout)
 	var last error
@@ -352,8 +296,6 @@ func (rs *ReplicaSet) WaitForPrimary(ctx context.Context, timeout time.Duration)
 	return nil, fmt.Errorf("replica set %s elected no primary within %s: %w", rs.Name, timeout, last)
 }
 
-// WaitForState blocks until the set reports want for m. The error names the
-// state actually reached, because "timed out" alone is not diagnosable.
 func (rs *ReplicaSet) WaitForState(ctx context.Context, m *Member, want string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	got := "<unknown>"
@@ -373,9 +315,6 @@ func (rs *ReplicaSet) WaitForState(ctx context.Context, m *Member, want string, 
 		m.Addr, want, timeout, got, rs.heartbeatDiagnosis(ctx, m.Addr))
 }
 
-// heartbeatDiagnosis returns the set's own explanation for why a member is
-// unhealthy. "not reachable/healthy" is a symptom; lastHeartbeatMessage carries
-// the reason, and without it every join failure looks identical.
 func (rs *ReplicaSet) heartbeatDiagnosis(ctx context.Context, addr string) string {
 	for _, peer := range rs.Members {
 		if peer.Addr == addr {
@@ -405,8 +344,6 @@ func (rs *ReplicaSet) heartbeatDiagnosis(ctx context.Context, addr string) strin
 	return ""
 }
 
-// memberStates maps member address to stateStr, asked of whichever member
-// answers. replSetGetStatus reports the whole set from any member's view.
 func (rs *ReplicaSet) memberStates(ctx context.Context) (map[string]string, error) {
 	var lastErr error
 	for _, m := range rs.Members {
@@ -433,7 +370,6 @@ func (rs *ReplicaSet) memberStates(ctx context.Context) (map[string]string, erro
 	return nil, fmt.Errorf("no member of %s answered replSetGetStatus: %w", rs.Name, lastErr)
 }
 
-// Config returns the installed replica set configuration document.
 func (rs *ReplicaSet) Config(ctx context.Context) (bson.M, error) {
 	p, err := rs.Primary(ctx)
 	if err != nil {
@@ -454,9 +390,6 @@ func (rs *ReplicaSet) Config(ctx context.Context) (bson.M, error) {
 	return cfg, nil
 }
 
-// Reconfig reads the current configuration, hands it to mutate, bumps the
-// version, and installs the result. Callers that add or remove members go
-// through here so the version bump is never forgotten.
 func (rs *ReplicaSet) Reconfig(ctx context.Context, mutate func(cfg bson.M) error) error {
 	cfg, err := rs.Config(ctx)
 	if err != nil {
@@ -482,12 +415,6 @@ func (rs *ReplicaSet) Reconfig(ctx context.Context, mutate func(cfg bson.M) erro
 	return nil
 }
 
-// ReconfigMember applies mutate to the configuration entry for addr.
-//
-// Prefer this over indexing into cfg["members"]: position in that array has no
-// relationship to role, so "the last member" is sometimes the primary, and a
-// reconfig that makes the primary non-electable is rejected with
-// NodeNotElectable. Addressing by host removes the guess.
 func (rs *ReplicaSet) ReconfigMember(ctx context.Context, addr string, mutate func(member bson.M) error) error {
 	return rs.Reconfig(ctx, func(cfg bson.M) error {
 		for _, raw := range asArray(cfg["members"]) {
@@ -503,8 +430,6 @@ func (rs *ReplicaSet) ReconfigMember(ctx context.Context, addr string, mutate fu
 	})
 }
 
-// AnySecondary returns a member that is currently SECONDARY. Tests that need "a
-// member that is not the primary" use this rather than picking by index.
 func (rs *ReplicaSet) AnySecondary(ctx context.Context) (*Member, error) {
 	secondaries, err := rs.Secondaries(ctx)
 	if err != nil {
@@ -516,9 +441,6 @@ func (rs *ReplicaSet) AnySecondary(ctx context.Context) (*Member, error) {
 	return secondaries[0], nil
 }
 
-// StepDownPrimary forces the current primary to step down for at least secs and
-// waits for a new primary to be elected. The old primary is excluded from the
-// wait so a set that re-elects the same node is reported rather than hidden.
 func (rs *ReplicaSet) StepDownPrimary(ctx context.Context, secs int) (*Member, error) {
 	old, err := rs.Primary(ctx)
 	if err != nil {
@@ -529,8 +451,6 @@ func (rs *ReplicaSet) StepDownPrimary(ctx context.Context, secs int) (*Member, e
 		return nil, err
 	}
 	cmd := bson.D{{Key: "replSetStepDown", Value: secs}, {Key: "force", Value: true}}
-	// A successful step-down closes the connection, which the driver surfaces
-	// as an error; only an explicit command failure matters here.
 	if err := cli.Database("admin").RunCommand(ctx, cmd).Err(); err != nil &&
 		!isStepDownDisconnect(err) {
 		return nil, fmt.Errorf("replSetStepDown: %w", err)
@@ -554,20 +474,14 @@ func isStepDownDisconnect(err error) bool {
 		strings.Contains(s, "EOF")
 }
 
-// Client returns a replica-set-aware client for the whole set.
 func (rs *ReplicaSet) Client(ctx context.Context) (*mongo.Client, error) {
 	return mongo.Connect(ctx, options.Client().ApplyURI(rs.URI()))
 }
 
-// DirectClient returns a client pinned to one member, bypassing topology
-// discovery. Reading a specific member's own view requires this.
 func (rs *ReplicaSet) DirectClient(ctx context.Context, m *Member) (*mongo.Client, error) {
 	return directClient(ctx, m.Addr)
 }
 
-// client returns a pooled client pinned to addr. The wait loops call this
-// several times a second; a fresh mongo.Client per poll spins up a topology
-// monitor each time and roughly doubled the harness runtime.
 func (rs *ReplicaSet) client(ctx context.Context, addr string) (*mongo.Client, error) {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
@@ -585,14 +499,6 @@ func (rs *ReplicaSet) client(ctx context.Context, addr string) (*mongo.Client, e
 	return c, nil
 }
 
-// closePool disconnects the pooled clients.
-//
-// The bounded context is load bearing. Teardown stops the subject before this
-// runs, so the pool holds a client whose server is gone, and Disconnect on an
-// unbounded context waits for the driver to give up on it. Measured at about
-// thirty seconds per test, against a three second teardown when no such client
-// exists. Nothing here needs a clean disconnect: the processes are about to be
-// killed and the data directories removed.
 func (rs *ReplicaSet) closePool() {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()

@@ -25,24 +25,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// Corruption is a deliberate difference injected into a captured state to prove
-// the comparator notices it.
-//
-// A comparator that never reports a difference passes every test forever while
-// verifying nothing, and nothing downstream can detect that. These make the
-// comparator prove itself against each class of difference it is relied on to
-// catch.
 type Corruption struct {
-	Name string
-	// Why this specific corruption is worth a test.
+	Name      string
 	Rationale string
 	Apply     func(state *ServerState) error
 }
 
-// Corruptions covers each class of difference the convergence comparison exists
-// to catch. The numeric-type and _id cases matter most: those are exactly where
-// the response-level CompareResponses reports a match, so if the convergence
-// path is ever refactored onto it, those two go red first.
 func Corruptions() []Corruption {
 	return []Corruption{
 		{
@@ -63,11 +51,6 @@ func Corruptions() []Corruption {
 		{
 			Name:      "changed date",
 			Rationale: "CompareResponses collapses every date to a single sentinel",
-			// A real primitive.DateTime, not a string that looks like a date.
-			// The seeded value used to be the string "2026-01-01" and this
-			// wrote the string "1999-01-01", so the case duplicated the
-			// changed-scalar check and never once exercised BSON DateTime,
-			// which is the whole thing the rationale claims it covers.
 			Apply: mutateFirstDocument(func(d bson.D) bson.D {
 				return setField(d, "when", primitive.NewDateTimeFromTime(time.Unix(915148800, 0).UTC()))
 			}),
@@ -210,8 +193,6 @@ func setField(d bson.D, key string, value interface{}) bson.D {
 	return append(d, bson.E{Key: key, Value: value})
 }
 
-// retypeInt rewrites an integer field to the other integer width, leaving the
-// numeric value alone.
 func retypeInt(d bson.D, key string) bson.D {
 	for i := range d {
 		if d[i].Key != key {
@@ -236,9 +217,6 @@ func replaceField(raw bson.Raw, key string, value interface{}) (bson.Raw, error)
 	return bson.Marshal(setField(d, key, value))
 }
 
-// SeedCorruptionCorpus writes documents carrying every type the corruptions
-// need, plus an index and a validator, so each corruption has something to act
-// on.
 func SeedCorruptionCorpus(ctx context.Context, cli *mongo.Client, dbName string) error {
 	db := cli.Database(dbName)
 

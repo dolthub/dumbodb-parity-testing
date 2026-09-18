@@ -27,17 +27,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// OpTime is a replication position: a BSON timestamp plus the election term.
 type OpTime struct {
 	Seconds   uint32
 	Increment uint32
 	Term      int64
 }
 
-// Compare orders by term first, then timestamp, matching MongoDB's OpTime
-// ordering. A higher term is always later in the replication log regardless of
-// timestamp, so comparing timestamps first would accept a stale position after
-// a failover.
 func (o OpTime) Compare(other OpTime) int {
 	switch {
 	case o.Term != other.Term:
@@ -65,9 +60,6 @@ func (o OpTime) String() string {
 	return fmt.Sprintf("{ts:%d.%d t:%d}", o.Seconds, o.Increment, o.Term)
 }
 
-// MemberProgress is what one member reports about its own position. These are
-// the member's claims, not a peer's view of it, because the honesty tier needs
-// to compare what a member says against what it actually holds.
 type MemberProgress struct {
 	Addr        string
 	State       string
@@ -81,7 +73,6 @@ func (p MemberProgress) String() string {
 	return fmt.Sprintf("%s state=%s applied=%s durable=%s", p.Addr, p.State, p.Applied, p.Durable)
 }
 
-// Progress asks a member for its own reported position.
 func (rs *ReplicaSet) Progress(ctx context.Context, addr string) (MemberProgress, error) {
 	out := MemberProgress{Addr: addr, State: "<unreachable>"}
 
@@ -107,9 +98,6 @@ func (rs *ReplicaSet) Progress(ctx context.Context, addr string) (MemberProgress
 		}
 	}
 
-	// Fall back to the self entry in members[]. DumboDB does not emit the
-	// top-level optimes document that MongoDB provides, so without this the
-	// harness reads zero and misreports a replicating member as stalled.
 	if out.Applied.IsZero() {
 		if self := selfMember(status); self != nil {
 			out.Applied = readOpTime(self["optime"])
@@ -150,8 +138,6 @@ func readOpTime(v interface{}) OpTime {
 	return out
 }
 
-// stateName maps the numeric replica set member state to its name, for the
-// cases where myState arrives as a number.
 func stateName(state int64) string {
 	switch state {
 	case 0:
@@ -178,9 +164,6 @@ func stateName(state int64) string {
 	return fmt.Sprintf("STATE(%d)", state)
 }
 
-// maxPollBudget caps how long one progress read may take. Long enough for a
-// healthy member under load, short enough that an unreachable one does not
-// consume the whole convergence timeout.
 const maxPollBudget = 2 * time.Second
 
 func pollBudget(deadline time.Time) time.Duration {
@@ -200,8 +183,6 @@ func (rs *ReplicaSet) progressBounded(ctx context.Context, addr string, budget t
 	return rs.Progress(bounded, addr)
 }
 
-// Watermark returns the primary's current applied optime, the position members
-// must reach to be considered caught up.
 func (rs *ReplicaSet) Watermark(ctx context.Context) (OpTime, error) {
 	primary, err := rs.Primary(ctx)
 	if err != nil {
@@ -217,17 +198,6 @@ func (rs *ReplicaSet) Watermark(ctx context.Context) (OpTime, error) {
 	return progress.Applied, nil
 }
 
-// WaitConverged snapshots the primary's applied optime and waits until every
-// named member reports having applied at least that position. It returns the
-// watermark so callers can assert against a known point in history.
-//
-// This is what separates "the subject is wrong" from "the subject is slow". A
-// comparison run without it produces a divergence report whenever the reader
-// simply got there first, and those look identical to real defects.
-//
-// It trusts what each member reports about itself. That trust is the reason the
-// honesty checks exist: a member that claims a position it has not durably
-// applied turns this gate into a rubber stamp.
 func (rs *ReplicaSet) WaitConverged(ctx context.Context, timeout time.Duration, addrs ...string) (OpTime, error) {
 	if len(addrs) == 0 {
 		for _, m := range rs.Members {
@@ -245,9 +215,6 @@ func (rs *ReplicaSet) WaitConverged(ctx context.Context, timeout time.Duration, 
 	for time.Now().Before(deadline) {
 		caughtUp := 0
 		for _, addr := range addrs {
-			// Bound each read. An unreachable member otherwise blocks on driver
-			// server selection for ~30s, so the caller's timeout is ignored and
-			// every failure involving a down member costs half a minute.
 			progress, err := rs.progressBounded(ctx, addr, pollBudget(deadline))
 			sample := memberSample{progress: progress, err: err, at: time.Now()}
 			if previous, seen := last[addr]; seen {
@@ -273,8 +240,6 @@ func (rs *ReplicaSet) WaitConverged(ctx context.Context, timeout time.Duration, 
 	return watermark, convergenceTimeout(watermark, timeout, addrs, last)
 }
 
-// convergenceTimeout explains which members are behind and by how much. A bare
-// timeout here would cost an hour of manual re-derivation every time.
 func convergenceTimeout(watermark OpTime, timeout time.Duration, addrs []string, last map[string]memberSample) error {
 	var lines []string
 	sorted := append([]string(nil), addrs...)
@@ -286,8 +251,6 @@ func convergenceTimeout(watermark OpTime, timeout time.Duration, addrs []string,
 		case !seen:
 			lines = append(lines, fmt.Sprintf("  %s was never sampled", addr))
 		case sample.err != nil:
-			// The member stopped answering. Its last known position is still
-			// worth printing: it says whether it died caught up or behind.
 			lines = append(lines, fmt.Sprintf(
 				"  %s is not answering replSetGetStatus (%v); last known position %s, state %s",
 				addr, sample.err, sample.progress.Applied, sample.progress.State))
@@ -296,10 +259,6 @@ func convergenceTimeout(watermark OpTime, timeout time.Duration, addrs []string,
 				"  %s reports NO progress at all (applied optime is zero), state %s -- it is not replicating, not merely lagging",
 				addr, sample.progress.State))
 		case sample.progress.Applied.Compare(watermark) >= 0:
-			// Reaching here means every member looked caught up on its own last
-			// sample yet the run still timed out, so the reads were not all
-			// succeeding in the same pass. Saying nothing would leave an empty
-			// report, which is what this function exists to prevent.
 			lines = append(lines, fmt.Sprintf(
 				"  %s reported reaching %s, but not in the same pass as the others",
 				addr, sample.progress.Applied))
@@ -323,23 +282,14 @@ func convergenceTimeout(watermark OpTime, timeout time.Duration, addrs []string,
 		watermark, timeout, strings.Join(lines, "\n"))
 }
 
-// memberSample is one poll of a member: what it said, or why it could not be
-// asked, and when. Keeping the error means a member that stopped answering is
-// reported as such rather than silently retaining a stale caught-up reading.
 type memberSample struct {
 	progress MemberProgress
 	err      error
 	at       time.Time
-	// first is the earliest position seen for this member during the wait.
-	// A timeout says nothing on its own about whether the member was stuck or
-	// merely slow, and those call for opposite responses: one is a defect,
-	// the other a budget that no longer suits the hardware. Comparing the
-	// first and last positions separates them.
-	first   OpTime
-	samples int
+	first    OpTime
+	samples  int
 }
 
-// MustConverge fails the test if the members do not converge.
 func (rs *ReplicaSet) MustConverge(t *testing.T, ctx context.Context, timeout time.Duration, addrs ...string) OpTime {
 	t.Helper()
 	watermark, err := rs.WaitConverged(ctx, timeout, addrs...)
@@ -349,7 +299,6 @@ func (rs *ReplicaSet) MustConverge(t *testing.T, ctx context.Context, timeout ti
 	return watermark
 }
 
-// Status returns a member's raw replSetGetStatus response.
 func (rs *ReplicaSet) Status(ctx context.Context, addr string) (bson.M, error) {
 	cli, err := rs.client(ctx, addr)
 	if err != nil {
@@ -358,9 +307,6 @@ func (rs *ReplicaSet) Status(ctx context.Context, addr string) (bson.M, error) {
 	return replSetGetStatus(ctx, cli)
 }
 
-// Hello returns a member's raw hello response. The honesty checks compare it
-// against replSetGetStatus: a member whose two self-descriptions disagree is
-// misreporting to somebody.
 func (rs *ReplicaSet) Hello(ctx context.Context, addr string) (bson.M, error) {
 	cli, err := rs.client(ctx, addr)
 	if err != nil {
@@ -373,11 +319,8 @@ func (rs *ReplicaSet) Hello(ctx context.Context, addr string) (bson.M, error) {
 	return res, nil
 }
 
-// ReadOpTime extracts an OpTime from a replSetGetStatus optimes field.
 func ReadOpTime(v interface{}) OpTime { return readOpTime(v) }
 
-// ClientFor returns a caller-owned client pinned to an address, for members
-// addressed by string rather than by *Member.
 func (rs *ReplicaSet) ClientFor(ctx context.Context, addr string) (*mongo.Client, error) {
 	return directClient(ctx, addr)
 }

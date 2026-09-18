@@ -12,17 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Tier 6: differential fuzzing over the workload vocabulary.
-//
-// The target is the $v:2 delta update format. Those defects are silent by
-// construction: a delta that applies slightly wrong leaves a document that is
-// merely incorrect rather than an apply that fails, so nothing surfaces an
-// error and only a byte-exact comparison against a reference notices. The
-// nested and array diff space is too large to enumerate by hand.
-//
-// Every divergence is reported with the seed and with a MINIMAL operation
-// sequence, because a hundred-operation repro of a delta bug is not actionable.
-//
 //go:build replication
 
 package replication
@@ -51,11 +40,6 @@ const (
 	fuzzConvergeWait   = 120 * time.Second
 )
 
-// fuzzWeight decides how often an operation is drawn.
-//
-// Weighting by name rather than by a hand-kept list means a new operation in
-// the vocabulary is drawn automatically at the right rate, instead of being
-// silently excluded until someone remembers to add it here.
 func fuzzWeight(name string) int {
 	switch {
 	case strings.HasPrefix(name, "array-"):
@@ -65,9 +49,6 @@ func fuzzWeight(name string) int {
 		return 4
 	case strings.HasPrefix(name, "insert"):
 		return 2
-	// Catalog operations drop and recreate the collection. They belong in the
-	// stream, but a high weight spends the run rebuilding rather than
-	// mutating documents, which is where the delta defects are.
 	case strings.HasPrefix(name, "drop"), strings.HasPrefix(name, "create"),
 		strings.HasPrefix(name, "rename"), strings.HasPrefix(name, "collMod"):
 		return 1
@@ -86,7 +67,6 @@ func fuzzPool() []harness.Op {
 	return pool
 }
 
-// fuzzSequence draws a reproducible operation sequence for a seed.
 func fuzzSequence(seed int64, length int) []harness.Op {
 	pool := fuzzPool()
 	r := rand.New(rand.NewSource(seed))
@@ -97,8 +77,6 @@ func fuzzSequence(seed int64, length int) []harness.Op {
 	return sequence
 }
 
-// nonDestructiveSequence draws only operations that mutate documents, never
-// ones that drop or rename the collection.
 func nonDestructiveSequence(seed int64, length int) []harness.Op {
 	pool := make([]harness.Op, 0, 64)
 	for _, op := range harness.StandardVocabulary() {
@@ -126,16 +104,6 @@ func opNames(ops []harness.Op) []string {
 	return names
 }
 
-// fuzzTargetCount is the seeded range the vocabulary's update, array and
-// delete operations address through existingID, which picks an id in
-// [doc-000000000, doc-000000199].
-//
-// Seeding it is not optional. Without it every update and array operation
-// matches nothing, so the operators this tier exists to exercise, the $v:2
-// delta and array mutation paths, never run at all. Measured before this was
-// added: three 40-operation trials left 14, 6 and 3 documents to compare, and
-// five of the eleven negative-control corruptions could not even be applied
-// for want of a document.
 const fuzzTargetCount = 200
 
 func seedFuzzTargets(ctx context.Context, db *mongo.Database) error {
@@ -148,26 +116,15 @@ func seedFuzzTargets(ctx context.Context, db *mongo.Database) error {
 	return err
 }
 
-// fuzzHarness owns one replica set for the whole run. Starting a set costs
-// close to a minute, and shrinking replays a sequence many times, so a set per
-// trial would make shrinking unaffordable and the feature would go unused.
 type fuzzHarness struct {
-	rs      *harness.ReplicaSet
-	subject *harness.DumboMember
-	commit  string
-	primary *mongo.Client
-	trial   int
-	// lastCompared is how many documents the last trial actually put in front
-	// of the comparator, so a passing run states its own weight.
+	rs           *harness.ReplicaSet
+	subject      *harness.DumboMember
+	commit       string
+	primary      *mongo.Client
+	trial        int
 	lastCompared int
 }
 
-// run executes one sequence in its own database and reports the divergences
-// between the subject and the reference secondary for it.
-//
-// It returns an error only when the trial could not be carried out. A workload
-// operation that fails is not an error: the vocabulary deliberately contains
-// operations that fail sometimes, and those still produce oplog activity.
 func (f *fuzzHarness) run(ctx context.Context, seed int64, ops []harness.Op) ([]harness.Divergence, error) {
 	f.trial++
 	dbName := fmt.Sprintf("fuzz_%d_%d", seed, f.trial)
@@ -180,9 +137,6 @@ func (f *fuzzHarness) run(ctx context.Context, seed int64, ops []harness.Op) ([]
 		return nil, fmt.Errorf("running the workload: %w", err)
 	}
 	if _, err := f.rs.WaitConverged(ctx, fuzzConvergeWait, f.subject.Addr); err != nil {
-		// Non-convergence is graded as a divergence rather than as an
-		// apparatus error: a subject that stops keeping up with a workload is
-		// exactly as broken as one that stores the wrong bytes.
 		return []harness.Divergence{{
 			Path:   dbName,
 			Detail: fmt.Sprintf("subject did not converge: %v", err),
@@ -194,11 +148,6 @@ func (f *fuzzHarness) run(ctx context.Context, seed int64, ops []harness.Op) ([]
 		return nil, err
 	}
 
-	// A trial that compared nothing against nothing would report convergence,
-	// and the whole tier would pass forever while testing nothing at all. The
-	// way that happens here is narrowTo finding no database under dbName, so
-	// assert the reference actually holds what the workload wrote before
-	// believing any comparison of it.
 	documents := countDocuments(referenceState)
 	f.lastCompared = documents
 	if documents == 0 {
@@ -208,8 +157,6 @@ func (f *fuzzHarness) run(ctx context.Context, seed int64, ops []harness.Op) ([]
 
 	divergences := harness.DiffServerState(referenceState, subjectState)
 
-	// Drop the trial database so the next capture stays cheap and a later
-	// trial cannot be blamed for an earlier one's state.
 	if err := f.primary.Database(dbName).Drop(ctx); err != nil {
 		return divergences, nil
 	}
@@ -217,8 +164,6 @@ func (f *fuzzHarness) run(ctx context.Context, seed int64, ops []harness.Op) ([]
 	return divergences, nil
 }
 
-// capture reads both members and narrows each to dbName, so a trial is judged
-// only on what it produced.
 func (f *fuzzHarness) capture(ctx context.Context, dbName string) (*harness.ServerState, *harness.ServerState, error) {
 	reference, err := f.rs.AnySecondary(ctx)
 	if err != nil {
@@ -256,20 +201,11 @@ func countDocuments(state *harness.ServerState) int {
 func narrowTo(state *harness.ServerState, dbName string) *harness.ServerState {
 	narrowed := &harness.ServerState{Source: state.Source, Databases: map[string]*harness.DatabaseState{}}
 	if db, present := state.Databases[dbName]; present {
-		// Address the database by a fixed key so the comparison does not
-		// report every trial's database as added and removed.
 		narrowed.Databases["trial"] = db
 	}
 	return narrowed
 }
 
-// shrink reduces a failing sequence to a minimal one that still fails, by
-// delta debugging: try ever finer partitions, keep any subsequence that still
-// reproduces, stop when removing any single operation makes it pass.
-//
-// Replaying is not free, so the budget is bounded and the best sequence found
-// so far is returned when it runs out. A large repro is worth less than a
-// small one but far more than none.
 func (f *fuzzHarness) shrink(ctx context.Context, t *testing.T, seed int64, ops []harness.Op, budget int, until time.Time) []harness.Op {
 	best := ops
 	granularity := 2
@@ -321,25 +257,12 @@ func fuzzEnvInt(name string, fallback int) int {
 	return value
 }
 
-// TestFuzz_DifferentialConvergence runs seeded operation streams and requires
-// the subject to hold byte-identical state to the reference secondary.
-//
-// Seeds and length are bounded by default and raised with REPLICATION_FUZZ_SEEDS
-// and REPLICATION_FUZZ_LENGTH. The bounded default is deliberate: the owner
-// asked for a green check before merging rather than a nightly job against
-// main, so this runs in the gated CI at a size that fits, and explores further
-// on demand.
 func TestFuzz_DifferentialConvergence(t *testing.T) {
 	t.Parallel()
 	seeds := fuzzEnvInt("REPLICATION_FUZZ_SEEDS", defaultFuzzSeeds)
 	length := fuzzEnvInt("REPLICATION_FUZZ_LENGTH", defaultFuzzLength)
 	base := int64(fuzzEnvInt("REPLICATION_FUZZ_BASE_SEED", 20260917))
 
-	// A wall-clock budget rather than a per-seed estimate. Shrinking replays a
-	// sequence many times, so a single divergence can cost far more than the
-	// run that found it. Overrunning the CI job would lose the repro, which is
-	// the whole deliverable, so shrinking gives up its remaining budget rather
-	// than the test giving up its report.
 	budget := time.Duration(fuzzEnvInt("REPLICATION_FUZZ_BUDGET_MINUTES", defaultFuzzMinutes)) * time.Minute
 	deadline := time.Now().Add(budget)
 	ctx, cancel := context.WithTimeout(context.Background(), budget+5*time.Minute)
@@ -389,7 +312,6 @@ func TestFuzz_DifferentialConvergence(t *testing.T) {
 		}
 
 		t.Logf("seed %d diverged in %d place(s); shrinking", seed, len(divergences))
-		// Leave a slice of the budget for the final replay and the report.
 		shrinkUntil := deadline.Add(-2 * time.Minute)
 		minimal := f.shrink(ctx, t, seed, sequence, 24, shrinkUntil)
 		final, runErr := f.run(ctx, seed, minimal)
@@ -397,8 +319,6 @@ func TestFuzz_DifferentialConvergence(t *testing.T) {
 			final = divergences
 		}
 
-		// The repro is the deliverable. A divergence reported without one is
-		// a bug nobody can act on.
 		t.Errorf("dumbodb %s diverged from the reference secondary.\n"+
 			"  seed:      %d\n"+
 			"  reproduce: REPLICATION_FUZZ_SEEDS=1 REPLICATION_FUZZ_BASE_SEED=%d REPLICATION_FUZZ_LENGTH=%d\n"+
@@ -418,15 +338,6 @@ func TestFuzz_DifferentialConvergence(t *testing.T) {
 	}
 }
 
-// fuzzCoverageFloor is the smallest number of documents a run may have put in
-// front of the comparator and still be believed.
-//
-// A run that reports convergence having compared almost nothing is the failure
-// mode of this tier, and it is silent: the sequences are random, so a
-// regression that emptied every trial would look exactly like a clean run. The
-// floor is checked against the best trial rather than every trial, because a
-// sequence that legitimately ends in dropCollection leaves little behind and
-// failing that would be flaky.
 const fuzzCoverageFloor = 50
 
 func divergenceStrings(divergences []harness.Divergence) []string {
@@ -441,9 +352,6 @@ func divergenceStrings(divergences []harness.Divergence) []string {
 	return out
 }
 
-// TestFuzz_SequenceIsReproducible guards the property the whole tier rests on.
-// If a seed did not produce the same sequence twice, every repro line this
-// suite prints would be a lie.
 func TestFuzz_SequenceIsReproducible(t *testing.T) {
 	t.Parallel()
 	first := opNames(fuzzSequence(99, 50))
@@ -457,17 +365,6 @@ func TestFuzz_SequenceIsReproducible(t *testing.T) {
 	}
 }
 
-// TestFuzz_DetectsInjectedDivergence is the negative control for this tier.
-//
-// A fuzzer that reports convergence on every seed is indistinguishable from a
-// fuzzer that compares nothing, and the specific way that happens here is
-// narrowTo selecting no database, after which both sides are empty and every
-// trial passes forever. So this drives a real trial through the same capture
-// and narrowing path the fuzzer uses, then corrupts the result and requires
-// each corruption to be caught.
-//
-// Running it against a real trial rather than a synthetic state is the point:
-// it exercises narrowTo, which the existing negative control does not.
 func TestFuzz_DetectsInjectedDivergence(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Minute)
@@ -490,23 +387,12 @@ func TestFuzz_DetectsInjectedDivergence(t *testing.T) {
 
 	f := &fuzzHarness{rs: rs, subject: subject, commit: commit, primary: primaryClient}
 
-	// Run a sequence but do not let run() drop the database, so the capture
-	// below has something to narrow to. A short sequence is enough; the
-	// corruptions supply the differences.
 	const seed = 424242
 	f.trial++
 	dbName := fmt.Sprintf("fuzz_control_%d", f.trial)
-	// Seed the corruption corpus rather than the fuzz targets. The corruptions
-	// address specific field names, and GenerateDocument produces none of
-	// them: retypeInt looks for "n", finds nothing, and returns the document
-	// unchanged, after which the comparator correctly reports identical and
-	// the control blames it for a difference that was never injected.
 	if err := harness.SeedCorruptionCorpus(ctx, primaryClient, dbName); err != nil {
 		t.Fatalf("seeding the corruption corpus: %v", err)
 	}
-	// A non-destructive sequence on top, so the control still exercises a
-	// replicated workload rather than a static corpus. A drawn sequence can
-	// drop the collection, and then most of the corpus has nothing to corrupt.
 	workload := harness.Workload{Name: dbName, Seed: seed, Ops: nonDestructiveSequence(seed, 20)}
 	if _, err := workload.Run(ctx, primaryClient.Database(dbName)); err != nil {
 		t.Fatalf("running the control workload: %v", err)
@@ -532,10 +418,6 @@ func TestFuzz_DetectsInjectedDivergence(t *testing.T) {
 			if err := c.Apply(corrupted); err != nil {
 				t.Skipf("corruption %q does not apply to this trial's shape: %v", c.Name, err)
 			}
-			// A corruption that silently changed nothing would look exactly
-			// like a comparator that missed a real difference, and the second
-			// reading is far more alarming than the first. Separate them here
-			// rather than leave the reader to guess which one happened.
 			if !statesDiffer(subjectState, corrupted) {
 				t.Fatalf("corruption %q left the captured state byte-identical, so it injected nothing and this case tests nothing. %s",
 					c.Name, c.Rationale)
@@ -549,8 +431,6 @@ func TestFuzz_DetectsInjectedDivergence(t *testing.T) {
 	}
 }
 
-// statesDiffer reports whether two captures hold any different bytes, without
-// going through DiffServerState, which is the thing under test here.
 func statesDiffer(a, b *harness.ServerState) bool {
 	if len(a.Databases) != len(b.Databases) {
 		return true

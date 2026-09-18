@@ -27,9 +27,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// Half one of tier zero: a stock mongod secondary must converge with the
-// primary and hold identical state. If this fails the apparatus is broken, and
-// every subject result produced by it is meaningless.
 func TestControl_ReferenceSecondaryMatchesPrimary(t *testing.T) {
 	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
@@ -43,8 +40,6 @@ func TestControl_ReferenceSecondaryMatchesPrimary(t *testing.T) {
 			if len(coll.Documents) != 5 {
 				t.Errorf("reference holds %d documents, want 5", len(coll.Documents))
 			}
-			// The corruption corpus is only meaningful if the reference
-			// actually carries an index and a validator to corrupt.
 			if len(coll.Indexes) < 2 {
 				t.Errorf("reference holds %d indexes, want the _id index plus one more", len(coll.Indexes))
 			}
@@ -55,13 +50,6 @@ func TestControl_ReferenceSecondaryMatchesPrimary(t *testing.T) {
 	})
 }
 
-// Half two: the comparator must actually catch a difference. A comparator that
-// never fails passes every test forever while verifying nothing, and no
-// downstream test can detect that.
-//
-// This runs against real captured state rather than hand-built fixtures, so it
-// also proves the capture path feeds the comparator the fields it needs. The
-// unit tests cover the comparison logic; this covers the wiring.
 func TestControl_ComparatorCatchesSeededCorruption(t *testing.T) {
 	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
@@ -75,8 +63,6 @@ func TestControl_ComparatorCatchesSeededCorruption(t *testing.T) {
 			if res.Primary == nil || res.Reference == nil {
 				t.Fatal("no captured state")
 			}
-			// Baseline: the uncorrupted capture must compare clean, otherwise a
-			// corruption "detected" below could just be pre-existing noise.
 			if d := harness.DiffServerState(res.Primary, res.Reference); len(d) != 0 {
 				t.Fatalf("baseline capture already diverges, so corruption results mean nothing: %v", d)
 			}
@@ -99,8 +85,6 @@ func TestControl_ComparatorCatchesSeededCorruption(t *testing.T) {
 	})
 }
 
-// captureCopy deep-copies a captured state so each corruption starts from the
-// clean capture rather than the previous corruption's leftovers.
 func captureCopy(t *testing.T, in *harness.ServerState) *harness.ServerState {
 	t.Helper()
 	out := &harness.ServerState{Source: in.Source, Databases: map[string]*harness.DatabaseState{}}

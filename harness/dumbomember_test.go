@@ -32,9 +32,6 @@ func requireDumboDB(t *testing.T) {
 	}
 }
 
-// The join itself must succeed and install all three properties. This asserts
-// harness behavior, not DumboDB replication behavior: reaching SECONDARY is a
-// separate question handled below.
 func TestDumboMember_JoinsAsHiddenNonVoting(t *testing.T) {
 	requireDumboDB(t)
 	rs := StartReplicaSet(t, 2)
@@ -49,16 +46,12 @@ func TestDumboMember_JoinsAsHiddenNonVoting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
-	// "unknown" is what the build emits when the version stamp was not set, so
-	// checking for empty alone let an unattributable binary pass unnoticed.
 	if commit == "" || commit == "unknown" {
 		t.Errorf("buildInfo.gitVersion is %q; the subject build carries no commit stamp, so no result from it is attributable", commit)
 	}
 	t.Logf("subject under test: dumbodb %s at %s", commit, d.Addr)
 }
 
-// The set must keep exactly one primary after the join. A non-voting member
-// that perturbs the election would invalidate every downstream test.
 func TestDumboMember_JoinDoesNotDisturbTheSet(t *testing.T) {
 	requireDumboDB(t)
 	rs := StartReplicaSet(t, 2)
@@ -93,8 +86,6 @@ func TestDumboMember_JoinDoesNotDisturbTheSet(t *testing.T) {
 	}
 }
 
-// Stop and Start must preserve the data directory, which every resume and
-// durability case depends on.
 func TestDumboMember_RestartPreservesDataDirectory(t *testing.T) {
 	requireDumboDB(t)
 	rs := StartReplicaSet(t, 2)
@@ -118,8 +109,6 @@ func TestDumboMember_RestartPreservesDataDirectory(t *testing.T) {
 	}
 }
 
-// A hard kill must leave the member relaunchable, which is the precondition for
-// the crash-recovery cases in tier 3.
 func TestDumboMember_SurvivesHardKill(t *testing.T) {
 	requireDumboDB(t)
 	rs := StartReplicaSet(t, 2)
@@ -138,9 +127,6 @@ func TestDumboMember_SurvivesHardKill(t *testing.T) {
 	}
 }
 
-// Whether the subject reaches SECONDARY is the actual replication question.
-// Reported separately from the harness assertions so a red result here reads as
-// a subject result rather than broken infrastructure.
 func TestDumboMember_ReachesSecondary(t *testing.T) {
 	requireDumboDB(t)
 	rs := StartReplicaSet(t, 2)
@@ -157,13 +143,6 @@ func TestDumboMember_ReachesSecondary(t *testing.T) {
 	t.Logf("dumbodb %s reached SECONDARY", commit)
 }
 
-// replSetGetStatus must carry the top-level optimes document. That is where
-// mongosh, monitoring and anything computing replication lag read a member's
-// own position; a member without it reads as having made no progress.
-//
-// The harness has a fallback to the self entry in members[], added when this was
-// missing. This test is what allows that fallback to be removed, and what
-// notices if the field disappears again.
 func TestDumboMember_ReportsStandardOptimes(t *testing.T) {
 	requireDumboDB(t)
 	rs := StartReplicaSet(t, 2)

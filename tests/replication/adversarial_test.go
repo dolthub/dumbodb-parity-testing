@@ -12,11 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Tier 3: correctness under interruption.
-//
-// Everything proven so far assumes nothing goes wrong mid-flight. These cases
-// break the subject on purpose and then require it to reach exactly the state a
-// stock secondary reached, with no gap and no double-apply.
 //go:build replication
 
 package replication
@@ -33,7 +28,6 @@ import (
 
 const advDB = "adversarial"
 
-// advApparatus provisions a set, seeds it, and joins a caught-up subject.
 func advApparatus(t *testing.T, seed int) (*harness.ReplicaSet, *harness.DumboMember, context.Context, context.CancelFunc) {
 	t.Helper()
 	rs := harness.StartReplicaSet(t, 3)
@@ -73,8 +67,6 @@ func advApparatus(t *testing.T, seed int) (*harness.ReplicaSet, *harness.DumboMe
 	return rs, subject, ctx, cancel
 }
 
-// compareWithReference requires the subject to hold exactly what the reference
-// secondary holds.
 func compareWithReference(t *testing.T, ctx context.Context, rs *harness.ReplicaSet, subject *harness.DumboMember, stage string) {
 	t.Helper()
 
@@ -128,15 +120,11 @@ func drive(ctx context.Context, rs *harness.ReplicaSet, seed int64, repeat int) 
 	return err
 }
 
-// A hard kill mid-stream must not lose or duplicate anything. The subject
-// resumes from its durable checkpoint and ends where the reference ended.
 func TestAdversarial_HardKillMidStream(t *testing.T) {
 	t.Parallel()
 	rs, subject, ctx, cancel := advApparatus(t, 101)
 	defer cancel()
 
-	// Write while the subject is running, kill it part-way, keep writing, then
-	// bring it back. It must catch up on both halves.
 	if err := drive(ctx, rs, 1, 1); err != nil {
 		t.Fatalf("first workload: %v", err)
 	}
@@ -152,8 +140,6 @@ func TestAdversarial_HardKillMidStream(t *testing.T) {
 	compareWithReference(t, ctx, rs, subject, "after a hard kill mid-stream")
 }
 
-// A graceful restart exercises the durable-shutdown path rather than crash
-// recovery, and must be equally lossless.
 func TestAdversarial_GracefulRestartMidStream(t *testing.T) {
 	t.Parallel()
 	rs, subject, ctx, cancel := advApparatus(t, 102)
@@ -174,8 +160,6 @@ func TestAdversarial_GracefulRestartMidStream(t *testing.T) {
 	compareWithReference(t, ctx, rs, subject, "after a graceful restart mid-stream")
 }
 
-// Repeated kills while writes continue. One restart can succeed by luck; a
-// sequence is what exposes an off-by-one in checkpoint resumption.
 func TestAdversarial_RepeatedKillsUnderLoad(t *testing.T) {
 	t.Parallel()
 	rs, subject, ctx, cancel := advApparatus(t, 103)
@@ -195,8 +179,6 @@ func TestAdversarial_RepeatedKillsUnderLoad(t *testing.T) {
 	compareWithReference(t, ctx, rs, subject, "after four kill/restart rounds")
 }
 
-// Stepping down the primary moves the subject to a new sync source. Continuity
-// must be preserved: no lost writes, no forked history.
 func TestAdversarial_PrimaryStepDown(t *testing.T) {
 	t.Parallel()
 	rs, subject, ctx, cancel := advApparatus(t, 104)
@@ -223,8 +205,6 @@ func TestAdversarial_PrimaryStepDown(t *testing.T) {
 	compareWithReference(t, ctx, rs, subject, "after a primary step-down")
 }
 
-// A step-down while the subject is down: it must pick up from a different
-// source than the one it left, without gaps.
 func TestAdversarial_StepDownWhileSubjectIsDown(t *testing.T) {
 	t.Parallel()
 	rs, subject, ctx, cancel := advApparatus(t, 105)
@@ -249,9 +229,6 @@ func TestAdversarial_StepDownWhileSubjectIsDown(t *testing.T) {
 	compareWithReference(t, ctx, rs, subject, "after a step-down while the subject was down")
 }
 
-// Restarting with no new writes must be a no-op. A subject that re-applies its
-// last batch on startup would corrupt counters that $inc has already advanced,
-// and nothing else in the suite would notice.
 func TestAdversarial_RestartIsIdempotent(t *testing.T) {
 	t.Parallel()
 	rs, subject, ctx, cancel := advApparatus(t, 106)
@@ -280,9 +257,6 @@ func TestAdversarial_RestartIsIdempotent(t *testing.T) {
 	compareWithReference(t, ctx, rs, subject, "after three no-op restarts")
 }
 
-// Killing the subject repeatedly at short random intervals while a concurrent
-// workload runs, so kills land at unpredictable points including between an
-// oplog fetch and its commit.
 func TestAdversarial_KillsDuringConcurrentLoad(t *testing.T) {
 	t.Parallel()
 	rs, subject, ctx, cancel := advApparatus(t, 107)
@@ -304,9 +278,6 @@ func TestAdversarial_KillsDuringConcurrentLoad(t *testing.T) {
 	compareWithReference(t, ctx, rs, subject, "after kills during concurrent load")
 }
 
-// Sanity: the documents the subject holds must match the reference exactly,
-// checked by count as well as by content, so a comparator that silently skipped
-// a collection could not hide a gap.
 func TestAdversarial_NoGapAfterInterruption(t *testing.T) {
 	t.Parallel()
 	rs, subject, ctx, cancel := advApparatus(t, 108)

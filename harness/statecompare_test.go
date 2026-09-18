@@ -31,9 +31,6 @@ func raw(t *testing.T, d bson.D) bson.Raw {
 	return b
 }
 
-// Every case here is one the existing CompareResponses reports as Match. If any
-// of these regress to "identical", the convergence suite silently stops testing
-// anything.
 func TestStateCompare_CatchesWhatCompareResponsesMisses(t *testing.T) {
 	oidA := primitive.NewObjectID()
 	oidB := primitive.NewObjectID()
@@ -82,9 +79,6 @@ func TestStateCompare_CatchesWhatCompareResponsesMisses(t *testing.T) {
 		})
 	}
 
-	// Assert the contrast this test is named for. If someone ever "simplifies"
-	// the convergence path back onto CompareResponses, these cases stop being
-	// tested at all and the suite keeps reporting green.
 	t.Run("CompareResponses would miss most of these", func(t *testing.T) {
 		missed := 0
 		for _, c := range cases {
@@ -100,8 +94,6 @@ func TestStateCompare_CatchesWhatCompareResponsesMisses(t *testing.T) {
 	})
 }
 
-// Field order is not significant for ordinary objects, because DumboDB
-// canonicalizes key order on write.
 func TestStateCompare_IgnoresOrdinaryFieldOrder(t *testing.T) {
 	cases := []struct {
 		name string
@@ -126,9 +118,6 @@ func TestStateCompare_IgnoresOrdinaryFieldOrder(t *testing.T) {
 	}
 }
 
-// Inside an _id value, field order IS identity: MongoDB treats {a:1,b:2} and
-// {b:2,a:1} as two different documents, and DumboDB stores _id verbatim to
-// preserve that.
 func TestStateCompare_IdFieldOrderIsSignificant(t *testing.T) {
 	a := raw(t, bson.D{{Key: "_id", Value: bson.D{{Key: "a", Value: int32(1)}, {Key: "b", Value: int32(2)}}}})
 	b := raw(t, bson.D{{Key: "_id", Value: bson.D{{Key: "b", Value: int32(2)}, {Key: "a", Value: int32(1)}}}})
@@ -142,7 +131,6 @@ func TestStateCompare_IdFieldOrderIsSignificant(t *testing.T) {
 	}
 }
 
-// Identical input must compare clean, including the awkward types.
 func TestStateCompare_IdenticalDocumentsMatch(t *testing.T) {
 	oid := primitive.NewObjectID()
 	doc := bson.D{
@@ -164,8 +152,6 @@ func TestStateCompare_IdenticalDocumentsMatch(t *testing.T) {
 	}
 }
 
-// The divergence must locate itself; a bare "documents differ" would mean
-// re-running everything by hand to find out where.
 func TestStateCompare_DivergencePathLocatesTheField(t *testing.T) {
 	a := raw(t, bson.D{{Key: "outer", Value: bson.D{{Key: "inner", Value: bson.A{int32(1), int32(2)}}}}})
 	b := raw(t, bson.D{{Key: "outer", Value: bson.D{{Key: "inner", Value: bson.A{int32(1), int32(9)}}}}})
@@ -193,7 +179,6 @@ func TestStateCompare_StripIndexVersion(t *testing.T) {
 	}
 }
 
-// Structural differences above the document level.
 func TestStateCompare_StructuralDifferences(t *testing.T) {
 	doc := raw(t, bson.D{{Key: "_id", Value: int32(1)}})
 	key := documentKey(bson.RawValue{Type: bson.TypeInt32, Value: doc.Lookup("_id").Value})

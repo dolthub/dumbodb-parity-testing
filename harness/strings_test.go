@@ -14,8 +14,6 @@
 
 package harness
 
-// contains reports whether sub occurs in s. Lives in its own untagged file so
-// both the default and the replication-tagged test builds can use it.
 func contains(s, sub string) bool {
 	for i := 0; i+len(sub) <= len(s); i++ {
 		if s[i:i+len(sub)] == sub {

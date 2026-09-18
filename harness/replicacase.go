@@ -27,84 +27,37 @@ import (
 const (
 	defaultReplicaMembers = 2
 	defaultReplicaTimeout = 4 * time.Minute
-	// defaultConvergeWait is generous on purpose.
-	//
-	// It was 90 seconds, chosen when five of the vocabulary's operators were
-	// silently writing nothing. Once they were fixed to actually mutate, the
-	// concurrent full-vocabulary case stopped finishing in time: the subject
-	// was reported SECONDARY, advancing steadily, and simply short of the
-	// watermark when the budget expired.
-	//
-	// A budget too short produces false failures against a working member,
-	// and its cost is paid on every failing run rather than every run. The
-	// convergence timeout now reports whether a member advanced while
-	// waiting, so a genuinely stuck one still says so rather than hiding
-	// behind the larger number.
-	defaultConvergeWait = 3 * time.Minute
+	defaultConvergeWait   = 3 * time.Minute
 )
 
-// ReplicaCase is one replication parity test: a workload run against a real
-// MongoDB primary, then a comparison of what the members ended up holding.
-//
-// PairTest does not fit this shape. It drives one Run per server and compares
-// two return values; a replication case has one server to write to and two to
-// compare, and the interesting assertion is about stored state rather than a
-// command response.
 type ReplicaCase struct {
 	Name    string
 	Support DumboDBSupport
 
-	// Members is the number of mongod members: one becomes primary, the rest
-	// are reference secondaries. Zero means two.
 	Members int
 
-	// Timeout bounds the whole case. Zero means four minutes.
 	Timeout time.Duration
 
-	// SeedBeforeJoin runs against the primary BEFORE the subject joins, so its
-	// data must arrive through initial sync rather than the oplog. That is the
-	// only way to test the clone path: anything written after the join arrives
-	// as ordinary steady-state replication.
 	SeedBeforeJoin func(ctx context.Context, primary *mongo.Client) error
 
-	// DuringClone runs concurrently with the subject's initial sync, starting
-	// immediately after the join and without waiting for SECONDARY.
-	//
-	// This is the case the buffered-oplog design exists for: the clone is not a
-	// single instant, and these writes must be reconciled by the oplog rather
-	// than lost or double-applied.
 	DuringClone func(ctx context.Context, primary *mongo.Client) error
 
-	// Setup prepares the primary before the subject is expected to be caught
-	// up. Data written here still replicates; it is separated from Workload
-	// only for readability.
 	Setup func(ctx context.Context, primary *mongo.Client) error
 
-	// Workload performs the operations under test against the primary.
 	Workload func(ctx context.Context, primary *mongo.Client) error
 
-	// Assert adds case-specific checks. The default comparison always runs;
-	// this is for anything beyond it.
 	Assert func(t *testing.T, res ReplicaResult)
 }
 
-// ReplicaResult is what a case produced, for custom assertions.
 type ReplicaResult struct {
 	Watermark     OpTime
 	Primary       *ServerState
 	Reference     *ServerState
 	Subject       *ServerState
 	SubjectCommit string
-	// Divergences between the subject and the reference secondary.
-	Divergences []Divergence
+	Divergences   []Divergence
 }
 
-// ReplicaTest runs tc and grades it according to tc.Support.
-//
-// The reference mongod secondary is a control, not decoration. It is compared
-// against the primary first, and a mismatch there fails the test outright
-// regardless of support level: if a stock secondary cannot converge, the
-// apparatus is broken and nothing the subject does means anything.
 func ReplicaTest(t *testing.T, tc ReplicaCase) TestResult {
 	t.Helper()
 
@@ -125,8 +78,6 @@ func ReplicaTest(t *testing.T, tc ReplicaCase) TestResult {
 
 	rs := StartReplicaSet(t, members)
 
-	// Seeding must happen before the join so the data travels through initial
-	// sync. Resolve the primary first for that reason.
 	seedPrimary, err := rs.Primary(ctx)
 	if err != nil {
 		t.Fatalf("%s: %v", tc.Name, err)
@@ -140,8 +91,6 @@ func ReplicaTest(t *testing.T, tc ReplicaCase) TestResult {
 			_ = seedClient.Disconnect(context.Background())
 			t.Fatalf("%s: seeding the primary before the join failed: %v", tc.Name, err)
 		}
-		// Let the reference catch up, so the seed is genuinely source state
-		// rather than still in flight when the subject starts cloning.
 		if _, err := rs.WaitConverged(ctx, defaultConvergeWait, seedPrimary.Addr); err != nil {
 			_ = seedClient.Disconnect(context.Background())
 			t.Fatalf("%s: primary did not settle after seeding: %v", tc.Name, err)
@@ -164,19 +113,6 @@ func ReplicaTest(t *testing.T, tc ReplicaCase) TestResult {
 	}
 	defer func() { _ = primaryClient.Disconnect(context.Background()) }()
 
-	// Synchronize before dispatching, because "during the clone" and "after
-	// the subject is caught up" are different tests and neither happens by
-	// accident.
-	//
-	// DuringClone waits for STARTUP2 so the writes genuinely overlap cloning.
-	// Firing it the instant the member joins raced the clone starting, and on
-	// a small fixture the clone could finish first, quietly turning a
-	// concurrent-clone case into an ordinary steady-state one.
-	//
-	// Everything else waits for SECONDARY. Without that, tier 2 ran its
-	// workload while the subject was still cloning, so operations meant to
-	// exercise steady-state application were exercising initial sync instead.
-	// The comparison at the end still held, which is why this was invisible.
 	cloneDone := make(chan error, 1)
 	if tc.DuringClone != nil {
 		if subject != nil {
@@ -222,14 +158,7 @@ func ReplicaTest(t *testing.T, tc ReplicaCase) TestResult {
 		return finish(t, tc, res, TestResult{Name: tc.Name, Status: StatusSkip})
 	}
 
-	// Attribution is the point of pinning the subject build; losing it silently
-	// makes every result unreproducible, so surface the reason rather than
-	// printing "unknown".
 	res.SubjectCommit, err = subject.Commit(ctx)
-	// "unknown" is what a binary built without the version stamp reports, and
-	// it is exactly as unattributable as an empty string. Every other entry
-	// point rejects it; this one used to accept it and label the result as
-	// though it named a build.
 	if err != nil || res.SubjectCommit == "" || res.SubjectCommit == "unknown" {
 		t.Errorf("%s: could not read the subject's build commit (buildInfo.gitVersion): %v", tc.Name, err)
 		res.SubjectCommit = "UNATTRIBUTED"
@@ -238,7 +167,6 @@ func ReplicaTest(t *testing.T, tc ReplicaCase) TestResult {
 	return finish(t, tc, res, subjectFailure)
 }
 
-// runControl proves the apparatus before the subject is judged by it.
 func runControl(t *testing.T, ctx context.Context, rs *ReplicaSet, name string, primary, reference *Member) (OpTime, *ServerState, *ServerState) {
 	t.Helper()
 
@@ -257,9 +185,6 @@ func runControl(t *testing.T, ctx context.Context, rs *ReplicaSet, name string, 
 	return watermark, primaryState, referenceState
 }
 
-// gradeSubject compares the subject against the reference and applies the
-// support level. A subject that never converges is graded the same as one that
-// converged to the wrong data: both mean it failed to reproduce the primary.
 func gradeSubject(t *testing.T, ctx context.Context, rs *ReplicaSet, tc ReplicaCase, subject *DumboMember, reference *Member, res *ReplicaResult) TestResult {
 	t.Helper()
 
@@ -286,8 +211,6 @@ func gradeSubject(t *testing.T, ctx context.Context, rs *ReplicaSet, tc ReplicaC
 
 	case DumboDBXFail:
 		if failure == "" {
-			// The ratchet. A case that starts passing must be promoted, or the
-			// suite quietly stops noticing when it breaks again.
 			t.Errorf("XPASS %s: the subject now matches the reference -- promote this case to DumboDBFull", label)
 			return TestResult{Name: tc.Name, Status: StatusXPass}
 		}
@@ -323,9 +246,6 @@ func captureOrFail(t *testing.T, ctx context.Context, rs *ReplicaSet, m *Member,
 	return state
 }
 
-// formatDivergences caps the report: a whole-collection mismatch produces one
-// divergence per document, and a thousand identical lines hide the shape of the
-// failure rather than explaining it.
 func formatDivergences(d []Divergence) string {
 	const maxShown = 20
 	var b strings.Builder

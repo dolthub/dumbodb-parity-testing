@@ -12,12 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Bulk loading, which is what importing a dataset looks like.
-//
-// This exists because tier 6 fuzzing found that it permanently stopped
-// replication (workspace-9xv), and a twenty minute fuzz run is the wrong place
-// to keep a two minute regression check.
-//
 //go:build replication
 
 package replication
@@ -37,23 +31,6 @@ import (
 
 const bulkDB = "bulkload"
 
-// TestBulkLoad_LargeInsertManyKeepsReplicating covers the batched-write oplog
-// shape.
-//
-// MongoDB splits a large insertMany into SEVERAL applyOps entries chained by
-// prevOpTime, each carrying lsid and txnNumber and none carrying partialTxn.
-// Verified on the wire: 200 documents produced applyOps of 70, 52, 9 and 69
-// operations at consecutive timestamps, the first with a null prevOpTime and
-// each later one pointing at its predecessor.
-//
-// A member that keys transaction-fragment reassembly off lsid and txnNumber
-// alone mistakes those for transaction fragments, applies the first, and then
-// rejects the second because it has no recorded fragment to link to. That is
-// workspace-9xv: replication terminates and the member reports RECOVERING
-// while sitting zero seconds behind, which reads like health.
-//
-// Size is the whole point. A handful of documents fits in one applyOps and
-// never chains, so a smaller load does not exercise this at all.
 func TestBulkLoad_LargeInsertManyKeepsReplicating(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
@@ -92,9 +69,6 @@ func TestBulkLoad_LargeInsertManyKeepsReplicating(t *testing.T) {
 		t.Fatalf("inserting %d documents: %v", documents, err)
 	}
 
-	// The premise: this load has to have chained, or the case is not
-	// exercising the shape it was written for and would pass on a build that
-	// still has the defect.
 	chained, total, err := chainedApplyOpsCount(ctx, primaryClient, bulkDB)
 	if err != nil {
 		t.Fatalf("reading the primary oplog: %v", err)
@@ -126,8 +100,6 @@ func TestBulkLoad_LargeInsertManyKeepsReplicating(t *testing.T) {
 	}
 }
 
-// chainedApplyOpsCount reports how many applyOps entries for dbName carry a
-// non-null prevOpTime, which is what makes a batched write a chain.
 func chainedApplyOpsCount(ctx context.Context, primary *mongo.Client, dbName string) (int, int, error) {
 	cursor, err := primary.Database("local").Collection("oplog.rs").Find(ctx, bson.D{})
 	if err != nil {

@@ -26,20 +26,10 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// The walking skeleton: the smallest workload that exercises the whole
-// apparatus at once -- provision a set, join DumboDB, write, wait for
-// convergence, compare stored state.
-//
-// Its purpose is to prove the apparatus before coverage is written against it.
-// As of dumbodb v0.6.3-43-g2ee7a63 both the control and the subject converge and
-// match, so this is a live parity test rather than a placeholder.
 func TestReplication_TenDocuments(t *testing.T) {
 	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
-		Name: "Replication_TenDocuments",
-		// Promoted from DumboDBXFail after dumbodb v0.6.3-43-g2ee7a63 replicated
-		// this correctly. The XPASS that forced the promotion is the ratchet
-		// working: from here a regression fails the build.
+		Name:    "Replication_TenDocuments",
 		Support: harness.DumboDBFull,
 		Workload: func(ctx context.Context, primary *mongo.Client) error {
 			coll := primary.Database("skeleton").Collection("docs")
@@ -57,8 +47,6 @@ func TestReplication_TenDocuments(t *testing.T) {
 	})
 }
 
-// Same apparatus with the subject skipped. This is the control on its own: if
-// this fails, the harness is broken independently of anything DumboDB does.
 func TestReplication_ControlOnly(t *testing.T) {
 	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{

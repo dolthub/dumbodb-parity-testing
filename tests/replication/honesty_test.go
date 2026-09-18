@@ -12,12 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Whether DumboDB tells the truth about its own state.
-//
-// The convergence gate believes what a member reports. If a member can claim a
-// position it has not actually reached, the gate certifies bad data and every
-// comparison built on it is meaningless. These are the checks that make the
-// rest of the suite worth running.
 //go:build replication
 
 package replication
@@ -51,9 +45,6 @@ func countOn(ctx context.Context, cli *mongo.Client, db string) (int64, error) {
 	return cli.Database(db).Collection("docs").CountDocuments(ctx, bson.D{})
 }
 
-// The moment a member first claims SECONDARY, everything written before it
-// joined must already be present. A member that announces itself ready while
-// still cloning would be handed reads it cannot answer.
 func TestHonesty_NoSecondaryBeforeInitialSyncCompletes(t *testing.T) {
 	t.Parallel()
 	rs, subject, ctx, cancel := joinWithSeed(t, 500)
@@ -75,7 +66,6 @@ func TestHonesty_NoSecondaryBeforeInitialSyncCompletes(t *testing.T) {
 			continue
 		}
 
-		// First claim of SECONDARY. The seeded documents must all be here.
 		cli, err := subject.Client(ctx)
 		if err != nil {
 			t.Fatalf("subject client: %v", err)
@@ -95,12 +85,6 @@ func TestHonesty_NoSecondaryBeforeInitialSyncCompletes(t *testing.T) {
 	t.Skip("subject never reached SECONDARY; nothing to assert about premature readiness")
 }
 
-// The load-bearing invariant. When the subject reports applied optime T, every
-// write at or before T must be present.
-//
-// Writes go in one at a time, each paired with the primary's applied optime
-// immediately afterwards. That gives an exact mapping from a reported position
-// to the set of documents that position must cover.
 func TestHonesty_ReportedOptimeImpliesDataPresent(t *testing.T) {
 	t.Parallel()
 	rs, subject, ctx, cancel := joinWithSeed(t, 0)
@@ -126,7 +110,6 @@ func TestHonesty_ReportedOptimeImpliesDataPresent(t *testing.T) {
 	}
 	defer func() { _ = subjectClient.Disconnect(context.Background()) }()
 
-	// checkpoint[i] is the primary's applied optime once documents 0..i exist.
 	const writes = 60
 	checkpoints := make([]harness.OpTime, 0, writes)
 	for i := 0; i < writes; i++ {
@@ -149,7 +132,6 @@ func TestHonesty_ReportedOptimeImpliesDataPresent(t *testing.T) {
 			continue
 		}
 
-		// Highest document index whose write is covered by the reported optime.
 		implied := -1
 		for i, cp := range checkpoints {
 			if cp.Compare(progress.Applied) <= 0 {
@@ -176,8 +158,6 @@ func TestHonesty_ReportedOptimeImpliesDataPresent(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	// A bare skip here proves nothing about the invariant this test exists for,
-	// so report exactly how far the subject got.
 	progress, _ := rs.Progress(ctx, subject.Addr)
 	held, _ := countOn(ctx, subjectClient, honestyDB)
 	t.Skipf("subject did not reach the final checkpoint within the budget; "+
@@ -211,8 +191,6 @@ func missingUpTo(ctx context.Context, cli *mongo.Client, highest int) ([]int32, 
 	return missing, nil
 }
 
-// A durable claim must survive a crash. Reporting an optime as durable means
-// the data behind it is on disk, not merely in memory.
 func TestHonesty_DurableOptimeSurvivesHardKill(t *testing.T) {
 	t.Parallel()
 	rs, subject, ctx, cancel := joinWithSeed(t, 200)
@@ -243,14 +221,6 @@ func TestHonesty_DurableOptimeSurvivesHardKill(t *testing.T) {
 		t.Fatalf("count before kill: %v", err)
 	}
 
-	// Remove the member before restarting it.
-	//
-	// A restart while it is still configured lets replication reconnect and
-	// re-apply from the source the moment it comes back, so a document that was
-	// never actually persisted is silently restored before the count is taken.
-	// The test would then pass on a subject that lost durable data, which is
-	// the exact failure it exists to catch. Out of the set, the count reflects
-	// only what survived on disk.
 	removeCtx, cancelRemove := context.WithTimeout(context.Background(), 30*time.Second)
 	if err := rs.RemoveMember(removeCtx, subject.Addr); err != nil {
 		cancelRemove()
@@ -278,9 +248,6 @@ func TestHonesty_DurableOptimeSurvivesHardKill(t *testing.T) {
 	t.Logf("durable %s: %d documents before kill, %d after", before.Durable, countBefore, countAfter)
 }
 
-// hello and replSetGetStatus are two self-descriptions of the same member. A
-// member whose two accounts disagree is misreporting to one audience or the
-// other, and drivers and operators read different ones.
 func TestHonesty_HelloAgreesWithReplSetGetStatus(t *testing.T) {
 	t.Parallel()
 	rs, subject, ctx, cancel := joinWithSeed(t, 100)
@@ -317,8 +284,6 @@ func TestHonesty_HelloAgreesWithReplSetGetStatus(t *testing.T) {
 	t.Logf("%d samples across the join, %d disagreements", samples, disagreements)
 }
 
-// joinWithSeed provisions a set, seeds the primary with n documents, then joins
-// DumboDB so the seed must arrive via initial sync.
 func joinWithSeed(t *testing.T, n int) (*harness.ReplicaSet, *harness.DumboMember, context.Context, context.CancelFunc) {
 	t.Helper()
 	rs := harness.StartReplicaSet(t, 2)

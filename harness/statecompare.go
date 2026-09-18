@@ -26,16 +26,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// systemDatabases are excluded from state capture: they carry per-server
-// bookkeeping that legitimately differs between two members.
 var systemDatabases = map[string]bool{
 	"admin":  true,
 	"config": true,
 	"local":  true,
 }
 
-// Divergence is one difference between two servers, located precisely enough to
-// act on without re-running anything.
 type Divergence struct {
 	Path   string
 	Detail string
@@ -43,7 +39,6 @@ type Divergence struct {
 
 func (d Divergence) String() string { return d.Path + ": " + d.Detail }
 
-// ServerState is everything a convergence comparison examines, captured at HEAD.
 type ServerState struct {
 	Source    string
 	Databases map[string]*DatabaseState
@@ -54,19 +49,11 @@ type DatabaseState struct {
 }
 
 type CollectionState struct {
-	Options bson.Raw
-	// Indexes keyed by index name; the "v" field is dropped because index
-	// version is a storage-engine property, not data.
-	Indexes map[string]bson.Raw
-	// Documents keyed by the raw bytes of their _id value, which is stable
-	// across servers and preserves _id type.
+	Options   bson.Raw
+	Indexes   map[string]bson.Raw
 	Documents map[string]bson.Raw
 }
 
-// CaptureServerState reads every non-system database at HEAD.
-//
-// HEAD is the parity surface: versioning is additive, so the comparison must
-// address plain database names and never a db@revision.
 func CaptureServerState(ctx context.Context, cli *mongo.Client, source string) (*ServerState, error) {
 	state := &ServerState{Source: source, Databases: map[string]*DatabaseState{}}
 
@@ -149,15 +136,10 @@ func captureCollection(ctx context.Context, coll *mongo.Collection, opts bson.Ra
 	return out, nil
 }
 
-// documentKey identifies a document across servers by the type and bytes of its
-// _id. Raw bytes are correct here even though field order is otherwise ignored:
-// MongoDB treats {a:1,b:2} and {b:2,a:1} as distinct _ids, and DumboDB stores
-// the _id value verbatim for that reason.
 func documentKey(id bson.RawValue) string {
 	return fmt.Sprintf("%02x:%s", byte(id.Type), hex.EncodeToString(id.Value))
 }
 
-// DiffServerState returns every difference between two captured states.
 func DiffServerState(want, got *ServerState) []Divergence {
 	var out []Divergence
 
@@ -235,8 +217,6 @@ func diffCollection(ns string, want, got *CollectionState, wantSrc, gotSrc strin
 	return out
 }
 
-// stripIndexVersion drops the "v" field: index version reflects the storage
-// engine, not the data.
 func stripIndexVersion(idx bson.Raw) bson.Raw {
 	elems, err := idx.Elements()
 	if err != nil {
@@ -272,16 +252,11 @@ func describeID(a, b bson.Raw) string {
 	return "<unknown>"
 }
 
-// compareRawDocuments compares two BSON documents exactly, except that object
-// field order is not significant. Types are significant: int32, int64 and
-// double are three different values even when they denote the same number.
 func compareRawDocuments(path string, a, b bson.Raw) *Divergence {
 	return compareRawValue(path, bson.RawValue{Type: bson.TypeEmbeddedDocument, Value: a},
 		bson.RawValue{Type: bson.TypeEmbeddedDocument, Value: b}, true)
 }
 
-// compareRawValue compares two values. root marks the top-level document of a
-// stored record, which is the only place the order-sensitive _id rule applies.
 func compareRawValue(path string, a, b bson.RawValue, root bool) *Divergence {
 	if a.Type != b.Type {
 		return &Divergence{path, fmt.Sprintf("type %s != %s (values %s, %s)", a.Type, b.Type, a.String(), b.String())}
@@ -326,14 +301,6 @@ func compareDocumentValue(path string, a, b bson.RawValue, root bool) *Divergenc
 		case !inA:
 			return &Divergence{child, "field missing on the first server"}
 		}
-		// A document _id compares byte-exact, because MongoDB treats {a:1,b:2}
-		// and {b:2,a:1} as different _ids: order is identity there.
-		//
-		// Only at the root. This runs at every level of the recursion, so an
-		// ordinary nested field that happens to be called _id, say
-		// payload._id, was also being held to field order, which contradicts
-		// the documented policy of ignoring order for ordinary objects and
-		// would report a divergence DumboDB is entitled to produce.
 		if root && key == "_id" && va.Type == bson.TypeEmbeddedDocument {
 			if !va.Equal(vb) {
 				return &Divergence{child, fmt.Sprintf("_id documents differ including field order: %s != %s", va.String(), vb.String())}

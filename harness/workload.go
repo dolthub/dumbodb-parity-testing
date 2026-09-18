@@ -31,40 +31,24 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// Op is one named operation a workload can perform against the primary.
-//
-// Operations are named because coverage is accounted by name: the question
-// "which parts of the oplog surface has this suite actually exercised" needs an
-// answer, and counting anonymous closures does not give one.
 type Op struct {
 	Name string
-	// Run performs the operation. r is seeded, so a failing workload replays
-	// from its seed.
-	Run func(ctx context.Context, db *mongo.Database, r *rand.Rand) error
+	Run  func(ctx context.Context, db *mongo.Database, r *rand.Rand) error
 }
 
-// Workload is a named, seeded, ordered set of operations.
 type Workload struct {
-	Name string
-	Seed int64
-	Ops  []Op
-	// Repeat runs the whole op list this many times. Zero means once.
-	Repeat int
-	// Concurrency runs that many goroutines over the op list. Zero means one.
-	// Interleaving is where ordering defects surface; a serial workload cannot
-	// produce them.
+	Name        string
+	Seed        int64
+	Ops         []Op
+	Repeat      int
 	Concurrency int
 }
 
-// Coverage records which named operations actually ran, and how many failed.
 type Coverage struct {
 	mu       sync.Mutex
 	Ran      map[string]int
 	Failures map[string]int
-	// NoOps counts runs that returned ErrNoContribution: no error, and no
-	// oplog entry either. Kept apart from Failures because an operation that
-	// errors is visible and one that quietly changes nothing is not.
-	NoOps map[string]int
+	NoOps    map[string]int
 }
 
 func newCoverage() *Coverage {
@@ -83,7 +67,6 @@ func (c *Coverage) record(name string, err error) {
 	}
 }
 
-// Names returns the operations that ran, sorted.
 func (c *Coverage) Names() []string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -119,19 +102,10 @@ func (c *Coverage) String() string {
 		}
 	}
 	appendCounts("failures", c.Failures)
-	// Reported alongside failures because a run that changed nothing is the
-	// quieter of the two and the easier to miss when reading coverage.
 	appendCounts("changed nothing", c.NoOps)
 	return b.String()
 }
 
-// Run executes the workload against db.
-//
-// An operation returning an error does not abort the run. Several operations in
-// the standard vocabulary are expected to fail sometimes (a duplicate key, an
-// update matching nothing), and those failures still produce oplog activity
-// worth replicating. Failures are counted so a workload that fails wholesale is
-// still visible.
 func (w Workload) Run(ctx context.Context, db *mongo.Database) (*Coverage, error) {
 	coverage := newCoverage()
 	repeat := w.Repeat
@@ -149,8 +123,6 @@ func (w Workload) Run(ctx context.Context, db *mongo.Database) (*Coverage, error
 		wg.Add(1)
 		go func(worker int) {
 			defer wg.Done()
-			// Each worker gets its own stream derived from the workload seed, so
-			// a run is reproducible regardless of goroutine scheduling.
 			r := rand.New(rand.NewSource(w.Seed + int64(worker)*7919))
 			for i := 0; i < repeat; i++ {
 				for _, op := range w.Ops {
@@ -173,22 +145,14 @@ func (w Workload) Run(ctx context.Context, db *mongo.Database) (*Coverage, error
 	return coverage, nil
 }
 
-// docID returns a deterministic id from the worker's stream.
 func docID(r *rand.Rand) string { return fmt.Sprintf("doc-%09d", r.Intn(1_000_000_000)) }
 
-// existingID picks an id likely to already exist, so updates and deletes match
-// something. A workload whose updates never match anything exercises far less
-// than its operation list suggests.
 func existingID(r *rand.Rand) string { return fmt.Sprintf("doc-%09d", r.Intn(200)) }
 
 var words = []string{"alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel"}
 
 func pickWord(r *rand.Rand) string { return words[r.Intn(len(words))] }
 
-// GenerateDocument builds a document with mixed shape and size: nested
-// subdocuments, arrays, and a variable payload. Modelled on cmd/soak's makeDoc,
-// but built from bson.D and the seeded stream only, so a workload replays
-// exactly from its seed.
 func GenerateDocument(r *rand.Rand, id string) bson.D {
 	d := bson.D{
 		{Key: "_id", Value: id},
@@ -205,15 +169,6 @@ func GenerateDocument(r *rand.Rand, id string) bson.D {
 		}
 		d = append(d, bson.E{Key: "tags", Value: tags})
 	}
-	// mutable is always present and always holds every word, which is what
-	// makes the destructive array operators able to contribute.
-	//
-	// They used to target tags, which GenerateDocument includes about half the
-	// time and fills with one to five random words. Since each operation picks
-	// its own random document, $pull for a specific word, $pop, and
-	// $push with $position mostly found no array to act on and wrote nothing.
-	// MongoDB reports success for those, so they counted as covered while
-	// never reaching the oplog and therefore never reaching DumboDB at all.
 	mutable := bson.A{}
 	for _, w := range words {
 		mutable = append(mutable, w)
@@ -232,9 +187,6 @@ func GenerateDocument(r *rand.Rand, id string) bson.D {
 			{Key: "clicks", Value: int32(r.Intn(10_000))},
 		}})
 	}
-	// items is always present: the positional operators ($[], $[<id>], $) error
-	// when the path is missing, so making it optional meant they mostly targeted
-	// documents without an array and exercised nothing.
 	items := bson.A{}
 	for i := 0; i < r.Intn(4)+1; i++ {
 		items = append(items, bson.D{
@@ -243,8 +195,6 @@ func GenerateDocument(r *rand.Rand, id string) bson.D {
 		})
 	}
 	d = append(d, bson.E{Key: "items", Value: items})
-	// Payload sizes mirror soak's distribution: mostly small, occasionally large
-	// enough to cross storage and batching boundaries.
 	if pad := payloadSize(r); pad > 0 {
 		d = append(d, bson.E{Key: "payload", Value: strings.Repeat("x", pad)})
 	}
@@ -268,13 +218,9 @@ func payloadSize(r *rand.Rand) int {
 
 func coll(db *mongo.Database) *mongo.Collection { return db.Collection("workload") }
 
-// WriteOps covers the insert, update, delete and replace surface, including
-// every update operator the design document lists.
 func WriteOps() []Op {
 	return []Op{
 		{"insertOne", func(ctx context.Context, db *mongo.Database, r *rand.Rand) error {
-			// A fresh id: targeting the seeded range makes every insert a
-			// duplicate-key error, so the operation runs but replicates nothing.
 			_, err := coll(db).InsertOne(ctx, GenerateDocument(r, docID(r)))
 			return err
 		}},
@@ -287,25 +233,15 @@ func WriteOps() []Op {
 			return err
 		}},
 		{"insertMany-unordered-with-duplicate", func(ctx context.Context, db *mongo.Database, r *rand.Rand) error {
-			// A fresh id twice: the first insert succeeds and replicates, the
-			// second collides. A partially failed batch is a distinct oplog
-			// shape. Using an already-seeded id would fail both halves and
-			// exercise nothing.
 			id := docID(r)
 			docs := []interface{}{GenerateDocument(r, id), GenerateDocument(r, id)}
 			_, err := coll(db).InsertMany(ctx, docs, options.InsertMany().SetOrdered(false))
-			// An unordered batch reports a bulk error even though the first
-			// insert succeeded and replicated. The duplicate is the point of
-			// this operation, so it is not a failure of the operation.
 			if mongo.IsDuplicateKeyError(err) {
 				return nil
 			}
 			return err
 		}},
 		{"update-$set", updateOp(func(r *rand.Rand) bson.D {
-			// A value the document cannot already hold. Setting label to one
-			// of eight words rewrote the value it already had often enough to
-			// contribute nothing across a short run.
 			return bson.D{{Key: "$set", Value: bson.D{{Key: "label", Value: fmt.Sprintf("%s-%d", pickWord(r), r.Intn(1_000_000_000))}}}}
 		})},
 		{"update-$unset", updateOp(func(r *rand.Rand) bson.D {
@@ -318,17 +254,9 @@ func WriteOps() []Op {
 			return bson.D{{Key: "$mul", Value: bson.D{{Key: "score", Value: int32(2)}}}}
 		})},
 		{"update-$min", updateOp(func(r *rand.Rand) bson.D {
-			// Below anything score can hold, for the same reason $max needs a
-			// value above it: $min only writes when the candidate is smaller,
-			// so drawing from the same range as the data made contributing a
-			// coin flip, and a short run can lose it every time.
 			return bson.D{{Key: "$min", Value: bson.D{{Key: "score", Value: int32(-1_000_000 - r.Intn(1_000_000))}}}}
 		})},
 		{"update-$max", updateOp(func(r *rand.Rand) bson.D {
-			// Above every seeded score, which GenerateDocument draws from
-			// [0,1000). $max only writes when the candidate is greater, so a
-			// value from the same range as the data wrote nothing most of the
-			// time and nothing at all across a short run.
 			return bson.D{{Key: "$max", Value: bson.D{{Key: "score", Value: int32(1000 + r.Intn(1_000_000))}}}}
 		})},
 		{"update-$rename", updateOp(func(r *rand.Rand) bson.D {
@@ -353,8 +281,6 @@ func WriteOps() []Op {
 			return err
 		}},
 		{"updateMany", func(ctx context.Context, db *mongo.Database, r *rand.Rand) error {
-			// One command, one oplog entry per matched document. A classic
-			// place for a replica to diverge from its source.
 			result, err := coll(db).UpdateMany(ctx,
 				bson.D{{Key: "score", Value: bson.D{{Key: "$lt", Value: int32(r.Intn(1000))}}}},
 				bson.D{{Key: "$inc", Value: bson.D{{Key: "bulkTouched", Value: int32(1)}}}})
@@ -399,20 +325,12 @@ func WriteOps() []Op {
 	}
 }
 
-// ArrayOps covers array mutation, which carries the most intricate $v:2 diff
-// encoding and is where delta-application defects hide.
 func ArrayOps() []Op {
 	return []Op{
 		{"array-$push", updateOp(func(r *rand.Rand) bson.D {
 			return bson.D{{Key: "$push", Value: bson.D{{Key: "tags", Value: pickWord(r)}}}}
 		})},
 		{"array-$push-$each-$slice-$sort", updateOp(func(r *rand.Rand) bson.D {
-			// Negative values, so the ascending sort always keeps them and the
-			// slice always drops something else. Pushing from [0,100) meant
-			// that once scores held five small values the new ones were sliced
-			// straight back off, and the operation wrote nothing: it
-			// contributed once in eight runs of the concurrent case, which is
-			// close enough to zero to fail intermittently.
 			return bson.D{{Key: "$push", Value: bson.D{{Key: "scores", Value: bson.D{
 				{Key: "$each", Value: bson.A{int32(-1 - r.Intn(1_000_000)), int32(-1 - r.Intn(1_000_000))}},
 				{Key: "$sort", Value: int32(1)},
@@ -426,10 +344,6 @@ func ArrayOps() []Op {
 			}}}}}
 		})},
 		{"array-$addToSet", updateOp(func(r *rand.Rand) bson.D {
-			// A value the set cannot already contain. Adding one of eight
-			// words to an array that often already held it did nothing five
-			// times in eight, and $addToSet declining a duplicate is the one
-			// case where doing nothing is correct rather than interesting.
 			return bson.D{{Key: "$addToSet", Value: bson.D{{Key: "tags", Value: fmt.Sprintf("%s-%d", pickWord(r), r.Intn(1_000_000_000))}}}}
 		})},
 		{"array-$pull", updateOp(func(r *rand.Rand) bson.D {
@@ -466,8 +380,6 @@ func ArrayOps() []Op {
 	}
 }
 
-// CatalogOps covers operations that travel the oplog as commands rather than
-// document writes.
 func CatalogOps() []Op {
 	return []Op{
 		{"createCollection", func(ctx context.Context, db *mongo.Database, r *rand.Rand) error {
@@ -495,9 +407,6 @@ func CatalogOps() []Op {
 			return err
 		}},
 		{"dropIndex", func(ctx context.Context, db *mongo.Database, r *rand.Rand) error {
-			// Create then drop, so the drop always has a target. Picking a
-			// random existing index name meant the operation failed on every
-			// attempt in short runs and exercised nothing.
 			name := fmt.Sprintf("transient_%d", r.Intn(1_000_000))
 			if _, err := coll(db).Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys:    bson.D{{Key: "score", Value: int32(1)}, {Key: "label", Value: int32(-1)}},
@@ -526,8 +435,6 @@ func CatalogOps() []Op {
 	}
 }
 
-// TransactionOps covers multi-document transactions, which reach the oplog as
-// applyOps entries that may span several records.
 func TransactionOps() []Op {
 	return []Op{
 		{"transaction-commit", func(ctx context.Context, db *mongo.Database, r *rand.Rand) error {
@@ -555,7 +462,6 @@ func runTransaction(ctx context.Context, db *mongo.Database, r *rand.Rand, commi
 			return nil, err
 		}
 		if !commit {
-			// Aborting must leave no trace on either member.
 			return nil, fmt.Errorf("deliberate abort")
 		}
 		return nil, nil
@@ -566,7 +472,6 @@ func runTransaction(ctx context.Context, db *mongo.Database, r *rand.Rand, commi
 	return err
 }
 
-// StandardVocabulary is every operation in the driver.
 func StandardVocabulary() []Op {
 	ops := WriteOps()
 	ops = append(ops, ArrayOps()...)
@@ -575,14 +480,6 @@ func StandardVocabulary() []Op {
 	return ops
 }
 
-// ErrNoContribution marks an operation that completed without error and
-// changed nothing, so it wrote no oplog entry and replicated nothing.
-//
-// MongoDB returns success for an update or delete that matches no document,
-// and Collection.Drop suppresses NamespaceNotFound. Treating a nil error as
-// proof of contribution therefore lets an operation report full coverage
-// while never once reaching the oplog, which is the thing coverage exists to
-// rule out.
 var ErrNoContribution = errors.New("operation changed nothing and produced no oplog entry")
 
 func updateOp(build func(r *rand.Rand) bson.D) func(context.Context, *mongo.Database, *rand.Rand) error {
@@ -592,7 +489,6 @@ func updateOp(build func(r *rand.Rand) bson.D) func(context.Context, *mongo.Data
 	}
 }
 
-// contributed converts a successful but empty operation into ErrNoContribution.
 func contributed(err error, changed int64) error {
 	if err != nil {
 		return err
@@ -610,24 +506,10 @@ func ignoreNoDocuments(err error) error {
 	return err
 }
 
-// SeedRand returns a deterministic stream for building fixtures outside a
-// workload run.
 func SeedRand(seed int64) *rand.Rand { return rand.New(rand.NewSource(seed)) }
 
-// DocIDFor returns the id the workload's update, array and delete operations
-// target for index i. Seeding a collection with these ids is what makes those
-// operations match something instead of silently doing nothing.
 func DocIDFor(i int) string { return fmt.Sprintf("doc-%09d", i) }
 
-// BSONTypeCorpus returns documents covering the BSON types DumboDB can decode,
-// one type per document so a divergence names the type.
-//
-// The types it cannot decode are in UndecodableTypeCorpus, kept separate so a
-// single unsupported type does not block verification of the rest. See
-// workspace-lhm.
-//
-// Authored here rather than lifted from tests/bson_types_test.go, which holds
-// its values inside ~80 inline closures with no extractable corpus.
 func BSONTypeCorpus() []interface{} {
 	oid := primitive.NewObjectID()
 	dec, _ := primitive.ParseDecimal128("1234.5678901234567890123456789")
@@ -636,7 +518,6 @@ func BSONTypeCorpus() []interface{} {
 		bson.D{{Key: "_id", Value: "t-double-neg-zero"}, {Key: "v", Value: math.Copysign(0, -1)}},
 		bson.D{{Key: "_id", Value: "t-double-inf"}, {Key: "v", Value: math.Inf(1)}},
 		bson.D{{Key: "_id", Value: "t-string"}, {Key: "v", Value: "hello"}},
-		// Escaped rather than literal: the repo requires 7-bit ASCII source.
 		bson.D{{Key: "_id", Value: "t-string-unicode"}, {Key: "v", Value: "\u00e9\u4e2d\u6587\U0001f600"}},
 		bson.D{{Key: "_id", Value: "t-string-empty"}, {Key: "v", Value: ""}},
 		bson.D{{Key: "_id", Value: "t-object"}, {Key: "v", Value: bson.D{{Key: "a", Value: int32(1)}, {Key: "b", Value: bson.D{{Key: "c", Value: "deep"}}}}}},
@@ -660,23 +541,16 @@ func BSONTypeCorpus() []interface{} {
 		bson.D{{Key: "_id", Value: "t-int64"}, {Key: "v", Value: int64(9223372036854775807)}},
 		bson.D{{Key: "_id", Value: "t-int64-min"}, {Key: "v", Value: int64(-9223372036854775808)}},
 		bson.D{{Key: "_id", Value: "t-decimal128"}, {Key: "v", Value: dec}},
-		// MinKey/MaxKey are supported: internal/bson has a dedicated decode path
-		// (ToDocumentHandlingMinMaxKey) that bson.ToDocument tries first.
 		bson.D{{Key: "_id", Value: "t-minkey"}, {Key: "v", Value: primitive.MinKey{}}},
 		bson.D{{Key: "_id", Value: "t-maxkey"}, {Key: "v", Value: primitive.MaxKey{}}},
-		// Same numeric value in three widths: a replica that collapses numeric
-		// types looks correct until these are compared.
 		bson.D{{Key: "_id", Value: "t-num-int32"}, {Key: "v", Value: int32(42)}},
 		bson.D{{Key: "_id", Value: "t-num-int64"}, {Key: "v", Value: int64(42)}},
 		bson.D{{Key: "_id", Value: "t-num-double"}, {Key: "v", Value: float64(42)}},
-		// Field order inside _id is identity in MongoDB, so these are two
-		// distinct documents rather than one.
 		bson.D{{Key: "_id", Value: bson.D{{Key: "a", Value: int32(1)}, {Key: "b", Value: int32(2)}}}, {Key: "v", Value: "ab"}},
 		bson.D{{Key: "_id", Value: bson.D{{Key: "b", Value: int32(2)}, {Key: "a", Value: int32(1)}}}, {Key: "v", Value: "ba"}},
 	}
 }
 
-// LargeDocumentCorpus returns documents that stress size and shape boundaries.
 func LargeDocumentCorpus() []interface{} {
 	deep := bson.D{{Key: "leaf", Value: int32(1)}}
 	for i := 0; i < 40; i++ {
@@ -703,13 +577,6 @@ func manyFields(n int) bson.D {
 	return d
 }
 
-// UndecodableTypeCorpus holds values DumboDB's BSON decoder rejects outright
-// (github.com/FerretDB/wire wirebson/decode.go). Most are deprecated in
-// MongoDB; MinKey, MaxKey and the JavaScript code type are not.
-//
-// These are kept out of the main corpus deliberately. The question they answer
-// is not "does this replicate" but "does the member fail honestly when it
-// cannot", which is a different assertion.
 func UndecodableTypeCorpus() []interface{} {
 	return []interface{}{
 		bson.D{{Key: "_id", Value: "u-javascript"}, {Key: "v", Value: primitive.JavaScript("function () { return 1; }")}},

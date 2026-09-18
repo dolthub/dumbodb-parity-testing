@@ -25,10 +25,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// These exercise real mongod processes. Unlike StartEphemeralServers, a missing
-// binary skips rather than fails: this is harness self-test infrastructure and
-// no CI job provisions mongod for it yet. Once the replication CI job exists,
-// mongod is present and these run.
 func requireMongod(t *testing.T) {
 	t.Helper()
 	if findMongodBin() == "" && os.Getenv(replSetURIEnv) == "" {
@@ -68,9 +64,6 @@ func TestReplicaSet_ProvisionsPrimaryAndReference(t *testing.T) {
 	}
 }
 
-// A write on the primary must be readable from the reference secondary. This is
-// the property every convergence test depends on, so the harness proves it
-// before anything is built on top.
 func TestReplicaSet_ReferenceSecondaryReceivesWrites(t *testing.T) {
 	requireMongod(t)
 	rs := StartReplicaSet(t, 2)
@@ -121,8 +114,6 @@ func TestReplicaSet_ReferenceSecondaryReceivesWrites(t *testing.T) {
 	}
 }
 
-// Reconfig is how DumboDB gets added to the set, so the version bump and
-// install path are proven here rather than discovered during the join.
 func TestReplicaSet_ReconfigBumpsVersionAndInstalls(t *testing.T) {
 	requireMongod(t)
 	rs := StartReplicaSet(t, 2)
@@ -136,9 +127,6 @@ func TestReplicaSet_ReconfigBumpsVersionAndInstalls(t *testing.T) {
 	}
 	beforeVersion := asInt64(before["version"])
 
-	// Must target a secondary: making the current primary non-electable is
-	// rejected with NodeNotElectable, and config array position says nothing
-	// about role.
 	target, err := rs.AnySecondary(ctx)
 	if err != nil {
 		t.Fatalf("AnySecondary: %v", err)
@@ -177,9 +165,6 @@ func TestReplicaSet_ReconfigBumpsVersionAndInstalls(t *testing.T) {
 	}
 }
 
-// Making the primary non-electable must be refused. e8a.2 joins DumboDB as
-// priority:0/votes:0, so a harness that silently reconfigured the wrong member
-// would produce a set with no valid subject and no error.
 func TestReplicaSet_ReconfigMemberRejectsUnknownHost(t *testing.T) {
 	requireMongod(t)
 	rs := StartReplicaSet(t, 2)
@@ -220,7 +205,6 @@ func TestReplicaSet_StepDownElectsANewPrimary(t *testing.T) {
 	t.Logf("primary moved %s -> %s", old.Addr, fresh.Addr)
 }
 
-// WaitForState must report the state actually reached, not just time out.
 func TestReplicaSet_WaitForStateReportsActualState(t *testing.T) {
 	requireMongod(t)
 	rs := StartReplicaSet(t, 2)

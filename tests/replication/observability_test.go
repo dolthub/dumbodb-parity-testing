@@ -12,14 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The replication observability surface, as MongoDB shapes it.
-//
-// There are no dumbo-prefixed replication commands to interrogate: they were
-// removed in favour of serverStatus.repl, serverStatus.metrics.repl and
-// opcountersRepl. The thing these tests defend is that an operator running the
-// stock commands against DumboDB learns the truth, because the recurring defect
-// in this feature is replication stopping while nothing says so.
-//
 //go:build replication
 
 package replication
@@ -37,9 +29,6 @@ import (
 
 const obsDB = "observability"
 
-// obsFixture is a converged subject with a reference mongod secondary beside
-// it, which is what lets a shape assertion be about parity rather than about
-// my opinion of what the field names should be.
 type obsFixture struct {
 	rs        *harness.ReplicaSet
 	subject   *harness.DumboMember
@@ -67,9 +56,6 @@ func startObservability(t *testing.T, ctx context.Context) *obsFixture {
 		t.Fatalf("primary client: %v", err)
 	}
 
-	// Seed before the join so the subject has something to have replicated by
-	// the time any counter is read. A counter that is zero because nothing
-	// happened proves nothing either way.
 	if _, err := client.Database(obsDB).Collection("seed").InsertMany(ctx, []interface{}{
 		bson.D{{Key: "_id", Value: 1}, {Key: "v", Value: 1}},
 		bson.D{{Key: "_id", Value: 2}, {Key: "v", Value: 2}},
@@ -92,7 +78,6 @@ func startObservability(t *testing.T, ctx context.Context) *obsFixture {
 	return &obsFixture{rs: rs, subject: subject, commit: commit, primary: primary, reference: reference, client: client}
 }
 
-// serverStatus runs the command against addr, optionally with section filters.
 func serverStatus(ctx context.Context, rs *harness.ReplicaSet, addr string, extra ...bson.E) (bson.M, error) {
 	cli, err := rs.ClientFor(ctx, addr)
 	if err != nil {
@@ -135,9 +120,6 @@ func number(t *testing.T, doc bson.M, key string) int64 {
 	}
 }
 
-// TestObservability_ReplSectionAgreesWithStatus checks that the two commands an
-// operator would reach for do not contradict each other, and that DumboDB's
-// repl section invents no fields a real secondary does not have.
 func TestObservability_ReplSectionAgreesWithStatus(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
@@ -171,9 +153,6 @@ func TestObservability_ReplSectionAgreesWithStatus(t *testing.T) {
 		t.Errorf("serverStatus.repl.me = %q, want %q", got, f.subject.Addr)
 	}
 
-	// rbid is the rollback identifier initial sync validates against. If the
-	// two commands disagree about it, one of them is lying about whether a
-	// rollback happened under the sync.
 	var rbid bson.M
 	cli, err := f.rs.ClientFor(ctx, f.subject.Addr)
 	if err != nil {
@@ -186,10 +165,6 @@ func TestObservability_ReplSectionAgreesWithStatus(t *testing.T) {
 		t.Errorf("dumbodb %s: replSetGetRBID.rbid = %d but serverStatus.repl.rbid = %d", f.commit, a, b)
 	}
 
-	// The reference secondary is the authority on what fields belong here.
-	// DumboDB is allowed to omit, never to invent: an operator's tooling keys
-	// off these names, and a dumbo-only name in a mongo-shaped section is the
-	// parity break this whole exercise was meant to remove.
 	refServer, err := serverStatus(ctx, f.rs, f.reference.Addr)
 	if err != nil {
 		t.Fatalf("reference serverStatus: %v", err)
@@ -202,12 +177,6 @@ func TestObservability_ReplSectionAgreesWithStatus(t *testing.T) {
 	}
 }
 
-// oplogOpCounts counts what the primary actually wrote after mark, by the
-// operation types opcountersRepl reports.
-//
-// mongod 8.0 does not write one oplog entry per document: a twenty document
-// insertMany arrives as a single applyOps command carrying twenty inserts, so
-// the inner operations have to be unwrapped or the count is off by nineteen.
 func oplogOpCounts(ctx context.Context, primary *mongo.Client, mark time.Time) (map[string]int64, error) {
 	cursor, err := primary.Database("local").Collection("oplog.rs").Find(ctx,
 		bson.D{{Key: "wall", Value: bson.D{{Key: "$gte", Value: mark}}}})
@@ -255,15 +224,6 @@ func asStringField(v interface{}) string {
 	return s
 }
 
-// TestObservability_CountersAdvanceWithWorkload holds opcountersRepl against
-// what the primary actually put in its oplog.
-//
-// The oplog is the oracle rather than the reference secondary's own counters.
-// A live probe against mongod 8.0.28 showed the reference reporting 18 updates
-// for an oplog containing 7 update entries: mongod counts writes beyond the
-// replicated stream there, so its update counter cannot be compared exactly.
-// Its insert and delete counters did match the oplog, which is what establishes
-// that a real secondary unwraps applyOps and counts the inner operations.
 func TestObservability_CountersAdvanceWithWorkload(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
@@ -287,9 +247,6 @@ func TestObservability_CountersAdvanceWithWorkload(t *testing.T) {
 		t.Fatalf("insert: %v", err)
 	}
 	for i := 0; i < updates; i++ {
-		// i*100+1 rather than i*100: an update that sets a field to the value
-		// it already holds writes no oplog entry at all, so at i == 0 the
-		// workload would be one operation shorter than it looks.
 		if _, err := coll.UpdateOne(ctx, bson.D{{Key: "_id", Value: i}},
 			bson.D{{Key: "$set", Value: bson.D{{Key: "v", Value: i*100 + 1}}}}); err != nil {
 			t.Fatalf("update: %v", err)
@@ -347,9 +304,6 @@ func TestObservability_CountersAdvanceWithWorkload(t *testing.T) {
 	}
 }
 
-// TestObservability_FetchedPositionTracksApplied checks the reported positions
-// against each other. A fetch position behind the applied position means the
-// server is reporting progress it cannot have made.
 func TestObservability_FetchedPositionTracksApplied(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
@@ -376,14 +330,6 @@ func TestObservability_FetchedPositionTracksApplied(t *testing.T) {
 		t.Fatalf("dumbodb %s: metrics.repl.network.oplogFetcherHighestFetchedOptime is zero after converging to %s", f.commit, watermark)
 	}
 
-	// Compare against the watermark the convergence gate already established,
-	// not against a fresh Progress read.
-	//
-	// Sampling serverStatus and then replSetGetStatus leaves a gap, and a
-	// periodic no-op landing in that gap advances applied past a fetched
-	// snapshot taken microseconds earlier. The member would be behaving
-	// correctly and the test would report that it applied what it never read.
-	// The watermark predates both samples, so no such gap exists.
 	if fetched.Compare(watermark) < 0 {
 		t.Errorf("dumbodb %s: converged to %s but reports fetching only up to %s; it cannot have applied what it did not read",
 			f.commit, watermark, fetched)
@@ -396,8 +342,6 @@ func TestObservability_FetchedPositionTracksApplied(t *testing.T) {
 		t.Errorf("dumbodb %s: converged to %s but now reports applied %s", f.commit, watermark, progress.Applied)
 	}
 
-	// The data has to be there, not merely claimed. A position is a promise
-	// about stored state and this is the only assertion that tests the promise.
 	subjectClient, err := f.rs.ClientFor(ctx, f.subject.Addr)
 	if err != nil {
 		t.Fatalf("subject client: %v", err)
@@ -412,9 +356,6 @@ func TestObservability_FetchedPositionTracksApplied(t *testing.T) {
 	}
 }
 
-// TestObservability_SectionFilterParity covers the include/exclude filter,
-// because an operator scripting {serverStatus: 1, repl: 0} against a fleet
-// should get the same shape from every member of it.
 func TestObservability_SectionFilterParity(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)

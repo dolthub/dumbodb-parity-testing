@@ -397,13 +397,6 @@ func indexByte(s string, b byte) int {
 	return -1
 }
 
-// waitServerReady blocks until the server answers a command, not merely until
-// it accepts a connection.
-//
-// waitPort returning true only means something is listening. A mongod that has
-// opened its port but not finished starting refuses commands, and the caller
-// that acts on the earlier signal fails for a reason that looks nothing like
-// startup: replSetInitiate reports NodeNotFound and a quorum check failure.
 func waitServerReady(addr string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	var last error

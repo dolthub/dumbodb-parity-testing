@@ -26,14 +26,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// dumboMemberGrace bounds a graceful shutdown before escalating to SIGKILL.
 const dumboMemberGrace = 15 * time.Second
 
-// DumboMember is a DumboDB process joined to a ReplicaSet as the subject under
-// test: hidden, priority 0, votes 0.
-//
-// Its data directory survives Stop and Kill so the process can be relaunched
-// onto the same state, which is what the resume and durability cases need.
 type DumboMember struct {
 	*Member
 	DataDir string
@@ -44,10 +38,6 @@ type DumboMember struct {
 	t    *testing.T
 }
 
-// JoinDumboDB launches DumboDB, adds it to rs as a hidden non-voting member,
-// and waits for the configuration to install. It does NOT wait for the member
-// to reach SECONDARY: reaching it is the subject's job and the thing under
-// test, not a harness precondition.
 func (rs *ReplicaSet) JoinDumboDB(t *testing.T) *DumboMember {
 	t.Helper()
 
@@ -89,8 +79,6 @@ func (rs *ReplicaSet) JoinDumboDB(t *testing.T) *DumboMember {
 func (d *DumboMember) launch() {
 	d.t.Helper()
 	cmd := exec.Command(d.bin, "--replSet", d.rs.Name, "--addr", d.Addr, "--data-dir", d.DataDir)
-	// Pass an empty dir so serverProc never removes it; teardown owns removal
-	// after the final shutdown, so a relaunch finds its state intact.
 	proc, err := startProc(cmd, "dumbodb-member", "")
 	if err != nil {
 		d.t.Fatalf("launch dumbodb: %v", err)
@@ -99,15 +87,11 @@ func (d *DumboMember) launch() {
 	if !waitPort(d.Addr, 60*time.Second) {
 		d.t.Fatalf("dumbodb did not listen on %s (log %s)", d.Addr, proc.log)
 	}
-	// Same reason the mongod spawn waits for a real response: the reconfig
-	// that adds this member runs a quorum check against it, and an open port
-	// is not an answer.
 	if err := waitServerReady(d.Addr, 60*time.Second); err != nil {
 		d.t.Fatalf("dumbodb on %s never became ready (log %s): %v", d.Addr, proc.log, err)
 	}
 }
 
-// Stop shuts the member down gracefully, leaving its data directory intact.
 func (d *DumboMember) Stop() {
 	if d.proc != nil {
 		d.proc.shutdownGraceful(dumboMemberGrace)
@@ -115,8 +99,6 @@ func (d *DumboMember) Stop() {
 	}
 }
 
-// Kill terminates the member without a clean shutdown, for crash-recovery
-// cases. The data directory is left as the process left it.
 func (d *DumboMember) Kill() {
 	if d.proc == nil {
 		return
@@ -131,7 +113,6 @@ func (d *DumboMember) Kill() {
 	d.proc = nil
 }
 
-// Start relaunches a stopped member on the same address and data directory.
 func (d *DumboMember) Start() {
 	d.t.Helper()
 	if d.proc != nil {
@@ -140,17 +121,11 @@ func (d *DumboMember) Start() {
 	d.launch()
 }
 
-// Restart is a graceful stop followed by a relaunch onto the same state.
 func (d *DumboMember) Restart() {
 	d.Stop()
 	d.Start()
 }
 
-// Commit returns the subject's build commit from buildInfo.gitVersion.
-//
-// BSONnet changes DumboDB continuously, so a failure that does not name the
-// commit it was produced against is not reproducible. Asking the running server
-// avoids trusting an environment variable to describe the binary.
 func (d *DumboMember) Commit(ctx context.Context) (string, error) {
 	cli, err := directClient(ctx, d.Addr)
 	if err != nil {
@@ -165,12 +140,10 @@ func (d *DumboMember) Commit(ctx context.Context) (string, error) {
 	return asString(res["gitVersion"]), nil
 }
 
-// Client returns a client pinned to the member.
 func (d *DumboMember) Client(ctx context.Context) (*mongo.Client, error) {
 	return directClient(ctx, d.Addr)
 }
 
-// ReadLog returns the current process log.
 func (d *DumboMember) ReadLog() (string, error) {
 	if d.proc == nil {
 		return "", fmt.Errorf("dumbodb member %s is not running", d.Addr)
@@ -182,12 +155,6 @@ func (d *DumboMember) ReadLog() (string, error) {
 	return string(contents), nil
 }
 
-// AssertHiddenNonVoting fails unless the installed configuration carries all
-// three properties.
-//
-// The design document states that relying on only hidden or only priority 0 is
-// unsafe, so all three are checked on every join rather than assumed from a
-// reconfig that returned ok.
 func (d *DumboMember) AssertHiddenNonVoting(ctx context.Context) {
 	d.t.Helper()
 	cfg, err := d.rs.Config(ctx)
@@ -213,22 +180,7 @@ func (d *DumboMember) AssertHiddenNonVoting(ctx context.Context) {
 	d.t.Fatalf("member %s is not in the configuration of %s", d.Addr, d.rs.Name)
 }
 
-// teardown ends the member the fast way: the set is disposable and about to be
-// killed with it, so nothing is gained by leaving it tidy.
-//
-// It used to reconfigure the member out of the set first, so the survivors
-// would not heartbeat a corpse, and then stop the process with SIGTERM and a
-// fifteen second grace. Both are pointless at the end of a test: the remaining
-// members are killed moments later, and no assertion can run after this. A
-// graceful stop is still available as Stop, for the restart and durability
-// cases that deliberately exercise clean shutdown, which is test content
-// rather than cleanup.
 func (d *DumboMember) teardown() {
-	// A set this harness spawned dies moments from now, so removing the member
-	// from its configuration first is wasted work. An adopted set does not:
-	// MONGO_REPL_SET_URI points at something that outlives the test, and
-	// leaving a dead member behind means later tests adopt a corpse and wait
-	// out their convergence deadline against a member that will never report.
 	if d.rs.external {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
@@ -242,7 +194,6 @@ func (d *DumboMember) teardown() {
 	}
 }
 
-// nextMemberID returns an unused member _id.
 func (rs *ReplicaSet) nextMemberID() int {
 	highest := -1
 	for _, m := range rs.Members {
@@ -300,15 +251,10 @@ func (rs *ReplicaSet) removeMember(ctx context.Context, addr string) error {
 	return nil
 }
 
-// RemoveMember drops a member from the replica set configuration. This is
-// MongoDB's way to stop a member replicating, and since dumbodb 3f3bc13 it is
-// the only way: the dumboReplicationDetach command was removed in favour of it.
 func (rs *ReplicaSet) RemoveMember(ctx context.Context, addr string) error {
 	return rs.removeMember(ctx, addr)
 }
 
-// AddMember re-adds a member to the configuration as hidden, priority 0,
-// votes 0, which is how a member removed with RemoveMember rejoins.
 func (rs *ReplicaSet) AddMember(ctx context.Context, m *Member) error {
 	if err := rs.addHiddenMember(ctx, m); err != nil {
 		return err

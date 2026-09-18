@@ -140,8 +140,6 @@ func (b *DumboDBBackend) Commit(ctx context.Context, msg string) error {
 func (b *DumboDBBackend) CreateBranch(ctx context.Context, branch string) error {
 	return b.client.Database(b.encodedDB()).RunCommand(ctx, bson.D{
 		{Key: "dumboBranch", Value: 1},
-		// Required since dumbodb f00a772 (2026-09-04). Without it the command
-		// is rejected with "dumboBranch: action is required".
 		{Key: "action", Value: "add"},
 		{Key: "branch", Value: branch},
 	}).Err()

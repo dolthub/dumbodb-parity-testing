@@ -30,8 +30,6 @@ func TestOpTime_OrdersByTermThenTimestamp(t *testing.T) {
 		{"equal", OpTime{10, 1, 1}, OpTime{10, 1, 1}, 0},
 		{"later increment", OpTime{10, 2, 1}, OpTime{10, 1, 1}, 1},
 		{"later seconds", OpTime{11, 1, 1}, OpTime{10, 9, 1}, 1},
-		// A higher term wins even with an earlier timestamp: after a failover
-		// the new term's log supersedes whatever the old primary had.
 		{"higher term beats later timestamp", OpTime{1, 1, 2}, OpTime{999, 999, 1}, 1},
 		{"lower term loses despite later timestamp", OpTime{999, 999, 1}, OpTime{1, 1, 2}, -1},
 	}
@@ -59,17 +57,12 @@ func TestConvergenceTimeout_ExplainsWhoIsBehind(t *testing.T) {
 	}
 	msg := err.Error()
 
-	// A member that reached the watermark is still named, but as having got
-	// there out of step rather than as lagging. An empty report is the failure
-	// mode this function exists to prevent.
 	if !contains(msg, "not in the same pass") {
 		t.Errorf("a member that reached the watermark should be explained, not omitted:\n%s", msg)
 	}
 	if !contains(msg, "30 seconds behind") {
 		t.Errorf("a lagging member should report how far behind it is:\n%s", msg)
 	}
-	// A member reporting nothing is a different failure from a slow one, and
-	// conflating them sends the reader looking for a performance problem.
 	if !contains(msg, "NO progress at all") {
 		t.Errorf("a member reporting no progress should be distinguished from a lagging one:\n%s", msg)
 	}
@@ -89,9 +82,6 @@ func TestConvergenceTimeout_ReportsUnreachableMembers(t *testing.T) {
 	}
 }
 
-// A member that was caught up and then died must still be named, with the
-// reason it stopped answering. The empty report this prevents is what an
-// adversarial kill produced: every member skipped, nothing printed.
 func TestConvergenceTimeout_NamesAMemberThatStoppedAnswering(t *testing.T) {
 	watermark := OpTime{Seconds: 100, Increment: 1, Term: 1}
 	last := map[string]memberSample{
@@ -116,11 +106,6 @@ func TestConvergenceTimeout_NamesAMemberThatStoppedAnswering(t *testing.T) {
 	}
 }
 
-// A timeout must say whether the member was advancing. Stuck and slow call for
-// opposite responses -- one is a defect, the other a budget that no longer
-// suits the hardware -- and a message that cannot tell them apart sends the
-// reader to guess. This distinction was added after a CI timeout that could
-// not be reproduced locally and could have been either.
 func TestConvergenceTimeout_DistinguishesStuckFromSlow(t *testing.T) {
 	watermark := OpTime{Seconds: 100, Term: 1}
 	behind := MemberProgress{Applied: OpTime{Seconds: 90, Term: 1}, State: StateSecondary}

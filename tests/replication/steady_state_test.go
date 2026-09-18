@@ -12,11 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Tier 2: operations applied to a primary the subject is already following.
-//
-// Each case is one workload plus the default comparison, which is what makes a
-// matrix this size affordable: adding coverage means adding operations, not
-// writing assertion logic.
 //go:build replication
 
 package replication
@@ -33,8 +28,6 @@ import (
 
 const steadyDB = "steady"
 
-// seedTargets gives the update, array and delete operations documents to match.
-// Without it most of the vocabulary matches nothing.
 func seedTargets(ctx context.Context, primary *mongo.Client, n int) error {
 	r := harness.SeedRand(7)
 	docs := make([]interface{}, 0, n)
@@ -45,11 +38,6 @@ func seedTargets(ctx context.Context, primary *mongo.Client, n int) error {
 	return err
 }
 
-// steadyCase builds a tier 2 case from a slice of the vocabulary.
-//
-// Coverage is captured per case rather than in a package variable. Two cases
-// running at once would otherwise each assert against whichever finished last,
-// and the assertion exists precisely to catch a case that exercised nothing.
 func steadyCase(name string, support harness.DumboDBSupport, ops []harness.Op, repeat int) harness.ReplicaCase {
 	var coverage *harness.Coverage
 	return harness.ReplicaCase{
@@ -73,10 +61,6 @@ func steadyCase(name string, support harness.DumboDBSupport, ops []harness.Op, r
 	}
 }
 
-// A comparison passes trivially for an operation that never produced an oplog
-// entry. Without this the case reports coverage it did not have: the array
-// positional operators failed on every attempt for a while and the test still
-// passed.
 func assertEveryOperationContributed(t *testing.T, coverage *harness.Coverage, ops []harness.Op) {
 	t.Helper()
 	if coverage == nil {
@@ -90,10 +74,6 @@ func assertEveryOperationContributed(t *testing.T, coverage *harness.Coverage, o
 			t.Errorf("operation %q never ran, so this case proves nothing about it", op.Name)
 			continue
 		}
-		// A nil error is not proof of contribution. MongoDB reports success for
-		// an update or delete that matched nothing, so an operation can run
-		// every time, never fail, and never reach the oplog. Those runs come
-		// back as ErrNoContribution and are counted separately.
 		noops := coverage.NoOps[op.Name]
 		if failed+noops == ran {
 			t.Errorf("operation %q contributed nothing across %d attempts (%d failed, %d changed nothing); it produced no oplog entry and was not actually compared",
@@ -102,37 +82,26 @@ func assertEveryOperationContributed(t *testing.T, coverage *harness.Coverage, o
 	}
 }
 
-// Every update operator the design document lists, applied to a primary the
-// subject is already following.
 func TestSteady_UpdateOperators(t *testing.T) {
 	t.Parallel()
 	harness.ReplicaTest(t, steadyCase("Steady_UpdateOperators", harness.DumboDBFull, harness.WriteOps(), 3))
 }
 
-// Array mutation carries the most intricate $v:2 diff encoding. A delta applied
-// wrongly here leaves the document subtly different rather than failing, so only
-// a byte-exact comparison against a reference notices.
 func TestSteady_ArrayOperators(t *testing.T) {
 	t.Parallel()
 	harness.ReplicaTest(t, steadyCase("Steady_ArrayOperators", harness.DumboDBFull, harness.ArrayOps(), 3))
 }
 
-// Catalog operations travel the oplog as commands rather than document writes.
 func TestSteady_CatalogOperations(t *testing.T) {
 	t.Parallel()
 	harness.ReplicaTest(t, steadyCase("Steady_CatalogOperations", harness.DumboDBFull, harness.CatalogOps(), 2))
 }
 
-// Transactions reach the oplog as applyOps entries that may span several
-// records. An aborted transaction must leave no trace on either member.
 func TestSteady_Transactions(t *testing.T) {
 	t.Parallel()
 	harness.ReplicaTest(t, steadyCase("Steady_Transactions", harness.DumboDBFull, harness.TransactionOps(), 3))
 }
 
-// The whole vocabulary at once, interleaved across four concurrent writers.
-// Ordering defects need concurrency to surface; a serial workload cannot
-// produce them.
 func TestSteady_FullVocabularyConcurrent(t *testing.T) {
 	t.Parallel()
 	var coverage *harness.Coverage

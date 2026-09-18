@@ -64,13 +64,8 @@ func (c *Conn) Close() error { return c.c.Close() }
 
 func (c *Conn) SetDeadline(t time.Time) error { return c.c.SetDeadline(t) }
 
-// OP_MSG flag bits.
 const (
-	// FlagMoreToCome is set by a server on each response of an exhaust
-	// stream except the last, and by a client on a fire-and-forget request.
-	FlagMoreToCome uint32 = 1 << 1
-	// FlagExhaustAllowed is set by a client to tell the server it may reply
-	// with an exhaust stream.
+	FlagMoreToCome     uint32 = 1 << 1
 	FlagExhaustAllowed uint32 = 1 << 16
 )
 
@@ -81,13 +76,6 @@ func (c *Conn) RunCommand(cmd interface{}) (bson.M, error) {
 	return reply, err
 }
 
-// RunCommandFlags is RunCommand with control over the request's OP_MSG flag
-// bits, returning the response's flag bits alongside its body.
-//
-// The flags are the point of several member-protocol assertions: an exhaust
-// hello is a request carrying FlagExhaustAllowed and a reply carrying
-// FlagMoreToCome, and neither is visible through the Go driver or through
-// RunCommand, which sends zero and discards what comes back.
 func (c *Conn) RunCommandFlags(cmd interface{}, flags uint32) (bson.M, uint32, error) {
 	body, err := bson.Marshal(cmd)
 	if err != nil {
@@ -115,8 +103,6 @@ func (c *Conn) RunCommandFlags(cmd interface{}, flags uint32) (bson.M, uint32, e
 	return c.readCommandReply()
 }
 
-// RunZlibCompressedCommand sends an OP_COMPRESSED command without negotiating
-// compression first.
 func (c *Conn) RunZlibCompressedCommand(cmd interface{}) (bson.M, error) {
 	document, err := bson.Marshal(cmd)
 	if err != nil {

@@ -12,14 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Tier 7: DumboDB as a well-behaved member of the set, rather than as a
-// correct replica of its data.
-//
-// Convergence proves the data is right. It cannot see any of this: whether the
-// other members can interrogate the subject the way they interrogate each
-// other, and whether the subject refuses what it does not implement promptly
-// and legibly instead of hanging.
-//
 //go:build replication
 
 package replication
@@ -37,9 +29,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/wire"
 )
 
-// memberFixture is a converged subject beside a reference mongod secondary, so
-// every shape assertion is against a real member rather than against an
-// opinion about what the reply should look like.
 type memberFixture struct {
 	rs        *harness.ReplicaSet
 	subject   *harness.DumboMember
@@ -66,9 +55,6 @@ func startMemberProtocol(t *testing.T, ctx context.Context) *memberFixture {
 	return &memberFixture{rs: rs, subject: subject, commit: commit, reference: reference}
 }
 
-// runOn sends cmd to addr over OP_MSG and returns the reply, whether or not
-// the reply reports an error. A command the server refuses is a result here,
-// not a failure: several of these cases are about the refusal.
 func runOn(addr string, cmd bson.D) (bson.M, error) {
 	conn, err := wire.Dial(addr)
 	if err != nil {
@@ -93,13 +79,6 @@ func ok(reply bson.M) bool {
 	return false
 }
 
-// TestMemberProtocol_InboundCommandShapes compares each inbound command's
-// reply against the reference member's.
-//
-// DumboDB is allowed to omit a field a real member sends; the other members
-// tolerate absence. It is not allowed to invent one, because a field a real
-// mongod never sends is a field no MongoDB tooling expects, and it is the kind
-// of divergence that looks harmless until something keys off it.
 func TestMemberProtocol_InboundCommandShapes(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
@@ -119,10 +98,8 @@ func TestMemberProtocol_InboundCommandShapes(t *testing.T) {
 		required []string
 	}{
 		{
-			name: "replSetGetStatus",
-			cmd:  bson.D{{Key: "replSetGetStatus", Value: 1}, {Key: "$db", Value: "admin"}},
-			// The other members read state and progress from here. Without
-			// these the subject is invisible to an operator and to tooling.
+			name:     "replSetGetStatus",
+			cmd:      bson.D{{Key: "replSetGetStatus", Value: 1}, {Key: "$db", Value: "admin"}},
 			required: []string{"set", "myState", "members", "optimes"},
 		},
 		{
@@ -177,19 +154,12 @@ func TestMemberProtocol_InboundCommandShapes(t *testing.T) {
 						f.commit, c.name, field)
 				}
 			}
-			// No exemptions. workspace-yiv removed the last three invented
-			// fields, so any reply field a real member does not send is a
-			// regression rather than a known deviation.
 			for field := range subjectReply {
 				if _, present := referenceReply[field]; !present {
 					t.Errorf("dumbodb %s: %s reply carries %q, which a real mongod member never sends",
 						f.commit, c.name, field)
 				}
 			}
-			// Omissions are tolerated rather than failed: the other members
-			// cope with a field being absent. They are reported because an
-			// unremarked omission is how a field nobody noticed was missing
-			// turns into a defect later.
 			var omitted []string
 			for field := range referenceReply {
 				if _, present := subjectReply[field]; !present {
@@ -205,9 +175,6 @@ func TestMemberProtocol_InboundCommandShapes(t *testing.T) {
 	}
 }
 
-// TestMemberProtocol_IsSelfIdentifiesTheMember covers _isSelf, which members
-// use to work out which configuration entry is their own. A member that
-// answers this wrongly can conclude it is not in its own set.
 func TestMemberProtocol_IsSelfIdentifiesTheMember(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
@@ -240,9 +207,6 @@ func TestMemberProtocol_IsSelfIdentifiesTheMember(t *testing.T) {
 	}
 }
 
-// TestMemberProtocol_HelloReportsSecondaryState checks that hello agrees with
-// the subject's actual state, since that is what the driver's topology
-// monitor and the other members act on.
 func TestMemberProtocol_HelloReportsSecondaryState(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
@@ -267,9 +231,6 @@ func TestMemberProtocol_HelloReportsSecondaryState(t *testing.T) {
 		t.Errorf("dumbodb %s: hello.me is %q, want %q", f.commit, got, f.subject.Addr)
 	}
 
-	// The subject is hidden, so it must not advertise itself in hosts: a
-	// client that saw it there would try to read from a member the set
-	// deliberately keeps out of client-visible topology.
 	if hosts, isArray := reply["hosts"].(bson.A); isArray {
 		for _, host := range hosts {
 			if host == f.subject.Addr {
@@ -289,15 +250,6 @@ func TestMemberProtocol_HelloReportsSecondaryState(t *testing.T) {
 	}
 }
 
-// TestMemberProtocol_AwaitableHelloBlocks covers the awaitable form. A server
-// advertising topologyVersion obliges it: the driver sends back the version it
-// last saw with maxAwaitTimeMS and expects the call to BLOCK until the
-// topology changes or the timeout expires.
-//
-// Returning immediately is the failure that matters. A driver would then spin,
-// re-issuing hello as fast as the network allows against every monitored
-// server, which is why this is asserted as a lower bound on elapsed time
-// rather than as a reply shape.
 func TestMemberProtocol_AwaitableHelloBlocks(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
@@ -306,13 +258,6 @@ func TestMemberProtocol_AwaitableHelloBlocks(t *testing.T) {
 	f := startMemberProtocol(t, ctx)
 
 	const awaitMS = 2000
-	// The reference is measured first and its result gates the assertion. An
-	// earlier version dialled a fresh connection for the seed hello and
-	// another for the await, and measured the reference returning in about a
-	// millisecond: its topologyVersion had moved between the two calls,
-	// because the subject had just joined. Returning immediately on a STALE
-	// version is correct behavior, so that measurement held the subject to a
-	// standard the control was not being asked to meet.
 	referenceElapsed, referenceOK := awaitHello(t, f.reference.Addr, awaitMS)
 	if !referenceOK || referenceElapsed < time.Duration(awaitMS)*time.Millisecond/2 {
 		t.Skipf("premise failed: the reference member returned after %s (ok=%v) for maxAwaitTimeMS=%d, so it is not demonstrating the awaitable contract and there is nothing to hold the subject to",
@@ -330,8 +275,6 @@ func TestMemberProtocol_AwaitableHelloBlocks(t *testing.T) {
 	t.Logf("dumbodb %s blocked %s, reference blocked %s", f.commit, subjectElapsed, referenceElapsed)
 }
 
-// awaitHello performs the seed hello and the awaiting hello on ONE connection,
-// so the topologyVersion sent back is the one the server just issued.
 func awaitHello(t *testing.T, addr string, awaitMS int64) (time.Duration, bool) {
 	t.Helper()
 	conn, err := wire.Dial(addr)
@@ -367,9 +310,6 @@ func awaitHello(t *testing.T, addr string, awaitMS int64) (time.Duration, bool) 
 	return elapsed, ok(reply)
 }
 
-// TestMemberProtocol_ExhaustHelloSetsMoreToCome covers the exhaust form, which
-// is invisible to the Go driver and to a plain OP_MSG send: it lives entirely
-// in the flag bits.
 func TestMemberProtocol_ExhaustHelloSetsMoreToCome(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
@@ -426,14 +366,6 @@ func TestMemberProtocol_ExhaustHelloSetsMoreToCome(t *testing.T) {
 	}
 }
 
-// TestMemberProtocol_RefusesDownstreamSyncPromptly covers the deliberate
-// deviation: DumboDB does not serve its oplog to downstream members.
-//
-// This path is reachable in practice rather than theoretical. A voting
-// secondary will try to chain from a hidden non-voter on its second sync
-// source selection pass, so the refusal has to arrive quickly and say what it
-// is. A hang here would stall the member that tried to chain, which is a worse
-// outcome than the refusal itself.
 func TestMemberProtocol_RefusesDownstreamSyncPromptly(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
@@ -464,13 +396,6 @@ func TestMemberProtocol_RefusesDownstreamSyncPromptly(t *testing.T) {
 				{Key: "collection", Value: "oplog.rs"},
 				{Key: "$db", Value: "local"},
 			},
-			// The cursor id is fabricated, because there is no way to obtain a
-			// real one: find on local.oplog.rs is refused, so a downstream
-			// member never gets far enough to call getMore. The refusal in
-			// msg_getmore.go is defense in depth that no external test can
-			// reach, and the reachable outcome is a cursor-not-found refusal.
-			// Requiring the downstream wording here would be asserting against
-			// a path the caller cannot take.
 			anyRefusal: true,
 		},
 		{
@@ -592,11 +517,6 @@ func TestMemberProtocol_SecondaryRejectsDirectWrites(t *testing.T) {
 	if err != nil {
 		t.Fatalf("direct insert against reference secondary: %v", err)
 	}
-	// The message differs on purpose and the code does not. mongod 8.0.28 still
-	// sends the legacy "not master"; DumboDB sends "not primary" by owner
-	// direction, recorded as a deliberate deviation in the replication design
-	// document. Client retry logic keys off code and codeName, so those must
-	// match mongod exactly, which is what the shared expectations below assert.
 	for _, member := range []struct {
 		name    string
 		reply   bson.M
@@ -635,9 +555,6 @@ func TestMemberProtocol_SecondaryRejectsDirectWrites(t *testing.T) {
 	}
 }
 
-// TestMemberProtocol_ReferenceServesItsOwnOplog establishes that the refusal
-// above is a deliberate DumboDB deviation rather than something the apparatus
-// blocks. Without this the refusal tests would pass against a broken harness.
 func TestMemberProtocol_ReferenceServesItsOwnOplog(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)

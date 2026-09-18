@@ -12,10 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Tier 1: did everything that existed before the join actually arrive.
-//
-// Every case here seeds the primary BEFORE the subject joins, so the data must
-// travel through initial sync rather than the oplog.
 //go:build replication
 
 package replication
@@ -34,8 +30,6 @@ import (
 
 const syncDB = "initsync"
 
-// noWorkload satisfies the required Workload hook for cases whose entire point
-// is what existed before the join.
 func noWorkload(ctx context.Context, primary *mongo.Client) error { return nil }
 
 func TestInitialSync_EmptySource(t *testing.T) {
@@ -68,8 +62,6 @@ func TestInitialSync_EveryBSONType(t *testing.T) {
 	})
 }
 
-// Sizes and shapes that cross clone batching and storage boundaries, including
-// documents close to the 16MB BSON limit.
 func TestInitialSync_LargeAndDeepDocuments(t *testing.T) {
 	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
@@ -88,8 +80,6 @@ func TestInitialSync_LargeAndDeepDocuments(t *testing.T) {
 	})
 }
 
-// Many databases and collections, to check the clone enumerates the whole
-// catalog rather than the first namespace it finds.
 func TestInitialSync_ManyDatabasesAndCollections(t *testing.T) {
 	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
@@ -129,8 +119,6 @@ func TestInitialSync_ManyDatabasesAndCollections(t *testing.T) {
 	})
 }
 
-// Indexes, validators and collection options are cloned separately from
-// documents and can be lost on their own.
 func TestInitialSync_IndexesAndValidators(t *testing.T) {
 	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
@@ -178,9 +166,6 @@ func TestInitialSync_IndexesAndValidators(t *testing.T) {
 	})
 }
 
-// The case the buffered-oplog design exists for. A clone is not a single
-// instant; writes landing while it runs must be reconciled through the oplog
-// rather than lost or double-applied.
 func TestInitialSync_WritesConcurrentWithClone(t *testing.T) {
 	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
@@ -210,8 +195,6 @@ func TestInitialSync_WritesConcurrentWithClone(t *testing.T) {
 	})
 }
 
-// A collection dropped while the clone is running. The clone must not fail, and
-// must not resurrect the dropped collection.
 func TestInitialSync_CollectionDroppedDuringClone(t *testing.T) {
 	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
@@ -258,17 +241,6 @@ func TestInitialSync_CollectionDroppedDuringClone(t *testing.T) {
 	})
 }
 
-// A source holding a BSON type DumboDB cannot represent must fail honestly:
-// stop trying, never claim readiness, and say what and where.
-//
-// Promoted from XFail after dumbodb 90cbaaa. Written as a direct test rather
-// than a ReplicaCase because convergence grading cannot express the
-// distinction: the member fails to converge both when it retries forever and
-// when it stops cleanly.
-//
-// The unsupported types themselves are not going to be supported, by owner
-// direction. The deliverable is the error, so that a user who hits this can
-// come and ask for the type rather than filing "replication does not work".
 func TestInitialSync_UndecodableTypesFailHonestly(t *testing.T) {
 	t.Parallel()
 	rs := harness.StartReplicaSet(t, 2)
@@ -298,8 +270,6 @@ func TestInitialSync_UndecodableTypesFailHonestly(t *testing.T) {
 	subject := rs.JoinDumboDB(t)
 	commit, _ := subject.Commit(ctx)
 
-	// It must stop. Sample until the failure is reported, failing if it is
-	// still cycling through initial sync at the deadline.
 	deadline := time.Now().Add(120 * time.Second)
 	var status bson.M
 	for time.Now().Before(deadline) {
@@ -307,13 +277,6 @@ func TestInitialSync_UndecodableTypesFailHonestly(t *testing.T) {
 		if err == nil && p.State == harness.StateSecondary {
 			t.Fatalf("dumbodb %s claims SECONDARY while holding a collection it could not clone", commit)
 		}
-		// Wait for the FAILURE to be reported, not merely for
-		// initialSyncStatus to exist. Since dumbodb 381a449 aligned the
-		// observability surface with MongoDB, that document is present
-		// throughout a healthy initial sync to report progress, which is what
-		// mongod does. Breaking on its presence caught the first progress
-		// poll and then asserted on failure fields that were legitimately
-		// still empty.
 		if s, err := rs.Status(ctx, subject.Addr); err == nil {
 			if sync, ok := s["initialSyncStatus"].(bson.M); ok {
 				if message, _ := sync["initialSyncFailure"].(string); message != "" {
@@ -328,8 +291,6 @@ func TestInitialSync_UndecodableTypesFailHonestly(t *testing.T) {
 		t.Fatalf("dumbodb %s never reported a terminal initial-sync failure; it is still retrying", commit)
 	}
 
-	// The message is the deliverable, so assert its content rather than its
-	// presence. A user reading this should learn the type and where it is.
 	sync, ok := status["initialSyncStatus"].(bson.M)
 	if !ok {
 		t.Fatalf("initialSyncStatus is %T, want a document", status["initialSyncStatus"])
@@ -448,9 +409,6 @@ func contains(s, sub string) bool {
 	return false
 }
 
-// memberIdentity returns the set name and this member's configured _id, which
-// live in replication control state. If that state is lost and recreated, they
-// are what gets lost with it.
 func memberIdentity(t *testing.T, ctx context.Context, rs *harness.ReplicaSet, addr string) (string, int64, bool) {
 	t.Helper()
 	status, err := rs.Status(ctx, addr)
@@ -477,15 +435,6 @@ func memberIdentity(t *testing.T, ctx context.Context, rs *harness.ReplicaSet, a
 	return setName, 0, false
 }
 
-// A hard kill while the clone is running must leave the member able to finish,
-// without losing who it is.
-//
-// This covers two things the suite was missing. The tier 1 requirement that a
-// member killed mid-initial-sync either finishes or restarts cleanly and never
-// reports SECONDARY holding partial data. And the reset window addressed by
-// dumbodb 9be6976, where resetting replicated admin data also removed
-// admin.system.dumbodb.replication, so a kill in that window lost member
-// identity and replica configuration.
 func TestInitialSync_KilledMidCloneKeepsIdentityAndFinishes(t *testing.T) {
 	t.Parallel()
 	rs := harness.StartReplicaSet(t, 2)
@@ -501,7 +450,6 @@ func TestInitialSync_KilledMidCloneKeepsIdentityAndFinishes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("primary client: %v", err)
 	}
-	// Large enough that the clone takes long enough to interrupt.
 	r := harness.SeedRand(23)
 	for batch := 0; batch < 6; batch++ {
 		docs := make([]interface{}, 0, 150)
@@ -529,8 +477,6 @@ func TestInitialSync_KilledMidCloneKeepsIdentityAndFinishes(t *testing.T) {
 		p, err := rs.Progress(ctx, subject.Addr)
 		if err == nil {
 			if p.State == harness.StateSecondary {
-				// The clone finished before the kill landed. Still worth
-				// killing, but say so: this run did not exercise mid-clone.
 				killedIn = p.State
 				break
 			}
@@ -548,7 +494,6 @@ func TestInitialSync_KilledMidCloneKeepsIdentityAndFinishes(t *testing.T) {
 	subject.Kill()
 	subject.Start()
 
-	// It must finish, and must never have claimed readiness with partial data.
 	if err := rs.WaitForState(ctx, subject.Member, harness.StateSecondary, 180*time.Second); err != nil {
 		t.Fatalf("subject did not reach SECONDARY after being killed during the clone: %v", err)
 	}
@@ -565,7 +510,6 @@ func TestInitialSync_KilledMidCloneKeepsIdentityAndFinishes(t *testing.T) {
 			setBefore, idBefore, setAfter, idAfter)
 	}
 
-	// And the data must be right.
 	if _, err := rs.WaitConverged(ctx, 180*time.Second, subject.Addr); err != nil {
 		t.Fatalf("subject did not converge after the interrupted clone: %v", err)
 	}

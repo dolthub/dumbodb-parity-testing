@@ -12,14 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The two claims docs/verify/replication.md makes about commit history that a
-// reader cannot check by looking at the data: that an idle primary adds no
-// commits, and that a removed member keeps everything it replicated.
-//
-// These are the automated analog of that document. It is a manual guide the
-// owner will walk personally, so a claim in it that nobody tests is a claim
-// that will be found wrong in front of him.
-//
 //go:build replication
 
 package replication
@@ -38,17 +30,12 @@ import (
 
 const historyDB = "history"
 
-// commitIDs returns the replicated history of db on the subject, newest first.
 func commitIDs(ctx context.Context, cli *mongo.Client, db string) ([]string, error) {
 	var res bson.M
 	err := cli.Database(db).RunCommand(ctx, bson.D{{Key: "dumboLog", Value: 1}}).Decode(&res)
 	if err != nil {
 		return nil, err
 	}
-	// Every malformed entry is an error rather than a skip. These ids are what
-	// the history assertions compare, so quietly dropping an entry, or
-	// appending an empty string for one with no commitId, lets a truncated or
-	// malformed dumboLog reply satisfy a test about history being preserved.
 	raw, isArray := res["commits"].(bson.A)
 	if !isArray {
 		return nil, fmt.Errorf("dumboLog on %s returned commits of type %T, want an array", db, res["commits"])
@@ -68,14 +55,6 @@ func commitIDs(ctx context.Context, cli *mongo.Client, db string) ([]string, err
 	return ids, nil
 }
 
-// TestHistory_IdlePrimaryAddsNoCommits covers the verify document's idle
-// history check.
-//
-// MongoDB writes periodic no-op oplog entries to an idle primary. Committing
-// one per arrival would fill the history with empty commits, so the checkpoint
-// has to advance without one. The interesting half of this test is the proof
-// that the no-ops actually arrived: without it, a subject that had stopped
-// replicating entirely would pass.
 func TestHistory_IdlePrimaryAddsNoCommits(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
@@ -108,8 +87,6 @@ func TestHistory_IdlePrimaryAddsNoCommits(t *testing.T) {
 		t.Fatalf("Progress: %v", err)
 	}
 
-	// mongod's periodic no-op writer runs every ten seconds by default. Give
-	// it two intervals plus room for the subject to apply them.
 	idle := 25 * time.Second
 	t.Logf("holding the primary idle for %s", idle)
 	select {
@@ -174,12 +151,6 @@ func TestHistory_WriteDoesNotMoveUnrelatedDatabase(t *testing.T) {
 		t.Fatalf("unrelated dumboLog before update: %v", err)
 	}
 
-	// The comparison below is between two snapshots of the unrelated
-	// database's history. If that database never replicated, both snapshots
-	// are empty, they compare equal, and this case passes having watched
-	// nothing. Establish that both databases arrived before trusting either
-	// snapshot: each should hold its initialization commit plus the commit
-	// that carried its seed.
 	for _, db := range []struct {
 		name    string
 		commits []string
@@ -190,9 +161,6 @@ func TestHistory_WriteDoesNotMoveUnrelatedDatabase(t *testing.T) {
 		}
 	}
 
-	// Hold the seeded document too. A fan-out that wrote an empty commit to
-	// the unrelated database would be caught below, but one that wrote actual
-	// data there would not be, since the assertions only count commits.
 	unrelatedDocs, err := subjectClient.Database(unrelatedDB).Collection("items").CountDocuments(ctx, bson.D{})
 	if err != nil {
 		t.Fatalf("counting unrelated documents: %v", err)
@@ -237,13 +205,6 @@ func TestHistory_WriteDoesNotMoveUnrelatedDatabase(t *testing.T) {
 	}
 }
 
-// TestHistory_RemovedMemberKeepsHistory covers the verify document's final
-// scenario: reconfiguring the member out of the set is how you stop
-// replication now that dumboReplicationDetach is gone.
-//
-// A removed member is not a discarded stale node. It must stop taking writes
-// and keep every commit it made, because that history is the reason to run
-// DumboDB as the secondary rather than a mongod.
 func TestHistory_RemovedMemberKeepsHistory(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
@@ -275,7 +236,6 @@ func TestHistory_RemovedMemberKeepsHistory(t *testing.T) {
 		t.Fatalf("removing %s from %s: %v", f.subject.Addr, f.rs.Name, err)
 	}
 
-	// Write after the removal. This must not arrive.
 	if _, err := coll.InsertOne(ctx, bson.D{{Key: "_id", Value: 3}}); err != nil {
 		t.Fatalf("post-removal insert: %v", err)
 	}
@@ -294,9 +254,6 @@ func TestHistory_RemovedMemberKeepsHistory(t *testing.T) {
 			f.commit, count)
 	}
 
-	// Everything it replicated is still there, and still readable. Comparing
-	// the full list rather than the length catches a history that was
-	// truncated or rewritten rather than merely frozen.
 	after, err := commitIDs(ctx, subjectClient, historyDB)
 	if err != nil {
 		t.Fatalf("dumboLog on the removed member: %v", err)
@@ -315,7 +272,6 @@ func TestHistory_RemovedMemberKeepsHistory(t *testing.T) {
 		t.Errorf("dumbodb %s: removed member added %d commits after leaving the set", f.commit, len(after)-len(before))
 	}
 
-	// A removed member that stopped serving would also pass the checks above.
 	docs, err := subjectClient.Database(historyDB).Collection("removal").Find(ctx, bson.D{})
 	if err != nil {
 		t.Fatalf("reading from the removed member: %v", err)
@@ -330,14 +286,6 @@ func TestHistory_RemovedMemberKeepsHistory(t *testing.T) {
 	t.Logf("dumbodb %s: %d commits preserved after removal from %s", f.commit, len(after), f.rs.Name)
 }
 
-// TestHistory_RejoinResumesWithoutRewriting covers the claim in
-// docs/COMMANDS.md that "re-adding the same member identity to the same
-// replica set activates it again".
-//
-// Activating again is not the same as syncing again. A member that threw its
-// history away and re-cloned would also end up holding the right documents,
-// so the assertion that matters is that the commits made before the removal
-// are still the same commits afterwards.
 func TestHistory_RejoinResumesWithoutRewriting(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
@@ -387,8 +335,6 @@ func TestHistory_RejoinResumesWithoutRewriting(t *testing.T) {
 		t.Fatalf("dumbodb %s did not converge after rejoining: %v", f.commit, err)
 	}
 
-	// The write made while it was out of the set has to be caught up, not
-	// skipped: a resumed member starts from its checkpoint, not from now.
 	count, err := subjectClient.Database(historyDB).Collection("rejoin").CountDocuments(ctx, bson.D{})
 	if err != nil {
 		t.Fatalf("counting after rejoin: %v", err)

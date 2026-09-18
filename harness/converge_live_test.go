@@ -24,8 +24,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// Against two stock mongod members the gate must actually pass, and the
-// watermark it returns must cover a write made before the call.
 func TestConverge_ReferenceMembersConverge(t *testing.T) {
 	requireMongod(t)
 	rs := StartReplicaSet(t, 2)
@@ -56,8 +54,6 @@ func TestConverge_ReferenceMembersConverge(t *testing.T) {
 	}
 	t.Logf("converged on %s", watermark)
 
-	// Every member must now hold all 50 documents; a gate that returns before
-	// the data has landed is worse than no gate.
 	for _, m := range rs.Members {
 		cli, err := rs.DirectClient(ctx, m)
 		if err != nil {
@@ -75,7 +71,6 @@ func TestConverge_ReferenceMembersConverge(t *testing.T) {
 	}
 }
 
-// Progress must report a member's own claims, and a primary must look like one.
 func TestConverge_ProgressReportsMemberState(t *testing.T) {
 	requireMongod(t)
 	rs := StartReplicaSet(t, 2)
@@ -103,8 +98,6 @@ func TestConverge_ProgressReportsMemberState(t *testing.T) {
 	t.Logf("%s", progress)
 }
 
-// A member that cannot possibly reach the watermark must time out with a
-// legible explanation rather than hanging or reporting success.
 func TestConverge_UnreachableMemberTimesOutLegibly(t *testing.T) {
 	requireMongod(t)
 	rs := StartReplicaSet(t, 2)
@@ -122,9 +115,6 @@ func TestConverge_UnreachableMemberTimesOutLegibly(t *testing.T) {
 	if !contains(err.Error(), "127.0.0.1:9") {
 		t.Errorf("the failing address should be named: %v", err)
 	}
-	// The timeout must be honored. Driver server selection blocks ~30s on an
-	// unreachable host, which silently multiplies every CI failure involving a
-	// down member.
 	if elapsed > 15*time.Second {
 		t.Errorf("a 3s convergence timeout took %s; the deadline is not bounding the progress reads", elapsed)
 	}

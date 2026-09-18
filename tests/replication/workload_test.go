@@ -27,23 +27,14 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// The driver must actually exercise what its operation list claims. An
-// operation that always errors contributes nothing to the oplog and would
-// otherwise be invisible: coverage would count it as "ran".
 func TestWorkload_VocabularyExercisesEveryOperation(t *testing.T) {
 	t.Parallel()
-	// Per test rather than a package variable: two cases running at once would
-	// each assert against whichever finished last, and this assertion exists to
-	// catch a case that exercised nothing.
 	var workloadCoverage *harness.Coverage
 	harness.ReplicaTest(t, harness.ReplicaCase{
 		Name:    "Workload_VocabularyExercisesEveryOperation",
 		Support: harness.DumboDBMongoOnly,
 		Timeout: 8 * time.Minute,
 		Setup: func(ctx context.Context, primary *mongo.Client) error {
-			// Seed documents the update, array and delete operations can match.
-			// Without this most of the vocabulary matches nothing and the run
-			// reports full coverage having replicated almost nothing.
 			docs := make([]interface{}, 0, 200)
 			r := harness.SeedRand(1)
 			for i := 0; i < 200; i++ {
@@ -77,7 +68,6 @@ func TestWorkload_VocabularyExercisesEveryOperation(t *testing.T) {
 				t.Errorf("coverage lists %d operations, vocabulary has %d", got, want)
 			}
 
-			// An operation that failed every single time exercised nothing.
 			for _, op := range expected {
 				ran := workloadCoverage.Ran[op.Name]
 				failed := workloadCoverage.Failures[op.Name]
@@ -85,9 +75,6 @@ func TestWorkload_VocabularyExercisesEveryOperation(t *testing.T) {
 					t.Errorf("operation %q never ran", op.Name)
 					continue
 				}
-				// Same reasoning as the steady-state tier: a nil error does not
-				// mean the operation reached the oplog, because MongoDB reports
-				// success for an update or delete that matched nothing.
 				noops := workloadCoverage.NoOps[op.Name]
 				if failed+noops == ran {
 					t.Errorf("operation %q contributed nothing across %d attempts (%d failed, %d changed nothing); it never reached the oplog",
@@ -95,7 +82,6 @@ func TestWorkload_VocabularyExercisesEveryOperation(t *testing.T) {
 				}
 			}
 
-			// The workload must have actually moved data onto the reference.
 			db, ok := res.Reference.Databases["wl"]
 			if !ok {
 				t.Fatal("the reference secondary received no workload database")
@@ -120,8 +106,6 @@ func existingDocID(i int) string {
 	return harness.DocIDFor(i)
 }
 
-// A workload must replay identically from its seed, or a failing run cannot be
-// reproduced.
 func TestWorkload_DeterministicFromSeed(t *testing.T) {
 	t.Parallel()
 	first := generateSequence(20260916)
