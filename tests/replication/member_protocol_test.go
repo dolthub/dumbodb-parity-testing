@@ -592,13 +592,32 @@ func TestMemberProtocol_SecondaryRejectsDirectWrites(t *testing.T) {
 	if err != nil {
 		t.Fatalf("direct insert against reference secondary: %v", err)
 	}
-	for name, reply := range map[string]bson.M{"subject": subjectReply, "reference": referenceReply} {
-		if ok(reply) {
-			t.Fatalf("%s secondary accepted a direct insert", name)
+	// The message differs on purpose and the code does not. mongod 8.0.28 still
+	// sends the legacy "not master"; DumboDB sends "not primary" by owner
+	// direction, recorded as a deliberate deviation in the replication design
+	// document. Client retry logic keys off code and codeName, so those must
+	// match mongod exactly, which is what the shared expectations below assert.
+	for _, member := range []struct {
+		name    string
+		reply   bson.M
+		errmsg  string
+		premise bool
+	}{
+		{"reference secondary", referenceReply, "not master", true},
+		{"dumbodb subject", subjectReply, "not primary", false},
+	} {
+		if ok(member.reply) {
+			if member.premise {
+				t.Fatalf("premise failed: the %s accepted a direct insert, so the apparatus is wrong and the subject's behavior proves nothing", member.name)
+			}
+			t.Fatalf("dumbodb %s accepted a direct insert to a secondary", f.commit)
 		}
-		if reply["code"] != int32(10107) || reply["codeName"] != "NotWritablePrimary" || reply["errmsg"] != "not master" {
-			t.Fatalf("%s refusal = code %v, codeName %v, errmsg %q; want 10107, NotWritablePrimary, not master",
-				name, reply["code"], reply["codeName"], reply["errmsg"])
+		if member.reply["code"] != int32(10107) || member.reply["codeName"] != "NotWritablePrimary" {
+			t.Fatalf("%s refusal = code %v, codeName %v; want 10107 and NotWritablePrimary, which must match mongod because clients retry on the code",
+				member.name, member.reply["code"], member.reply["codeName"])
+		}
+		if member.reply["errmsg"] != member.errmsg {
+			t.Fatalf("%s refusal errmsg = %q, want %q", member.name, member.reply["errmsg"], member.errmsg)
 		}
 	}
 
