@@ -514,6 +514,63 @@ func TestMemberProtocol_RefusesDownstreamSyncPromptly(t *testing.T) {
 	}
 }
 
+func TestMemberProtocol_RefusesUnsolicitedCompressionPromptly(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	defer cancel()
+
+	f := startMemberProtocol(t, ctx)
+	conn, err := wire.Dial(f.subject.Addr)
+	if err != nil {
+		t.Fatalf("dial subject: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	const promptly = 5 * time.Second
+	if err := conn.SetDeadline(time.Now().Add(promptly)); err != nil {
+		t.Fatalf("deadline: %v", err)
+	}
+	start := time.Now()
+	reply, refusalErr := conn.RunZlibCompressedCommand(bson.D{
+		{Key: "ping", Value: int32(1)},
+		{Key: "$db", Value: "admin"},
+	})
+	elapsed := time.Since(start)
+	if elapsed > promptly {
+		t.Errorf("dumbodb %s took %s to refuse unsolicited OP_COMPRESSED", f.commit, elapsed)
+	}
+	if refusalErr == nil {
+		if ok(reply) {
+			t.Fatalf("dumbodb %s accepted unsolicited OP_COMPRESSED without negotiating compression", f.commit)
+		}
+		message, _ := reply["errmsg"].(string)
+		if !strings.Contains(strings.ToLower(message), "compress") {
+			t.Fatalf("dumbodb %s refused unsolicited OP_COMPRESSED with %q, which does not name compression", f.commit, message)
+		}
+		if _, err := conn.RunCommand(bson.D{{Key: "ping", Value: int32(1)}, {Key: "$db", Value: "admin"}}); err != nil {
+			t.Fatalf("dumbodb %s answered the refusal but left the connection unusable: %v", f.commit, err)
+		}
+		return
+	}
+
+	const logReason = "unhandled opcode OP_COMPRESSED"
+	logDeadline := time.Now().Add(2 * time.Second)
+	for {
+		contents, err := f.subject.ReadLog()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(contents, logReason) {
+			t.Logf("dumbodb %s closed unsolicited OP_COMPRESSED in %s and logged %q", f.commit, elapsed, logReason)
+			return
+		}
+		if time.Now().After(logDeadline) {
+			t.Fatalf("dumbodb %s closed unsolicited OP_COMPRESSED in %s with %v, but its log does not explain the refusal", f.commit, elapsed, refusalErr)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
 // TestMemberProtocol_ReferenceServesItsOwnOplog establishes that the refusal
 // above is a deliberate DumboDB deviation rather than something the apparatus
 // blocks. Without this the refusal tests would pass against a broken harness.

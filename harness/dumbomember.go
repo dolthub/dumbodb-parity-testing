@@ -164,6 +164,18 @@ func (d *DumboMember) Client(ctx context.Context) (*mongo.Client, error) {
 	return directClient(ctx, d.Addr)
 }
 
+// ReadLog returns the current process log.
+func (d *DumboMember) ReadLog() (string, error) {
+	if d.proc == nil {
+		return "", fmt.Errorf("dumbodb member %s is not running", d.Addr)
+	}
+	contents, err := os.ReadFile(d.proc.log)
+	if err != nil {
+		return "", fmt.Errorf("read dumbodb member log: %w", err)
+	}
+	return string(contents), nil
+}
+
 // AssertHiddenNonVoting fails unless the installed configuration carries all
 // three properties.
 //

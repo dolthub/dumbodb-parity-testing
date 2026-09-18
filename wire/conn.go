@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package wire is a minimal OP_MSG-only MongoDB wire-protocol client for
+// Package wire is a minimal MongoDB wire-protocol client for
 // parity tests that need server behavior the Go driver hides. The MongoDB
 // Driver Specification forbids drivers from accepting a caller-supplied lsid,
 // so tests that share an lsid across connections must speak OP_MSG directly.
 package wire
 
 import (
+	"bytes"
+	"compress/zlib"
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
@@ -33,8 +35,11 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// OP_MSG opcode, MongoDB wire protocol 3.6+.
-const opMsg int32 = 2013
+const (
+	opCompressed   int32 = 2012
+	opMsg          int32 = 2013
+	compressorZlib byte  = 2
+)
 
 // Conn is not safe for concurrent use.
 type Conn struct {
@@ -107,7 +112,54 @@ func (c *Conn) RunCommandFlags(cmd interface{}, flags uint32) (bson.M, uint32, e
 	if _, err := c.c.Write(out); err != nil {
 		return nil, 0, fmt.Errorf("write: %w", err)
 	}
+	return c.readCommandReply()
+}
 
+// RunZlibCompressedCommand sends an OP_COMPRESSED command without negotiating
+// compression first.
+func (c *Conn) RunZlibCompressedCommand(cmd interface{}) (bson.M, error) {
+	document, err := bson.Marshal(cmd)
+	if err != nil {
+		return nil, fmt.Errorf("marshal cmd: %w", err)
+	}
+	uncompressed := make([]byte, 0, 5+len(document))
+	uncompressed = appendI32(uncompressed, 0)
+	uncompressed = append(uncompressed, 0)
+	uncompressed = append(uncompressed, document...)
+
+	var compressed bytes.Buffer
+	writer := zlib.NewWriter(&compressed)
+	if _, err := writer.Write(uncompressed); err != nil {
+		return nil, fmt.Errorf("compress cmd: %w", err)
+	}
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("finish compressed cmd: %w", err)
+	}
+
+	c.reqID++
+	const headerLen = 16
+	const compressedHeaderLen = 9
+	msgLen := int32(headerLen + compressedHeaderLen + compressed.Len())
+	out := make([]byte, 0, msgLen)
+	out = appendI32(out, msgLen)
+	out = appendI32(out, c.reqID)
+	out = appendI32(out, 0)
+	out = appendI32(out, opCompressed)
+	out = appendI32(out, opMsg)
+	out = appendI32(out, int32(len(uncompressed)))
+	out = append(out, compressorZlib)
+	out = append(out, compressed.Bytes()...)
+	if _, err := c.c.Write(out); err != nil {
+		return nil, fmt.Errorf("write compressed command: %w", err)
+	}
+	reply, _, err := c.readCommandReply()
+	return reply, err
+}
+
+func (c *Conn) readCommandReply() (bson.M, uint32, error) {
+	const headerLen = 16
+	const flagBitsLen = 4
+	const sectionKindLen = 1
 	var hdr [headerLen]byte
 	if _, err := io.ReadFull(c.c, hdr[:]); err != nil {
 		return nil, 0, fmt.Errorf("read header: %w", err)
