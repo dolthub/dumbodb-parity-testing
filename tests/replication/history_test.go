@@ -163,6 +163,30 @@ func TestHistory_WriteDoesNotMoveUnrelatedDatabase(t *testing.T) {
 		t.Fatalf("unrelated dumboLog before update: %v", err)
 	}
 
+	// The comparison below is between two snapshots of the unrelated
+	// database's history. If that database never replicated, both snapshots
+	// are empty, they compare equal, and this case passes having watched
+	// nothing. Establish that both databases arrived before trusting either
+	// snapshot: each should hold its initialization commit plus the commit
+	// that carried its seed.
+	for _, db := range []struct {
+		name    string
+		commits []string
+	}{{activeDB, activeBefore}, {unrelatedDB, unrelatedBefore}} {
+		if len(db.commits) < 2 {
+			t.Fatalf("premise failed: %s has %d commits on dumbodb %s after seeding and converging, so its history is not being watched and this case proves nothing",
+				db.name, len(db.commits), f.commit)
+		}
+	}
+
+	// Hold the seeded document too. A fan-out that wrote an empty commit to
+	// the unrelated database would be caught below, but one that wrote actual
+	// data there would not be, since the assertions only count commits.
+	unrelatedDocs, err := subjectClient.Database(unrelatedDB).Collection("items").CountDocuments(ctx, bson.D{})
+	if err != nil {
+		t.Fatalf("counting unrelated documents: %v", err)
+	}
+
 	if _, err := f.client.Database(activeDB).Collection("items").UpdateOne(ctx,
 		bson.D{{Key: "_id", Value: 1}}, bson.D{{Key: "$set", Value: bson.D{{Key: "value", Value: "after"}}}}); err != nil {
 		t.Fatalf("updating active database: %v", err)
@@ -191,6 +215,14 @@ func TestHistory_WriteDoesNotMoveUnrelatedDatabase(t *testing.T) {
 			t.Fatalf("dumbodb %s: unrelated database history changed at commit %d from %s to %s",
 				f.commit, index, unrelatedBefore[index], unrelatedAfter[index])
 		}
+	}
+	after, err := subjectClient.Database(unrelatedDB).Collection("items").CountDocuments(ctx, bson.D{})
+	if err != nil {
+		t.Fatalf("counting unrelated documents after the update: %v", err)
+	}
+	if after != unrelatedDocs {
+		t.Errorf("dumbodb %s: writing to %s changed %s from %d to %d documents",
+			f.commit, activeDB, unrelatedDB, unrelatedDocs, after)
 	}
 }
 
