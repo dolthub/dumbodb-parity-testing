@@ -61,6 +61,8 @@ settings are part of `suite.sh`, not a manual reproduction knob.
   profile `soak` (~12-13h/pass); pass `smoke` for a fast regression hammer.
   Run detached so a disconnect does not kill it, e.g.
   `nohup ./weekend-loop.sh soak > weekend.out 2>&1 &`.
+- `doctor.sh [--build]` -- preflight a new host: checks go/make/python3/timeout,
+  the two repos, and RUN_DIR disk space + write speed. Run this before a soak.
 - `lib.sh` -- shared config; override paths/ports via environment variables.
 
 ## Configuration (environment variables)
