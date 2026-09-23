@@ -19,7 +19,7 @@
 // it: which bad setups are caught at startup, rather than at the first client,
 // is most of what separates a usable TLS deployment from a confusing one.
 
-package tests
+package tls
 
 import (
 	"context"

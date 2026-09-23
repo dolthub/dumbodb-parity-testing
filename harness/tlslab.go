@@ -56,6 +56,7 @@ type TLSServer struct {
 
 	fixture *TLSFixture
 	proc    *serverProc
+	exited  chan struct{}
 }
 
 // StartTLSDumboDB starts DumboDB with TLS on its only listening port.
@@ -118,15 +119,40 @@ func startTLSServer(t *testing.T, f *TLSFixture, bin, name, addr, dir string, ar
 		t.Fatalf("launching %s: %v", name, err)
 	}
 	s := &TLSServer{Addr: addr, fixture: f, proc: proc}
+
+	// Reap the process here rather than leaving it to serverProc.stop.
+	//
+	// A server that rejects its configuration exits immediately, and an
+	// unreaped exited process is a zombie whose pid still answers signal 0.
+	// Polling liveness that way reported a dead server as running and spent
+	// the full start timeout on every case meant to fail. Waiting is the only
+	// way to see the difference, and only one waiter is allowed, so this owns
+	// it and teardown does not.
+	exited := make(chan struct{})
+	go func() {
+		defer close(exited)
+		_ = proc.cmd.Wait()
+	}()
+	s.exited = exited
 	t.Cleanup(func() {
-		if s.proc != nil {
-			s.proc.stop()
+		if proc.cmd.Process != nil {
+			_ = proc.cmd.Process.Kill()
+		}
+		<-exited
+		if proc.logf != nil {
+			_ = proc.logf.Close()
 		}
 	})
 
 	// A server that rejects its configuration exits instead of listening, and
 	// that is one of the outcomes under test rather than a harness failure.
-	if !waitPort(addr, 25*time.Second) {
+	//
+	// Watch for the process exiting as well as for the port opening, rather
+	// than waiting out a timeout for an address that will never accept. A
+	// rejected configuration is reported in under a second this way, where
+	// waiting for the port alone spent twenty five seconds per server on every
+	// case that was supposed to fail.
+	if !waitListeningOrExit(exited, addr, 25*time.Second) {
 		s.StartFailed = true
 		s.FailureOutput = readServerLog(proc)
 		s.proc.stop()
@@ -165,7 +191,7 @@ func (s *TLSServer) Connect(ctx context.Context, t *testing.T, withClientCertifi
 	client, err := mongo.Connect(ctx, options.Client().
 		ApplyURI("mongodb://"+s.Addr+"/?directConnection=true").
 		SetTLSConfig(config).
-		SetServerSelectionTimeout(15*time.Second))
+		SetServerSelectionTimeout(6*time.Second))
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +212,7 @@ func (s *TLSServer) ConnectPlaintext(ctx context.Context, t *testing.T) error {
 	t.Helper()
 	client, err := mongo.Connect(ctx, options.Client().
 		ApplyURI("mongodb://"+s.Addr+"/?directConnection=true").
-		SetServerSelectionTimeout(10*time.Second))
+		SetServerSelectionTimeout(6*time.Second))
 	if err != nil {
 		return err
 	}
@@ -224,4 +250,23 @@ func readServerLog(proc *serverProc) string {
 		return ""
 	}
 	return string(body)
+}
+
+// waitListeningOrExit reports whether addr began accepting connections before
+// the process gave up. It returns as soon as either happens.
+func waitListeningOrExit(exited <-chan struct{}, addr string, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if waitPort(addr, 200*time.Millisecond) {
+			return true
+		}
+		select {
+		case <-exited:
+			// One last look: a server can bind and exit between polls, and
+			// calling that a start failure would be wrong.
+			return waitPort(addr, 200*time.Millisecond)
+		default:
+		}
+	}
+	return false
 }
