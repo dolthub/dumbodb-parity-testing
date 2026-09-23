@@ -107,6 +107,7 @@ func NewTLSFixture(t *testing.T) *TLSFixture {
 		t.Fatalf("NewTLSFixture: parsing CA: %v", err)
 	}
 	writePEM(t, f.CAFile, "CERTIFICATE", caDER)
+	writeKey(t, f.caKeyFile(), caKey)
 
 	serverDER, serverKey := signLeaf(t, caCert, caKey, "127.0.0.1", true)
 	writePEM(t, f.ServerCertFile, "CERTIFICATE", serverDER)
@@ -186,3 +187,92 @@ func writeCombined(t *testing.T, path string, der []byte, key *rsa.PrivateKey) {
 		t.Fatalf("writing %s: %v", path, err)
 	}
 }
+
+// ExpiredPEM returns a combined certificate and key whose validity window
+// closed yesterday, signed by the fixture's CA so that expiry is the only
+// thing wrong with it.
+func ExpiredPEM(t *testing.T, f *TLSFixture) string {
+	t.Helper()
+	path := filepath.Join(f.Dir, "expired.pem")
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	caCert, caKey := f.ca(t)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("ExpiredPEM: %v", err)
+	}
+	template := &x509.Certificate{
+		SerialNumber: serialNumber(t),
+		Subject:      pkix.Name{CommonName: "expired.localhost"},
+		NotBefore:    time.Now().Add(-48 * time.Hour),
+		NotAfter:     time.Now().Add(-24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		DNSNames:     []string{"localhost"},
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, caCert, &key.PublicKey, caKey)
+	if err != nil {
+		t.Fatalf("ExpiredPEM: signing: %v", err)
+	}
+	writeCombined(t, path, der, key)
+	return path
+}
+
+// MismatchedPEM returns a combined file holding the fixture's real server
+// certificate beside a private key that does not belong to it. Both halves
+// parse; only the pairing is wrong.
+func MismatchedPEM(t *testing.T, f *TLSFixture) string {
+	t.Helper()
+	path := filepath.Join(f.Dir, "mismatched.pem")
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	certPEM, err := os.ReadFile(f.ServerCertFile)
+	if err != nil {
+		t.Fatalf("MismatchedPEM: %v", err)
+	}
+	strangerKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("MismatchedPEM: %v", err)
+	}
+	body := append(certPEM,
+		pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(strangerKey)})...)
+	if err := os.WriteFile(path, body, 0o600); err != nil {
+		t.Fatalf("MismatchedPEM: %v", err)
+	}
+	return path
+}
+
+// ca reloads the fixture's authority so derived material can be signed by it.
+func (f *TLSFixture) ca(t *testing.T) (*x509.Certificate, *rsa.PrivateKey) {
+	t.Helper()
+	certPEM, err := os.ReadFile(f.CAFile)
+	if err != nil {
+		t.Fatalf("reading CA certificate: %v", err)
+	}
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		t.Fatal("the CA certificate is not valid PEM")
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Fatalf("parsing CA certificate: %v", err)
+	}
+	keyPEM, err := os.ReadFile(f.caKeyFile())
+	if err != nil {
+		t.Fatalf("reading CA key: %v", err)
+	}
+	keyBlock, _ := pem.Decode(keyPEM)
+	if keyBlock == nil {
+		t.Fatal("the CA key is not valid PEM")
+	}
+	key, err := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
+	if err != nil {
+		t.Fatalf("parsing CA key: %v", err)
+	}
+	return cert, key
+}
+
+func (f *TLSFixture) caKeyFile() string { return filepath.Join(f.Dir, "ca.key") }
