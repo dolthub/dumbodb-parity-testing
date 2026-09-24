@@ -43,7 +43,6 @@ func TestTLSFailureModes_StartupAgreesWithMongod(t *testing.T) {
 		{
 			name: "certificate not yet valid",
 			opts: harness.TLSOptions{CertificateKeyFile: harness.NotYetValidPEM(t, f)},
-			bead: "workspace-zg3",
 		},
 		{
 			name: "CA file is not a certificate",

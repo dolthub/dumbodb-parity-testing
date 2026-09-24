@@ -145,7 +145,6 @@ func TestTLS_BadMaterialIsRejectedAtStartup(t *testing.T) {
 		{
 			name: "expired certificate",
 			opts: harness.TLSOptions{CertificateKeyFile: harness.ExpiredPEM(t, f)},
-			bead: "workspace-zg3",
 		},
 	}
 

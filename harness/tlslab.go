@@ -24,6 +24,9 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"regexp"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -53,6 +56,14 @@ type TLSOptions struct {
 	// DisabledProtocols maps to --tlsDisabledProtocols, as mongod spells them:
 	// TLS1_0, TLS1_1, TLS1_2, TLS1_3.
 	DisabledProtocols string
+
+	// NoCAFile omits --tlsCAFile entirely, rather than substituting the
+	// fixture's own. Needed to ask what each server does with revocation
+	// configured and nothing to verify against.
+	NoCAFile bool
+
+	// ExtraArgs are appended verbatim, for flags only one server has.
+	ExtraArgs []string
 }
 
 // TLSServer is one server started with TLS, or one that refused to start.
@@ -89,7 +100,9 @@ func StartTLSDumboDB(t *testing.T, f *TLSFixture, opts TLSOptions) *TLSServer {
 		"--data-dir", dir,
 		"--tlsMode", "requireTLS",
 		"--tlsCertificateKeyFile", f.orDefault(opts.CertificateKeyFile, f.ServerPEMFile),
-		"--tlsCAFile", f.orDefault(opts.CAFile, f.CAFile),
+	}
+	if !opts.NoCAFile {
+		args = append(args, "--tlsCAFile", f.orDefault(opts.CAFile, f.CAFile))
 	}
 	args = append(args, optionalTLSArgs(opts)...)
 	return startTLSServer(t, f, bin, "dumbodb-tls", addr, dir, args)
@@ -113,7 +126,9 @@ func StartTLSMongod(t *testing.T, f *TLSFixture, opts TLSOptions) *TLSServer {
 		"--nounixsocket",
 		"--tlsMode", "requireTLS",
 		"--tlsCertificateKeyFile", f.orDefault(opts.CertificateKeyFile, f.ServerPEMFile),
-		"--tlsCAFile", f.orDefault(opts.CAFile, f.CAFile),
+	}
+	if !opts.NoCAFile {
+		args = append(args, "--tlsCAFile", f.orDefault(opts.CAFile, f.CAFile))
 	}
 	args = append(args, optionalTLSArgs(opts)...)
 	return startTLSServer(t, f, bin, "mongod-tls", addr, dir, args)
@@ -132,7 +147,7 @@ func optionalTLSArgs(opts TLSOptions) []string {
 	if opts.DisabledProtocols != "" {
 		args = append(args, "--tlsDisabledProtocols", opts.DisabledProtocols)
 	}
-	return args
+	return append(args, opts.ExtraArgs...)
 }
 
 func startTLSServer(t *testing.T, f *TLSFixture, bin, name, addr, dir string, args []string) *TLSServer {
@@ -237,6 +252,11 @@ func (s *TLSServer) Connect(ctx context.Context, t *testing.T, withClientCertifi
 // "quietly negotiated something else".
 func (s *TLSServer) ConnectWithVersion(t *testing.T, version uint16) (uint16, error) {
 	t.Helper()
+	return s.connect(t, version, version)
+}
+
+func (s *TLSServer) connect(t *testing.T, minVersion, maxVersion uint16) (uint16, error) {
+	t.Helper()
 	if s.StartFailed {
 		t.Fatalf("cannot connect to %s: it never started", s.Addr)
 	}
@@ -256,8 +276,8 @@ func (s *TLSServer) ConnectWithVersion(t *testing.T, version uint16) (uint16, er
 		RootCAs:      pool,
 		Certificates: []tls.Certificate{cert},
 		ServerName:   "127.0.0.1",
-		MinVersion:   version,
-		MaxVersion:   version,
+		MinVersion:   minVersion,
+		MaxVersion:   maxVersion,
 	})
 	if err != nil {
 		return 0, err
@@ -280,6 +300,46 @@ func (s *TLSServer) ConnectWithVersion(t *testing.T, version uint16) (uint16, er
 		return state.Version, err
 	}
 	return state.Version, nil
+}
+
+// MongodTLSFlags reports every TLS option mongod advertises, so a test can ask
+// whether DumboDB accounts for all of them rather than for a list written down
+// once and left to rot. A flag MongoDB adds later shows up here on its own.
+func MongodTLSFlags(t *testing.T) []string {
+	t.Helper()
+	bin := findMongodBin()
+	if bin == "" {
+		t.Skip("mongod binary not found (set MONGOD_BIN)")
+	}
+	out, err := exec.Command(bin, "--help").CombinedOutput()
+	if err != nil {
+		t.Fatalf("mongod --help: %v", err)
+	}
+	seen := map[string]bool{}
+	var flags []string
+	for _, match := range tlsFlagPattern.FindAllString(string(out), -1) {
+		name := strings.TrimPrefix(match, "--")
+		if !seen[name] {
+			seen[name] = true
+			flags = append(flags, name)
+		}
+	}
+	if len(flags) == 0 {
+		t.Fatal("mongod --help listed no TLS options, so this cannot tell a complete list from a broken parse")
+	}
+	sort.Strings(flags)
+	return flags
+}
+
+var tlsFlagPattern = regexp.MustCompile(`--tls[A-Za-z0-9]*`)
+
+// ConnectAnyVersion dials offering every version the library supports and
+// reports which one the server chose. Pinning a client answers "will you
+// accept this"; offering everything answers "what do you pick", and a server
+// that picks a lower version than it allows has downgraded the connection.
+func (s *TLSServer) ConnectAnyVersion(t *testing.T) (uint16, error) {
+	t.Helper()
+	return s.connect(t, tls.VersionTLS10, tls.VersionTLS13)
 }
 
 // isBenignReadError reports whether a read failure means the peer simply had

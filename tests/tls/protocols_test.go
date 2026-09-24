@@ -27,7 +27,7 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-const protocolsBead = "workspace-09n.9"
+const protocolsBead = "workspace-09n.14"
 
 var tlsVersionNames = map[uint16]string{
 	tls.VersionTLS10: "TLS1_0",
@@ -69,8 +69,11 @@ func TestTLSProtocols_DefaultsAgree(t *testing.T) {
 	}
 }
 
-// Disabling a version has to actually refuse it. Until --tlsDisabledProtocols
-// exists, DumboDB cannot even be asked.
+// Disabling a version has to actually refuse it, and leave the others alone.
+//
+// TLS1_2 is the interesting one to disable: it leaves a hole rather than
+// moving a floor, so a server implementing this as a minimum version cannot
+// express it and will either serve 1.2 anyway or refuse 1.3 as well.
 func TestTLSProtocols_DisablingAVersionRefusesIt(t *testing.T) {
 	f := harness.NewTLSFixture(t)
 	opts := harness.TLSOptions{DisabledProtocols: "TLS1_2"}
@@ -88,36 +91,158 @@ func TestTLSProtocols_DisablingAVersionRefusesIt(t *testing.T) {
 
 	dumbodb := harness.StartTLSDumboDB(t, f, opts)
 	if dumbodb.StartFailed {
-		t.Logf("XFAIL %s: dumbodb will not start with --tlsDisabledProtocols: %s", protocolsBead, firstLine(dumbodb.FailureOutput))
-		return
+		t.Fatalf("dumbodb would not start with --tlsDisabledProtocols, which mongod accepts: %s", firstLine(dumbodb.FailureOutput))
 	}
 	if _, err := dumbodb.ConnectWithVersion(t, tls.VersionTLS12); err == nil {
-		t.Errorf("dumbodb served TLS 1.2 despite --tlsDisabledProtocols TLS1_2")
-		return
+		t.Error("dumbodb served TLS 1.2 despite --tlsDisabledProtocols TLS1_2")
 	}
 	if _, err := dumbodb.ConnectWithVersion(t, tls.VersionTLS13); err != nil {
 		t.Errorf("dumbodb refused TLS 1.3 when only 1.2 was disabled: %v", err)
-		return
 	}
-	t.Logf("XPASS %s: dumbodb honours --tlsDisabledProtocols; remove the exemption", protocolsBead)
 }
 
-// A non-contiguous set cannot be expressed as a min and max version, so it
-// decides whether the simple mapping is enough or a connection callback is
-// needed. mongod's answer is what DumboDB has to match.
-func TestTLSProtocols_NonContiguousDisabledSet(t *testing.T) {
+// A client offering everything must be given the highest version the server
+// still allows, not merely some allowed one. Negotiating downwards when a
+// better version was on offer is the downgrade this flag exists to prevent.
+func TestTLSProtocols_NegotiatesTheHighestEnabledVersion(t *testing.T) {
 	f := harness.NewTLSFixture(t)
-	opts := harness.TLSOptions{DisabledProtocols: "TLS1_2"}
+	opts := harness.TLSOptions{DisabledProtocols: "TLS1_3"}
 
 	mongod := harness.StartTLSMongod(t, f, opts)
 	if mongod.StartFailed {
-		t.Skipf("mongod would not start with --tlsDisabledProtocols TLS1_2")
+		t.Fatalf("premise failed: mongod would not start with --tlsDisabledProtocols TLS1_3:\n%s", mongod.FailureOutput)
 	}
-	for _, version := range []uint16{tls.VersionTLS12, tls.VersionTLS13} {
-		_, err := mongod.ConnectWithVersion(t, version)
-		t.Logf("oracle: mongod with TLS1_2 disabled, client pinned to %s, accepted=%v",
-			tlsVersionNames[version], err == nil)
+	dumbodb := harness.StartTLSDumboDB(t, f, opts)
+	if dumbodb.StartFailed {
+		t.Fatalf("dumbodb would not start with --tlsDisabledProtocols TLS1_3: %s", firstLine(dumbodb.FailureOutput))
 	}
-	t.Logf("recorded for %s: a set that leaves a hole cannot be a min/max range, so this is the case that decides the implementation",
-		protocolsBead)
+
+	for _, s := range []struct {
+		name   string
+		server *harness.TLSServer
+	}{{"mongod", mongod}, {"dumbodb", dumbodb}} {
+		t.Run(s.name, func(t *testing.T) {
+			version, err := s.server.ConnectAnyVersion(t)
+			if err != nil {
+				t.Fatalf("%s refused a client offering every version with only TLS 1.3 disabled: %v", s.name, err)
+			}
+			t.Logf("%s negotiated %s", s.name, tlsVersionNames[version])
+			if version != tls.VersionTLS12 {
+				t.Errorf("%s negotiated %s with TLS 1.3 disabled; TLS 1.2 was on offer and is the highest version still enabled",
+					s.name, tlsVersionNames[version])
+			}
+		})
+	}
+}
+
+// Disabling every version leaves nothing to negotiate. A server that starts
+// anyway is one whose port answers and whose every client fails, which is the
+// shape of failure this suite exists to catch.
+func TestTLSProtocols_AllVersionsDisabled(t *testing.T) {
+	f := harness.NewTLSFixture(t)
+	opts := harness.TLSOptions{DisabledProtocols: "TLS1_0,TLS1_1,TLS1_2,TLS1_3"}
+
+	mongod := harness.StartTLSMongod(t, f, opts)
+	dumbodb := harness.StartTLSDumboDB(t, f, opts)
+
+	t.Logf("every version disabled: mongod startFailed=%v, dumbodb startFailed=%v",
+		mongod.StartFailed, dumbodb.StartFailed)
+	if mongod.StartFailed != dumbodb.StartFailed {
+		t.Errorf("mongod startFailed=%v but dumbodb startFailed=%v when every TLS version is disabled.\nmongod said: %s\ndumbodb said: %s",
+			mongod.StartFailed, dumbodb.StartFailed, firstLine(mongod.FailureOutput), firstLine(dumbodb.FailureOutput))
+		return
+	}
+	if mongod.StartFailed {
+		return
+	}
+	if _, err := mongod.ConnectAnyVersion(t); err == nil {
+		t.Error("premise failed: mongod served a client with every TLS version disabled")
+	}
+	if _, err := dumbodb.ConnectAnyVersion(t); err == nil {
+		t.Error("dumbodb served a client with every TLS version disabled")
+	}
+}
+
+// Naming versions to disable must not enable any others.
+//
+// TestTLSProtocols_DefaultsAgree fixes what each server speaks with the flag
+// absent. This asks whether passing the flag at all moves that floor, which is
+// the failure mode where a hardening setting loosens the server: an operator
+// disabling TLS 1.0 has said nothing about TLS 1.1, and must not get it.
+//
+// "none" is mongod's spelling for disable nothing. It is the most permissive
+// value the flag takes, and even it does not reach below what the server was
+// built to speak.
+func TestTLSProtocols_DisablingSomeEnablesNoOthers(t *testing.T) {
+	f := harness.NewTLSFixture(t)
+
+	for _, disabled := range []string{"TLS1_0", "TLS1_3", "none"} {
+		t.Run(disabled, func(t *testing.T) {
+			opts := harness.TLSOptions{DisabledProtocols: disabled}
+			mongod := harness.StartTLSMongod(t, f, opts)
+			if mongod.StartFailed {
+				t.Fatalf("premise failed: mongod would not start with --tlsDisabledProtocols %s:\n%s", disabled, mongod.FailureOutput)
+			}
+			dumbodb := harness.StartTLSDumboDB(t, f, opts)
+			if dumbodb.StartFailed {
+				t.Fatalf("dumbodb would not start with --tlsDisabledProtocols %s, which mongod accepts: %s",
+					disabled, firstLine(dumbodb.FailureOutput))
+			}
+
+			exemptionUsed := false
+			for _, version := range []uint16{tls.VersionTLS10, tls.VersionTLS11, tls.VersionTLS12, tls.VersionTLS13} {
+				name := tlsVersionNames[version]
+				t.Run(name, func(t *testing.T) {
+					_, mongoErr := mongod.ConnectWithVersion(t, version)
+					_, dumboErr := dumbodb.ConnectWithVersion(t, version)
+					mongoAccepted, dumboAccepted := mongoErr == nil, dumboErr == nil
+					t.Logf("--tlsDisabledProtocols %s, client pinned to %s: mongod accepted=%v, dumbodb accepted=%v",
+						disabled, name, mongoAccepted, dumboAccepted)
+					if mongoAccepted == dumboAccepted {
+						return
+					}
+					// The tracked divergence has exactly one shape: passing
+					// the flag at all drops DumboDB's floor to TLS 1.0, so the
+					// obsolete versions it otherwise refuses become available.
+					// Exempting only that leaves every other disagreement a
+					// failure, and the fix trips the exemption below rather
+					// than passing quietly.
+					if dumboAccepted && version <= tls.VersionTLS11 {
+						exemptionUsed = true
+						t.Logf("XFAIL %s: dumbodb served %s under --tlsDisabledProtocols %s", protocolsBead, name, disabled)
+						return
+					}
+					if dumboAccepted {
+						t.Errorf("dumbodb served %s under --tlsDisabledProtocols %s where mongod refuses it; "+
+							"naming versions to disable must not enable versions the server would otherwise refuse",
+							name, disabled)
+						return
+					}
+					t.Errorf("dumbodb refused %s under --tlsDisabledProtocols %s where mongod serves it", name, disabled)
+				})
+			}
+			if !exemptionUsed {
+				t.Errorf("XPASS %s: --tlsDisabledProtocols %s no longer enables the obsolete versions; remove the exemption",
+					protocolsBead, disabled)
+			}
+		})
+	}
+}
+
+// A misspelled version is a configuration error, and silently disabling
+// nothing is the dangerous reading of it: the operator believes a version is
+// off and it is not.
+func TestTLSProtocols_UnrecognizedVersionName(t *testing.T) {
+	f := harness.NewTLSFixture(t)
+	opts := harness.TLSOptions{DisabledProtocols: "TLS1_4"}
+
+	mongod := harness.StartTLSMongod(t, f, opts)
+	dumbodb := harness.StartTLSDumboDB(t, f, opts)
+
+	t.Logf("--tlsDisabledProtocols TLS1_4: mongod startFailed=%v, dumbodb startFailed=%v",
+		mongod.StartFailed, dumbodb.StartFailed)
+	if mongod.StartFailed != dumbodb.StartFailed {
+		t.Errorf("mongod startFailed=%v but dumbodb startFailed=%v for an unrecognized protocol name.\nmongod said: %s\ndumbodb said: %s",
+			mongod.StartFailed, dumbodb.StartFailed, firstLine(mongod.FailureOutput), firstLine(dumbodb.FailureOutput))
+	}
 }

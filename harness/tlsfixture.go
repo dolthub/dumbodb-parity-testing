@@ -346,6 +346,23 @@ func ExpiredRevocationList(t *testing.T, f *TLSFixture) string {
 	return path
 }
 
+// NotARevocationList returns a file in the place a CRL is expected that is a
+// certificate instead. Operators point --tlsCRLFile at the wrong PEM, and the
+// question is whether that is caught at startup or silently leaves revocation
+// unenforced.
+func NotARevocationList(t *testing.T, f *TLSFixture) string {
+	t.Helper()
+	path := filepath.Join(f.Dir, "not-a-crl.pem")
+	body, err := os.ReadFile(f.CAFile)
+	if err != nil {
+		t.Fatalf("NotARevocationList: %v", err)
+	}
+	if err := os.WriteFile(path, body, 0o600); err != nil {
+		t.Fatalf("NotARevocationList: %v", err)
+	}
+	return path
+}
+
 // NotYetValidPEM returns material whose validity window opens tomorrow. This
 // is the clock-skew case: a certificate deployed before it is valid, or a
 // server whose clock is behind the one that issued it.
@@ -405,8 +422,11 @@ func GarbageCAFile(t *testing.T, f *TLSFixture) string {
 }
 
 // WorldReadableServerPEM returns the fixture's valid server material with
-// permissions any user can read. mongod refuses to use a key file it does not
-// consider private.
+// permissions any user can read.
+//
+// Measured 2026-09-24: mongod 8.0.28 starts normally with a 0644 key file. It
+// is kept because that is worth holding still, not because either server is
+// expected to refuse.
 func WorldReadableServerPEM(t *testing.T, f *TLSFixture) string {
 	t.Helper()
 	path := filepath.Join(f.Dir, "world-readable.pem")
