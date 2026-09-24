@@ -80,14 +80,14 @@ CASES=(
   # documentDivergent ordinary writes and full-document discriminators.
   # Numeric CAS and convergent full-document writes are xfail until the
   # dataset-head ancestry race in 1bk.9.8.8.1 is fixed.
-  "concurrent  | cas-dd       | cas                       | documentDivergent | 0 | xfail | xfail"
+  "concurrent  | cas-dd       | cas                       | documentDivergent | 0 | pass  | pass"
   "concurrent  | uuidcas-dd   | uuid-cas                  | documentDivergent | 0 | pass  | pass"
   "concurrent  | divcas-dd    | divergent-cas             | documentDivergent | 0 | pass  | pass"
   "concurrent  | blindinc-dd  | blind-inc                 | documentDivergent | 0 | pass  | pass"
   "concurrent  | disjoint-dd  | disjoint-set              | documentDivergent | 0 | pass  | pass"
   "concurrent  | identical-dd | identical-set             | documentDivergent | 0 | pass  | pass"
   "concurrent  | sameset-dd   | same-set                  | documentDivergent | 0 | pass  | pass"
-  "concurrent  | wholeconv-dd | whole-document-convergent | documentDivergent | 8192 | xfail | xfail"
+  "concurrent  | wholeconv-dd | whole-document-convergent | documentDivergent | 8192 | pass  | pass"
   "concurrent  | wholediv-dd  | whole-document-divergent  | documentDivergent | 8192 | pass  | pass"
 )
 # Deterministic merge matrices run on the bare branch-merge path. Document
