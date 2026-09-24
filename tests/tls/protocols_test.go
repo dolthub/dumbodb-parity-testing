@@ -27,8 +27,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-const protocolsBead = "workspace-09n.14"
-
 var tlsVersionNames = map[uint16]string{
 	tls.VersionTLS10: "TLS1_0",
 	tls.VersionTLS11: "TLS1_1",
@@ -189,7 +187,6 @@ func TestTLSProtocols_DisablingSomeEnablesNoOthers(t *testing.T) {
 					disabled, firstLine(dumbodb.FailureOutput))
 			}
 
-			exemptionUsed := false
 			for _, version := range []uint16{tls.VersionTLS10, tls.VersionTLS11, tls.VersionTLS12, tls.VersionTLS13} {
 				name := tlsVersionNames[version]
 				t.Run(name, func(t *testing.T) {
@@ -201,17 +198,6 @@ func TestTLSProtocols_DisablingSomeEnablesNoOthers(t *testing.T) {
 					if mongoAccepted == dumboAccepted {
 						return
 					}
-					// The tracked divergence has exactly one shape: passing
-					// the flag at all drops DumboDB's floor to TLS 1.0, so the
-					// obsolete versions it otherwise refuses become available.
-					// Exempting only that leaves every other disagreement a
-					// failure, and the fix trips the exemption below rather
-					// than passing quietly.
-					if dumboAccepted && version <= tls.VersionTLS11 {
-						exemptionUsed = true
-						t.Logf("XFAIL %s: dumbodb served %s under --tlsDisabledProtocols %s", protocolsBead, name, disabled)
-						return
-					}
 					if dumboAccepted {
 						t.Errorf("dumbodb served %s under --tlsDisabledProtocols %s where mongod refuses it; "+
 							"naming versions to disable must not enable versions the server would otherwise refuse",
@@ -220,10 +206,6 @@ func TestTLSProtocols_DisablingSomeEnablesNoOthers(t *testing.T) {
 					}
 					t.Errorf("dumbodb refused %s under --tlsDisabledProtocols %s where mongod serves it", name, disabled)
 				})
-			}
-			if !exemptionUsed {
-				t.Errorf("XPASS %s: --tlsDisabledProtocols %s no longer enables the obsolete versions; remove the exemption",
-					protocolsBead, disabled)
 			}
 		})
 	}
