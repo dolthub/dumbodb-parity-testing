@@ -345,3 +345,82 @@ func ExpiredRevocationList(t *testing.T, f *TLSFixture) string {
 	writePEM(t, path, "X509 CRL", der)
 	return path
 }
+
+// NotYetValidPEM returns material whose validity window opens tomorrow. This
+// is the clock-skew case: a certificate deployed before it is valid, or a
+// server whose clock is behind the one that issued it.
+func NotYetValidPEM(t *testing.T, f *TLSFixture) string {
+	t.Helper()
+	return f.leafPEM(t, "notyetvalid.pem", "localhost",
+		time.Now().Add(24*time.Hour), time.Now().Add(48*time.Hour), []string{"localhost"})
+}
+
+// WrongHostPEM returns material valid in time but carrying a name the server
+// will not be reached on, so verification fails on identity rather than trust.
+func WrongHostPEM(t *testing.T, f *TLSFixture) string {
+	t.Helper()
+	return f.leafPEM(t, "wronghost.pem", "elsewhere.invalid",
+		time.Now().Add(-time.Hour), time.Now().Add(24*time.Hour), []string{"elsewhere.invalid"})
+}
+
+// leafPEM signs a server certificate with an arbitrary validity window and
+// name set, and writes it in the combined form both servers accept.
+func (f *TLSFixture) leafPEM(t *testing.T, name, commonName string, notBefore, notAfter time.Time, dnsNames []string) string {
+	t.Helper()
+	path := filepath.Join(f.Dir, name)
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	caCert, caKey := f.ca(t)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	template := &x509.Certificate{
+		SerialNumber: serialNumber(t),
+		Subject:      pkix.Name{CommonName: commonName},
+		NotBefore:    notBefore,
+		NotAfter:     notAfter,
+		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		DNSNames:     dnsNames,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, caCert, &key.PublicKey, caKey)
+	if err != nil {
+		t.Fatalf("%s: signing: %v", name, err)
+	}
+	writeCombined(t, path, der, key)
+	return path
+}
+
+// GarbageCAFile returns a file that exists and is not a certificate. Servers
+// differ on whether they notice at startup or when the first client arrives.
+func GarbageCAFile(t *testing.T, f *TLSFixture) string {
+	t.Helper()
+	path := filepath.Join(f.Dir, "garbage-ca.crt")
+	if err := os.WriteFile(path, []byte("this is not a certificate\n"), 0o600); err != nil {
+		t.Fatalf("GarbageCAFile: %v", err)
+	}
+	return path
+}
+
+// WorldReadableServerPEM returns the fixture's valid server material with
+// permissions any user can read. mongod refuses to use a key file it does not
+// consider private.
+func WorldReadableServerPEM(t *testing.T, f *TLSFixture) string {
+	t.Helper()
+	path := filepath.Join(f.Dir, "world-readable.pem")
+	body, err := os.ReadFile(f.ServerPEMFile)
+	if err != nil {
+		t.Fatalf("WorldReadableServerPEM: %v", err)
+	}
+	if err := os.WriteFile(path, body, 0o644); err != nil {
+		t.Fatalf("WorldReadableServerPEM: %v", err)
+	}
+	// WriteFile honours umask, so set the mode explicitly or the case tests
+	// nothing on a machine with a restrictive default.
+	if err := os.Chmod(path, 0o644); err != nil {
+		t.Fatalf("WorldReadableServerPEM: %v", err)
+	}
+	return path
+}
