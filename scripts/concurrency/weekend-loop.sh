@@ -33,6 +33,16 @@ PROFILE=${1:-soak}
 ITER_TIMEOUT=${2:-16h}
 SUITE_CMD=${SUITE_CMD:-./suite.sh}
 ARCHIVE=${ARCHIVE:-${RUN_DIR}/weekend-archive}
+
+# Each iteration also runs a burst phase after the suite: many short runs of the
+# saved-rejected detector (disjoint-set), one final-write check per worker per
+# burst -- the high-rate way to catch a write the server rejected but saved
+# (workspace-1bk.9.8.8.1). BURST_COUNT=0 skips it.
+BURST_COUNT=${BURST_COUNT:-150}
+BURST_OPS=${BURST_OPS:-5000}
+BURST_SCEN=${BURST_SCEN:-disjoint-set}
+BURST_MODE=${BURST_MODE:-fieldDivergent}
+BURST_MAXTIME=${BURST_MAXTIME:-90m}   # hang guard; normal phase finishes well under this
 LOOP_LOG="${ARCHIVE}/loop.log"
 
 case "$PROFILE" in smoke|soak) ;; *) die "unknown profile '$PROFILE' (use soak or smoke)" ;; esac
@@ -74,10 +84,21 @@ while [ "$stop" -eq 0 ]; do
 
   # timeout so a hung/deadlocked pass cannot stall the whole weekend.
   timeout "$ITER_TIMEOUT" $SUITE_CMD "$PROFILE" > "${ARCHIVE}/last-run.out" 2>&1
-  rc=$?
+  rc_suite=$?
+
+  # Burst phase: high-rate saved-rejected hunt (count-bounded so the hang guard
+  # can't kill a burst mid-run and read as a false catch). rc 0 = clean,
+  # 1 = caught, anything else (incl. 124 hang) = failure.
+  rc_burst=0
+  if [ "$BURST_COUNT" != "0" ] && [ "$stop" -eq 0 ]; then
+    kill_stray_servers
+    timeout "$BURST_MAXTIME" ${BURST_CMD:-./burst.sh} "$BURST_SCEN" "$BURST_MODE" "$BURST_OPS" "$BURST_COUNT" \
+      > "${ARCHIVE}/last-burst.out" 2>&1
+    rc_burst=$?
+  fi
 
   elapsed=$(( $(date +%s) - started ))
-  if [ "$rc" -eq 0 ]; then
+  if [ "$rc_suite" -eq 0 ] && [ "$rc_burst" -eq 0 ]; then
     passes=$((passes + 1))
     echo "[iter $iter] PASS in ${elapsed}s | $(tally)" | tee -a "$LOOP_LOG"
   else
@@ -87,8 +108,14 @@ while [ "$stop" -eq 0 ]; do
     cp -f "${ARCHIVE}/last-run.out" "${dst}/suite.out" 2>/dev/null || true
     cp -rf "$RESULTS_DIR" "${dst}/results" 2>/dev/null || true
     cp -f "$SERVER_LOG" "${dst}/server.log" 2>/dev/null || true
-    reason=$([ "$rc" -eq 124 ] && echo "TIMEOUT(${ITER_TIMEOUT})" || echo "rc=$rc")
-    echo "[iter $iter] FAIL $reason in ${elapsed}s -- evidence: $dst | $(tally)" | tee -a "$LOOP_LOG"
+    if [ "$rc_burst" -ne 0 ]; then
+      cp -f "${ARCHIVE}/last-burst.out" "${dst}/burst.out" 2>/dev/null || true
+      cp -rf "${RUN_DIR}/burst-archive" "${dst}/burst-archive" 2>/dev/null || true
+    fi
+    what=""
+    [ "$rc_suite" -ne 0 ] && what="suite($([ "$rc_suite" -eq 124 ] && echo TIMEOUT || echo "rc=$rc_suite"))"
+    [ "$rc_burst" -ne 0 ] && what="$what burst($([ "$rc_burst" -eq 1 ] && echo CAUGHT || echo "rc=$rc_burst"))"
+    echo "[iter $iter] FAIL$what in ${elapsed}s -- evidence: $dst | $(tally)" | tee -a "$LOOP_LOG"
   fi
 
   # Honor a Ctrl-C that arrived during the pass before starting the next one.

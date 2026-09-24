@@ -123,6 +123,22 @@ duplicates_of() {
   python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('Ledger',{}).get('CAS',{}).get('DuplicateMatches',0))" "$1" 2>/dev/null || echo "?"
 }
 
+# The suite restarts the server per group and server.sh truncates the log, so a
+# failing case's server-side trace is lost by the time the archive runs. Save a
+# BOUNDED, filtered copy per server-key (error/warn lines + a short tail) into
+# RESULTS_DIR so weekend-loop archives it -- without the gigabytes of info-level
+# command spam that could recreate the disk pressure that killed the first run.
+save_server_log() {
+  local key=$1 dst
+  dst="${RESULTS_DIR}/server-${key//[^A-Za-z0-9]/_}.log"
+  [ -f "$SERVER_LOG" ] || return 0
+  {
+    grep -aiE "level=(ERROR|WARN)|panic|fatal|not ancestor|ErrWriteRaced|reap|reconnect|taken over|idle past" "$SERVER_LOG" 2>/dev/null | head -50000
+    printf '\n--- last 2000 lines ---\n'
+    tail -n 2000 "$SERVER_LOG" 2>/dev/null
+  } > "$dst" 2>/dev/null || true
+}
+
 for spec in "${CASES[@]}"; do
   group=$(field "$spec" 1); name=$(field "$spec" 2); scenario=$(field "$spec" 3)
   mode=$(field "$spec" 4); payload=$(field "$spec" 5)
@@ -147,6 +163,7 @@ for spec in "${CASES[@]}"; do
   fi
   server_key="${want_server}:${session_timeout:-default}:${session_sweep_period:-default}"
   if [ "$server_key" != "$current_server" ]; then
+    [ -n "$current_server" ] && save_server_log "$current_server"   # before the restart truncates it
     log "=== switching server to $server_key for $group cases ==="
     SESSION_TIMEOUT=$session_timeout SESSION_SWEEP_PERIOD=$session_sweep_period \
       SKIP_BUILD=${SUITE_SERVER_BUILT:-0} ./server.sh start "$want_server" >/dev/null 2>&1 \
@@ -188,6 +205,7 @@ for spec in "${CASES[@]}"; do
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$name" "$scenario" "$mode" "$expect" "$verdict" "$result" "$dups" >> "$SUMMARY_TSV"
 done
 
+[ -n "$current_server" ] && save_server_log "$current_server"   # the last group's server
 ./server.sh stop >/dev/null 2>&1 || true
 
 echo
