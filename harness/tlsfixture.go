@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"net"
 	"os"
@@ -276,3 +277,71 @@ func (f *TLSFixture) ca(t *testing.T) (*x509.Certificate, *rsa.PrivateKey) {
 }
 
 func (f *TLSFixture) caKeyFile() string { return filepath.Join(f.Dir, "ca.key") }
+
+// RevocationListFor writes a CRL, signed by the fixture's CA, revoking the
+// certificates in the given PEM files.
+//
+// Revoking the fixture's own client certificate is the case worth testing:
+// a server with no revocation support at all serves it happily, so a test
+// that only checks an unrevoked certificate passes against a server that
+// cannot revoke anything.
+func RevocationListFor(t *testing.T, f *TLSFixture, revokedCertFiles ...string) string {
+	t.Helper()
+	caCert, caKey := f.ca(t)
+
+	entries := make([]x509.RevocationListEntry, 0, len(revokedCertFiles))
+	for _, path := range revokedCertFiles {
+		certPEM, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("RevocationListFor: reading %s: %v", path, err)
+		}
+		block, _ := pem.Decode(certPEM)
+		if block == nil {
+			t.Fatalf("RevocationListFor: %s is not valid PEM", path)
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			t.Fatalf("RevocationListFor: parsing %s: %v", path, err)
+		}
+		entries = append(entries, x509.RevocationListEntry{
+			SerialNumber:   cert.SerialNumber,
+			RevocationTime: time.Now().Add(-time.Hour),
+		})
+	}
+
+	template := &x509.RevocationList{
+		Number:                    serialNumber(t),
+		ThisUpdate:                time.Now().Add(-time.Hour),
+		NextUpdate:                time.Now().Add(24 * time.Hour),
+		RevokedCertificateEntries: entries,
+	}
+	der, err := x509.CreateRevocationList(rand.Reader, template, caCert, caKey)
+	if err != nil {
+		t.Fatalf("RevocationListFor: %v", err)
+	}
+	path := filepath.Join(f.Dir, fmt.Sprintf("crl-%d.pem", len(revokedCertFiles)))
+	writePEM(t, path, "X509 CRL", der)
+	return path
+}
+
+// ExpiredRevocationList writes a CRL whose own NextUpdate is in the past.
+//
+// A stale revocation list is its own question: a server may treat it as
+// unusable and refuse, or keep honouring it, and those have opposite security
+// consequences. mongod's answer is the one to match.
+func ExpiredRevocationList(t *testing.T, f *TLSFixture) string {
+	t.Helper()
+	caCert, caKey := f.ca(t)
+	template := &x509.RevocationList{
+		Number:     serialNumber(t),
+		ThisUpdate: time.Now().Add(-48 * time.Hour),
+		NextUpdate: time.Now().Add(-24 * time.Hour),
+	}
+	der, err := x509.CreateRevocationList(rand.Reader, template, caCert, caKey)
+	if err != nil {
+		t.Fatalf("ExpiredRevocationList: %v", err)
+	}
+	path := filepath.Join(f.Dir, "crl-expired.pem")
+	writePEM(t, path, "X509 CRL", der)
+	return path
+}

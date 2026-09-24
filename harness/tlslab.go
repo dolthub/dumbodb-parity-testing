@@ -18,7 +18,10 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
+	"io"
+	"net"
 	"os"
 	"os/exec"
 	"testing"
@@ -42,6 +45,14 @@ type TLSOptions struct {
 	// AllowConnectionsWithoutCertificates maps to mongod's flag of the same
 	// name: trust the CA but do not demand a client certificate.
 	AllowConnectionsWithoutCertificates bool
+
+	// CRLFile maps to --tlsCRLFile. Empty leaves revocation unconfigured,
+	// which is the state in which a revoked certificate still authenticates.
+	CRLFile string
+
+	// DisabledProtocols maps to --tlsDisabledProtocols, as mongod spells them:
+	// TLS1_0, TLS1_1, TLS1_2, TLS1_3.
+	DisabledProtocols string
 }
 
 // TLSServer is one server started with TLS, or one that refused to start.
@@ -80,9 +91,7 @@ func StartTLSDumboDB(t *testing.T, f *TLSFixture, opts TLSOptions) *TLSServer {
 		"--tlsCertificateKeyFile", f.orDefault(opts.CertificateKeyFile, f.ServerPEMFile),
 		"--tlsCAFile", f.orDefault(opts.CAFile, f.CAFile),
 	}
-	if opts.AllowConnectionsWithoutCertificates {
-		args = append(args, "--tlsAllowConnectionsWithoutCertificates")
-	}
+	args = append(args, optionalTLSArgs(opts)...)
 	return startTLSServer(t, f, bin, "dumbodb-tls", addr, dir, args)
 }
 
@@ -106,10 +115,24 @@ func StartTLSMongod(t *testing.T, f *TLSFixture, opts TLSOptions) *TLSServer {
 		"--tlsCertificateKeyFile", f.orDefault(opts.CertificateKeyFile, f.ServerPEMFile),
 		"--tlsCAFile", f.orDefault(opts.CAFile, f.CAFile),
 	}
+	args = append(args, optionalTLSArgs(opts)...)
+	return startTLSServer(t, f, bin, "mongod-tls", addr, dir, args)
+}
+
+// optionalTLSArgs renders the options both servers spell identically, which
+// is the point of comparing them: the same command line goes to each.
+func optionalTLSArgs(opts TLSOptions) []string {
+	var args []string
 	if opts.AllowConnectionsWithoutCertificates {
 		args = append(args, "--tlsAllowConnectionsWithoutCertificates")
 	}
-	return startTLSServer(t, f, bin, "mongod-tls", addr, dir, args)
+	if opts.CRLFile != "" {
+		args = append(args, "--tlsCRLFile", opts.CRLFile)
+	}
+	if opts.DisabledProtocols != "" {
+		args = append(args, "--tlsDisabledProtocols", opts.DisabledProtocols)
+	}
+	return args
 }
 
 func startTLSServer(t *testing.T, f *TLSFixture, bin, name, addr, dir string, args []string) *TLSServer {
@@ -204,6 +227,70 @@ func (s *TLSServer) Connect(ctx context.Context, t *testing.T, withClientCertifi
 		return nil, err
 	}
 	return client, nil
+}
+
+// ConnectWithVersion dials with the client pinned to exactly one TLS version,
+// which is the only way to learn what a server actually negotiates. Reading
+// the configuration back would just restate what was asked for.
+//
+// It returns the negotiated version so a caller can tell "refused" from
+// "quietly negotiated something else".
+func (s *TLSServer) ConnectWithVersion(t *testing.T, version uint16) (uint16, error) {
+	t.Helper()
+	if s.StartFailed {
+		t.Fatalf("cannot connect to %s: it never started", s.Addr)
+	}
+	pool := x509.NewCertPool()
+	caPEM, err := os.ReadFile(s.fixture.CAFile)
+	if err != nil {
+		t.Fatalf("reading CA: %v", err)
+	}
+	pool.AppendCertsFromPEM(caPEM)
+	cert, err := tls.LoadX509KeyPair(s.fixture.ClientCertFile, s.fixture.ClientKeyFile)
+	if err != nil {
+		t.Fatalf("loading client certificate: %v", err)
+	}
+
+	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	conn, err := tls.DialWithDialer(dialer, "tcp", s.Addr, &tls.Config{
+		RootCAs:      pool,
+		Certificates: []tls.Certificate{cert},
+		ServerName:   "127.0.0.1",
+		MinVersion:   version,
+		MaxVersion:   version,
+	})
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = conn.Close() }()
+	// Handshake completion is not acceptance under TLS 1.3, so read before
+	// believing it. The server rejects after the client is already done.
+	//
+	// The window is short on purpose. A rejection is an alert the server has
+	// already queued, so it arrives at once; silence means acceptance. Waiting
+	// ten seconds to hear nothing cost ten seconds on every successful
+	// connection, which is most of them.
+	_ = conn.SetDeadline(time.Now().Add(1500 * time.Millisecond))
+	state := conn.ConnectionState()
+	if _, err := conn.Write([]byte{0}); err != nil {
+		return state.Version, err
+	}
+	buf := make([]byte, 1)
+	if _, err := conn.Read(buf); err != nil && !isBenignReadError(err) {
+		return state.Version, err
+	}
+	return state.Version, nil
+}
+
+// isBenignReadError reports whether a read failure means the peer simply had
+// nothing to say, rather than that it rejected us. A server that accepted the
+// connection will not answer a junk byte with a protocol reply.
+func isBenignReadError(err error) bool {
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	return errors.Is(err, io.EOF)
 }
 
 // ConnectPlaintext dials without TLS at all, to prove the port does not serve
