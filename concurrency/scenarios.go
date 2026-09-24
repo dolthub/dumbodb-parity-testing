@@ -471,6 +471,14 @@ func (s *disjointSetScenario) Verify(ctx context.Context, collection Collection,
 		Passed: ledger.Matched == ledger.Attempts-ledger.Rejected-ledger.Indeterminate,
 		Detail: fmt.Sprintf("matched=%d attempts=%d rejected=%d indeterminate=%d", ledger.Matched, ledger.Attempts, ledger.Rejected, ledger.Indeterminate),
 	}}
+	// Each worker $sets its own field to a monotonically increasing sequence,
+	// so the stored value should equal that worker's last acknowledged (matched)
+	// sequence. stored > acknowledged means a write that was REJECTED to the
+	// client was nonetheless saved on the server -- a durable side effect of a
+	// failed write (workspace-1bk.9.8.8.1: "dataset head is not ancestor of
+	// commit"). NOTE: this only sees each worker's FINAL write; a saved-reject
+	// that a later write overwrote is invisible here. Run burst.sh to multiply
+	// the final-write checks and raise detection of this class.
 	for worker := range s.acknowledged {
 		want := s.acknowledged[worker].Load()
 		field := fmt.Sprintf("worker_%d", worker)
@@ -480,11 +488,15 @@ func (s *disjointSetScenario) Verify(ctx context.Context, collection Collection,
 		if want > 0 {
 			passed = present && numeric && got == want
 		}
+		detail := fmt.Sprintf("present=%t stored=%d acknowledged=%d", present, got, want)
+		if present && numeric && got > want {
+			detail += " -- a write rejected to the client was saved on the server"
+		}
 		checks = append(checks, Check{
 			Name:    field + "RetainsLastAcknowledgement",
 			Passed:  passed,
 			Skipped: ledger.Indeterminate > 0,
-			Detail:  fmt.Sprintf("present=%t stored=%d acknowledged=%d", present, got, want),
+			Detail:  detail,
 		})
 	}
 	checks = append(checks, Check{
