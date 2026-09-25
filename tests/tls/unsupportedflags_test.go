@@ -40,11 +40,11 @@ var implementedTLSFlags = map[string]bool{
 	"tlsCRLFile":                             true,
 	"tlsDisabledProtocols":                   true,
 	"tlsAllowConnectionsWithoutCertificates": true,
+	"tlsCertificateKeyFilePassword":          true,
 }
 
 func unsupportedFlagArgs(f *harness.TLSFixture) map[string][]string {
 	return map[string][]string{
-		"tlsCertificateKeyFilePassword":    {"--tlsCertificateKeyFilePassword", "hunter2"},
 		"tlsAllowInvalidCertificates":      {"--tlsAllowInvalidCertificates"},
 		"tlsAllowInvalidHostnames":         {"--tlsAllowInvalidHostnames"},
 		"tlsLogVersions":                   {"--tlsLogVersions", "TLS1_2"},

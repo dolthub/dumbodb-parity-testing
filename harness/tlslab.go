@@ -64,6 +64,13 @@ type TLSOptions struct {
 
 	// ExtraArgs are appended verbatim, for flags only one server has.
 	ExtraArgs []string
+
+	// Mode maps to --tlsMode. Empty means requireTLS, which is what almost
+	// every case here wants.
+	Mode string
+
+	// KeyPassword maps to --tlsCertificateKeyFilePassword.
+	KeyPassword string
 }
 
 // TLSServer is one server started with TLS, or one that refused to start.
@@ -98,7 +105,7 @@ func StartTLSDumboDB(t *testing.T, f *TLSFixture, opts TLSOptions) *TLSServer {
 	args := []string{
 		"--addr", addr,
 		"--data-dir", dir,
-		"--tlsMode", "requireTLS",
+		"--tlsMode", f.orDefault(opts.Mode, "requireTLS"),
 		"--tlsCertificateKeyFile", f.orDefault(opts.CertificateKeyFile, f.ServerPEMFile),
 	}
 	if !opts.NoCAFile {
@@ -124,7 +131,7 @@ func StartTLSMongod(t *testing.T, f *TLSFixture, opts TLSOptions) *TLSServer {
 		"--dbpath", dir,
 		"--bind_ip", "127.0.0.1",
 		"--nounixsocket",
-		"--tlsMode", "requireTLS",
+		"--tlsMode", f.orDefault(opts.Mode, "requireTLS"),
 		"--tlsCertificateKeyFile", f.orDefault(opts.CertificateKeyFile, f.ServerPEMFile),
 	}
 	if !opts.NoCAFile {
@@ -146,6 +153,9 @@ func optionalTLSArgs(opts TLSOptions) []string {
 	}
 	if opts.DisabledProtocols != "" {
 		args = append(args, "--tlsDisabledProtocols", opts.DisabledProtocols)
+	}
+	if opts.KeyPassword != "" {
+		args = append(args, "--tlsCertificateKeyFilePassword", opts.KeyPassword)
 	}
 	return append(args, opts.ExtraArgs...)
 }
