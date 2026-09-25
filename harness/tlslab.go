@@ -86,6 +86,11 @@ type TLSServer struct {
 	fixture *TLSFixture
 	proc    *serverProc
 	exited  chan struct{}
+
+	bin  string
+	name string
+	dir  string
+	args []string
 }
 
 // StartTLSDumboDB starts DumboDB with TLS on its only listening port.
@@ -166,7 +171,7 @@ func startTLSServer(t *testing.T, f *TLSFixture, bin, name, addr, dir string, ar
 	if err != nil {
 		t.Fatalf("launching %s: %v", name, err)
 	}
-	s := &TLSServer{Addr: addr, fixture: f, proc: proc}
+	s := &TLSServer{Addr: addr, fixture: f, proc: proc, bin: bin, name: name, dir: dir, args: args}
 
 	// Reap the process here rather than leaving it to serverProc.stop.
 	//
@@ -209,6 +214,45 @@ func startTLSServer(t *testing.T, f *TLSFixture, bin, name, addr, dir string, ar
 	return s
 }
 
+// Exited reports whether the process has already terminated, which
+// distinguishes a server that stopped accepting connections from one that
+// died. Signal 0 cannot tell those apart, since it succeeds against a zombie.
+func (s *TLSServer) Exited() bool {
+	if s.exited == nil {
+		return true
+	}
+	select {
+	case <-s.exited:
+		return true
+	default:
+		return false
+	}
+}
+
+// Restart stops the server and starts it again on the same address, data
+// directory and command line. Material named by that command line is read
+// afresh, which is the whole point: rotation is a file being replaced and a
+// process being restarted onto it.
+func (s *TLSServer) Restart(t *testing.T) *TLSServer {
+	t.Helper()
+	if s.proc != nil && s.proc.cmd.Process != nil {
+		_ = s.proc.cmd.Process.Kill()
+	}
+	if s.exited != nil {
+		<-s.exited
+	}
+	return startTLSServer(t, s.fixture, s.bin, s.name, s.Addr, s.dir, s.args)
+}
+
+// ConnectAs dials presenting client material from a different fixture, so a
+// test can ask what happens to a client whose certificate was signed by a CA
+// the server no longer trusts. The server is still verified against the
+// fixture it was started from.
+func (s *TLSServer) ConnectAs(ctx context.Context, t *testing.T, client *TLSFixture) (*mongo.Client, error) {
+	t.Helper()
+	return s.connectWith(ctx, t, client.ClientCertFile, client.ClientKeyFile)
+}
+
 // Connect dials the server over TLS. withClientCertificate decides whether the
 // client presents one, which is the difference the CA options govern.
 //
@@ -220,6 +264,17 @@ func (s *TLSServer) Connect(ctx context.Context, t *testing.T, withClientCertifi
 		t.Fatalf("cannot connect to %s: it never started", s.Addr)
 	}
 
+	if !withClientCertificate {
+		return s.connectWith(ctx, t, "", "")
+	}
+	return s.connectWith(ctx, t, s.fixture.ClientCertFile, s.fixture.ClientKeyFile)
+}
+
+func (s *TLSServer) connectWith(ctx context.Context, t *testing.T, certFile, keyFile string) (*mongo.Client, error) {
+	t.Helper()
+	if s.StartFailed {
+		t.Fatalf("cannot connect to %s: it never started", s.Addr)
+	}
 	pool := x509.NewCertPool()
 	caPEM, err := os.ReadFile(s.fixture.CAFile)
 	if err != nil {
@@ -228,8 +283,8 @@ func (s *TLSServer) Connect(ctx context.Context, t *testing.T, withClientCertifi
 	pool.AppendCertsFromPEM(caPEM)
 
 	config := &tls.Config{RootCAs: pool, ServerName: "127.0.0.1"}
-	if withClientCertificate {
-		cert, certErr := tls.LoadX509KeyPair(s.fixture.ClientCertFile, s.fixture.ClientKeyFile)
+	if certFile != "" {
+		cert, certErr := tls.LoadX509KeyPair(certFile, keyFile)
 		if certErr != nil {
 			t.Fatalf("loading client certificate: %v", certErr)
 		}

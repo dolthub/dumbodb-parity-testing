@@ -403,6 +403,11 @@ func (f *TLSFixture) leafPEM(t *testing.T, name, commonName string, notBefore, n
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		DNSNames:     dnsNames,
 	}
+	for _, name := range dnsNames {
+		if ip := net.ParseIP(name); ip != nil {
+			template.IPAddresses = append(template.IPAddresses, ip)
+		}
+	}
 	der, err := x509.CreateCertificate(rand.Reader, template, caCert, &key.PublicKey, caKey)
 	if err != nil {
 		t.Fatalf("%s: signing: %v", name, err)
@@ -498,4 +503,18 @@ func (f *TLSFixture) encryptedPEM(t *testing.T, name, password, form string) str
 		t.Fatalf("%s: %v", name, err)
 	}
 	return path
+}
+
+// ShortLivedPEM writes server material valid from a minute ago until lifetime
+// from now, at a caller-chosen path so it can be replaced later.
+//
+// A validity window measured in seconds is what makes expiry-while-running
+// testable at all. The alternative is moving the clock, which cannot be done
+// to one process on a shared machine.
+func ShortLivedPEM(t *testing.T, f *TLSFixture, name string, lifetime time.Duration) string {
+	t.Helper()
+	path := filepath.Join(f.Dir, name)
+	_ = os.Remove(path)
+	return f.leafPEM(t, name, "localhost",
+		time.Now().Add(-time.Minute), time.Now().Add(lifetime), []string{"localhost", "127.0.0.1"})
 }
