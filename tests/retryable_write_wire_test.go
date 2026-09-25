@@ -31,7 +31,11 @@ import (
 // 20) instead of silently applying the write -- which would break the
 // at-most-once contract retryable writes exist to provide.
 func TestRetryableWrite_standalone_rejects_txnNumber_wire(t *testing.T) {
-	runWireParity(t, "retryable_write_txnnumber_standalone", harness.DumboDBFull, harness.TopologyStandalone,
+	// Keep the name short: runWireParity derives the database name as
+	// parity_wire_<name>_<UnixNano>, and MongoDB rejects a database name over 63
+	// bytes with InvalidNamespace(73) before it ever evaluates txnNumber -- which
+	// would mask the behavior under test.
+	runWireParity(t, "retryable_txn", harness.DumboDBFull, harness.TopologyStandalone,
 		func(addr, dbName string) (interface{}, error) {
 			c, err := wire.Dial(addr)
 			if err != nil {
