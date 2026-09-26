@@ -1,0 +1,319 @@
+{
+  "Product": "DumboDB",
+  "Version": "8.0.28",
+  "Revision": "v0.6.3-44-gfcc433c",
+  "Scenario": "whole-document-convergent",
+  "StartedAt": "2026-09-17T21:57:43.969078714Z",
+  "FinishedAt": "2026-09-17T22:27:44.106914205Z",
+  "WorkloadStartedAt": "2026-09-17T21:57:44.004631584Z",
+  "WorkloadFinishedAt": "2026-09-17T22:27:44.106205848Z",
+  "FirstMatchedAt": "2026-09-17T21:57:44.020271942Z",
+  "LastMatchedAt": "2026-09-17T22:27:44.106199238Z",
+  "Ledger": {
+    "Attempts": 494508,
+    "Matched": 466078,
+    "NoMatch": 28306,
+    "Modified": 466078,
+    "Rejected": 124,
+    "Indeterminate": 0,
+    "Latency": {
+      "LessThan100us": 0,
+      "LessThan1ms": 0,
+      "LessThan10ms": 15,
+      "LessThan100ms": 34820,
+      "LessThan1s": 459673,
+      "AtLeast1s": 0
+    },
+    "ErrorSamples": [
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit",
+      "(InternalError) commitBranchWS: committing \"main\": dataset head is not ancestor of commit"
+    ],
+    "CAS": {
+      "MatchedEdges": 466078,
+      "DuplicateMatches": 449633,
+      "InvalidEdges": 0,
+      "HighestObserved": 16444,
+      "UniqueObserved": 16445,
+      "ObservedGenerationSlots": 16445,
+      "MatchedOperationWords": 7727,
+      "TrackerBytes": 341381,
+      "Findings": [
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 0,
+          "FirstSequence": 2,
+          "FirstWorker": 2,
+          "CompetingSequence": 5,
+          "CompetingWorker": 16
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 0,
+          "FirstSequence": 2,
+          "FirstWorker": 2,
+          "CompetingSequence": 7,
+          "CompetingWorker": 4
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 0,
+          "FirstSequence": 2,
+          "FirstWorker": 2,
+          "CompetingSequence": 4,
+          "CompetingWorker": 1
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 0,
+          "FirstSequence": 2,
+          "FirstWorker": 2,
+          "CompetingSequence": 6,
+          "CompetingWorker": 3
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 0,
+          "FirstSequence": 2,
+          "FirstWorker": 2,
+          "CompetingSequence": 3,
+          "CompetingWorker": 31
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 0,
+          "FirstSequence": 2,
+          "FirstWorker": 2,
+          "CompetingSequence": 1,
+          "CompetingWorker": 0
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 0,
+          "FirstSequence": 2,
+          "FirstWorker": 2,
+          "CompetingSequence": 8,
+          "CompetingWorker": 24
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 0,
+          "FirstSequence": 2,
+          "FirstWorker": 2,
+          "CompetingSequence": 10,
+          "CompetingWorker": 10
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 33,
+          "FirstWorker": 2,
+          "CompetingSequence": 38,
+          "CompetingWorker": 28
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 33,
+          "FirstWorker": 2,
+          "CompetingSequence": 34,
+          "CompetingWorker": 14
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 33,
+          "FirstWorker": 2,
+          "CompetingSequence": 37,
+          "CompetingWorker": 8
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 33,
+          "FirstWorker": 2,
+          "CompetingSequence": 39,
+          "CompetingWorker": 16
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 33,
+          "FirstWorker": 2,
+          "CompetingSequence": 35,
+          "CompetingWorker": 12
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 33,
+          "FirstWorker": 2,
+          "CompetingSequence": 36,
+          "CompetingWorker": 20
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 33,
+          "FirstWorker": 2,
+          "CompetingSequence": 43,
+          "CompetingWorker": 7
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 33,
+          "FirstWorker": 2,
+          "CompetingSequence": 41,
+          "CompetingWorker": 1
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 33,
+          "FirstWorker": 2,
+          "CompetingSequence": 44,
+          "CompetingWorker": 19
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 33,
+          "FirstWorker": 2,
+          "CompetingSequence": 42,
+          "CompetingWorker": 13
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 33,
+          "FirstWorker": 2,
+          "CompetingSequence": 40,
+          "CompetingWorker": 4
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 33,
+          "FirstWorker": 2,
+          "CompetingSequence": 45,
+          "CompetingWorker": 27
+        }
+      ]
+    }
+  },
+  "Checks": [
+    {
+      "Name": "wholeDocumentShapeIsValid",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "generation=16445 state=16445 payloadBytes=8192"
+    },
+    {
+      "Name": "storedVersionEqualsUniqueObservedChain",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "version=16445 uniqueObserved=16445 matched=466078"
+    },
+    {
+      "Name": "everyMatchModified",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "modified=466078 matched=466078"
+    },
+    {
+      "Name": "matchedEdgesAreSuccessive",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "edges=466078 invalid=0 matched=466078"
+    },
+    {
+      "Name": "observedGenerationsFormCompleteChain",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "highestObserved=16444 version=16445"
+    },
+    {
+      "Name": "convergentWholeDocumentIsExact",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "unexpectedFields=0"
+    },
+    {
+      "Name": "refusedCASReturnsNoMatch",
+      "Passed": false,
+      "Skipped": false,
+      "Detail": "rejected=124 noMatch=28306"
+    },
+    {
+      "Name": "everyConclusiveCASAttemptHasCommandResult",
+      "Passed": false,
+      "Skipped": false,
+      "Detail": "matched=466078 noMatch=28306 attempts=494508 indeterminate=0"
+    }
+  ],
+  "Config": {
+    "Target": "mongodb://127.0.0.1:27018",
+    "Duration": "30m0s",
+    "Operations": 0,
+    "Workers": 32,
+    "Seed": 1,
+    "Database": "conc_document_divergent_whole_convergent_30m",
+    "Collection": "documents",
+    "PayloadBytes": 8192,
+    "CASDelay": "0s",
+    "LatencyScope": "read-and-update",
+    "MergeMode": "documentDivergent"
+  },
+  "Statistics": {
+    "MatchRate": {
+      "Count": 466078,
+      "SampleSize": 494508,
+      "Rate": 0.9425085135124204,
+      "Lower95": 0.9418562769101159,
+      "Upper95": 0.9431538751398915
+    },
+    "NoMatchRate": {
+      "Count": 28306,
+      "SampleSize": 494508,
+      "Rate": 0.0572407322025124,
+      "Lower95": 0.056596702806901426,
+      "Upper95": 0.05789164046876764
+    },
+    "RejectedRate": {
+      "Count": 124,
+      "SampleSize": 494508,
+      "Rate": 0.0002507542850671779,
+      "Lower95": 0.0002103364522219552,
+      "Upper95": 0.0002989364057904159
+    },
+    "IndeterminateRate": {
+      "Count": 0,
+      "SampleSize": 494508,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.000007768183688709531
+    }
+  },
+  "Truncated": false,
+  "StopReason": "",
+  "RunError": "",
+  "Verdict": "failed"
+}

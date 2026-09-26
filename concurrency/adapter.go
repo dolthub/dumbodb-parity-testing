@@ -1,0 +1,174 @@
+// Copyright 2026 Dolthub, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package concurrency
+
+import (
+	"context"
+	"fmt"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+)
+
+type WriteResult struct {
+	Matched  int64
+	Modified int64
+}
+
+type Collection interface {
+	InsertOne(context.Context, interface{}) error
+	FindOne(context.Context, interface{}, interface{}) error
+	UpdateOne(context.Context, interface{}, interface{}) (WriteResult, error)
+}
+
+// BranchCollection exposes DumboDB branch operations to deterministic probes.
+type BranchCollection interface {
+	Collection
+	DeleteOne(context.Context, interface{}) (WriteResult, error)
+	AtDatabase(string) BranchCollection
+	DatabaseName() string
+	RunCommand(context.Context, string, interface{}) (bson.M, error)
+}
+
+type Target interface {
+	Ping(context.Context) error
+	Identity(context.Context) (ServerInfo, error)
+	Collection(database, collection string) Collection
+	DropDatabase(context.Context, string) error
+	Disconnect(context.Context) error
+}
+
+type mongoTarget struct {
+	client *mongo.Client
+}
+
+func connectMongoTarget(ctx context.Context, uri string) (Target, error) {
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+	if err != nil {
+		return nil, err
+	}
+	return &mongoTarget{client: client}, nil
+}
+
+func (t *mongoTarget) Ping(ctx context.Context) error {
+	return t.client.Ping(ctx, nil)
+}
+
+func (t *mongoTarget) Identity(ctx context.Context) (ServerInfo, error) {
+	var response bson.M
+	if err := t.client.Database("admin").RunCommand(ctx, bson.D{{Key: "buildInfo", Value: 1}}).Decode(&response); err != nil {
+		return ServerInfo{}, fmt.Errorf("buildInfo: %w", err)
+	}
+	version, _ := response["version"].(string)
+	if version == "" {
+		return ServerInfo{}, fmt.Errorf("buildInfo did not return a version")
+	}
+	revision, _ := response["gitVersion"].(string)
+	return ServerInfo{Product: productFromBuildInfo(response), Version: version, Revision: revision}, nil
+}
+
+func productFromBuildInfo(response bson.M) string {
+	engines, _ := response["storageEngines"].(primitive.A)
+	for _, engine := range engines {
+		if engine == "dolt" {
+			return "DumboDB"
+		}
+	}
+	return "MongoDB"
+}
+
+func (t *mongoTarget) Collection(database, collection string) Collection {
+	return mongoCollection{client: t.client, database: database, collection: collection}
+}
+
+func (t *mongoTarget) CreateCollection(ctx context.Context, database, collection, mergeMode string) (Collection, error) {
+	if err := t.client.Database(database).RunCommand(ctx, mergeModeCreateCommand(collection, mergeMode)).Err(); err != nil {
+		return nil, err
+	}
+	return t.Collection(database, collection), nil
+}
+
+func mergeModeCreateCommand(collection, mergeMode string) bson.D {
+	return bson.D{
+		{Key: "create", Value: collection},
+		{Key: "mergeMode", Value: mergeMode},
+	}
+}
+
+func (t *mongoTarget) DropDatabase(ctx context.Context, database string) error {
+	return t.client.Database(database).Drop(ctx)
+}
+
+func (t *mongoTarget) Disconnect(ctx context.Context) error {
+	return t.client.Disconnect(ctx)
+}
+
+type mongoCollection struct {
+	client     *mongo.Client
+	database   string
+	collection string
+}
+
+func (c mongoCollection) InsertOne(ctx context.Context, document interface{}) error {
+	_, err := c.mongoCollection().InsertOne(ctx, document)
+	return err
+}
+
+func (c mongoCollection) FindOne(ctx context.Context, filter interface{}, result interface{}) error {
+	return c.mongoCollection().FindOne(ctx, filter).Decode(result)
+}
+
+func (c mongoCollection) UpdateOne(ctx context.Context, filter, update interface{}) (WriteResult, error) {
+	result, err := c.mongoCollection().UpdateOne(ctx, filter, update)
+	if err != nil {
+		return WriteResult{}, err
+	}
+	return WriteResult{Matched: result.MatchedCount, Modified: result.ModifiedCount}, nil
+}
+
+func (c mongoCollection) DeleteOne(ctx context.Context, filter interface{}) (WriteResult, error) {
+	result, err := c.mongoCollection().DeleteOne(ctx, filter)
+	if err != nil {
+		return WriteResult{}, err
+	}
+	return WriteResult{Matched: result.DeletedCount, Modified: result.DeletedCount}, nil
+}
+
+func (c mongoCollection) AtDatabase(database string) BranchCollection {
+	return mongoCollection{client: c.client, database: database, collection: c.collection}
+}
+
+func (c mongoCollection) DatabaseName() string {
+	return c.database
+}
+
+func (c mongoCollection) RunCommand(ctx context.Context, database string, command interface{}) (bson.M, error) {
+	result := c.client.Database(database).RunCommand(ctx, command)
+	raw, commandErr := result.Raw()
+	if raw == nil {
+		return nil, commandErr
+	}
+	var response bson.M
+	if err := bson.Unmarshal(raw, &response); err != nil {
+		return nil, err
+	}
+	return response, commandErr
+}
+
+func (c mongoCollection) mongoCollection() *mongo.Collection {
+	return c.client.Database(c.database).Collection(c.collection)
+}

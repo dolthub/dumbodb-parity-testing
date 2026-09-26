@@ -1,0 +1,109 @@
+{
+  "Product": "DumboDB",
+  "Version": "8.0.28",
+  "Revision": "v0.6.3-44-gfcc433c",
+  "Scenario": "document-divergent-matrix-modify-delete",
+  "StartedAt": "2026-09-17T21:57:17.331776845Z",
+  "FinishedAt": "2026-09-17T21:57:17.396141201Z",
+  "WorkloadStartedAt": "2026-09-17T21:57:17.390841486Z",
+  "WorkloadFinishedAt": "2026-09-17T21:57:17.395140091Z",
+  "FirstMatchedAt": "0001-01-01T00:00:00Z",
+  "LastMatchedAt": "0001-01-01T00:00:00Z",
+  "Ledger": {
+    "Attempts": 1,
+    "Matched": 0,
+    "NoMatch": 0,
+    "Modified": 0,
+    "Rejected": 1,
+    "Indeterminate": 0,
+    "Latency": {
+      "LessThan100us": 0,
+      "LessThan1ms": 0,
+      "LessThan10ms": 1,
+      "LessThan100ms": 0,
+      "LessThan1s": 0,
+      "AtLeast1s": 0
+    },
+    "ErrorSamples": [
+      "dumboMerge: unresolved conflicts in 1 collection(s)"
+    ],
+    "CAS": {
+      "MatchedEdges": 0,
+      "DuplicateMatches": 0,
+      "InvalidEdges": 0,
+      "HighestObserved": 0,
+      "UniqueObserved": 0,
+      "ObservedGenerationSlots": 0,
+      "MatchedOperationWords": 0,
+      "TrackerBytes": 0,
+      "Findings": null
+    }
+  },
+  "Checks": [
+    {
+      "Name": "mergeVerdictMatchesMode",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "mode=documentDivergent row=modify-delete conflict=true expected=true error=dumboMerge: unresolved conflicts in 1 collection(s)"
+    },
+    {
+      "Name": "finalStateMatchesMode",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "mode=documentDivergent row=modify-delete absent=true document=map[] expected=map[]"
+    },
+    {
+      "Name": "expectedConflictIsRecorded",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "row=modify-delete conflicts=1"
+    }
+  ],
+  "Config": {
+    "Target": "mongodb://127.0.0.1:27018",
+    "Duration": "30m0s",
+    "Operations": 1,
+    "Workers": 1,
+    "Seed": 1,
+    "Database": "dd_matrix_oob_modify_delete",
+    "Collection": "documents",
+    "PayloadBytes": 8192,
+    "CASDelay": "0s",
+    "LatencyScope": "update",
+    "MergeMode": "documentDivergent"
+  },
+  "Statistics": {
+    "MatchRate": {
+      "Count": 0,
+      "SampleSize": 1,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.7934506856227626
+    },
+    "NoMatchRate": {
+      "Count": 0,
+      "SampleSize": 1,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.7934506856227626
+    },
+    "RejectedRate": {
+      "Count": 1,
+      "SampleSize": 1,
+      "Rate": 1,
+      "Lower95": 0.20654931437723745,
+      "Upper95": 1
+    },
+    "IndeterminateRate": {
+      "Count": 0,
+      "SampleSize": 1,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.7934506856227626
+    }
+  },
+  "Truncated": false,
+  "StopReason": "",
+  "RunError": "",
+  "Verdict": "conclusivePass"
+}

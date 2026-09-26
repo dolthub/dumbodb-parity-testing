@@ -1,0 +1,141 @@
+{
+  "Product": "DumboDB",
+  "Version": "8.0.28",
+  "Revision": "v0.6.3-44-gfcc433c",
+  "Scenario": "cas",
+  "StartedAt": "2026-09-17T22:29:09.169451759Z",
+  "FinishedAt": "2026-09-17T22:59:09.223124853Z",
+  "WorkloadStartedAt": "2026-09-17T22:29:09.203179961Z",
+  "WorkloadFinishedAt": "2026-09-17T22:59:09.221802449Z",
+  "FirstMatchedAt": "2026-09-17T22:29:09.218133988Z",
+  "LastMatchedAt": "2026-09-17T22:59:09.214525183Z",
+  "Ledger": {
+    "Attempts": 1789645,
+    "Matched": 88782,
+    "NoMatch": 1700860,
+    "Modified": 88782,
+    "Rejected": 3,
+    "Indeterminate": 0,
+    "Latency": {
+      "LessThan100us": 0,
+      "LessThan1ms": 0,
+      "LessThan10ms": 773,
+      "LessThan100ms": 1780880,
+      "LessThan1s": 7992,
+      "AtLeast1s": 0
+    },
+    "ErrorSamples": [
+      "(ErrorCode(251)) Transaction has been aborted because the session was idle past the configured timeout.",
+      "(ErrorCode(251)) Transaction has been aborted because the session was idle past the configured timeout.",
+      "(ErrorCode(251)) Transaction has been aborted because the session was idle past the configured timeout."
+    ],
+    "CAS": {
+      "MatchedEdges": 88782,
+      "DuplicateMatches": 0,
+      "InvalidEdges": 0,
+      "HighestObserved": 88781,
+      "UniqueObserved": 88782,
+      "ObservedGenerationSlots": 88782,
+      "MatchedOperationWords": 27964,
+      "TrackerBytes": 1733006,
+      "Findings": null
+    }
+  },
+  "Checks": [
+    {
+      "Name": "storedVersionEqualsMatched",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "version=88782 matched=88782"
+    },
+    {
+      "Name": "everyMatchModified",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "modified=88782 matched=88782"
+    },
+    {
+      "Name": "oneMatchPerObservedGeneration",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "duplicateMatches=0"
+    },
+    {
+      "Name": "matchedEdgesAreSuccessive",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "edges=88782 invalid=0 matched=88782"
+    },
+    {
+      "Name": "matchedEdgesFormCompleteChain",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "highestObserved=88781 version=88782"
+    },
+    {
+      "Name": "refusedCASReturnsNoMatch",
+      "Passed": false,
+      "Skipped": false,
+      "Detail": "rejected=3 noMatch=1700860"
+    },
+    {
+      "Name": "everyConclusiveCASAttemptHasCommandResult",
+      "Passed": false,
+      "Skipped": false,
+      "Detail": "matched=88782 noMatch=1700860 attempts=1789645 indeterminate=0"
+    },
+    {
+      "Name": "payloadRetained",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "payloadBytes=8192"
+    }
+  ],
+  "Config": {
+    "Target": "mongodb://127.0.0.1:27018",
+    "Duration": "30m0s",
+    "Operations": 0,
+    "Workers": 32,
+    "Seed": 1,
+    "Database": "conc_document_touched_cas_30m",
+    "Collection": "documents",
+    "PayloadBytes": 8192,
+    "CASDelay": "0s",
+    "LatencyScope": "read-and-update",
+    "MergeMode": "documentTouched"
+  },
+  "Statistics": {
+    "MatchRate": {
+      "Count": 88782,
+      "SampleSize": 1789645,
+      "Rate": 0.049608721282712494,
+      "Lower95": 0.04929156405098959,
+      "Upper95": 0.049927812032911544
+    },
+    "NoMatchRate": {
+      "Count": 1700860,
+      "SampleSize": 1789645,
+      "Rate": 0.9503896024071813,
+      "Lower95": 0.9500705065664383,
+      "Upper95": 0.9507067647366445
+    },
+    "RejectedRate": {
+      "Count": 3,
+      "SampleSize": 1789645,
+      "Rate": 0.0000016763101061942452,
+      "Lower95": 5.700968710508673e-7,
+      "Upper95": 0.000004929003618781498
+    },
+    "IndeterminateRate": {
+      "Count": 0,
+      "SampleSize": 1789645,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.0000021464874738011647
+    }
+  },
+  "Truncated": false,
+  "StopReason": "",
+  "RunError": "",
+  "Verdict": "failed"
+}

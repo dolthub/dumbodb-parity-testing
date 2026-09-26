@@ -951,9 +951,11 @@ func TestAdvancedQuery_JsonSchema_NoMatch(t *testing.T) {
 				{Key: "properties", Value: bson.D{
 					{Key: "age", Value: bson.D{{Key: "bsonType", Value: bson.A{"int", "string"}}}},
 				}},
-				{Key: "required", Value: bson.A{"age"}},
-				// field 'nonexistent' required → nothing matches
-				{Key: "required", Value: bson.A{"nonexistent_field_xyz"}},
+				// Require a field no document has -> nothing matches. This must be
+				// a single 'required' key: two would be a duplicate BSON key, which
+				// both servers reject as FailedToParse (different wording) rather
+				// than evaluating the schema.
+				{Key: "required", Value: bson.A{"age", "nonexistent_field_xyz"}},
 			}}}
 			return col.CountDocuments(ctx, schema)
 		},
