@@ -165,18 +165,22 @@ func (b *DumboDBBackend) Merge(ctx context.Context, fromBranch string) (time.Dur
 	return dur, nil
 }
 
-// StorageBytes runs dumboGC to collect unreferenced chunks, then measures
-// the on-disk size of this database's directory. Mirrors DoltBackend's
-// CALL DOLT_GC() step so the size measurement compares post-GC stores
-// on both sides. Default mode (no full compaction) for parity with
-// dolt's CALL DOLT_GC() which also runs default mode.
+// StorageBytes runs dumboGC to collect unreferenced chunks, then measures the
+// on-disk size of this database's directory -- to a fixpoint (see
+// settledDirBytes), so a store that has not settled at the first measurement
+// does not read ~2x larger and flake the budgets (workspace-5fs). Default GC
+// mode, kept for parity with DoltBackend's CALL DOLT_GC(), which also runs
+// default mode.
 func (b *DumboDBBackend) StorageBytes(ctx context.Context) (int64, error) {
-	if err := b.client.Database(b.encodedDB()).RunCommand(ctx, bson.D{
-		{Key: "dumboGC", Value: 1},
-	}).Err(); err != nil {
-		return 0, fmt.Errorf("dumbodb gc: %w", err)
-	}
-	return dirBytes(filepath.Join(b.dataDir, b.dbName))
+	dir := filepath.Join(b.dataDir, b.dbName)
+	return settledDirBytes(4, "dumbodb", func() error {
+		if err := b.client.Database(b.encodedDB()).RunCommand(ctx, bson.D{
+			{Key: "dumboGC", Value: 1},
+		}).Err(); err != nil {
+			return fmt.Errorf("dumbodb gc: %w", err)
+		}
+		return nil
+	}, dir)
 }
 
 func (b *DumboDBBackend) Close() error {
