@@ -1,0 +1,123 @@
+{
+  "Product": "DumboDB",
+  "Version": "8.0.28",
+  "Revision": "f5cbcf347ef30ada9eb842cdde0e6ff6301e0b99",
+  "Scenario": "divergent-cas",
+  "StartedAt": "2026-09-16T08:59:37.684089407Z",
+  "FinishedAt": "2026-09-16T08:59:39.264941158Z",
+  "WorkloadStartedAt": "2026-09-16T08:59:37.710546561Z",
+  "WorkloadFinishedAt": "2026-09-16T08:59:39.264355832Z",
+  "Ledger": {
+    "Attempts": 1000,
+    "Matched": 108,
+    "NoMatch": 892,
+    "Modified": 108,
+    "Rejected": 0,
+    "Indeterminate": 0,
+    "Latency": {
+      "LessThan100us": 0,
+      "LessThan1ms": 0,
+      "LessThan10ms": 7,
+      "LessThan100ms": 993,
+      "LessThan1s": 0,
+      "AtLeast1s": 0
+    },
+    "ErrorSamples": null,
+    "CAS": {
+      "MatchedEdges": 108,
+      "DuplicateMatches": 0,
+      "InvalidEdges": 0,
+      "HighestObserved": 107,
+      "UniqueObserved": 108,
+      "ObservedGenerationSlots": 108,
+      "MatchedOperationWords": 16,
+      "TrackerBytes": 1964,
+      "Findings": null
+    }
+  },
+  "Checks": [
+    {
+      "Name": "storedVersionEqualsMatched",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "version=108 matched=108"
+    },
+    {
+      "Name": "everyMatchModified",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "modified=108 matched=108"
+    },
+    {
+      "Name": "oneMatchPerObservedGeneration",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "duplicateMatches=0"
+    },
+    {
+      "Name": "matchedEdgesAreSuccessive",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "edges=108 invalid=0 matched=108"
+    },
+    {
+      "Name": "matchedEdgesFormCompleteChain",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "highestObserved=107 version=108"
+    },
+    {
+      "Name": "finalValueBelongsToAcceptedOperation",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "value=995 attempts=1000"
+    }
+  ],
+  "Config": {
+    "Target": "mongodb://127.0.0.1:27075",
+    "Duration": "30m0s",
+    "Operations": 1000,
+    "Workers": 16,
+    "Seed": 1,
+    "Database": "fd_divergent_cas_0",
+    "Collection": "documents",
+    "PayloadBytes": 0,
+    "CASDelay": "0s",
+    "LatencyScope": "update",
+    "MergeMode": "fieldDivergent"
+  },
+  "Statistics": {
+    "MatchRate": {
+      "Count": 108,
+      "SampleSize": 1000,
+      "Rate": 0.108,
+      "Lower95": 0.09024119856255189,
+      "Upper95": 0.12875898009012332
+    },
+    "NoMatchRate": {
+      "Count": 892,
+      "SampleSize": 1000,
+      "Rate": 0.892,
+      "Lower95": 0.8712410199098767,
+      "Upper95": 0.9097588014374481
+    },
+    "RejectedRate": {
+      "Count": 0,
+      "SampleSize": 1000,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.0038267584855551234
+    },
+    "IndeterminateRate": {
+      "Count": 0,
+      "SampleSize": 1000,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.0038267584855551234
+    }
+  },
+  "Truncated": false,
+  "StopReason": "",
+  "RunError": "",
+  "Verdict": "conclusivePass"
+}

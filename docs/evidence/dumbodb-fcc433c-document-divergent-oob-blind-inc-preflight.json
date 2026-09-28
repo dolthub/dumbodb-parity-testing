@@ -1,0 +1,113 @@
+{
+  "Product": "DumboDB",
+  "Version": "8.0.28",
+  "Revision": "v0.6.3-44-gfcc433c",
+  "Scenario": "blind-inc",
+  "StartedAt": "2026-09-17T21:56:28.162233878Z",
+  "FinishedAt": "2026-09-17T21:56:32.352533746Z",
+  "WorkloadStartedAt": "2026-09-17T21:56:28.197968221Z",
+  "WorkloadFinishedAt": "2026-09-17T21:56:32.351263523Z",
+  "FirstMatchedAt": "2026-09-17T21:56:28.207314768Z",
+  "LastMatchedAt": "2026-09-17T21:56:32.351253973Z",
+  "Ledger": {
+    "Attempts": 1000,
+    "Matched": 1000,
+    "NoMatch": 0,
+    "Modified": 1000,
+    "Rejected": 0,
+    "Indeterminate": 0,
+    "Latency": {
+      "LessThan100us": 0,
+      "LessThan1ms": 0,
+      "LessThan10ms": 1,
+      "LessThan100ms": 888,
+      "LessThan1s": 111,
+      "AtLeast1s": 0
+    },
+    "ErrorSamples": null,
+    "CAS": {
+      "MatchedEdges": 0,
+      "DuplicateMatches": 0,
+      "InvalidEdges": 0,
+      "HighestObserved": 0,
+      "UniqueObserved": 0,
+      "ObservedGenerationSlots": 0,
+      "MatchedOperationWords": 0,
+      "TrackerBytes": 0,
+      "Findings": null
+    }
+  },
+  "Checks": [
+    {
+      "Name": "storedVersionDoesNotExceedMatched",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "version=85 matched=1000 coalesced=915"
+    },
+    {
+      "Name": "everyMatchModified",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "modified=1000 matched=1000"
+    },
+    {
+      "Name": "allAcknowledgedWritesMatched",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "matched=1000 attempts=1000 rejected=0 indeterminate=0"
+    },
+    {
+      "Name": "payloadRetained",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "payloadBytes=8192"
+    }
+  ],
+  "Config": {
+    "Target": "mongodb://127.0.0.1:27018",
+    "Duration": "30m0s",
+    "Operations": 1000,
+    "Workers": 16,
+    "Seed": 1,
+    "Database": "dd_oob_blind_inc",
+    "Collection": "documents",
+    "PayloadBytes": 8192,
+    "CASDelay": "0s",
+    "LatencyScope": "update",
+    "MergeMode": "documentDivergent"
+  },
+  "Statistics": {
+    "MatchRate": {
+      "Count": 1000,
+      "SampleSize": 1000,
+      "Rate": 1,
+      "Lower95": 0.996173241514445,
+      "Upper95": 1
+    },
+    "NoMatchRate": {
+      "Count": 0,
+      "SampleSize": 1000,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.0038267584855551234
+    },
+    "RejectedRate": {
+      "Count": 0,
+      "SampleSize": 1000,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.0038267584855551234
+    },
+    "IndeterminateRate": {
+      "Count": 0,
+      "SampleSize": 1000,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.0038267584855551234
+    }
+  },
+  "Truncated": false,
+  "StopReason": "",
+  "RunError": "",
+  "Verdict": "conclusivePass"
+}

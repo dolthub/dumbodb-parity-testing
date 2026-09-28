@@ -1,0 +1,266 @@
+{
+  "Product": "DumboDB",
+  "Version": "8.0.28",
+  "Revision": "7b226dac4ef1fe10ca90818a446a7cec6b458cd3",
+  "Scenario": "cas",
+  "StartedAt": "2026-09-08T00:53:21.375141858Z",
+  "FinishedAt": "2026-09-08T01:24:17.128488475Z",
+  "WorkloadStartedAt": "2026-09-08T00:53:21.403604456Z",
+  "WorkloadFinishedAt": "2026-09-08T01:23:47.12779408Z",
+  "Ledger": {
+    "Attempts": 12146,
+    "Matched": 7504,
+    "NoMatch": 2692,
+    "Modified": 7504,
+    "Rejected": 0,
+    "Indeterminate": 1950,
+    "Latency": {
+      "LessThan100us": 0,
+      "LessThan1ms": 0,
+      "LessThan10ms": 21,
+      "LessThan100ms": 6082,
+      "LessThan1s": 4123,
+      "AtLeast1s": 1920
+    },
+    "ErrorSamples": [
+      "connection(127.0.0.1:27018[-19]) socket was unexpectedly closed: EOF",
+      "connection(127.0.0.1:27018[-21]) socket was unexpectedly closed: EOF",
+      "connection(127.0.0.1:27018[-22]) socket was unexpectedly closed: EOF",
+      "connection(127.0.0.1:27018[-15]) socket was unexpectedly closed: EOF",
+      "connection(127.0.0.1:27018[-13]) socket was unexpectedly closed: EOF",
+      "connection(127.0.0.1:27018[-33]) socket was unexpectedly closed: EOF",
+      "connection(127.0.0.1:27018[-9]) socket was unexpectedly closed: EOF",
+      "connection(127.0.0.1:27018[-8]) socket was unexpectedly closed: EOF",
+      "connection(127.0.0.1:27018[-5]) socket was unexpectedly closed: EOF",
+      "connection(127.0.0.1:27018[-11]) socket was unexpectedly closed: EOF",
+      "connection(127.0.0.1:27018[-4]) socket was unexpectedly closed: EOF",
+      "connection(127.0.0.1:27018[-20]) socket was unexpectedly closed: EOF",
+      "connection(127.0.0.1:27018[-34]) socket was unexpectedly closed: EOF",
+      "connection(127.0.0.1:27018[-16]) socket was unexpectedly closed: EOF",
+      "connection(127.0.0.1:27018[-3]) socket was unexpectedly closed: EOF",
+      "connection(127.0.0.1:27018[-18]) socket was unexpectedly closed: EOF",
+      "connection(127.0.0.1:27018[-10]) socket was unexpectedly closed: EOF",
+      "connection(127.0.0.1:27018[-12]) socket was unexpectedly closed: EOF",
+      "connection(127.0.0.1:27018[-6]) socket was unexpectedly closed: EOF",
+      "connection(127.0.0.1:27018[-7]) socket was unexpectedly closed: EOF"
+    ],
+    "CAS": {
+      "MatchedEdges": 7504,
+      "DuplicateMatches": 7184,
+      "InvalidEdges": 0,
+      "HighestObserved": 319,
+      "ObservedGenerationSlots": 320,
+      "MatchedOperationWords": 160,
+      "TrackerBytes": 6720,
+      "Findings": [
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 0,
+          "FirstSequence": 2,
+          "FirstWorker": 0,
+          "CompetingSequence": 1,
+          "CompetingWorker": 3
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 21,
+          "FirstWorker": 11,
+          "CompetingSequence": 27,
+          "CompetingWorker": 28
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 21,
+          "FirstWorker": 11,
+          "CompetingSequence": 36,
+          "CompetingWorker": 20
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 21,
+          "FirstWorker": 11,
+          "CompetingSequence": 37,
+          "CompetingWorker": 3
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 21,
+          "FirstWorker": 11,
+          "CompetingSequence": 40,
+          "CompetingWorker": 1
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 21,
+          "FirstWorker": 11,
+          "CompetingSequence": 39,
+          "CompetingWorker": 18
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 21,
+          "FirstWorker": 11,
+          "CompetingSequence": 33,
+          "CompetingWorker": 0
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 21,
+          "FirstWorker": 11,
+          "CompetingSequence": 34,
+          "CompetingWorker": 5
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 21,
+          "FirstWorker": 11,
+          "CompetingSequence": 35,
+          "CompetingWorker": 29
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 21,
+          "FirstWorker": 11,
+          "CompetingSequence": 43,
+          "CompetingWorker": 27
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 21,
+          "FirstWorker": 11,
+          "CompetingSequence": 38,
+          "CompetingWorker": 17
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 21,
+          "FirstWorker": 11,
+          "CompetingSequence": 45,
+          "CompetingWorker": 2
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 21,
+          "FirstWorker": 11,
+          "CompetingSequence": 44,
+          "CompetingWorker": 24
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 1,
+          "FirstSequence": 21,
+          "FirstWorker": 11,
+          "CompetingSequence": 41,
+          "CompetingWorker": 26
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 2,
+          "FirstSequence": 68,
+          "FirstWorker": 8,
+          "CompetingSequence": 65,
+          "CompetingWorker": 28
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 2,
+          "FirstSequence": 68,
+          "FirstWorker": 8,
+          "CompetingSequence": 69,
+          "CompetingWorker": 31
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 2,
+          "FirstSequence": 68,
+          "FirstWorker": 8,
+          "CompetingSequence": 67,
+          "CompetingWorker": 22
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 2,
+          "FirstSequence": 68,
+          "FirstWorker": 8,
+          "CompetingSequence": 63,
+          "CompetingWorker": 11
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 2,
+          "FirstSequence": 68,
+          "FirstWorker": 8,
+          "CompetingSequence": 66,
+          "CompetingWorker": 13
+        },
+        {
+          "Reason": "duplicateMatch",
+          "ObservedGeneration": 2,
+          "FirstSequence": 68,
+          "FirstWorker": 8,
+          "CompetingSequence": 71,
+          "CompetingWorker": 19
+        }
+      ]
+    }
+  },
+  "Checks": null,
+  "Config": {
+    "Target": "mongodb://127.0.0.1:27018",
+    "Duration": "30m0s",
+    "Operations": 0,
+    "Workers": 32,
+    "Seed": 1,
+    "Database": "dumbo_cas_current_30m_20260908",
+    "Collection": "documents",
+    "PayloadBytes": 0,
+    "CASDelay": "0s",
+    "LatencyScope": "read-and-update"
+  },
+  "Statistics": {
+    "MatchRate": {
+      "Count": 7504,
+      "SampleSize": 12146,
+      "Rate": 0.6178165651243208,
+      "Lower95": 0.6091389409545144,
+      "Upper95": 0.6264196883247352
+    },
+    "NoMatchRate": {
+      "Count": 2692,
+      "SampleSize": 12146,
+      "Rate": 0.2216367528404413,
+      "Lower95": 0.2143388257201446,
+      "Upper95": 0.22911070216724697
+    },
+    "RejectedRate": {
+      "Count": 0,
+      "SampleSize": 12146,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.00031617357590335094
+    },
+    "IndeterminateRate": {
+      "Count": 1950,
+      "SampleSize": 12146,
+      "Rate": 0.16054668203523795,
+      "Lower95": 0.15412540279631362,
+      "Upper95": 0.16718261361294864
+    }
+  },
+  "Truncated": false,
+  "StopReason": "",
+  "RunError": "verify cas: server selection error: server selection timeout, current topology: { Type: Single, Servers: [{ Addr: 127.0.0.1:27018, Type: Unknown, Last error: dial tcp 127.0.0.1:27018: connect: connection refused }, ] }",
+  "Verdict": "failed"
+}

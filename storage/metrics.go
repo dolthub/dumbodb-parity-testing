@@ -17,6 +17,7 @@ package storage
 import (
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -40,6 +41,70 @@ func dirBytes(root string) (int64, error) {
 		return nil
 	})
 	return total, err
+}
+
+// logStorageDiag logs, via t.Logf so it always surfaces in `go test -json`, the
+// GC-reported logical chunk-store size next to the measured on-disk directory
+// size. dir/gc ~= 1 means the on-disk size tracks the logical store, so a
+// run-to-run size difference is a real (logical) difference; dir/gc >> 1 means
+// the directory holds bytes the chunk store does not (leftover table files /
+// journal -- on-disk cruft). Backends that do not expose LastGCStats are skipped.
+func logStorageDiag(t *testing.T, b Backend, n int, dirBytes int64) {
+	t.Helper()
+	p, ok := b.(interface {
+		LastGCStats() (int64, int64, bool)
+	})
+	if !ok {
+		return
+	}
+	sizeAfter, chunks, ok := p.LastGCStats()
+	if !ok || sizeAfter <= 0 {
+		return
+	}
+	t.Logf("[storage-diag] %s n=%d dirBytes=%d gcSizeAfter=%d chunksAfter=%d dir/gc=%.3f",
+		b.Name(), n, dirBytes, sizeAfter, chunks, float64(dirBytes)/float64(sizeAfter))
+}
+
+// settledDirBytes measures the on-disk size of dir after garbage collection,
+// re-running gc + measurement until a further pass no longer meaningfully
+// shrinks the store (a fixpoint) or maxPasses is reached. A single GC + walk can
+// catch a store that has not settled -- an incomplete collection or in-progress
+// compaction under load leaves extra bytes on disk -- which is the most likely
+// cause of the ~2x run-to-run swing that flaked the storage-budget tests
+// (workspace-5fs). Reporting the smallest size a further GC cannot beat gives the
+// settled, meaningful number. In the common case the store is already settled and
+// this returns after the second, confirming pass; it logs to stderr when it needs
+// more (or fails to settle), so a recurrence is diagnosable. It does NOT change
+// the GC mode -- the default sweep, kept for parity with the Dolt baseline.
+func settledDirBytes(maxPasses int, label string, gc func() error, dir string) (int64, error) {
+	prev := int64(-1)
+	for pass := 0; pass < maxPasses; pass++ {
+		if err := gc(); err != nil {
+			return 0, err
+		}
+		cur, err := dirBytes(dir)
+		if err != nil {
+			return 0, err
+		}
+		if prev >= 0 {
+			tol := prev / 1000
+			if tol < 64 {
+				tol = 64
+			}
+			if cur >= prev-tol { // no meaningful further shrink -> settled
+				if cur < prev {
+					prev = cur
+				}
+				if pass > 1 {
+					fmt.Fprintf(os.Stderr, "settledDirBytes(%s): settled at %d bytes after %d GC passes\n", label, prev, pass+1)
+				}
+				return prev, nil
+			}
+		}
+		prev = cur
+	}
+	fmt.Fprintf(os.Stderr, "settledDirBytes(%s): did NOT settle in %d passes; last=%d bytes (store may not be quiescing -- investigate)\n", label, maxPasses, prev)
+	return prev, nil
 }
 
 // fmtBytes formats a byte count as a human-readable string.

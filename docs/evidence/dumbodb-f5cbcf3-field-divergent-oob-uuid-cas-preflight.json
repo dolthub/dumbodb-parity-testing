@@ -1,0 +1,123 @@
+{
+  "Product": "DumboDB",
+  "Version": "8.0.28",
+  "Revision": "f5cbcf347ef30ada9eb842cdde0e6ff6301e0b99",
+  "Scenario": "uuid-cas",
+  "StartedAt": "2026-09-16T08:59:35.96021503Z",
+  "FinishedAt": "2026-09-16T08:59:37.625581519Z",
+  "WorkloadStartedAt": "2026-09-16T08:59:35.983749871Z",
+  "WorkloadFinishedAt": "2026-09-16T08:59:37.624972443Z",
+  "Ledger": {
+    "Attempts": 1000,
+    "Matched": 106,
+    "NoMatch": 894,
+    "Modified": 106,
+    "Rejected": 0,
+    "Indeterminate": 0,
+    "Latency": {
+      "LessThan100us": 0,
+      "LessThan1ms": 0,
+      "LessThan10ms": 2,
+      "LessThan100ms": 998,
+      "LessThan1s": 0,
+      "AtLeast1s": 0
+    },
+    "ErrorSamples": null,
+    "CAS": {
+      "MatchedEdges": 106,
+      "DuplicateMatches": 0,
+      "InvalidEdges": 0,
+      "HighestObserved": 105,
+      "UniqueObserved": 106,
+      "ObservedGenerationSlots": 106,
+      "MatchedOperationWords": 16,
+      "TrackerBytes": 1930,
+      "Findings": null
+    }
+  },
+  "Checks": [
+    {
+      "Name": "storedAppliedEqualsMatched",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "applied=106 matched=106"
+    },
+    {
+      "Name": "everyMatchModified",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "modified=106 matched=106"
+    },
+    {
+      "Name": "finalTokenIsUUID",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "subtype=4 bytes=16"
+    },
+    {
+      "Name": "finalTokenMatchesIssuedOperation",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "lastOperation=998 attempts=1000"
+    },
+    {
+      "Name": "oneMatchPerObservedGeneration",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "duplicateMatches=0"
+    },
+    {
+      "Name": "matchedEdgesFormCompleteChain",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "edges=106 invalid=0 highestObserved=105 applied=106"
+    }
+  ],
+  "Config": {
+    "Target": "mongodb://127.0.0.1:27075",
+    "Duration": "30m0s",
+    "Operations": 1000,
+    "Workers": 16,
+    "Seed": 1,
+    "Database": "fd_uuid_cas_8192",
+    "Collection": "documents",
+    "PayloadBytes": 8192,
+    "CASDelay": "0s",
+    "LatencyScope": "read-and-update",
+    "MergeMode": "fieldDivergent"
+  },
+  "Statistics": {
+    "MatchRate": {
+      "Count": 106,
+      "SampleSize": 1000,
+      "Rate": 0.106,
+      "Lower95": 0.08840506686305154,
+      "Upper95": 0.12661041882356588
+    },
+    "NoMatchRate": {
+      "Count": 894,
+      "SampleSize": 1000,
+      "Rate": 0.894,
+      "Lower95": 0.8733895811764342,
+      "Upper95": 0.9115949331369485
+    },
+    "RejectedRate": {
+      "Count": 0,
+      "SampleSize": 1000,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.0038267584855551234
+    },
+    "IndeterminateRate": {
+      "Count": 0,
+      "SampleSize": 1000,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.0038267584855551234
+    }
+  },
+  "Truncated": false,
+  "StopReason": "",
+  "RunError": "",
+  "Verdict": "conclusivePass"
+}

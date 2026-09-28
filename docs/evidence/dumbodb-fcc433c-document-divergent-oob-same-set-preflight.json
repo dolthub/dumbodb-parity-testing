@@ -1,0 +1,107 @@
+{
+  "Product": "DumboDB",
+  "Version": "8.0.28",
+  "Revision": "v0.6.3-44-gfcc433c",
+  "Scenario": "same-set",
+  "StartedAt": "2026-09-17T21:56:45.37554516Z",
+  "FinishedAt": "2026-09-17T21:56:56.962585576Z",
+  "WorkloadStartedAt": "2026-09-17T21:56:45.408984531Z",
+  "WorkloadFinishedAt": "2026-09-17T21:56:56.961928779Z",
+  "FirstMatchedAt": "2026-09-17T21:56:45.418861165Z",
+  "LastMatchedAt": "2026-09-17T21:56:56.961905178Z",
+  "Ledger": {
+    "Attempts": 1000,
+    "Matched": 1000,
+    "NoMatch": 0,
+    "Modified": 1000,
+    "Rejected": 0,
+    "Indeterminate": 0,
+    "Latency": {
+      "LessThan100us": 0,
+      "LessThan1ms": 0,
+      "LessThan10ms": 26,
+      "LessThan100ms": 328,
+      "LessThan1s": 645,
+      "AtLeast1s": 1
+    },
+    "ErrorSamples": null,
+    "CAS": {
+      "MatchedEdges": 0,
+      "DuplicateMatches": 0,
+      "InvalidEdges": 0,
+      "HighestObserved": 0,
+      "UniqueObserved": 0,
+      "ObservedGenerationSlots": 0,
+      "MatchedOperationWords": 0,
+      "TrackerBytes": 0,
+      "Findings": null
+    }
+  },
+  "Checks": [
+    {
+      "Name": "allAcknowledgedWritesMatched",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "matched=1000 attempts=1000 rejected=0 indeterminate=0"
+    },
+    {
+      "Name": "finalValueWasIssued",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "value=997 attempts=1000"
+    },
+    {
+      "Name": "payloadRetained",
+      "Passed": true,
+      "Skipped": false,
+      "Detail": "payloadBytes=8192"
+    }
+  ],
+  "Config": {
+    "Target": "mongodb://127.0.0.1:27018",
+    "Duration": "30m0s",
+    "Operations": 1000,
+    "Workers": 16,
+    "Seed": 1,
+    "Database": "dd_oob_same_set",
+    "Collection": "documents",
+    "PayloadBytes": 8192,
+    "CASDelay": "0s",
+    "LatencyScope": "update",
+    "MergeMode": "documentDivergent"
+  },
+  "Statistics": {
+    "MatchRate": {
+      "Count": 1000,
+      "SampleSize": 1000,
+      "Rate": 1,
+      "Lower95": 0.996173241514445,
+      "Upper95": 1
+    },
+    "NoMatchRate": {
+      "Count": 0,
+      "SampleSize": 1000,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.0038267584855551234
+    },
+    "RejectedRate": {
+      "Count": 0,
+      "SampleSize": 1000,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.0038267584855551234
+    },
+    "IndeterminateRate": {
+      "Count": 0,
+      "SampleSize": 1000,
+      "Rate": 0,
+      "Lower95": 0,
+      "Upper95": 0.0038267584855551234
+    }
+  },
+  "Truncated": false,
+  "StopReason": "",
+  "RunError": "",
+  "Verdict": "conclusivePass"
+}

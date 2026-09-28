@@ -193,5 +193,6 @@ func measureInsertUpdate(
 	if err != nil {
 		t.Fatalf("storage bytes: %v", err)
 	}
+	logStorageDiag(t, b, n, bytes)
 	return bytes
 }

@@ -1,0 +1,349 @@
+// Copyright 2026 Dolthub, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package concurrency
+
+import (
+	"context"
+	"fmt"
+	"sync"
+	"sync/atomic"
+	"time"
+)
+
+type LifecycleResult struct {
+	Product            string
+	Version            string
+	Revision           string
+	Scenario           string
+	StartedAt          time.Time
+	FinishedAt         time.Time
+	WorkloadStartedAt  time.Time
+	WorkloadFinishedAt time.Time
+	FirstMatchedAt     time.Time
+	LastMatchedAt      time.Time
+	Ledger             LedgerSnapshot
+	Checks             []Check
+	Config             RunConfig
+	Statistics         RunStatistics
+	Truncated          bool
+	StopReason         string
+	RunError           string
+	VerdictValue       Verdict `json:"Verdict"`
+	target             Target
+	database           string
+	keepData           bool
+}
+
+// Fixture creates the isolated collection used by one lifecycle run.
+type Fixture interface {
+	CreateCollection(context.Context, Target, Config) (Collection, error)
+}
+
+// FixtureFunc adapts a collection creation function to Fixture.
+type FixtureFunc func(context.Context, Target, Config) (Collection, error)
+
+func (f FixtureFunc) CreateCollection(ctx context.Context, target Target, cfg Config) (Collection, error) {
+	return f(ctx, target, cfg)
+}
+
+type defaultFixture struct{}
+
+func (defaultFixture) CreateCollection(_ context.Context, target Target, cfg Config) (Collection, error) {
+	return target.Collection(cfg.Database, cfg.Collection), nil
+}
+
+type configuredCollectionTarget interface {
+	CreateCollection(context.Context, string, string, string) (Collection, error)
+}
+
+type mergeModeFixture struct{}
+
+func (mergeModeFixture) CreateCollection(ctx context.Context, target Target, cfg Config) (Collection, error) {
+	creator, ok := target.(configuredCollectionTarget)
+	if !ok {
+		return nil, fmt.Errorf("target does not support configured collection creation")
+	}
+	return creator.CreateCollection(ctx, cfg.Database, cfg.Collection, cfg.MergeMode)
+}
+
+func (r *LifecycleResult) Finalize(ctx context.Context, preserve bool) error {
+	if r.target == nil {
+		return nil
+	}
+	var dropErr error
+	if !preserve && !r.keepData {
+		dropErr = r.target.DropDatabase(ctx, r.database)
+	}
+	disconnectErr := r.target.Disconnect(ctx)
+	r.target = nil
+	if dropErr != nil {
+		return dropErr
+	}
+	return disconnectErr
+}
+
+func Run(ctx context.Context, cfg Config, scenario Scenario) (LifecycleResult, error) {
+	if err := cfg.Validate(); err != nil {
+		return LifecycleResult{}, err
+	}
+	if scenario == nil {
+		return LifecycleResult{}, fmt.Errorf("scenario is required")
+	}
+
+	target, err := connectMongoTarget(ctx, cfg.TargetURI)
+	if err != nil {
+		return LifecycleResult{}, fmt.Errorf("connect: %w", err)
+	}
+	return RunWithTarget(ctx, cfg, scenario, target)
+}
+
+func RunWithTarget(ctx context.Context, cfg Config, scenario Scenario, target Target) (LifecycleResult, error) {
+	fixture := Fixture(defaultFixture{})
+	if cfg.MergeMode != "" {
+		fixture = mergeModeFixture{}
+	}
+	return RunWithFixture(ctx, cfg, scenario, target, fixture)
+}
+
+// RunWithFixture runs a scenario using caller-supplied collection creation.
+func RunWithFixture(ctx context.Context, cfg Config, scenario Scenario, target Target, fixture Fixture) (LifecycleResult, error) {
+	if err := cfg.Validate(); err != nil {
+		return LifecycleResult{}, err
+	}
+	if scenario == nil {
+		return LifecycleResult{}, fmt.Errorf("scenario is required")
+	}
+	if target == nil {
+		return LifecycleResult{}, fmt.Errorf("target is required")
+	}
+	if fixture == nil {
+		return LifecycleResult{}, fmt.Errorf("fixture is required")
+	}
+	if err := target.Ping(ctx); err != nil {
+		_ = target.Disconnect(context.Background())
+		return LifecycleResult{}, fmt.Errorf("ping: %w", err)
+	}
+	identity, err := target.Identity(ctx)
+	if err != nil {
+		_ = target.Disconnect(context.Background())
+		return LifecycleResult{}, err
+	}
+	if cfg.MergeMode != "" && identity.Product != "DumboDB" {
+		_ = target.Disconnect(context.Background())
+		return LifecycleResult{}, fmt.Errorf("merge mode requires DumboDB, got %s", identity.Product)
+	}
+
+	result := LifecycleResult{
+		Product:   identity.Product,
+		Version:   identity.Version,
+		Revision:  identity.Revision,
+		Scenario:  scenario.Name(),
+		StartedAt: time.Now().UTC(),
+		Config: RunConfig{
+			Target:       sanitizedTarget(cfg.TargetURI),
+			Duration:     cfg.Duration.String(),
+			Operations:   cfg.Operations,
+			Workers:      cfg.Workers,
+			Seed:         cfg.Seed,
+			Database:     cfg.Database,
+			Collection:   cfg.Collection,
+			PayloadBytes: cfg.PayloadBytes,
+			CASDelay:     cfg.CASDelay.String(),
+			LatencyScope: scenarioLatencyScope(scenario.Name()),
+			MergeMode:    cfg.MergeMode,
+		},
+		target:   target,
+		database: cfg.Database,
+		keepData: cfg.KeepData,
+	}
+	collection, err := fixture.CreateCollection(ctx, target, cfg)
+	if err != nil {
+		return lifecycleFailure(result, fmt.Errorf("create fixture: %w", err))
+	}
+	if collection == nil {
+		return lifecycleFailure(result, fmt.Errorf("create fixture: collection is required"))
+	}
+	if err := scenario.Setup(ctx, collection); err != nil {
+		return lifecycleFailure(result, fmt.Errorf("setup %s: %w", scenario.Name(), err))
+	}
+	var issued atomic.Int64
+	var firstMatchedNanos atomic.Int64
+	var lastMatchedNanos atomic.Int64
+	ledger := &Ledger{}
+	var workers sync.WaitGroup
+	var recordErr error
+	var recordErrOnce sync.Once
+	stop := make(chan struct{})
+	result.WorkloadStartedAt = time.Now().UTC()
+	var deadline time.Time
+	if cfg.Duration > 0 {
+		deadline = result.WorkloadStartedAt.Add(cfg.Duration)
+	}
+	workers.Add(cfg.Workers)
+	for workerID := 0; workerID < cfg.Workers; workerID++ {
+		go func(id int) {
+			defer workers.Done()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-stop:
+					return
+				default:
+				}
+				if !deadline.IsZero() && time.Now().After(deadline) {
+					return
+				}
+				sequence, ok := reserveOperation(&issued, cfg.Operations)
+				if !ok {
+					return
+				}
+				started := time.Now()
+				outcome := scenario.Execute(ctx, collection, id, sequence)
+				if outcome.Kind == OutcomeMatched {
+					matchedAt := time.Now().UTC().UnixNano()
+					firstMatchedNanos.CompareAndSwap(0, matchedAt)
+					storeMaximum(&lastMatchedNanos, matchedAt)
+				}
+				if outcome.CAS != nil {
+					outcome.MaximumObservedGeneration = issued.Load() - 1
+					outcome.ObservedGenerationBounded = true
+				}
+				if err := ledger.Record(outcome, time.Since(started)); err != nil {
+					recordErrOnce.Do(func() {
+						recordErr = fmt.Errorf("record operation %d: %w", sequence, err)
+						close(stop)
+					})
+					return
+				}
+				if ctx.Err() != nil {
+					return
+				}
+			}
+		}(workerID)
+	}
+	workers.Wait()
+	result.WorkloadFinishedAt = time.Now().UTC()
+	if first := firstMatchedNanos.Load(); first != 0 {
+		result.FirstMatchedAt = time.Unix(0, first).UTC()
+	}
+	if last := lastMatchedNanos.Load(); last != 0 {
+		result.LastMatchedAt = time.Unix(0, last).UTC()
+	}
+	result.Truncated = ctx.Err() != nil
+	if result.Truncated {
+		result.StopReason = ctx.Err().Error()
+	}
+
+	if recordErr != nil {
+		return lifecycleFailure(result, recordErr)
+	}
+	result.Ledger = ledger.Snapshot()
+	if reserved := issued.Load(); reserved != result.Ledger.Attempts {
+		return lifecycleFailure(result, fmt.Errorf(
+			"reserved operations %d != recorded attempts %d",
+			reserved,
+			result.Ledger.Attempts,
+		))
+	}
+	result.Statistics = calculateStatistics(result.Ledger)
+	if err := result.Ledger.Validate(); err != nil {
+		return lifecycleFailure(result, err)
+	}
+	verifyCtx, verifyCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer verifyCancel()
+	if result.Truncated {
+		timer := time.NewTimer(time.Second)
+		select {
+		case <-timer.C:
+		case <-verifyCtx.Done():
+			timer.Stop()
+			return lifecycleFailure(result, verifyCtx.Err())
+		}
+	}
+	checks, err := scenario.Verify(verifyCtx, collection, result.Ledger)
+	if err != nil {
+		return lifecycleFailure(result, fmt.Errorf("verify %s: %w", scenario.Name(), err))
+	}
+	checks = append(checks, hotDocumentProgressChecks(result)...)
+	result.Checks = checks
+	result.FinishedAt = time.Now().UTC()
+	return result, nil
+}
+
+func storeMaximum(value *atomic.Int64, candidate int64) {
+	for current := value.Load(); candidate > current; current = value.Load() {
+		if value.CompareAndSwap(current, candidate) {
+			return
+		}
+	}
+}
+
+func hotDocumentProgressChecks(result LifecycleResult) []Check {
+	if result.Config.MergeMode != MergeModeDocumentTouched ||
+		(result.Scenario != "blind-inc" && result.Scenario != "identical-set") {
+		return nil
+	}
+	duration := result.WorkloadFinishedAt.Sub(result.WorkloadStartedAt)
+	tolerance := 5 * time.Second
+	if duration < tolerance {
+		tolerance = duration
+	}
+	lastLag := result.WorkloadFinishedAt.Sub(result.LastMatchedAt)
+	matchSpan := result.LastMatchedAt.Sub(result.FirstMatchedAt)
+	return []Check{
+		{
+			Name:   "hotDocumentMakesProgressThroughRun",
+			Passed: !result.FirstMatchedAt.IsZero() && !result.LastMatchedAt.IsZero() && lastLag <= tolerance && matchSpan+tolerance >= duration,
+			Detail: fmt.Sprintf("duration=%s matchSpan=%s lastMatchLag=%s", duration, matchSpan, lastLag),
+		},
+	}
+}
+
+func lifecycleFailure(result LifecycleResult, err error) (LifecycleResult, error) {
+	result.RunError = err.Error()
+	result.FinishedAt = time.Now().UTC()
+	return result, err
+}
+
+func scenarioLatencyScope(name string) string {
+	if name == "cas" || name == "uuid-cas" || name == "divergent-cas" ||
+		name == "whole-document-convergent" || name == "whole-document-divergent" {
+		return "read-and-update"
+	}
+	return "update"
+}
+
+func reserveOperation(issued *atomic.Int64, limit int64) (int64, bool) {
+	if limit <= 0 {
+		return issued.Add(1), true
+	}
+	for {
+		current := issued.Load()
+		if current >= limit {
+			return 0, false
+		}
+		if issued.CompareAndSwap(current, current+1) {
+			return current + 1, true
+		}
+	}
+}
+
+// ServerInfo identifies the server behind a Target.
+type ServerInfo struct {
+	Product  string
+	Version  string
+	Revision string
+}
