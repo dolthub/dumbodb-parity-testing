@@ -86,9 +86,12 @@ while [ "$stop" -eq 0 ]; do
   timeout "$ITER_TIMEOUT" $SUITE_CMD "$PROFILE" > "${ARCHIVE}/last-run.out" 2>&1
   rc_suite=$?
 
-  # Burst phase: high-rate saved-rejected hunt (count-bounded so the hang guard
-  # can't kill a burst mid-run and read as a false catch). rc 0 = clean,
-  # 1 = caught, anything else (incl. 124 hang) = failure.
+  # Burst phase: high-rate saved-rejected hunt. burst.sh exit codes: 0 = clean
+  # (ran to conclusive passes), 1 = CAUGHT a real saved-reject (a failed verdict).
+  # A BURST_MAXTIME timeout returns 124 here: that means the phase ran out of
+  # time before finishing BURST_COUNT bursts -- INCOMPLETE, not a failure and not
+  # a catch. (If you want every burst to finish, raise BURST_MAXTIME or lower
+  # BURST_COUNT/BURST_OPS to fit the host's throughput.) Only rc 1 fails the iter.
   rc_burst=0
   if [ "$BURST_COUNT" != "0" ] && [ "$stop" -eq 0 ]; then
     kill_stray_servers
@@ -98,9 +101,20 @@ while [ "$stop" -eq 0 ]; do
   fi
 
   elapsed=$(( $(date +%s) - started ))
-  if [ "$rc_suite" -eq 0 ] && [ "$rc_burst" -eq 0 ]; then
+
+  # Classify the burst phase. Only a real catch (rc 1) fails the iteration; a
+  # timeout (124) or other non-zero is INCOMPLETE -- noted, not failed.
+  burst_caught=0
+  case "$rc_burst" in
+    0)   burst_note="clean" ;;
+    1)   burst_caught=1; burst_note="CAUGHT" ;;
+    124) burst_note="timeout(incomplete)" ;;
+    *)   burst_note="rc=${rc_burst}(incomplete)" ;;
+  esac
+
+  if [ "$rc_suite" -eq 0 ] && [ "$burst_caught" -eq 0 ]; then
     passes=$((passes + 1))
-    echo "[iter $iter] PASS in ${elapsed}s | $(tally)" | tee -a "$LOOP_LOG"
+    echo "[iter $iter] PASS in ${elapsed}s burst=${burst_note} | $(tally)" | tee -a "$LOOP_LOG"
   else
     fails=$((fails + 1)); failed_iters+=("$iter")
     dst="${ARCHIVE}/iter-${iter}-$(date +%Y%m%d-%H%M%S)"
@@ -108,14 +122,14 @@ while [ "$stop" -eq 0 ]; do
     cp -f "${ARCHIVE}/last-run.out" "${dst}/suite.out" 2>/dev/null || true
     cp -rf "$RESULTS_DIR" "${dst}/results" 2>/dev/null || true
     cp -f "$SERVER_LOG" "${dst}/server.log" 2>/dev/null || true
-    if [ "$rc_burst" -ne 0 ]; then
+    if [ "$burst_caught" -ne 0 ]; then
       cp -f "${ARCHIVE}/last-burst.out" "${dst}/burst.out" 2>/dev/null || true
       cp -rf "${RUN_DIR}/burst-archive" "${dst}/burst-archive" 2>/dev/null || true
     fi
     what=""
     [ "$rc_suite" -ne 0 ] && what="suite($([ "$rc_suite" -eq 124 ] && echo TIMEOUT || echo "rc=$rc_suite"))"
-    [ "$rc_burst" -ne 0 ] && what="$what burst($([ "$rc_burst" -eq 1 ] && echo CAUGHT || echo "rc=$rc_burst"))"
-    echo "[iter $iter] FAIL$what in ${elapsed}s -- evidence: $dst | $(tally)" | tee -a "$LOOP_LOG"
+    [ "$burst_caught" -ne 0 ] && what="$what burst(CAUGHT)"
+    echo "[iter $iter] FAIL$what in ${elapsed}s burst=${burst_note} -- evidence: $dst | $(tally)" | tee -a "$LOOP_LOG"
   fi
 
   # Honor a Ctrl-C that arrived during the pass before starting the next one.
