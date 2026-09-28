@@ -43,6 +43,28 @@ func dirBytes(root string) (int64, error) {
 	return total, err
 }
 
+// logStorageDiag logs, via t.Logf so it always surfaces in `go test -json`, the
+// GC-reported logical chunk-store size next to the measured on-disk directory
+// size. dir/gc ~= 1 means the on-disk size tracks the logical store, so a
+// run-to-run size difference is a real (logical) difference; dir/gc >> 1 means
+// the directory holds bytes the chunk store does not (leftover table files /
+// journal -- on-disk cruft). Backends that do not expose LastGCStats are skipped.
+func logStorageDiag(t *testing.T, b Backend, n int, dirBytes int64) {
+	t.Helper()
+	p, ok := b.(interface {
+		LastGCStats() (int64, int64, bool)
+	})
+	if !ok {
+		return
+	}
+	sizeAfter, chunks, ok := p.LastGCStats()
+	if !ok || sizeAfter <= 0 {
+		return
+	}
+	t.Logf("[storage-diag] %s n=%d dirBytes=%d gcSizeAfter=%d chunksAfter=%d dir/gc=%.3f",
+		b.Name(), n, dirBytes, sizeAfter, chunks, float64(dirBytes)/float64(sizeAfter))
+}
+
 // settledDirBytes measures the on-disk size of dir after garbage collection,
 // re-running gc + measurement until a further pass no longer meaningfully
 // shrinks the store (a fixpoint) or maxPasses is reached. A single GC + walk can

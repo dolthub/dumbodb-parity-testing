@@ -42,6 +42,14 @@ type DumboDBBackend struct {
 	dbName        string
 	currentBranch string
 	dataDir       string
+
+	// Last dumboGC response, for storage-measurement diagnostics
+	// (LastGCStats). sizeAfter is the logical chunk-store size GC reports;
+	// comparing it to the walked directory size tells cruft from a real
+	// (logical) size difference.
+	lastGCSizeAfter   int64
+	lastGCChunksAfter int64
+	lastGCOK          bool
 }
 
 // NewDumboDBBackend connects to the configured DumboDB instance and allocates a
@@ -174,13 +182,28 @@ func (b *DumboDBBackend) Merge(ctx context.Context, fromBranch string) (time.Dur
 func (b *DumboDBBackend) StorageBytes(ctx context.Context) (int64, error) {
 	dir := filepath.Join(b.dataDir, b.dbName)
 	return settledDirBytes(4, "dumbodb", func() error {
+		// sizeBefore/After and chunk counts are BSON doubles (see MsgDumboDBGC).
+		var res struct {
+			SizeAfter   float64 `bson:"sizeAfter"`
+			ChunksAfter float64 `bson:"chunksAfter"`
+		}
 		if err := b.client.Database(b.encodedDB()).RunCommand(ctx, bson.D{
 			{Key: "dumboGC", Value: 1},
-		}).Err(); err != nil {
+		}).Decode(&res); err != nil {
 			return fmt.Errorf("dumbodb gc: %w", err)
 		}
+		b.lastGCSizeAfter = int64(res.SizeAfter)
+		b.lastGCChunksAfter = int64(res.ChunksAfter)
+		b.lastGCOK = true
 		return nil
 	}, dir)
+}
+
+// LastGCStats returns the logical chunk-store size and chunk count from the most
+// recent dumboGC, for storage-measurement diagnostics. ok is false before any
+// StorageBytes call.
+func (b *DumboDBBackend) LastGCStats() (sizeAfter, chunksAfter int64, ok bool) {
+	return b.lastGCSizeAfter, b.lastGCChunksAfter, b.lastGCOK
 }
 
 func (b *DumboDBBackend) Close() error {
