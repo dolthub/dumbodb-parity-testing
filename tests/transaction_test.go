@@ -262,7 +262,7 @@ func TestTransaction_read_your_own_writes(t *testing.T) {
 func TestTransaction_doc_lock_conflict(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:     "doc_lock_conflict",
-		Support:  harness.DumboDBXFail,
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
@@ -755,7 +755,7 @@ func TestTransaction_endSession_discards(t *testing.T) {
 func TestTransaction_doc_conflict_ignores_lock_timeout(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:     "doc_conflict_ignores_lock_timeout",
-		Support:  harness.DumboDBXFail,
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
@@ -842,7 +842,7 @@ func TestTransaction_doc_conflict_ignores_lock_timeout(t *testing.T) {
 func TestTransaction_withTransaction_retries_on_conflict(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:     "withTransaction_retries_on_conflict",
-		Support:  harness.DumboDBXFail,
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "p10"}, {Key: "x", Value: "original"}})
