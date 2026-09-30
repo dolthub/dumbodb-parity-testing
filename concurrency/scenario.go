@@ -75,6 +75,8 @@ func newScenario(name string, workers, payloadBytes int, seed int64, casDelay ti
 		return &identicalSetScenario{payload: payload}, nil
 	case "divergent-cas":
 		return &divergentCASScenario{payload: payload, seed: seed, maxDelay: casDelay, mergeMode: mergeMode}, nil
+	case "txn-commit-race":
+		return &transactionCommitRaceScenario{}, nil
 	case "whole-document-convergent", "whole-document-divergent":
 		if mergeMode != MergeModeDocumentDivergent {
 			return nil, fmt.Errorf("scenario %q requires merge mode %q", name, MergeModeDocumentDivergent)

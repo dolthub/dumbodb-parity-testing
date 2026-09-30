@@ -16,7 +16,8 @@
 # The matrix is declared in CASES below -- add a line to add coverage. Fields:
 #   group | name | scenario | mode | payload | expect-smoke | expect-soak
 #     group          concurrent (auto-commit), concurrent-reap (auto-commit
-#                    with accelerated session reap in soak), or matrix (bare)
+#                    with accelerated session reap in soak), transaction
+#                    (auto-commit server with driver transactions), or matrix (bare)
 #     expect-smoke   expected result in the smoke profile
 #     expect-soak    expected result in the soak profile
 #       pass  = must reach conclusivePass
@@ -66,6 +67,10 @@ CASES=(
   "concurrent  | blindinc-ft  | blind-inc      | fieldTouched   | 0       | pass  | pass"
   "concurrent  | identical-fd | identical-set  | fieldDivergent | 0       | pass  | pass"
   "concurrent  | sameset-fd   | same-set       | fieldDivergent | 0       | pass  | pass"
+
+  # Driver WithTransaction batches contend on commit publication while writing
+  # distinct documents, then verify exact all-or-nothing retention.
+  "transaction | txn-commit-race-ft | txn-commit-race | fieldTouched | 0 | pass | pass"
 
   # documentTouched ordinary writes. CAS-family soaks accelerate session reap
   # to guard the reconnect fix in DumboDB f76ab32.

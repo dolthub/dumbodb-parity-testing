@@ -9,7 +9,8 @@
 #
 # Flags (all optional except --scenario):
 #   --scenario NAME   cas, uuid-cas, blind-inc, disjoint-set, same-set,
-#                     identical-set, divergent-cas, field-divergent-matrix-*
+#                     identical-set, divergent-cas, txn-commit-race,
+#                     field-divergent-matrix-*
 #   --mode MODE       fieldTouched (default), fieldDivergent, documentTouched,
 #                     documentDivergent, or "" for the server default
 #   --workers N       default 32
