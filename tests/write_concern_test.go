@@ -107,7 +107,7 @@ func TestWriteConcern_insert_acknowledgement_shapes(t *testing.T) {
 func TestWriteConcern_unsatisfiableReturnsWriteConcernError(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:     "WriteConcern_unsatisfiable_returns_write_concern_error",
-		Support:  harness.DumboDBXFail,
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			wc := writeconcern.New(writeconcern.W(2), writeconcern.WTimeout(100*time.Millisecond))

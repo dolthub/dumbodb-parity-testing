@@ -136,6 +136,19 @@ func TestCompareErrorsContract(t *testing.T) {
 		}
 	})
 
+	t.Run("write concern error code and name", func(t *testing.T) {
+		mongoErr := mongo.WriteException{WriteConcernError: &mongo.WriteConcernError{
+			Code: 100, Name: "UnsatisfiableWriteConcern", Message: "mongo wording",
+		}}
+		dumboErr := mongo.WriteException{WriteConcernError: &mongo.WriteConcernError{
+			Code: 100, Name: "UnsatisfiableWriteConcern", Message: "dumbodb wording",
+		}}
+		got := CompareResponses(nil, mongoErr, nil, dumboErr)
+		if got.Result != Match {
+			t.Fatalf("got result=%v diff=%q", got.Result, got.Diff)
+		}
+	})
+
 	t.Run("one error only diverges", func(t *testing.T) {
 		got := CompareResponses(nil, errors.New("failure"), nil, nil)
 		if got.Result != Diverge {

@@ -160,12 +160,22 @@ func errorCode(err error) int32 {
 		return int32(cmdErr.Code)
 	}
 	var writeExc mongo.WriteException
-	if errors.As(err, &writeExc) && len(writeExc.WriteErrors) > 0 {
-		return int32(writeExc.WriteErrors[0].Code)
+	if errors.As(err, &writeExc) {
+		if len(writeExc.WriteErrors) > 0 {
+			return int32(writeExc.WriteErrors[0].Code)
+		}
+		if writeExc.WriteConcernError != nil {
+			return int32(writeExc.WriteConcernError.Code)
+		}
 	}
 	var bulkExc mongo.BulkWriteException
-	if errors.As(err, &bulkExc) && len(bulkExc.WriteErrors) > 0 {
-		return int32(bulkExc.WriteErrors[0].Code)
+	if errors.As(err, &bulkExc) {
+		if len(bulkExc.WriteErrors) > 0 {
+			return int32(bulkExc.WriteErrors[0].Code)
+		}
+		if bulkExc.WriteConcernError != nil {
+			return int32(bulkExc.WriteConcernError.Code)
+		}
 	}
 	return 0
 }
@@ -179,6 +189,14 @@ func errorName(err error) string {
 	var cmdErr mongo.CommandError
 	if errors.As(err, &cmdErr) {
 		return cmdErr.Name
+	}
+	var writeExc mongo.WriteException
+	if errors.As(err, &writeExc) && writeExc.WriteConcernError != nil {
+		return writeExc.WriteConcernError.Name
+	}
+	var bulkExc mongo.BulkWriteException
+	if errors.As(err, &bulkExc) && bulkExc.WriteConcernError != nil {
+		return bulkExc.WriteConcernError.Name
 	}
 	return ""
 }
