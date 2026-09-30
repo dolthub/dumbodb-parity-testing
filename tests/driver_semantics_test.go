@@ -122,7 +122,7 @@ func TestDriverSemantics_retryableWritesStandaloneOmitsTxnNumber(t *testing.T) {
 func TestDriverSemantics_causalSessionReadUsesOperationTime(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:     "driver_causal_session_read_uses_operation_time",
-		Support:  harness.DumboDBXFail,
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			recorder := newStartedCommandRecorder()
