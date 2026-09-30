@@ -21,6 +21,7 @@ package tests
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"testing"
 	"time"
@@ -419,43 +420,74 @@ func TestTransaction_non_conflicting_succeed(t *testing.T) {
 }
 
 func TestTransaction_commit_publish_race_metadata(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:     "commit_publish_race_metadata",
-		Support:  harness.DumboDBFull,
-		Topology: harness.TopologyReplicaSet,
-		Setup: func(ctx context.Context, col *mongo.Collection) error {
-			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
-			return err
-		},
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			clientB, closeB, err := secondClient(ctx)
-			if err != nil {
-				return nil, err
-			}
-			defer closeB()
-			colB := clientB.Database(col.Database().Name()).Collection(col.Name())
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	clients, err := harness.GetClients(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := clients.DumboDB.Database(fmt.Sprintf("commit_publish_race_%d", time.Now().UnixNano()))
+	defer func() { _ = db.Drop(context.Background()) }()
+	col := db.Collection("col")
+	if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}}); err != nil {
+		t.Fatal(err)
+	}
 
-			session, err := col.Database().Client().StartSession()
+	const workers = 16
+	for round := 0; round < 20; round++ {
+		sessions := make([]mongo.Session, workers)
+		for worker := 0; worker < workers; worker++ {
+			session, err := clients.DumboDB.StartSession()
 			if err != nil {
-				return nil, err
+				t.Fatal(err)
 			}
-			defer session.EndSession(ctx)
+			sessions[worker] = session
 			if err := session.StartTransaction(); err != nil {
-				return nil, err
+				t.Fatal(err)
 			}
 			sessionCtx := mongo.NewSessionContext(ctx, session)
-			if _, err := col.InsertOne(sessionCtx, bson.D{{Key: "_id", Value: "transaction"}}); err != nil {
-				_ = session.AbortTransaction(ctx)
-				return nil, err
+			if _, err := col.InsertOne(sessionCtx, bson.D{{Key: "_id", Value: fmt.Sprintf("r%d-w%d", round, worker)}}); err != nil {
+				t.Fatal(err)
 			}
-			if _, err := colB.InsertOne(ctx, bson.D{{Key: "_id", Value: "plain"}}); err != nil {
-				_ = session.AbortTransaction(ctx)
-				return nil, err
-			}
+		}
 
-			return nil, session.CommitTransaction(ctx)
-		},
-	})
+		start := make(chan struct{})
+		commitErrors := make(chan error, workers)
+		for _, session := range sessions {
+			go func(session mongo.Session) {
+				<-start
+				commitErrors <- session.CommitTransaction(ctx)
+			}(session)
+		}
+		close(start)
+		for range workers {
+			commitErr := <-commitErrors
+			if commitErr == nil {
+				continue
+			}
+			info := errInfo(commitErr)
+			if info.code != 112 || !containsLabel(info.labels, "TransientTransactionError") {
+				t.Fatalf("commit error metadata: code=%d name=%q labels=%v err=%v", info.code, info.codeName, info.labels, commitErr)
+			}
+			for _, session := range sessions {
+				session.EndSession(ctx)
+			}
+			return
+		}
+		for _, session := range sessions {
+			session.EndSession(ctx)
+		}
+	}
+	t.Fatal("did not observe a concurrent publish race")
+}
+
+func containsLabel(labels []string, want string) bool {
+	for _, label := range labels {
+		if label == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestTransaction_concurrent_inserts_preexisting_collection(t *testing.T) {
