@@ -117,6 +117,19 @@ func TestWriteConcern_unsatisfiableReturnsWriteConcernError(t *testing.T) {
 	})
 }
 
+func TestWriteConcern_unknownTagReturnsUnknownReplWriteConcern(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:     "WriteConcern_unknown_tag_returns_unknown_repl_write_concern",
+		Support:  harness.DumboDBFull,
+		Topology: harness.TopologyReplicaSet,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			wc := writeconcern.New(writeconcern.WTagSet("nonexistent"), writeconcern.WTimeout(100*time.Millisecond))
+			_, err := wcCollection(col, wc).InsertOne(ctx, bson.D{{Key: "_id", Value: "unknown-tag"}})
+			return nil, err
+		},
+	})
+}
+
 func TestWriteConcern_insert_w1_journal(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "WriteConcern_insert_w1_journal",
