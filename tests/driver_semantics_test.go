@@ -76,6 +76,15 @@ func (r *startedCommandRecorder) lastReply(name string) bson.Raw {
 	return replies[len(replies)-1]
 }
 
+func (r *startedCommandRecorder) repliesFor(name string) []bson.Raw {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	replies := r.replies[name]
+	result := make([]bson.Raw, len(replies))
+	copy(result, replies)
+	return result
+}
+
 func monitoredClient(ctx context.Context, uri string, recorder *startedCommandRecorder, clientOptions ...*options.ClientOptions) (*mongo.Client, error) {
 	opts := options.Client().ApplyURI(uri).SetMonitor(recorder.monitor())
 	for _, clientOption := range clientOptions {
