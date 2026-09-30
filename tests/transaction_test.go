@@ -418,6 +418,46 @@ func TestTransaction_non_conflicting_succeed(t *testing.T) {
 	})
 }
 
+func TestTransaction_commit_publish_race_metadata(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:     "commit_publish_race_metadata",
+		Support:  harness.DumboDBFull,
+		Topology: harness.TopologyReplicaSet,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			clientB, closeB, err := secondClient(ctx)
+			if err != nil {
+				return nil, err
+			}
+			defer closeB()
+			colB := clientB.Database(col.Database().Name()).Collection(col.Name())
+
+			session, err := col.Database().Client().StartSession()
+			if err != nil {
+				return nil, err
+			}
+			defer session.EndSession(ctx)
+			if err := session.StartTransaction(); err != nil {
+				return nil, err
+			}
+			sessionCtx := mongo.NewSessionContext(ctx, session)
+			if _, err := col.InsertOne(sessionCtx, bson.D{{Key: "_id", Value: "transaction"}}); err != nil {
+				_ = session.AbortTransaction(ctx)
+				return nil, err
+			}
+			if _, err := colB.InsertOne(ctx, bson.D{{Key: "_id", Value: "plain"}}); err != nil {
+				_ = session.AbortTransaction(ctx)
+				return nil, err
+			}
+
+			return nil, session.CommitTransaction(ctx)
+		},
+	})
+}
+
 func TestTransaction_concurrent_inserts_preexisting_collection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:     "concurrent_inserts_preexisting_collection",
