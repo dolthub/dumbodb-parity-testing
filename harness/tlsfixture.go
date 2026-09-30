@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -517,4 +518,56 @@ func ShortLivedPEM(t *testing.T, f *TLSFixture, name string, lifetime time.Durat
 	_ = os.Remove(path)
 	return f.leafPEM(t, name, "localhost",
 		time.Now().Add(-time.Minute), time.Now().Add(lifetime), []string{"localhost", "127.0.0.1"})
+}
+
+// ClientPEMWithSubject signs a client certificate carrying an arbitrary
+// subject, and returns the combined PEM alongside the subject rendered the
+// way MongoDB names the user.
+//
+// Multi-attribute subjects are the point. X.509 identity is a string match on
+// the RFC 2253 rendering of the subject, in which attribute ORDER is part of
+// the name, and Go's pkix.Name.String() reverses the order relative to the
+// certificate's own encoding. A single-CN certificate cannot show that.
+func ClientPEMWithSubject(t *testing.T, f *TLSFixture, name string, subject pkix.Name) (pemPath, rfc2253 string) {
+	t.Helper()
+	path := filepath.Join(f.Dir, name)
+	caCert, caKey := f.ca(t)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	template := &x509.Certificate{
+		SerialNumber: serialNumber(t),
+		Subject:      subject,
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, caCert, &key.PublicKey, caKey)
+	if err != nil {
+		t.Fatalf("%s: signing: %v", name, err)
+	}
+	writeCombined(t, path, der, key)
+	return path, SubjectRFC2253(t, path)
+}
+
+// SubjectRFC2253 reads back the subject of a certificate file exactly as
+// openssl renders it with -nameopt RFC2253, which is the string MongoDB uses
+// as the user name.
+//
+// Read back from the file rather than formatted from the template on purpose:
+// the question is what the certificate says, and a helper that formatted its
+// own input would agree with itself while disagreeing with the server.
+func SubjectRFC2253(t *testing.T, pemPath string) string {
+	t.Helper()
+	if _, err := exec.LookPath("openssl"); err != nil {
+		t.Skip("openssl not found; cannot render a subject for comparison")
+	}
+	out, err := exec.Command("openssl", "x509", "-in", pemPath,
+		"-noout", "-subject", "-nameopt", "RFC2253").Output()
+	if err != nil {
+		t.Fatalf("reading subject of %s: %v", pemPath, err)
+	}
+	return strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(string(out)), "subject="))
 }

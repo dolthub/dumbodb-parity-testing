@@ -71,6 +71,10 @@ type TLSOptions struct {
 
 	// KeyPassword maps to --tlsCertificateKeyFilePassword.
 	KeyPassword string
+
+	// Auth enables access control. Both servers spell it differently, so the
+	// lab renders it rather than the caller.
+	Auth bool
 }
 
 // TLSServer is one server started with TLS, or one that refused to start.
@@ -116,6 +120,9 @@ func StartTLSDumboDB(t *testing.T, f *TLSFixture, opts TLSOptions) *TLSServer {
 	if !opts.NoCAFile {
 		args = append(args, "--tlsCAFile", f.orDefault(opts.CAFile, f.CAFile))
 	}
+	if opts.Auth {
+		args = append(args, "--auth")
+	}
 	args = append(args, optionalTLSArgs(opts)...)
 	return startTLSServer(t, f, bin, "dumbodb-tls", addr, dir, args)
 }
@@ -141,6 +148,9 @@ func StartTLSMongod(t *testing.T, f *TLSFixture, opts TLSOptions) *TLSServer {
 	}
 	if !opts.NoCAFile {
 		args = append(args, "--tlsCAFile", f.orDefault(opts.CAFile, f.CAFile))
+	}
+	if opts.Auth {
+		args = append(args, "--auth")
 	}
 	args = append(args, optionalTLSArgs(opts)...)
 	return startTLSServer(t, f, bin, "mongod-tls", addr, dir, args)
@@ -242,6 +252,75 @@ func (s *TLSServer) Restart(t *testing.T) *TLSServer {
 		<-s.exited
 	}
 	return startTLSServer(t, s.fixture, s.bin, s.name, s.Addr, s.dir, s.args)
+}
+
+// ConnectX509 authenticates with MONGODB-X509, presenting certFile.
+//
+// The authentication source is $external and is not a parameter. The drivers
+// specification fixes it for this mechanism and refuses any other value
+// before contacting the server, so a lab that made it configurable would be
+// testing something no client can do. Where a server STORES the user is its
+// own business; this is the name on the wire.
+func (s *TLSServer) ConnectX509(ctx context.Context, t *testing.T, certFile string) (*mongo.Client, error) {
+	t.Helper()
+	return s.connectAuth(ctx, t, certFile, options.Credential{AuthMechanism: "MONGODB-X509", AuthSource: "$external"})
+}
+
+// ConnectX509Claiming presents certFile while asking to be authenticated as
+// claimedDN, which may be somebody else's name.
+//
+// MONGODB-X509 lets a client name itself in the request. The server is
+// supposed to take the identity from the certificate regardless, so this is
+// the call that separates a server checking the certificate from one taking
+// the client's word.
+func (s *TLSServer) ConnectX509Claiming(ctx context.Context, t *testing.T, certFile, claimedDN string) (*mongo.Client, error) {
+	t.Helper()
+	return s.connectAuth(ctx, t, certFile, options.Credential{
+		AuthMechanism: "MONGODB-X509", AuthSource: "$external", Username: claimedDN,
+	})
+}
+
+// ConnectAsUser authenticates with SCRAM, for bootstrapping the users the
+// X.509 cases need.
+func (s *TLSServer) ConnectAsUser(ctx context.Context, t *testing.T, user, password string) (*mongo.Client, error) {
+	t.Helper()
+	return s.connectAuth(ctx, t, s.fixture.ClientPEMFile, options.Credential{
+		AuthMechanism: "SCRAM-SHA-256", AuthSource: "admin", Username: user, Password: password,
+	})
+}
+
+func (s *TLSServer) connectAuth(ctx context.Context, t *testing.T, certFile string, cred options.Credential) (*mongo.Client, error) {
+	t.Helper()
+	if s.StartFailed {
+		t.Fatalf("cannot connect to %s: it never started", s.Addr)
+	}
+	pool := x509.NewCertPool()
+	caPEM, err := os.ReadFile(s.fixture.CAFile)
+	if err != nil {
+		t.Fatalf("reading CA: %v", err)
+	}
+	pool.AppendCertsFromPEM(caPEM)
+	config := &tls.Config{RootCAs: pool, ServerName: "127.0.0.1"}
+	if certFile != "" {
+		cert, certErr := tls.LoadX509KeyPair(certFile, certFile)
+		if certErr != nil {
+			t.Fatalf("loading client certificate %s: %v", certFile, certErr)
+		}
+		config.Certificates = []tls.Certificate{cert}
+	}
+	client, err := mongo.Connect(ctx, options.Client().
+		ApplyURI("mongodb://"+s.Addr+"/?directConnection=true").
+		SetTLSConfig(config).
+		SetAuth(cred).
+		SetServerSelectionTimeout(6*time.Second))
+	if err != nil {
+		return nil, err
+	}
+	if err := client.Ping(ctx, nil); err != nil {
+		_ = client.Disconnect(context.Background())
+		return nil, err
+	}
+	return client, nil
 }
 
 // ConnectAs dials presenting client material from a different fixture, so a
