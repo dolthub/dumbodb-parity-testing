@@ -15,10 +15,12 @@
 package harness
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // TestCompareResponses_MillisTolerance covers the asymmetric millis
@@ -63,6 +65,68 @@ func TestCompareResponses_MillisTolerance(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCompareErrorsContract(t *testing.T) {
+	commandError := func(message, name string, labels ...string) error {
+		return mongo.CommandError{Code: 112, Name: name, Message: message, Labels: labels}
+	}
+
+	t.Run("message is informational", func(t *testing.T) {
+		got := CompareResponses(nil, commandError("mongo wording", "WriteConflict"),
+			nil, commandError("dumbodb wording", "WriteConflict"))
+		if got.Result != Match || !strings.Contains(got.Diff, "informational") {
+			t.Fatalf("got result=%v diff=%q", got.Result, got.Diff)
+		}
+	})
+
+	t.Run("code name is required", func(t *testing.T) {
+		got := CompareResponses(nil, commandError("same", "WriteConflict"),
+			nil, commandError("same", "ErrorCode(112)"))
+		if got.Result != Diverge || !strings.Contains(got.Diff, "codeName") {
+			t.Fatalf("got result=%v diff=%q", got.Result, got.Diff)
+		}
+	})
+
+	t.Run("labels compare as a set", func(t *testing.T) {
+		got := CompareResponses(nil,
+			commandError("same", "WriteConflict", "TransientTransactionError", "RetryableWriteError"),
+			nil, commandError("same", "WriteConflict", "RetryableWriteError", "TransientTransactionError"))
+		if got.Result != Match {
+			t.Fatalf("got result=%v diff=%q", got.Result, got.Diff)
+		}
+	})
+
+	t.Run("missing label diverges", func(t *testing.T) {
+		got := CompareResponses(nil,
+			commandError("same", "WriteConflict", "TransientTransactionError"),
+			nil, commandError("same", "WriteConflict"))
+		if got.Result != Diverge || !strings.Contains(got.Diff, "labels") {
+			t.Fatalf("got result=%v diff=%q", got.Result, got.Diff)
+		}
+	})
+
+	t.Run("write exception labels", func(t *testing.T) {
+		mongoErr := mongo.WriteException{
+			WriteErrors: mongo.WriteErrors{{Code: 11000, Message: "mongo"}},
+			Labels:      []string{"RetryableWriteError"},
+		}
+		dumboErr := mongo.WriteException{
+			WriteErrors: mongo.WriteErrors{{Code: 11000, Message: "dumbodb"}},
+			Labels:      []string{"RetryableWriteError"},
+		}
+		got := CompareResponses(nil, mongoErr, nil, dumboErr)
+		if got.Result != Match {
+			t.Fatalf("got result=%v diff=%q", got.Result, got.Diff)
+		}
+	})
+
+	t.Run("one error only diverges", func(t *testing.T) {
+		got := CompareResponses(nil, errors.New("failure"), nil, nil)
+		if got.Result != Diverge {
+			t.Fatalf("got result=%v diff=%q", got.Result, got.Diff)
+		}
+	})
 }
 
 // TestCompareResponses_MillisOnlyOnOneSide ensures that an asymmetric

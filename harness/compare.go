@@ -16,7 +16,7 @@ import (
 type CompareResult int
 
 const (
-	Match        CompareResult = iota
+	Match CompareResult = iota
 	Diverge
 	CompareError
 )
@@ -123,24 +123,29 @@ func compareErrors(mongoErr, dumboDBErr error) Comparison {
 			Diff:   fmt.Sprintf("error code mismatch: mongo=%d dumbodb=%d", mCode, dCode),
 		}
 	}
-	// codeName is the stable, human-readable identity of an error. Compare it
-	// when both sides provide one; a mismatch here (e.g. same numeric code but
-	// different codeName) is a real divergence and yields a clearer diagnostic
-	// than the raw message comparison below.
 	mName := errorName(mongoErr)
 	dName := errorName(dumboDBErr)
-	if mName != "" && dName != "" && mName != dName {
+	if mName != dName {
 		return Comparison{
 			Result: Diverge,
 			Diff:   fmt.Sprintf("error codeName mismatch: mongo=%q dumbodb=%q (code=%d)", mName, dName, mCode),
 		}
 	}
+	mLabels := errorLabels(mongoErr)
+	dLabels := errorLabels(dumboDBErr)
+	if !reflect.DeepEqual(mLabels, dLabels) {
+		return Comparison{
+			Result: Diverge,
+			Diff:   fmt.Sprintf("error labels mismatch: mongo=%v dumbodb=%v (code=%d)", mLabels, dLabels, mCode),
+		}
+	}
+
 	mMsg := mongoErr.Error()
 	dMsg := dumboDBErr.Error()
 	if mMsg != dMsg {
 		return Comparison{
-			Result: Diverge,
-			Diff:   fmt.Sprintf("error message mismatch:\n  mongo: %s\n  dumbodb: %s", mMsg, dMsg),
+			Result: Match,
+			Diff:   fmt.Sprintf("informational error message mismatch:\n  mongo: %s\n  dumbodb: %s", mMsg, dMsg),
 		}
 	}
 	return Comparison{Result: Match}
@@ -172,6 +177,27 @@ func errorName(err error) string {
 		return cmdErr.Name
 	}
 	return ""
+}
+
+func errorLabels(err error) []string {
+	if err == nil {
+		return []string{}
+	}
+	var labels []string
+	var cmdErr mongo.CommandError
+	if errors.As(err, &cmdErr) {
+		labels = append(labels, cmdErr.Labels...)
+	} else {
+		var writeExc mongo.WriteException
+		if errors.As(err, &writeExc) {
+			labels = append(labels, writeExc.Labels...)
+		}
+	}
+	sort.Strings(labels)
+	if labels == nil {
+		return []string{}
+	}
+	return labels
 }
 
 // normalize converts any value to a stable, comparable representation.
