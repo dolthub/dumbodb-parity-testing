@@ -24,8 +24,8 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// unknownFieldCode appends a bogus top-level field to cmd, runs it, and returns
-// the resulting command-error code. MongoDB rejects an unknown top-level field
+// unknownFieldCode appends a bogus top-level field to cmd and returns the raw
+// command error. MongoDB rejects an unknown top-level field
 // during IDL parsing (before executing the command) with IDLUnknownField
 // (40415), so cmd need only be well-formed enough to reach the parse, not to
 // succeed. DumboDB must match once its handler adopts common.RejectUnknownFields.
@@ -34,9 +34,7 @@ func unknownFieldCode(ctx context.Context, col *mongo.Collection, cmd bson.D) (i
 	copy(full, cmd)
 	full = append(full, bson.E{Key: "nonExistentField42", Value: int32(1)})
 
-	err := col.Database().RunCommand(ctx, full).Err()
-	code, _, _ := harness.CommandErrorCode(err)
-	return bson.D{{Key: "unknownFieldCode", Value: code}}, nil
+	return nil, col.Database().RunCommand(ctx, full).Err()
 }
 
 // ufRejectionCase asserts a command rejects an unknown top-level field
@@ -62,9 +60,7 @@ func ufRejectionCaseAdmin(t *testing.T, name string, support harness.DumboDBSupp
 			full := make(bson.D, len(cmd), len(cmd)+1)
 			copy(full, cmd)
 			full = append(full, bson.E{Key: "nonExistentField42", Value: int32(1)})
-			err := col.Database().Client().Database("admin").RunCommand(ctx, full).Err()
-			code, _, _ := harness.CommandErrorCode(err)
-			return bson.D{{Key: "unknownFieldCode", Value: code}}, nil
+			return nil, col.Database().Client().Database("admin").RunCommand(ctx, full).Err()
 		},
 	})
 }
@@ -149,8 +145,7 @@ func TestUnknownField_AggregateExplain(t *testing.T) {
 				{Key: "bypassDocumentValidation", Value: false},
 				{Key: "hint", Value: bson.D{}},
 			}).Err()
-			code, _, _ := harness.CommandErrorCode(err)
-			return bson.D{{Key: "unknownFieldCode", Value: code}}, nil
+			return nil, err
 		},
 	})
 }
@@ -199,8 +194,7 @@ func TestUnknownField_DDLExtended(t *testing.T) {
 				{Key: "storageEngine", Value: bson.D{}},
 				{Key: "indexOptionDefaults", Value: bson.D{}},
 			}).Err()
-			code, _, _ := harness.CommandErrorCode(err)
-			return bson.D{{Key: "unknownFieldCode", Value: code}}, nil
+			return nil, err
 		},
 	})
 }
@@ -221,8 +215,7 @@ func TestUnknownField_ValidateLegacy(t *testing.T) {
 				{Key: "validate", Value: col.Name()},
 				{Key: "nonExistentField42", Value: int32(1)},
 			}).Err()
-			code, _, _ := harness.CommandErrorCode(err)
-			return bson.D{{Key: "unknownFieldCode", Value: code}}, nil
+			return nil, err
 		},
 	})
 }
@@ -298,8 +291,7 @@ func TestUnknownField_RenameCollection(t *testing.T) {
 				{Key: "to", Value: src + "_renamed"},
 				{Key: "nonExistentField42", Value: int32(1)},
 			}).Err()
-			code, _, _ := harness.CommandErrorCode(err)
-			return bson.D{{Key: "unknownFieldCode", Value: code}}, nil
+			return nil, err
 		},
 	})
 }
@@ -334,8 +326,7 @@ func TestUnknownField_Introspection(t *testing.T) {
 				{Key: "top", Value: int32(1)},
 				{Key: "nonExistentField42", Value: int32(1)},
 			}).Err()
-			code, _, _ := harness.CommandErrorCode(err)
-			return bson.D{{Key: "unknownFieldCode", Value: code}}, nil
+			return nil, err
 		},
 	})
 }
@@ -354,8 +345,7 @@ func TestUnknownField_EnvelopeAccepted(t *testing.T) {
 				{Key: "maxTimeMS", Value: int32(5000)},
 				{Key: "readConcern", Value: bson.D{{Key: "level", Value: "local"}}},
 			}).Err()
-			code, _, _ := harness.CommandErrorCode(err)
-			return bson.D{{Key: "unknownFieldCode", Value: code}}, nil
+			return nil, err
 		},
 	})
 }

@@ -50,6 +50,15 @@ func dupKeyCode(err error) int {
 	return -1
 }
 
+func comparableErrorInfo(err error) bson.D {
+	info := errInfo(err)
+	return bson.D{
+		{Key: "code", Value: info.code},
+		{Key: "codeName", Value: info.codeName},
+		{Key: "labels", Value: info.labels},
+	}
+}
+
 // uniqIDs returns the collection's _id values (as int32) sorted ascending.
 func uniqIDs(ctx context.Context, col *mongo.Collection) (bson.A, error) {
 	cur, err := col.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
@@ -109,7 +118,7 @@ func TestIndex_Unique_BuildOverExistingDuplicates(t *testing.T) {
 				Keys:    bson.D{{Key: "f", Value: 1}},
 				Options: options.Index().SetUnique(true),
 			})
-			return bson.D{{Key: "created", Value: err == nil}, {Key: "code", Value: dupKeyCode(err)}}, nil
+			return nil, err
 		},
 	})
 }
@@ -131,7 +140,7 @@ func TestIndex_Unique_BulkWrite_Ordered(t *testing.T) {
 			if idErr != nil {
 				return nil, idErr
 			}
-			return bson.D{{Key: "code", Value: dupKeyCode(err)}, {Key: "present", Value: ids}}, nil
+			return bson.D{{Key: "error", Value: comparableErrorInfo(err)}, {Key: "present", Value: ids}}, nil
 		},
 	})
 }
@@ -153,7 +162,7 @@ func TestIndex_Unique_BulkWrite_Unordered(t *testing.T) {
 			if idErr != nil {
 				return nil, idErr
 			}
-			return bson.D{{Key: "code", Value: dupKeyCode(err)}, {Key: "present", Value: ids}}, nil
+			return bson.D{{Key: "error", Value: comparableErrorInfo(err)}, {Key: "present", Value: ids}}, nil
 		},
 	})
 }
@@ -174,7 +183,7 @@ func TestIndex_Unique_UpsertCollision(t *testing.T) {
 			if idErr != nil {
 				return nil, idErr
 			}
-			return bson.D{{Key: "code", Value: dupKeyCode(err)}, {Key: "present", Value: ids}}, nil
+			return bson.D{{Key: "error", Value: comparableErrorInfo(err)}, {Key: "present", Value: ids}}, nil
 		},
 	})
 }
@@ -197,7 +206,7 @@ func TestIndex_Unique_Multikey(t *testing.T) {
 				return nil, idErr
 			}
 			return bson.D{
-				{Key: "crossCode", Value: dupKeyCode(crossErr)},
+				{Key: "crossError", Value: comparableErrorInfo(crossErr)},
 				{Key: "withinErrored", Value: withinErr != nil},
 				{Key: "present", Value: ids},
 			}, nil
@@ -218,7 +227,7 @@ func TestIndex_Unique_FindAndModifyCollision(t *testing.T) {
 			err := col.FindOneAndUpdate(ctx,
 				bson.D{{Key: "_id", Value: int32(1)}},
 				bson.D{{Key: "$set", Value: bson.D{{Key: "f", Value: "b"}}}}).Err()
-			return bson.D{{Key: "code", Value: dupKeyCode(err)}}, nil
+			return nil, err
 		},
 	})
 }
@@ -236,7 +245,7 @@ func TestIndex_Unique_IncCollision(t *testing.T) {
 			_, err := col.UpdateOne(ctx,
 				bson.D{{Key: "_id", Value: int32(1)}},
 				bson.D{{Key: "$inc", Value: bson.D{{Key: "n", Value: int32(1)}}}})
-			return bson.D{{Key: "code", Value: dupKeyCode(err)}}, nil
+			return nil, err
 		},
 	})
 }

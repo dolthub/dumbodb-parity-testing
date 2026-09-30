@@ -163,6 +163,10 @@ func errorCode(err error) int32 {
 	if errors.As(err, &writeExc) && len(writeExc.WriteErrors) > 0 {
 		return int32(writeExc.WriteErrors[0].Code)
 	}
+	var bulkExc mongo.BulkWriteException
+	if errors.As(err, &bulkExc) && len(bulkExc.WriteErrors) > 0 {
+		return int32(bulkExc.WriteErrors[0].Code)
+	}
 	return 0
 }
 
@@ -191,6 +195,11 @@ func errorLabels(err error) []string {
 		var writeExc mongo.WriteException
 		if errors.As(err, &writeExc) {
 			labels = append(labels, writeExc.Labels...)
+		} else {
+			var bulkExc mongo.BulkWriteException
+			if errors.As(err, &bulkExc) {
+				labels = append(labels, bulkExc.Labels...)
+			}
 		}
 	}
 	sort.Strings(labels)

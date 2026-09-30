@@ -57,6 +57,16 @@ func errInfo(err error) transactionErrorInfo {
 		}
 		return transactionErrorInfo{code: code, labels: labels}
 	}
+	var bulkExc mongo.BulkWriteException
+	if errors.As(err, &bulkExc) {
+		labels := append([]string(nil), bulkExc.Labels...)
+		sort.Strings(labels)
+		code := int32(0)
+		if len(bulkExc.WriteErrors) > 0 {
+			code = int32(bulkExc.WriteErrors[0].Code)
+		}
+		return transactionErrorInfo{code: code, labels: labels}
+	}
 	return transactionErrorInfo{labels: []string{}}
 }
 

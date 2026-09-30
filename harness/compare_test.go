@@ -121,6 +121,21 @@ func TestCompareErrorsContract(t *testing.T) {
 		}
 	})
 
+	t.Run("bulk write exception labels", func(t *testing.T) {
+		mongoErr := mongo.BulkWriteException{
+			WriteErrors: []mongo.BulkWriteError{{WriteError: mongo.WriteError{Code: 11000}}},
+			Labels:      []string{"RetryableWriteError", "TransientTransactionError"},
+		}
+		dumboErr := mongo.BulkWriteException{
+			WriteErrors: []mongo.BulkWriteError{{WriteError: mongo.WriteError{Code: 11000}}},
+			Labels:      []string{"TransientTransactionError", "RetryableWriteError"},
+		}
+		got := CompareResponses(nil, mongoErr, nil, dumboErr)
+		if got.Result != Match {
+			t.Fatalf("got result=%v diff=%q", got.Result, got.Diff)
+		}
+	})
+
 	t.Run("one error only diverges", func(t *testing.T) {
 		got := CompareResponses(nil, errors.New("failure"), nil, nil)
 		if got.Result != Diverge {

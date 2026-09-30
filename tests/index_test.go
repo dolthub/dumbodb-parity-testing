@@ -2,7 +2,6 @@ package tests
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -645,9 +644,7 @@ func TestIndex_Unique_DuplicateKeyError(t *testing.T) {
 		},
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "email", Value: "a@b.com"}})
-			// Assert the exact duplicate-key code (11000), not just that an
-			// error occurred -- a differently-shaped error would otherwise pass.
-			return bson.D{{Key: "code", Value: dupKeyCode(err)}}, nil
+			return nil, err
 		},
 	})
 }
@@ -1558,16 +1555,7 @@ func TestIndex_Hint_NonExistentIndexError(t *testing.T) {
 				err = cur.All(ctx, &results)
 			}
 
-			// Assert the error CODE (BadValue): an exact-message comparison
-			// would be fragile across versions.
-			var cmdErr mongo.CommandError
-			if errors.As(err, &cmdErr) {
-				return bson.D{{Key: "errored", Value: true}, {Key: "code", Value: cmdErr.Code}}, nil
-			}
-			if err != nil {
-				return bson.D{{Key: "errored", Value: true}, {Key: "code", Value: int32(-1)}}, nil
-			}
-			return bson.D{{Key: "errored", Value: false}}, nil
+			return nil, err
 		},
 	})
 }
@@ -2752,14 +2740,7 @@ func TestIndex_Hint_KeyPatternWrongDirection(t *testing.T) {
 				var r []bson.D
 				err = cur.All(ctx, &r)
 			}
-			var cmdErr mongo.CommandError
-			if errors.As(err, &cmdErr) {
-				return bson.D{{Key: "errored", Value: true}, {Key: "code", Value: cmdErr.Code}}, nil
-			}
-			if err != nil {
-				return bson.D{{Key: "errored", Value: true}, {Key: "code", Value: int32(-1)}}, nil
-			}
-			return bson.D{{Key: "errored", Value: false}}, nil
+			return nil, err
 		},
 	})
 }

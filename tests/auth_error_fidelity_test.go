@@ -51,10 +51,9 @@ func errCase(t *testing.T, id string, wantCode int32, wantName string,
 // errCaseMsg is for failures the driver surfaces as an auth-handshake error
 // (not a CommandError with an extractable code): it asserts the MongoDB error
 // is non-nil and its message contains msgSubstr (case-insensitive).
-// errCodeCase is like errCase but compares only the error code and codeName
-// across servers, not the full message. It fits failures whose MongoDB message
-// echoes the offending command document (including the connection's lsid),
-// which cannot match across the two servers' independent sessions.
+// errCodeCase validates the expected MongoDB code and returns the raw error so
+// the harness compares code, codeName, and labels. Message differences are
+// informational because command text can contain independent session IDs.
 func errCodeCase(t *testing.T, id string, wantCode int32, wantName string,
 	do func(ctx context.Context, tgt harness.AuthTarget) error) harness.AuthCase {
 	return authCaseFull(id, func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
@@ -68,7 +67,7 @@ func errCodeCase(t *testing.T, id string, wantCode int32, wantName string,
 				t.Errorf("%s: MongoDB codeName=%q, want %q", id, name, wantName)
 			}
 		}
-		return bson.M{"code": code, "codeName": name}, nil
+		return nil, err
 	})
 }
 

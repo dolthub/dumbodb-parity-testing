@@ -107,7 +107,7 @@ func TestNonTxnUpdate_BlocksUntilCommit(t *testing.T) {
 			_ = col.FindOne(ctx, bson.D{{Key: "_id", Value: "p"}}).Decode(&final)
 			return bson.D{
 				{Key: "bGotError", Value: bErr != nil},
-				{Key: "bErrCode", Value: errCode(bErr)},
+				{Key: "bError", Value: comparableErrorInfo(bErr)},
 				{Key: "bWaitedAtLeast1s", Value: elapsed >= 1*time.Second},
 				{Key: "finalX", Value: final["x"]},
 			}, nil
@@ -163,7 +163,7 @@ func TestNonTxnUpdate_BlocksUntilAbort(t *testing.T) {
 			_ = col.FindOne(ctx, bson.D{{Key: "_id", Value: "p"}}).Decode(&final)
 			return bson.D{
 				{Key: "bGotError", Value: bErr != nil},
-				{Key: "bErrCode", Value: errCode(bErr)},
+				{Key: "bError", Value: comparableErrorInfo(bErr)},
 				{Key: "bWaitedAtLeast1s", Value: elapsed >= 1*time.Second},
 				{Key: "finalX", Value: final["x"]},
 			}, nil
@@ -219,7 +219,7 @@ func TestNonTxnDelete_BlocksUntilCommit(t *testing.T) {
 			cnt, _ := col.CountDocuments(ctx, bson.D{{Key: "_id", Value: "p"}})
 			return bson.D{
 				{Key: "bGotError", Value: bErr != nil},
-				{Key: "bErrCode", Value: errCode(bErr)},
+				{Key: "bError", Value: comparableErrorInfo(bErr)},
 				{Key: "bWaitedAtLeast1s", Value: elapsed >= 1*time.Second},
 				{Key: "bDeletedCount", Value: deletedCount},
 				{Key: "finalCount", Value: cnt},
@@ -280,7 +280,7 @@ func TestNonTxnUpsert_RacesWithInsertCommit(t *testing.T) {
 			_ = col.FindOne(ctx, bson.D{{Key: "_id", Value: "p"}}).Decode(&final)
 			return bson.D{
 				{Key: "bGotError", Value: bErr != nil},
-				{Key: "bErrCode", Value: errCode(bErr)},
+				{Key: "bError", Value: comparableErrorInfo(bErr)},
 				{Key: "bWaitedAtLeast1s", Value: elapsed >= 1*time.Second},
 				{Key: "finalX", Value: final["x"]},
 			}, nil
@@ -337,7 +337,7 @@ func TestNonTxnUpsert_RacesWithInsertAbort(t *testing.T) {
 			_ = col.FindOne(ctx, bson.D{{Key: "_id", Value: "p"}}).Decode(&final)
 			return bson.D{
 				{Key: "bGotError", Value: bErr != nil},
-				{Key: "bErrCode", Value: errCode(bErr)},
+				{Key: "bError", Value: comparableErrorInfo(bErr)},
 				{Key: "bWaitedAtLeast1s", Value: elapsed >= 1*time.Second},
 				{Key: "finalX", Value: final["x"]},
 			}, nil
@@ -389,7 +389,7 @@ func TestNonTxnRead_DoesNotBlock(t *testing.T) {
 
 			return bson.D{
 				{Key: "bGotError", Value: bErr != nil},
-				{Key: "bErrCode", Value: errCode(bErr)},
+				{Key: "bError", Value: comparableErrorInfo(bErr)},
 				{Key: "bReturnedFast", Value: elapsed < 500*time.Millisecond},
 				{Key: "bSawX", Value: read["x"]},
 			}, nil
@@ -449,7 +449,7 @@ func TestNonTxnUpdate_MaxTimeMSExpires(t *testing.T) {
 
 			return bson.D{
 				{Key: "bGotError", Value: bErr != nil},
-				{Key: "bErrCode", Value: errCode(bErr)},
+				{Key: "bError", Value: comparableErrorInfo(bErr)},
 				{Key: "bElapsedRoughly500ms", Value: elapsed >= 400*time.Millisecond && elapsed < 1500*time.Millisecond},
 			}, nil
 		},
@@ -511,7 +511,7 @@ func TestNonTxnUpdate_DifferentDoc_DoesNotBlock(t *testing.T) {
 
 			return bson.D{
 				{Key: "bGotError", Value: bErr != nil},
-				{Key: "bErrCode", Value: errCode(bErr)},
+				{Key: "bError", Value: comparableErrorInfo(bErr)},
 				{Key: "bReturnedFast", Value: elapsed < 500*time.Millisecond},
 				{Key: "finalQX", Value: finalQ["x"]},
 			}, nil
@@ -570,11 +570,10 @@ func TestNonTxnFindAndModify_BlocksUntilCommit(t *testing.T) {
 			_ = col.FindOne(ctx, bson.D{{Key: "_id", Value: "p"}}).Decode(&final)
 			return bson.D{
 				{Key: "bGotError", Value: bErr != nil},
-				{Key: "bErrCode", Value: errCode(bErr)},
+				{Key: "bError", Value: comparableErrorInfo(bErr)},
 				{Key: "bWaitedAtLeast1s", Value: elapsed >= 1*time.Second},
 				{Key: "finalX", Value: final["x"]},
 			}, nil
 		},
 	})
 }
-
