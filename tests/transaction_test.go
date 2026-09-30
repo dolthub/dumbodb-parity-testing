@@ -31,21 +31,46 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// errCode mirrors harness/compare.go's unexported errorCode so tests can put
-// error codes in returned results.
-func errCode(err error) int32 {
+type transactionErrorInfo struct {
+	code     int32
+	codeName string
+	labels   []string
+}
+
+func errInfo(err error) transactionErrorInfo {
 	if err == nil {
-		return 0
+		return transactionErrorInfo{labels: []string{}}
 	}
 	var cmdErr mongo.CommandError
 	if errors.As(err, &cmdErr) {
-		return int32(cmdErr.Code)
+		labels := append([]string(nil), cmdErr.Labels...)
+		sort.Strings(labels)
+		return transactionErrorInfo{code: int32(cmdErr.Code), codeName: cmdErr.Name, labels: labels}
 	}
 	var writeExc mongo.WriteException
-	if errors.As(err, &writeExc) && len(writeExc.WriteErrors) > 0 {
-		return int32(writeExc.WriteErrors[0].Code)
+	if errors.As(err, &writeExc) {
+		labels := append([]string(nil), writeExc.Labels...)
+		sort.Strings(labels)
+		code := int32(0)
+		if len(writeExc.WriteErrors) > 0 {
+			code = int32(writeExc.WriteErrors[0].Code)
+		}
+		return transactionErrorInfo{code: code, labels: labels}
 	}
-	return 0
+	return transactionErrorInfo{labels: []string{}}
+}
+
+func errCode(err error) int32 {
+	return errInfo(err).code
+}
+
+func firstError(errs ...error) error {
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func sortByID(docs []bson.M) {
@@ -73,8 +98,8 @@ func secondClient(ctx context.Context) (*mongo.Client, func(), error) {
 
 func TestTransaction_basic_start_commit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "basic_start_commit",
-		Support: harness.DumboDBFull,
+		Name:     "basic_start_commit",
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			clientA := col.Database().Client()
@@ -126,8 +151,8 @@ func TestTransaction_basic_start_commit(t *testing.T) {
 
 func TestTransaction_abort_discards(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "abort_discards",
-		Support: harness.DumboDBFull,
+		Name:     "abort_discards",
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			client := col.Database().Client()
@@ -174,8 +199,8 @@ func TestTransaction_abort_discards(t *testing.T) {
 
 func TestTransaction_read_your_own_writes(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "read_your_own_writes",
-		Support: harness.DumboDBFull,
+		Name:     "read_your_own_writes",
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			clientA := col.Database().Client()
@@ -236,8 +261,8 @@ func TestTransaction_read_your_own_writes(t *testing.T) {
 
 func TestTransaction_doc_lock_conflict(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "doc_lock_conflict",
-		Support: harness.DumboDBFull,
+		Name:     "doc_lock_conflict",
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{
@@ -299,9 +324,12 @@ func TestTransaction_doc_lock_conflict(t *testing.T) {
 				return nil, err
 			}
 
+			bInfo := errInfo(bErr)
 			return bson.D{
 				{Key: "bGotError", Value: bErr != nil},
-				{Key: "bErrCode", Value: errCode(bErr)},
+				{Key: "bErrCode", Value: bInfo.code},
+				{Key: "bErrCodeName", Value: bInfo.codeName},
+				{Key: "bErrLabels", Value: bInfo.labels},
 				{Key: "finalX", Value: final["x"]},
 			}, nil
 		},
@@ -382,8 +410,8 @@ func TestTransaction_non_conflicting_succeed(t *testing.T) {
 
 func TestTransaction_concurrent_inserts_preexisting_collection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "concurrent_inserts_preexisting_collection",
-		Support: harness.DumboDBFull,
+		Name:     "concurrent_inserts_preexisting_collection",
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
@@ -431,6 +459,7 @@ func TestTransaction_concurrent_inserts_preexisting_collection(t *testing.T) {
 				ids = append(ids, d["_id"])
 			}
 
+			conflictInfo := errInfo(firstError(aInsertErr, bInsertErr, aCommitErr, bCommitErr))
 			return bson.D{
 				{Key: "aStartOk", Value: aStartErr == nil},
 				{Key: "aInsertOk", Value: aInsertErr == nil},
@@ -438,6 +467,9 @@ func TestTransaction_concurrent_inserts_preexisting_collection(t *testing.T) {
 				{Key: "bInsertOk", Value: bInsertErr == nil},
 				{Key: "aCommitOk", Value: aCommitErr == nil},
 				{Key: "bCommitOk", Value: bCommitErr == nil},
+				{Key: "conflictCode", Value: conflictInfo.code},
+				{Key: "conflictCodeName", Value: conflictInfo.codeName},
+				{Key: "conflictLabels", Value: conflictInfo.labels},
 				{Key: "finalCount", Value: int32(len(docs))},
 				{Key: "finalIds", Value: ids},
 			}, nil
@@ -447,8 +479,8 @@ func TestTransaction_concurrent_inserts_preexisting_collection(t *testing.T) {
 
 func TestTransaction_drop_in_txn(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "drop_in_txn",
-		Support: harness.DumboDBFull,
+		Name:     "drop_in_txn",
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
@@ -489,8 +521,8 @@ func TestTransaction_drop_in_txn(t *testing.T) {
 
 func TestTransaction_drop_database_in_txn(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "drop_database_in_txn",
-		Support: harness.DumboDBFull,
+		Name:     "drop_database_in_txn",
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
@@ -531,8 +563,8 @@ func TestTransaction_drop_database_in_txn(t *testing.T) {
 
 func TestTransaction_create_index_in_txn(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "create_index_in_txn",
-		Support: harness.DumboDBFull,
+		Name:     "create_index_in_txn",
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}, {Key: "x", Value: int32(1)}})
@@ -581,8 +613,8 @@ func TestTransaction_create_index_in_txn(t *testing.T) {
 
 func TestTransaction_rename_collection_in_txn(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "rename_collection_in_txn",
-		Support: harness.DumboDBFull,
+		Name:     "rename_collection_in_txn",
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
@@ -633,8 +665,8 @@ func TestTransaction_rename_collection_in_txn(t *testing.T) {
 
 func TestTransaction_create_collection_existing_in_txn(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "create_collection_existing_in_txn",
-		Support: harness.DumboDBFull,
+		Name:     "create_collection_existing_in_txn",
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}})
@@ -668,8 +700,8 @@ func TestTransaction_create_collection_existing_in_txn(t *testing.T) {
 
 func TestTransaction_endSession_discards(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "endSession_discards",
-		Support: harness.DumboDBFull,
+		Name:     "endSession_discards",
+		Support:  harness.DumboDBFull,
 		Topology: harness.TopologyReplicaSet,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			clientA := col.Database().Client()
@@ -794,10 +826,86 @@ func TestTransaction_doc_conflict_ignores_lock_timeout(t *testing.T) {
 				return nil, err
 			}
 
+			bInfo := errInfo(bErr)
 			return bson.D{
 				{Key: "bGotError", Value: bErr != nil},
-				{Key: "bErrCode", Value: errCode(bErr)},
+				{Key: "bErrCode", Value: bInfo.code},
+				{Key: "bErrCodeName", Value: bInfo.codeName},
+				{Key: "bErrLabels", Value: bInfo.labels},
 				{Key: "bReturnedFast", Value: elapsed < 500*time.Millisecond},
+				{Key: "finalX", Value: final["x"]},
+			}, nil
+		},
+	})
+}
+
+func TestTransaction_withTransaction_retries_on_conflict(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:     "withTransaction_retries_on_conflict",
+		Support:  harness.DumboDBFull,
+		Topology: harness.TopologyReplicaSet,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "p10"}, {Key: "x", Value: "original"}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			clientB, closeB, err := secondClient(ctx)
+			if err != nil {
+				return nil, err
+			}
+			defer closeB()
+			colB := clientB.Database(col.Database().Name()).Collection(col.Name())
+
+			sessA, err := col.Database().Client().StartSession()
+			if err != nil {
+				return nil, err
+			}
+			defer sessA.EndSession(ctx)
+			sessB, err := clientB.StartSession()
+			if err != nil {
+				return nil, err
+			}
+			defer sessB.EndSession(ctx)
+
+			attempts := int32(0)
+			_, txnErr := sessA.WithTransaction(ctx, func(sc mongo.SessionContext) (interface{}, error) {
+				attempts++
+				if err := col.FindOne(sc, bson.D{{Key: "_id", Value: "p10"}}).Err(); err != nil {
+					return nil, err
+				}
+				if attempts == 1 {
+					if err := sessB.StartTransaction(); err != nil {
+						return nil, err
+					}
+					scB := mongo.NewSessionContext(ctx, sessB)
+					if _, err := colB.UpdateOne(scB, bson.D{{Key: "_id", Value: "p10"}},
+						bson.D{{Key: "$set", Value: bson.D{{Key: "x", Value: "B"}}}}); err != nil {
+						_ = sessB.AbortTransaction(ctx)
+						return nil, err
+					}
+					_, updateErr := col.UpdateOne(sc, bson.D{{Key: "_id", Value: "p10"}},
+						bson.D{{Key: "$set", Value: bson.D{{Key: "x", Value: "A"}}}})
+					if err := sessB.CommitTransaction(ctx); err != nil {
+						return nil, err
+					}
+					return nil, updateErr
+				}
+				_, err := col.UpdateOne(sc, bson.D{{Key: "_id", Value: "p10"}},
+					bson.D{{Key: "$set", Value: bson.D{{Key: "x", Value: "A"}}}})
+				return nil, err
+			})
+
+			info := errInfo(txnErr)
+			var final bson.M
+			if err := col.FindOne(ctx, bson.D{{Key: "_id", Value: "p10"}}).Decode(&final); err != nil {
+				return nil, err
+			}
+			return bson.D{
+				{Key: "attempts", Value: attempts},
+				{Key: "committed", Value: txnErr == nil},
+				{Key: "errCode", Value: info.code},
+				{Key: "errCodeName", Value: info.codeName},
+				{Key: "errLabels", Value: info.labels},
 				{Key: "finalX", Value: final["x"]},
 			}, nil
 		},
