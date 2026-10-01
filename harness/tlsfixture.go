@@ -569,5 +569,93 @@ func SubjectRFC2253(t *testing.T, pemPath string) string {
 	if err != nil {
 		t.Fatalf("reading subject of %s: %v", pemPath, err)
 	}
-	return strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(string(out)), "subject="))
+	// Trim the line ending and the prefix, and NOTHING else. An earlier
+	// version trimmed whitespace from both ends and silently ate the trailing
+	// escaped space of a name like CN=\ padded\ , producing a string that
+	// could never match the user mongod had actually created.
+	line := strings.TrimRight(string(out), "\r\n")
+	return strings.TrimPrefix(line, "subject=")
+}
+
+// ClientPEMWithSubjectString signs a client certificate from an openssl -subj
+// string, and returns the combined PEM with the subject as RFC 2253.
+//
+// openssl rather than pkix.Name because the RDN ORDER is under test. Go's
+// struct fields impose their own order on the encoding, so a Go-built
+// certificate cannot express "CN first, then O" versus "O first, then CN".
+// The -subj string can, and it is also how an operator actually builds one.
+//
+// Values containing commas or equals signs are the point of the exercise:
+// RFC 2253 escapes them, and the escape is part of the user's name.
+func ClientPEMWithSubjectString(t *testing.T, f *TLSFixture, name, subj string) (pemPath, rfc2253 string) {
+	t.Helper()
+	return f.opensslClient(t, name, subj, nil)
+}
+
+// ExpiredClientPEM signs a client certificate that expired yesterday, for
+// asking which layer refuses when a bad certificate names a good user.
+func ExpiredClientPEM(t *testing.T, f *TLSFixture, name, subj string) (pemPath, rfc2253 string) {
+	t.Helper()
+	return f.opensslClient(t, name, subj, []string{"-days", "-1"})
+}
+
+// ClientPEMWithoutClientAuth signs a certificate carrying no extended key
+// usage at all, so it does not assert that it may be used by a client.
+func ClientPEMWithoutClientAuth(t *testing.T, f *TLSFixture, name, subj string) (pemPath, rfc2253 string) {
+	t.Helper()
+	return f.opensslClient(t, name, subj, []string{"-noext"})
+}
+
+func (f *TLSFixture) opensslClient(t *testing.T, name, subj string, extra []string) (string, string) {
+	t.Helper()
+	if _, err := exec.LookPath("openssl"); err != nil {
+		t.Skip("openssl not found; cannot generate client material")
+	}
+	path := filepath.Join(f.Dir, name)
+	key := filepath.Join(f.Dir, name+".key")
+	csr := filepath.Join(f.Dir, name+".csr")
+	crt := filepath.Join(f.Dir, name+".crt")
+	ext := filepath.Join(f.Dir, name+".ext")
+
+	run := func(args ...string) {
+		if out, err := exec.Command("openssl", args...).CombinedOutput(); err != nil {
+			t.Fatalf("%s: openssl %v: %v: %s", name, args, err, out)
+		}
+	}
+	run("req", "-utf8", "-newkey", "rsa:2048", "-nodes", "-keyout", key, "-out", csr, "-subj", subj)
+
+	noExt := false
+	days := "365"
+	for i := 0; i < len(extra); i++ {
+		switch extra[i] {
+		case "-noext":
+			noExt = true
+		case "-days":
+			i++
+			days = extra[i]
+		}
+	}
+	sign := []string{"x509", "-req", "-in", csr, "-CA", f.CAFile, "-CAkey", f.caKeyFile(),
+		"-CAcreateserial", "-out", crt, "-days", days}
+	if !noExt {
+		if err := os.WriteFile(ext, []byte("extendedKeyUsage=clientAuth\n"), 0o600); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		sign = append(sign, "-extfile", ext)
+	}
+	run(sign...)
+
+	certPEM, err := os.ReadFile(crt)
+	if err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	keyPEM, err := os.ReadFile(key)
+	if err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	if err := os.WriteFile(path, append(certPEM, keyPEM...), 0o600); err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	_ = os.Remove(csr)
+	return path, SubjectRFC2253(t, crt)
 }
