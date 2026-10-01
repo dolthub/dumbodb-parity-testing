@@ -722,10 +722,10 @@ func TestAdvancedQuery_Mod_WithAndOperator(t *testing.T) {
 
 var jsonSchemaDocs = []interface{}{
 	bson.D{{Key: "_id", Value: "js1"}, {Key: "name", Value: "Alice"}, {Key: "age", Value: int32(25)}, {Key: "email", Value: "alice@example.com"}},
-	bson.D{{Key: "_id", Value: "js2"}, {Key: "name", Value: "Bob"}, {Key: "age", Value: int32(30)}}, // missing email
-	bson.D{{Key: "_id", Value: "js3"}, {Key: "age", Value: int32(22)}, {Key: "email", Value: "carol@example.com"}}, // missing name
-	bson.D{{Key: "_id", Value: "js4"}, {Key: "name", Value: "Dave"}, {Key: "age", Value: "thirty"}}, // age is string not int
-	bson.D{{Key: "_id", Value: "js5"}, {Key: "name", Value: "Eve"}, {Key: "age", Value: int32(-5)}, {Key: "email", Value: "eve@example.com"}}, // negative age
+	bson.D{{Key: "_id", Value: "js2"}, {Key: "name", Value: "Bob"}, {Key: "age", Value: int32(30)}},                                                // missing email
+	bson.D{{Key: "_id", Value: "js3"}, {Key: "age", Value: int32(22)}, {Key: "email", Value: "carol@example.com"}},                                 // missing name
+	bson.D{{Key: "_id", Value: "js4"}, {Key: "name", Value: "Dave"}, {Key: "age", Value: "thirty"}},                                                // age is string not int
+	bson.D{{Key: "_id", Value: "js5"}, {Key: "name", Value: "Eve"}, {Key: "age", Value: int32(-5)}, {Key: "email", Value: "eve@example.com"}},      // negative age
 	bson.D{{Key: "_id", Value: "js6"}, {Key: "name", Value: "Frank"}, {Key: "age", Value: int32(150)}, {Key: "email", Value: "frank@example.com"}}, // age too high
 	bson.D{{Key: "_id", Value: "js7"}, {Key: "name", Value: "Grace"}, {Key: "age", Value: int32(28)}, {Key: "email", Value: "grace@example.com"}, {Key: "role", Value: "admin"}},
 	bson.D{{Key: "_id", Value: "js8"}, {Key: "name", Value: "Henry"}, {Key: "age", Value: int32(35)}, {Key: "email", Value: "henry@example.com"}, {Key: "role", Value: "user"}},
@@ -997,10 +997,10 @@ func TestAdvancedQuery_JsonSchema_MinLength_MaxLength(t *testing.T) {
 		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
-				bson.D{{Key: "_id", Value: "s1"}, {Key: "code", Value: "AB"}},   // too short
-				bson.D{{Key: "_id", Value: "s2"}, {Key: "code", Value: "ABC"}},  // ok
-				bson.D{{Key: "_id", Value: "s3"}, {Key: "code", Value: "ABCDE"}},// ok
-				bson.D{{Key: "_id", Value: "s4"}, {Key: "code", Value: "ABCDEF"}},// too long
+				bson.D{{Key: "_id", Value: "s1"}, {Key: "code", Value: "AB"}},     // too short
+				bson.D{{Key: "_id", Value: "s2"}, {Key: "code", Value: "ABC"}},    // ok
+				bson.D{{Key: "_id", Value: "s3"}, {Key: "code", Value: "ABCDE"}},  // ok
+				bson.D{{Key: "_id", Value: "s4"}, {Key: "code", Value: "ABCDEF"}}, // too long
 			})
 			return err
 		},
@@ -1066,8 +1066,8 @@ func TestAdvancedQuery_JsonSchema_ArrayItems(t *testing.T) {
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a1"}, {Key: "tags", Value: bson.A{"go", "db"}}},
-				bson.D{{Key: "_id", Value: "a2"}, {Key: "tags", Value: bson.A{"go", 42}}},   // mixed types
-				bson.D{{Key: "_id", Value: "a3"}, {Key: "tags", Value: bson.A{}}},            // empty array
+				bson.D{{Key: "_id", Value: "a2"}, {Key: "tags", Value: bson.A{"go", 42}}}, // mixed types
+				bson.D{{Key: "_id", Value: "a3"}, {Key: "tags", Value: bson.A{}}},         // empty array
 				bson.D{{Key: "_id", Value: "a4"}, {Key: "name", Value: "no tags"}},
 			})
 			return err
@@ -1689,10 +1689,10 @@ func TestAdvancedQuery_JsonSchema_OneOf(t *testing.T) {
 		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
-				bson.D{{Key: "_id", Value: "oo1"}, {Key: "val", Value: int32(5)}},   // odd only
-				bson.D{{Key: "_id", Value: "oo2"}, {Key: "val", Value: int32(10)}},  // even only
-				bson.D{{Key: "_id", Value: "oo3"}, {Key: "val", Value: int32(15)}},  // both (divisible by 3 and 5)
-				bson.D{{Key: "_id", Value: "oo4"}, {Key: "val", Value: int32(7)}},   // neither
+				bson.D{{Key: "_id", Value: "oo1"}, {Key: "val", Value: int32(5)}},  // odd only
+				bson.D{{Key: "_id", Value: "oo2"}, {Key: "val", Value: int32(10)}}, // even only
+				bson.D{{Key: "_id", Value: "oo3"}, {Key: "val", Value: int32(15)}}, // both (divisible by 3 and 5)
+				bson.D{{Key: "_id", Value: "oo4"}, {Key: "val", Value: int32(7)}},  // neither
 			})
 			return err
 		},
@@ -1778,10 +1778,10 @@ func TestAdvancedQuery_JsonSchema_ExclusiveMinimum_Maximum(t *testing.T) {
 		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
-				bson.D{{Key: "_id", Value: "em1"}, {Key: "val", Value: int32(0)}},   // at boundary
-				bson.D{{Key: "_id", Value: "em2"}, {Key: "val", Value: int32(1)}},   // inside
-				bson.D{{Key: "_id", Value: "em3"}, {Key: "val", Value: int32(9)}},   // inside
-				bson.D{{Key: "_id", Value: "em4"}, {Key: "val", Value: int32(10)}},  // at boundary
+				bson.D{{Key: "_id", Value: "em1"}, {Key: "val", Value: int32(0)}},  // at boundary
+				bson.D{{Key: "_id", Value: "em2"}, {Key: "val", Value: int32(1)}},  // inside
+				bson.D{{Key: "_id", Value: "em3"}, {Key: "val", Value: int32(9)}},  // inside
+				bson.D{{Key: "_id", Value: "em4"}, {Key: "val", Value: int32(10)}}, // at boundary
 			})
 			return err
 		},

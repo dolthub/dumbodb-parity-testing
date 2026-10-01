@@ -26,7 +26,8 @@ type Comparison struct {
 	Diff   string
 }
 
-// defaultIgnoredFields are document fields omitted from comparison because
+// defaultIgnoredFields are document fields whose VALUES are omitted from
+// comparison, while their presence is still compared, because
 // their values are non-deterministic (timestamps, generated IDs) or are
 // physical storage metrics that depend on the storage engine rather than
 // the data (WiredTiger vs Dolt prolly trees report different on-disk byte
@@ -258,6 +259,7 @@ func normalize(v interface{}) interface{} {
 		m := make(map[string]interface{}, len(val))
 		for k, v2 := range val {
 			if defaultIgnoredFields[k] {
+				m[k] = ignoredValueSentinel
 				continue
 			}
 			norm := normalize(v2)
@@ -334,10 +336,22 @@ func normalize(v interface{}) interface{} {
 
 const objectIDSentinel = "<ObjectID>"
 
+// ignoredValueSentinel stands in for a field whose VALUE cannot be compared
+// but whose PRESENCE can.
+//
+// These fields used to be deleted from both sides, which also erased the
+// answer to "does only one server send this at all". That is how DumboDB came
+// to return $clusterTime on every standalone reply, where mongod returns it
+// only in a replica set, while this suite reported parity: both sides had the
+// field removed before anything looked. Substituting a constant keeps the
+// value out of the comparison and puts the presence back in.
+const ignoredValueSentinel = "<ignored>"
+
 func normalizeBSONDoc(d bson.D) map[string]interface{} {
 	m := make(map[string]interface{}, len(d))
 	for _, elem := range d {
 		if defaultIgnoredFields[elem.Key] {
+			m[elem.Key] = ignoredValueSentinel
 			continue
 		}
 		norm := normalize(elem.Value)

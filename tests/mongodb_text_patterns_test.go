@@ -1,6 +1,8 @@
 // mongodb_text_patterns_test.go covers MongoDB $text search tutorials.
 // Source: https://www.mongodb.com/docs/manual/tutorial/text-search-in-aggregation/
-//         https://www.mongodb.com/docs/manual/reference/operator/query/text/
+//
+//	https://www.mongodb.com/docs/manual/reference/operator/query/text/
+//
 // Each test mirrors the data and operations shown on the corresponding tutorial page.
 package tests
 

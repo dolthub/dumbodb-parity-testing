@@ -119,11 +119,28 @@ func TestDriverSemantics_retryableWritesStandaloneOmitsTxnNumber(t *testing.T) {
 	})
 }
 
+// Causal consistency needs a cluster time, which a server only has when it
+// has a replica set configuration. DumboDB is always standalone here, so this
+// compares against a STANDALONE mongod rather than a replica set: on matching
+// topologies both report no operation time and send no afterClusterTime, and
+// that is the parity worth asserting.
+//
+// This case previously ran against TopologyReplicaSet and passed, because
+// DumboDB returned $clusterTime and operationTime on every reply regardless
+// of topology and so looked like a cluster to the driver. That was
+// workspace-5h0. Measured after the fix, dumbodb v0.7.0-60-gc66e4cb:
+//
+//	mongod standalone    operationTimeSet=false
+//	mongod replica set   operationTimeSet=true
+//	dumbodb standalone   operationTimeSet=false
+//
+// Comparing the replica-set mongod against a standalone DumboDB was never a
+// like-for-like question; it only looked like one while the bug lasted.
 func TestDriverSemantics_causalSessionReadUsesOperationTime(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:     "driver_causal_session_read_uses_operation_time",
 		Support:  harness.DumboDBFull,
-		Topology: harness.TopologyReplicaSet,
+		Topology: harness.TopologyStandalone,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			recorder := newStartedCommandRecorder()
 			client, err := monitoredClient(ctx, harness.ServerURI(ctx), recorder)
