@@ -37,8 +37,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-const x509Bead = "workspace-61n.2"
-
 // authedPair starts both servers with --auth and TLS and bootstraps a root
 // user on each through the localhost exception.
 func authedPair(t *testing.T, f *harness.TLSFixture) (mongod, dumbodb *harness.TLSServer) {
@@ -359,14 +357,13 @@ func TestX509_RoleShorthandIsRefused(t *testing.T) {
 			t.Logf("%s: createUser with a shorthand role: %v", s.name, err)
 
 			if err == nil {
-				if !s.oracle {
-					t.Logf("XFAIL %s: dumbodb accepted a shorthand role for an $external user, which resolves to readWrite@$external and grants nothing", storageBead)
-					return
-				}
-				t.Fatal("premise failed: mongod accepted a shorthand role for an $external user")
+				t.Errorf("%s accepted a shorthand role for an $external user; it resolves to readWrite@$external, which is not a role, so the grant can never apply",
+					s.name)
+				return
 			}
-			if s.oracle && !strings.Contains(err.Error(), "$external") {
-				t.Errorf("mongod refused the shorthand without naming $external, so this test's premise about why is wrong: %v", err)
+			if !strings.Contains(err.Error(), "$external") {
+				t.Errorf("%s refused the shorthand without naming $external, so the message does not say why it cannot work: %v",
+					s.name, err)
 			}
 		})
 	}

@@ -32,8 +32,6 @@ import (
 // users are kept the way MongoDB keeps them: in admin.system.users carrying
 // db "$external", with no database of that name on disk. All three halves are
 // observable, so all three are asserted.
-const storageBead = "workspace-61n.3"
-
 func TestX509Storage_MatchesMongoDB(t *testing.T) {
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
