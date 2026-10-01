@@ -29,6 +29,7 @@ import (
 )
 
 func TestTLSRevocation_RevokedClientCertificateIsRefused(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	crl := harness.RevocationListFor(t, f, f.ClientCertFile)
@@ -59,6 +60,7 @@ func TestTLSRevocation_RevokedClientCertificateIsRefused(t *testing.T) {
 // list is still good, and a server that rejected everything would satisfy the
 // case above while being useless.
 func TestTLSRevocation_UnrevokedCertificateStillWorks(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	// A CRL revoking the SERVER certificate, which no client presents, so the
@@ -96,6 +98,7 @@ func TestTLSRevocation_UnrevokedCertificateStillWorks(t *testing.T) {
 // happens to a client carrying a perfectly good certificate is the part an
 // operator finds out about at the worst moment.
 func TestTLSRevocation_ExpiredRevocationList(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	opts := harness.TLSOptions{CRLFile: harness.ExpiredRevocationList(t, f)}
@@ -127,6 +130,7 @@ func TestTLSRevocation_ExpiredRevocationList(t *testing.T) {
 // alongside --tlsCAFile, and a server that accepts the pair without one is
 // quietly enforcing nothing.
 func TestTLSRevocation_WithoutACA(t *testing.T) {
+	t.Parallel()
 	f := harness.NewTLSFixture(t)
 	opts := harness.TLSOptions{
 		CRLFile:  harness.RevocationListFor(t, f, f.ClientCertFile),
@@ -147,6 +151,7 @@ func TestTLSRevocation_WithoutACA(t *testing.T) {
 // --tlsCRLFile pointed at the wrong PEM. Operators do this, and the failure is
 // silent in the worst case: revocation configured, nothing enforced.
 func TestTLSRevocation_FileIsNotARevocationList(t *testing.T) {
+	t.Parallel()
 	f := harness.NewTLSFixture(t)
 	opts := harness.TLSOptions{CRLFile: harness.NotARevocationList(t, f)}
 

@@ -32,6 +32,7 @@ import (
 const keyPassword = "hunter2"
 
 func TestEncryptedKey_CorrectPasswordServesClients(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	opts := harness.TLSOptions{
@@ -63,6 +64,7 @@ func TestEncryptedKey_CorrectPasswordServesClients(t *testing.T) {
 // The failure that matters. A wrong password must stop the server, not be
 // absorbed into material nobody can use.
 func TestEncryptedKey_WrongPasswordRefusesToStart(t *testing.T) {
+	t.Parallel()
 	f := harness.NewTLSFixture(t)
 	opts := harness.TLSOptions{
 		CertificateKeyFile: harness.EncryptedPKCS8PEM(t, f, keyPassword),
@@ -85,6 +87,7 @@ func TestEncryptedKey_WrongPasswordRefusesToStart(t *testing.T) {
 // parse failure, which sent the operator off to regenerate a file that was
 // fine. The refusal has to name the cause.
 func TestEncryptedKey_MissingPasswordNamesTheCause(t *testing.T) {
+	t.Parallel()
 	f := harness.NewTLSFixture(t)
 	opts := harness.TLSOptions{CertificateKeyFile: harness.EncryptedPKCS8PEM(t, f, keyPassword)}
 
@@ -126,6 +129,7 @@ func TestEncryptedKey_MissingPasswordNamesTheCause(t *testing.T) {
 // starts, this is no longer a deviation and the decision should be revisited
 // rather than the test quietly following along.
 func TestEncryptedKey_LegacyFormatDeviates(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	opts := harness.TLSOptions{

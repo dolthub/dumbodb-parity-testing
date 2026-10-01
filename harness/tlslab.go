@@ -143,6 +143,10 @@ func StartTLSMongod(t *testing.T, f *TLSFixture, opts TLSOptions) *TLSServer {
 		"--dbpath", dir,
 		"--bind_ip", "127.0.0.1",
 		"--nounixsocket",
+		// Without this each mongod reserves roughly half of available RAM for
+		// WiredTiger. Harmless one at a time, ruinous in parallel; this is the
+		// cap that stopped the replication suite being flaky.
+		"--wiredTigerCacheSizeGB", "0.25",
 		"--tlsMode", f.orDefault(opts.Mode, "requireTLS"),
 		"--tlsCertificateKeyFile", f.orDefault(opts.CertificateKeyFile, f.ServerPEMFile),
 	}
@@ -216,8 +220,18 @@ func startTLSServer(t *testing.T, f *TLSFixture, bin, name, addr, dir string, ar
 	// waiting for the port alone spent twenty five seconds per server on every
 	// case that was supposed to fail.
 	if !waitListeningOrExit(exited, addr, 25*time.Second) {
+		output := readServerLog(proc)
+		// A server that could not take the address did not reject its
+		// configuration; the harness handed it a port something else already
+		// held. Several cases read StartFailed as "this configuration was
+		// refused", so letting a collision through here would be a wrong
+		// answer rather than an error. freePort stops this happening within
+		// the process; this catches a collision with anything else.
+		if addressInUse(output) {
+			t.Fatalf("%s could not bind %s: the harness handed out a port something else holds.\n%s", name, addr, output)
+		}
 		s.StartFailed = true
-		s.FailureOutput = readServerLog(proc)
+		s.FailureOutput = output
 		s.proc.stop()
 		s.proc = nil
 	}
@@ -579,6 +593,23 @@ func readServerLog(proc *serverProc) string {
 
 // waitListeningOrExit reports whether addr began accepting connections before
 // the process gave up. It returns as soon as either happens.
+// addressInUse reports whether a server died because its port was taken,
+// which is a harness fault rather than a result.
+func addressInUse(output string) bool {
+	lowered := strings.ToLower(output)
+	for _, marker := range []string{
+		"address already in use",
+		"address in use",
+		"addrinuse",
+		"failed to set up listener",
+	} {
+		if strings.Contains(lowered, marker) {
+			return true
+		}
+	}
+	return false
+}
+
 func waitListeningOrExit(exited <-chan struct{}, addr string, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {

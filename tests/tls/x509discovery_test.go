@@ -33,6 +33,7 @@ import (
 // db "$external", with no database of that name on disk. All three halves are
 // observable, so all three are asserted.
 func TestX509Storage_MatchesMongoDB(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	_, dn := harness.ClientPEMWithSubjectString(t, f, "storage.pem", "/CN=storage-user/O=Example")
@@ -84,6 +85,7 @@ func TestX509Storage_MatchesMongoDB(t *testing.T) {
 // A configuration error on a route the operator believed was set up, and it
 // must fail rather than fall through to something else.
 func TestX509Refusal_OverPlaintext(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	opts := harness.TLSOptions{Auth: true, Mode: "allowTLS"}
@@ -129,6 +131,7 @@ func TestX509Refusal_OverPlaintext(t *testing.T) {
 // MONGODB-X509 here would diverge, and might send a driver down a SASL path
 // that does not exist.
 func TestX509Discovery_NotAdvertisedAsASASLMechanism(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	_, dn := harness.ClientPEMWithSubjectString(t, f, "discovery.pem", "/CN=discovery-user/O=Example")

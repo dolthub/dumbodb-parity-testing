@@ -107,6 +107,7 @@ func createX509User(ctx context.Context, t *testing.T, s *harness.TLSServer, dn 
 // formats the name itself can produce a string that looks right and matches
 // nothing.
 func TestX509_SubjectNameMatchesOpenSSL(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	certFile, dn := harness.ClientPEMWithSubject(t, f, "x509-multi.pem", pkix.Name{
@@ -152,6 +153,7 @@ func TestX509_SubjectNameMatchesOpenSSL(t *testing.T) {
 // presented, never as a name it asked for. A test that only checks the happy
 // path passes against a server that trusts the client's claim.
 func TestX509_IdentityComesFromTheCertificateNotTheClient(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	holderCert, holderDN := harness.ClientPEMWithSubject(t, f, "x509-holder.pem",
@@ -201,6 +203,7 @@ func TestX509_IdentityComesFromTheCertificateNotTheClient(t *testing.T) {
 // X.509 with nothing to identify. Both are configuration errors on a path the
 // operator believed was set up, so the refusal should say which.
 func TestX509_RefusedWithoutACertificate(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	mongod := harness.StartTLSMongod(t, f, harness.TLSOptions{Auth: true, AllowConnectionsWithoutCertificates: true})
@@ -231,6 +234,7 @@ func TestX509_RefusedWithoutACertificate(t *testing.T) {
 // A certificate nobody made a user for is an ordinary unknown user and should
 // look like one.
 func TestX509_UnknownSubjectIsRefused(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	certFile, dn := harness.ClientPEMWithSubject(t, f, "x509-stranger.pem",
@@ -279,6 +283,7 @@ func authenticatedAs(ctx context.Context, t *testing.T, cli *mongo.Client) strin
 // the user's authentication database passes every SCRAM test and gives an
 // X.509 user nothing at all.
 func TestX509_RolesApplyToTheDatabasesTheyName(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	certFile, dn := harness.ClientPEMWithSubject(t, f, "x509-roles.pem",
@@ -334,6 +339,7 @@ func TestX509_RolesApplyToTheDatabasesTheyName(t *testing.T) {
 // $external, where no role is defined. mongod refuses by name; a server that
 // accepted it would store a role that grants nothing and say nothing.
 func TestX509_RoleShorthandIsRefused(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	mongod, dumbodb := authedPair(t, f)

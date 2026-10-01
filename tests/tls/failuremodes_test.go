@@ -29,6 +29,7 @@ import (
 )
 
 func TestTLSFailureModes_StartupAgreesWithMongod(t *testing.T) {
+	t.Parallel()
 	f := harness.NewTLSFixture(t)
 	// A second fixture is a whole unrelated trust root, which is how a CA
 	// comes to name a certificate that did not sign the server's.

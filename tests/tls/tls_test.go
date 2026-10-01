@@ -39,6 +39,7 @@ func tlsContext(t *testing.T) context.Context {
 // A CA without the allow flag is mutual TLS: a client presenting a certificate
 // is served and one without is refused.
 func TestTLS_CARequiresAClientCertificate(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	opts := harness.TLSOptions{}
@@ -70,6 +71,7 @@ func TestTLS_CARequiresAClientCertificate(t *testing.T) {
 // The allow flag is the difference between "trust this CA" and "demand a
 // certificate from everyone".
 func TestTLS_AllowConnectionsWithoutCertificates(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	opts := harness.TLSOptions{AllowConnectionsWithoutCertificates: true}
@@ -101,6 +103,7 @@ func TestTLS_AllowConnectionsWithoutCertificates(t *testing.T) {
 // regression guard for workspace-lkd, where TLS lived on a second port and the
 // main one kept serving unencrypted traffic.
 func TestTLS_PlaintextIsRefusedOnTheTLSPort(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 
@@ -126,6 +129,7 @@ func TestTLS_PlaintextIsRefusedOnTheTLSPort(t *testing.T) {
 // every client afterwards. A server that comes up and then fails every
 // handshake looks healthy to anything watching the process or the port.
 func TestTLS_BadMaterialIsRejectedAtStartup(t *testing.T) {
+	t.Parallel()
 	f := harness.NewTLSFixture(t)
 
 	cases := []struct {

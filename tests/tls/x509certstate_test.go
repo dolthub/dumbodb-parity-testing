@@ -37,6 +37,7 @@ import (
 // expectation is that the handshake fails and authentication is never
 // reached; a server that resolved the name first would authenticate it.
 func TestX509CertState_ExpiredCertificateNamingAGoodUser(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	certFile, dn := harness.ExpiredClientPEM(t, f, "expired-client.pem", "/CN=expired-user/O=Example")
@@ -67,6 +68,7 @@ func TestX509CertState_ExpiredCertificateNamingAGoodUser(t *testing.T) {
 // operationally: a compromised certificate is revoked, and the user it names
 // is still perfectly valid. Revocation has to win.
 func TestX509CertState_RevokedCertificateNamingAGoodUser(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	certFile, dn := harness.ClientPEMWithSubjectString(t, f, "revoked-client.pem", "/CN=revoked-user/O=Example")
@@ -112,6 +114,7 @@ func TestX509CertState_RevokedCertificateNamingAGoodUser(t *testing.T) {
 // putting a public CA in --tlsCAFile, since anyone who can have that subject
 // signed becomes that user.
 func TestX509CertState_SameSubjectDifferentKeyIsTheSameUser(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	const subj = "/CN=twins/O=Example"
@@ -156,6 +159,7 @@ func TestX509CertState_SameSubjectDifferentKeyIsTheSameUser(t *testing.T) {
 // MEASURED: mongod 8.0.28 ACCEPTS a client certificate carrying no extended
 // key usage at all. The constraint is not enforced.
 func TestX509CertState_WithoutClientAuthExtendedKeyUsage(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	certFile, dn := harness.ClientPEMWithoutClientAuth(t, f, "no-eku.pem", "/CN=no-eku/O=Example")
@@ -190,6 +194,7 @@ func TestX509CertState_WithoutClientAuthExtendedKeyUsage(t *testing.T) {
 // de-authorization is immediate; what survives is the TCP connection, not the
 // session's authority.
 func TestX509CertState_DropUserDeauthorizesLiveConnections(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	certFile, dn := harness.ClientPEMWithSubjectString(t, f, "dropped.pem", "/CN=dropped-user/O=Example")

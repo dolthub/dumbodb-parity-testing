@@ -354,14 +354,46 @@ func findDumboDBBinary() string {
 	return ""
 }
 
+// freePort returns a port nothing in this process has been handed before.
+//
+// Binding :0 and closing leaves a window in which the kernel may hand the same
+// port to the next caller, which is harmless when tests run one at a time and
+// is not when they do not. The consequence here is worse than a flake: a
+// server that cannot bind EXITS, which startTLSServer reports as StartFailed,
+// and several cases read StartFailed as "the server rejected this
+// configuration". A collision would therefore produce a wrong answer rather
+// than an error.
+//
+// Remembering what has been issued removes the within-process collision. A
+// collision with something else on the machine is still possible and is
+// caught separately, by noticing that the server died complaining about the
+// address.
 func freePort() (int, error) {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, fmt.Errorf("allocate free port: %w", err)
+	issuedPortsMu.Lock()
+	defer issuedPortsMu.Unlock()
+	for attempt := 0; attempt < 100; attempt++ {
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			return 0, fmt.Errorf("allocate free port: %w", err)
+		}
+		port := l.Addr().(*net.TCPAddr).Port
+		_ = l.Close()
+		if issuedPorts[port] {
+			continue
+		}
+		if issuedPorts == nil {
+			issuedPorts = map[int]bool{}
+		}
+		issuedPorts[port] = true
+		return port, nil
 	}
-	defer func() { _ = l.Close() }()
-	return l.Addr().(*net.TCPAddr).Port, nil
+	return 0, fmt.Errorf("allocate free port: 100 attempts all returned a port already issued")
 }
+
+var (
+	issuedPortsMu sync.Mutex
+	issuedPorts   = map[int]bool{}
+)
 
 func waitPort(addr string, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)

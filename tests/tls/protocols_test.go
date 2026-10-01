@@ -39,6 +39,7 @@ var tlsVersionNames = map[uint16]string{
 // asking, and it is worth recording whether it is true by configuration or
 // merely by the library's defaults.
 func TestTLSProtocols_DefaultsAgree(t *testing.T) {
+	t.Parallel()
 	f := harness.NewTLSFixture(t)
 	mongod := harness.StartTLSMongod(t, f, harness.TLSOptions{})
 	dumbodb := harness.StartTLSDumboDB(t, f, harness.TLSOptions{})
@@ -73,6 +74,7 @@ func TestTLSProtocols_DefaultsAgree(t *testing.T) {
 // moving a floor, so a server implementing this as a minimum version cannot
 // express it and will either serve 1.2 anyway or refuse 1.3 as well.
 func TestTLSProtocols_DisablingAVersionRefusesIt(t *testing.T) {
+	t.Parallel()
 	f := harness.NewTLSFixture(t)
 	opts := harness.TLSOptions{DisabledProtocols: "TLS1_2"}
 
@@ -103,6 +105,7 @@ func TestTLSProtocols_DisablingAVersionRefusesIt(t *testing.T) {
 // still allows, not merely some allowed one. Negotiating downwards when a
 // better version was on offer is the downgrade this flag exists to prevent.
 func TestTLSProtocols_NegotiatesTheHighestEnabledVersion(t *testing.T) {
+	t.Parallel()
 	f := harness.NewTLSFixture(t)
 	opts := harness.TLSOptions{DisabledProtocols: "TLS1_3"}
 
@@ -137,6 +140,7 @@ func TestTLSProtocols_NegotiatesTheHighestEnabledVersion(t *testing.T) {
 // anyway is one whose port answers and whose every client fails, which is the
 // shape of failure this suite exists to catch.
 func TestTLSProtocols_AllVersionsDisabled(t *testing.T) {
+	t.Parallel()
 	f := harness.NewTLSFixture(t)
 	opts := harness.TLSOptions{DisabledProtocols: "TLS1_0,TLS1_1,TLS1_2,TLS1_3"}
 
@@ -172,6 +176,7 @@ func TestTLSProtocols_AllVersionsDisabled(t *testing.T) {
 // value the flag takes, and even it does not reach below what the server was
 // built to speak.
 func TestTLSProtocols_DisablingSomeEnablesNoOthers(t *testing.T) {
+	t.Parallel()
 	f := harness.NewTLSFixture(t)
 
 	for _, disabled := range []string{"TLS1_0", "TLS1_3", "none"} {
@@ -215,6 +220,7 @@ func TestTLSProtocols_DisablingSomeEnablesNoOthers(t *testing.T) {
 // nothing is the dangerous reading of it: the operator believes a version is
 // off and it is not.
 func TestTLSProtocols_UnrecognizedVersionName(t *testing.T) {
+	t.Parallel()
 	f := harness.NewTLSFixture(t)
 	opts := harness.TLSOptions{DisabledProtocols: "TLS1_4"}
 

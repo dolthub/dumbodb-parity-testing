@@ -40,6 +40,7 @@ const shortLife = 25 * time.Second
 // again is the question, and the answer decides what an operator sees at the
 // moment a renewal is missed.
 func TestRotation_CertificateExpiresWhileRunning(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	opts := harness.TLSOptions{
@@ -105,6 +106,7 @@ func TestRotation_CertificateExpiresWhileRunning(t *testing.T) {
 // The recovery path. Whatever expiry does, replacing the file and restarting
 // has to fix it, because that is what an automated renewal does.
 func TestRotation_RestartPicksUpReplacedMaterial(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	path := harness.ShortLivedPEM(t, f, "rotating.pem", shortLife)
@@ -141,6 +143,7 @@ func TestRotation_RestartPicksUpReplacedMaterial(t *testing.T) {
 // blast radius is every client at once, so the question is whether the
 // refusal is legible and whether both servers agree on it.
 func TestRotation_ReplacingTheCAStrandsOldClientCertificates(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	// The replacement authority: a whole new trust root, which is what

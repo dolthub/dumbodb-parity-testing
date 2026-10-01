@@ -29,6 +29,7 @@ import (
 )
 
 func TestTLSModes_PlaintextAcceptedOnlyWhereTheModeSaysSo(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 
@@ -77,6 +78,7 @@ func TestTLSModes_PlaintextAcceptedOnlyWhereTheModeSaysSo(t *testing.T) {
 // routing is shown to work per connection rather than being fixed at the
 // first one.
 func TestTLSModes_AllowTLSServesBothOnOneListener(t *testing.T) {
+	t.Parallel()
 	ctx := tlsContext(t)
 	f := harness.NewTLSFixture(t)
 	opts := harness.TLSOptions{Mode: "allowTLS"}

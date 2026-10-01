@@ -35,6 +35,7 @@ import (
 )
 
 func TestX509Matrix_CertificatePolicyAgainstMechanism(t *testing.T) {
+	t.Parallel()
 	for _, policy := range []struct {
 		name         string
 		allowWithout bool

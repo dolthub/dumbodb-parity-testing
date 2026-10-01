@@ -61,6 +61,7 @@ func unsupportedFlagArgs(f *harness.TLSFixture) map[string][]string {
 // name. Asking mongod itself for the list means a flag MongoDB adds later
 // arrives as a failing test rather than as a silently unhandled option.
 func TestTLSUnsupportedFlags_EveryMongodFlagIsAccountedFor(t *testing.T) {
+	t.Parallel()
 	f := harness.NewTLSFixture(t)
 	known := unsupportedFlagArgs(f)
 
@@ -75,6 +76,7 @@ func TestTLSUnsupportedFlags_EveryMongodFlagIsAccountedFor(t *testing.T) {
 }
 
 func TestTLSUnsupportedFlags_RefusedByName(t *testing.T) {
+	t.Parallel()
 	f := harness.NewTLSFixture(t)
 
 	for flag, args := range unsupportedFlagArgs(f) {
@@ -101,6 +103,7 @@ func TestTLSUnsupportedFlags_RefusedByName(t *testing.T) {
 // makes refusing them a choice rather than a shared limitation. Recorded
 // rather than asserted: mongod's answer is the fact, not the requirement.
 func TestTLSUnsupportedFlags_MongodAcceptsThem(t *testing.T) {
+	t.Parallel()
 	f := harness.NewTLSFixture(t)
 
 	for _, c := range []struct {

@@ -33,6 +33,7 @@ import (
 )
 
 func TestX509Name_RenderingRoundTrips(t *testing.T) {
+	t.Parallel()
 	f := harness.NewTLSFixture(t)
 
 	cases := []struct {
@@ -112,6 +113,7 @@ func TestX509Name_RenderingRoundTrips(t *testing.T) {
 // an implementation has something to compare against without running the
 // whole suite.
 func TestX509Name_RDNOrderIsReversed(t *testing.T) {
+	t.Parallel()
 	f := harness.NewTLSFixture(t)
 	_, forward := harness.ClientPEMWithSubjectString(t, f, "order-forward.pem", "/CN=leaf/OU=unit/O=org")
 	_, reverse := harness.ClientPEMWithSubjectString(t, f, "order-reverse.pem", "/O=org/OU=unit/CN=leaf")
