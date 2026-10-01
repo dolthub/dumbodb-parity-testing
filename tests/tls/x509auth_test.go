@@ -300,3 +300,107 @@ func authenticatedAs(ctx context.Context, t *testing.T, cli *mongo.Client) strin
 	}
 	return res.AuthInfo.AuthenticatedUsers[0].User
 }
+
+// Roles on a certificate-identified user. Covered separately from the SCRAM
+// cross-database cases in tests/auth_crossdb_self_test.go, because for an
+// $external user EVERY role is cross-database: there is no natural "own"
+// database to fall back on. An implementation that resolves roles relative to
+// the user's authentication database passes every SCRAM test and gives an
+// X.509 user nothing at all.
+func TestX509_RolesApplyToTheDatabasesTheyName(t *testing.T) {
+	ctx := tlsContext(t)
+	f := harness.NewTLSFixture(t)
+	certFile, dn := harness.ClientPEMWithSubject(t, f, "x509-roles.pem",
+		pkix.Name{CommonName: "role-holder", Organization: []string{"Example"}})
+	const granted, ungranted = "granteddb", "ungranteddb"
+
+	mongod, dumbodb := authedPair(t, f)
+
+	for _, s := range []struct {
+		name   string
+		server *harness.TLSServer
+		oracle bool
+	}{{"mongod", mongod, true}, {"dumbodb", dumbodb, false}} {
+		t.Run(s.name, func(t *testing.T) {
+			admin, err := s.server.ConnectAsUser(ctx, t, "root", "root")
+			if err != nil {
+				t.Fatalf("%s: connecting as root: %v", s.name, err)
+			}
+			err = admin.Database("$external").RunCommand(ctx, bson.D{
+				{Key: "createUser", Value: dn},
+				{Key: "roles", Value: bson.A{bson.D{{Key: "role", Value: "readWrite"}, {Key: "db", Value: granted}}}},
+			}).Err()
+			_ = admin.Disconnect(context.Background())
+			if err != nil {
+				if !s.oracle {
+					t.Skipf("XFAIL %s: dumbodb would not create the user: %v", x509Bead, err)
+				}
+				t.Fatalf("premise failed: mongod would not create %q: %v", dn, err)
+			}
+
+			cli, err := s.server.ConnectX509(ctx, t, certFile)
+			if err != nil {
+				if !s.oracle && mechanismMissing(err) {
+					t.Skipf("XFAIL %s: dumbodb does not implement MONGODB-X509: %v", x509Bead, err)
+				}
+				t.Fatalf("%s refused a certificate naming an existing user: %v", s.name, err)
+			}
+			defer func() { _ = cli.Disconnect(context.Background()) }()
+
+			_, grantedErr := cli.Database(granted).Collection("c").InsertOne(ctx, bson.D{{Key: "v", Value: 1}})
+			_, ungrantedErr := cli.Database(ungranted).Collection("c").InsertOne(ctx, bson.D{{Key: "v", Value: 1}})
+			t.Logf("%s: write to the granted database err=%v; write to the ungranted one err=%v",
+				s.name, grantedErr, ungrantedErr)
+
+			if grantedErr != nil {
+				t.Errorf("%s denied a write to %q, which the user holds readWrite on; roles granted to a certificate user are not being applied",
+					s.name, granted)
+			}
+			if ungrantedErr == nil {
+				t.Errorf("%s allowed a write to %q, which the user holds no role on; a certificate user is reaching past its roles",
+					s.name, ungranted)
+			}
+		})
+	}
+}
+
+// The role shorthand cannot work for a certificate user. "readWrite" means
+// readWrite on the user's own authentication database, and that database is
+// $external, where no role is defined. mongod refuses by name; a server that
+// accepted it would store a role that grants nothing and say nothing.
+func TestX509_RoleShorthandIsRefused(t *testing.T) {
+	ctx := tlsContext(t)
+	f := harness.NewTLSFixture(t)
+	mongod, dumbodb := authedPair(t, f)
+
+	for _, s := range []struct {
+		name   string
+		server *harness.TLSServer
+		oracle bool
+	}{{"mongod", mongod, true}, {"dumbodb", dumbodb, false}} {
+		t.Run(s.name, func(t *testing.T) {
+			admin, err := s.server.ConnectAsUser(ctx, t, "root", "root")
+			if err != nil {
+				t.Fatalf("%s: connecting as root: %v", s.name, err)
+			}
+			defer func() { _ = admin.Disconnect(context.Background()) }()
+
+			err = admin.Database("$external").RunCommand(ctx, bson.D{
+				{Key: "createUser", Value: "CN=shorthand"},
+				{Key: "roles", Value: bson.A{"readWrite"}},
+			}).Err()
+			t.Logf("%s: createUser with a shorthand role: %v", s.name, err)
+
+			if err == nil {
+				if !s.oracle {
+					t.Logf("XFAIL %s: dumbodb accepted a shorthand role for an $external user, which resolves to readWrite@$external and grants nothing", x509Bead)
+					return
+				}
+				t.Fatal("premise failed: mongod accepted a shorthand role for an $external user")
+			}
+			if s.oracle && !strings.Contains(err.Error(), "$external") {
+				t.Errorf("mongod refused the shorthand without naming $external, so this test's premise about why is wrong: %v", err)
+			}
+		})
+	}
+}
