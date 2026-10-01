@@ -143,6 +143,13 @@ func compareErrors(mongoErr, dumboDBErr error) Comparison {
 	mMsg := mongoErr.Error()
 	dMsg := dumboDBErr.Error()
 	if mMsg != dMsg {
+		structured := mCode != 0 || dCode != 0 || mName != "" || dName != "" || len(mLabels) > 0 || len(dLabels) > 0
+		if !structured {
+			return Comparison{
+				Result: Diverge,
+				Diff:   fmt.Sprintf("unstructured error message mismatch:\n  mongo: %s\n  dumbodb: %s", mMsg, dMsg),
+			}
+		}
 		return Comparison{
 			Result: Match,
 			Diff:   fmt.Sprintf("informational error message mismatch:\n  mongo: %s\n  dumbodb: %s", mMsg, dMsg),

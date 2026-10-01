@@ -80,6 +80,22 @@ func TestCompareErrorsContract(t *testing.T) {
 		}
 	})
 
+	t.Run("different unstructured messages diverge", func(t *testing.T) {
+		got := CompareResponses(nil, errors.New("context deadline exceeded"),
+			nil, errors.New("decode failure"))
+		if got.Result != Diverge || !strings.Contains(got.Diff, "message") {
+			t.Fatalf("got result=%v diff=%q", got.Result, got.Diff)
+		}
+	})
+
+	t.Run("identical unstructured messages match", func(t *testing.T) {
+		got := CompareResponses(nil, errors.New("context deadline exceeded"),
+			nil, errors.New("context deadline exceeded"))
+		if got.Result != Match {
+			t.Fatalf("got result=%v diff=%q", got.Result, got.Diff)
+		}
+	})
+
 	t.Run("code name is required", func(t *testing.T) {
 		got := CompareResponses(nil, commandError("same", "WriteConflict"),
 			nil, commandError("same", "ErrorCode(112)"))
