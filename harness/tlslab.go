@@ -280,6 +280,29 @@ func (s *TLSServer) ConnectX509Claiming(ctx context.Context, t *testing.T, certF
 	})
 }
 
+// ConnectX509Plaintext attempts MONGODB-X509 over a connection with no TLS,
+// which only a server in allowTLS or preferTLS will accept at the transport
+// layer. There is no certificate on such a connection, so there is nothing to
+// identify the client with, and the attempt must fail.
+func (s *TLSServer) ConnectX509Plaintext(ctx context.Context, t *testing.T) (*mongo.Client, error) {
+	t.Helper()
+	if s.StartFailed {
+		t.Fatalf("cannot connect to %s: it never started", s.Addr)
+	}
+	client, err := mongo.Connect(ctx, options.Client().
+		ApplyURI("mongodb://"+s.Addr+"/?directConnection=true").
+		SetAuth(options.Credential{AuthMechanism: "MONGODB-X509", AuthSource: "$external"}).
+		SetServerSelectionTimeout(6*time.Second))
+	if err != nil {
+		return nil, err
+	}
+	if err := client.Ping(ctx, nil); err != nil {
+		_ = client.Disconnect(context.Background())
+		return nil, err
+	}
+	return client, nil
+}
+
 // ConnectAsUserWithout authenticates with SCRAM while presenting NO client
 // certificate, which only a server allowing certificate-free connections will
 // accept. It is how the matrix asks whether that flag leaves password
