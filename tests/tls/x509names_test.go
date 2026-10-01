@@ -45,7 +45,12 @@ func TestX509Name_RenderingRoundTrips(t *testing.T) {
 		{"equals in a value", "/CN=a=b/O=Example", ""},
 		{"plus in a value", `/CN=a\+b/O=Example`, ""},
 		{"leading and trailing spaces", "/CN= padded /O=Example", ""},
-		{"non-ascii", "/CN=Zoë Müller/O=Example", "workspace-61n.8"},
+		// Written as escapes: this repository is 7-bit ASCII. Two-byte
+		// UTF-8 (Zo\u00eb M\u00fcller) and four-byte UTF-8, which is the
+		// case a per-byte escaper could get wrong by assuming a rune fits
+		// in two.
+		{"non-ascii two byte", "/CN=Zo\u00eb M\u00fcller/O=Example", ""},
+		{"non-ascii four byte", "/CN=ext-\U00020bb7/O=Example", ""},
 		{"four attributes, order fixed", "/C=US/O=Example/OU=engineering/CN=ordered", ""},
 		{"only an organization", "/O=Example", ""},
 	}
