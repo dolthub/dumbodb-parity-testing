@@ -280,6 +280,17 @@ func (s *TLSServer) ConnectX509Claiming(ctx context.Context, t *testing.T, certF
 	})
 }
 
+// ConnectAsUserWithout authenticates with SCRAM while presenting NO client
+// certificate, which only a server allowing certificate-free connections will
+// accept. It is how the matrix asks whether that flag leaves password
+// authentication alone.
+func (s *TLSServer) ConnectAsUserWithout(ctx context.Context, t *testing.T, user, password string) (*mongo.Client, error) {
+	t.Helper()
+	return s.connectAuth(ctx, t, "", options.Credential{
+		AuthMechanism: "SCRAM-SHA-256", AuthSource: "admin", Username: user, Password: password,
+	})
+}
+
 // ConnectAsUser authenticates with SCRAM, for bootstrapping the users the
 // X.509 cases need.
 func (s *TLSServer) ConnectAsUser(ctx context.Context, t *testing.T, user, password string) (*mongo.Client, error) {
