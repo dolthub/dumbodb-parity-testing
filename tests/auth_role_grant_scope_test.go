@@ -38,7 +38,7 @@ func TestAuthRoleGrantScope(t *testing.T) {
 	adminUserAdmin := func(n grantScopeNames) []harness.RoleRef { return []harness.RoleRef{{Role: "userAdmin", DB: "admin"}} }
 
 	// GRANT-01: a db-scoped user admin cannot grant itself admin.root.
-	harness.AuthPairTest(t, authCase("GRANT-01-grantRolesToUser-self-root", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("GRANT-01-grantRolesToUser-self-root", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return grantScopeCase(ctx, t, tgt, dbUserAdmin, 13, nil,
 			func(n grantScopeNames) (string, bson.D) {
 				return n.db, bson.D{{Key: "grantRolesToUser", Value: n.actor}, {Key: "roles", Value: rootRole}}
@@ -47,7 +47,7 @@ func TestAuthRoleGrantScope(t *testing.T) {
 	}))
 
 	// GRANT-02: a db-scoped user admin cannot grant an admin-db role to another user.
-	harness.AuthPairTest(t, authCase("GRANT-02-grantRolesToUser-other-anyDatabase", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("GRANT-02-grantRolesToUser-other-anyDatabase", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return grantScopeCase(ctx, t, tgt, dbUserAdmin, 13, nil,
 			func(n grantScopeNames) (string, bson.D) {
 				return n.db, bson.D{{Key: "grantRolesToUser", Value: n.other}, {Key: "roles", Value: bson.A{
@@ -57,7 +57,7 @@ func TestAuthRoleGrantScope(t *testing.T) {
 	}))
 
 	// GRANT-03: a db-scoped user admin cannot make a role inherit admin.root.
-	harness.AuthPairTest(t, authCase("GRANT-03-grantRolesToRole-root", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("GRANT-03-grantRolesToRole-root", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return grantScopeCase(ctx, t, tgt, dbUserAdmin, 13, nil,
 			func(n grantScopeNames) (string, bson.D) {
 				return n.db, bson.D{{Key: "grantRolesToRole", Value: n.role}, {Key: "roles", Value: rootRole}}
@@ -66,7 +66,7 @@ func TestAuthRoleGrantScope(t *testing.T) {
 	}))
 
 	// GRANT-04: a db-scoped user admin cannot revoke admin.root from another user.
-	harness.AuthPairTest(t, authCase("GRANT-04-revokeRolesFromUser-root", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("GRANT-04-revokeRolesFromUser-root", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return grantScopeCase(ctx, t, tgt, dbUserAdmin, 13,
 			func(n grantScopeNames) error {
 				return runCmd(ctx, tgt.Admin, n.db, bson.D{{Key: "grantRolesToUser", Value: n.other}, {Key: "roles", Value: rootRole}})
@@ -78,7 +78,7 @@ func TestAuthRoleGrantScope(t *testing.T) {
 	}))
 
 	// GRANT-05: a db-scoped user admin cannot create a user holding admin.root.
-	harness.AuthPairTest(t, authCase("GRANT-05-createUser-root", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("GRANT-05-createUser-root", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return grantScopeCase(ctx, t, tgt, dbUserAdmin, 13, nil,
 			func(n grantScopeNames) (string, bson.D) {
 				return n.db, bson.D{{Key: "createUser", Value: n.fresh}, {Key: "pwd", Value: "pw"}, {Key: "roles", Value: rootRole}}
@@ -87,7 +87,7 @@ func TestAuthRoleGrantScope(t *testing.T) {
 	}))
 
 	// GRANT-06: a db-scoped user admin cannot create a role inheriting admin.root.
-	harness.AuthPairTest(t, authCase("GRANT-06-createRole-root", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("GRANT-06-createRole-root", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return grantScopeCase(ctx, t, tgt, dbUserAdmin, 13, nil,
 			func(n grantScopeNames) (string, bson.D) {
 				return n.db, bson.D{{Key: "createRole", Value: n.fresh}, {Key: "privileges", Value: bson.A{}}, {Key: "roles", Value: rootRole}}
@@ -97,7 +97,7 @@ func TestAuthRoleGrantScope(t *testing.T) {
 
 	// GRANT-07: updateRole requires revokeRole on any normal resource, which a
 	// db-scoped user admin lacks.
-	harness.AuthPairTest(t, authCase("GRANT-07-updateRole-root", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("GRANT-07-updateRole-root", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return grantScopeCase(ctx, t, tgt, dbUserAdmin, 13, nil,
 			func(n grantScopeNames) (string, bson.D) {
 				return n.db, bson.D{{Key: "updateRole", Value: n.role}, {Key: "roles", Value: rootRole}}
@@ -106,7 +106,7 @@ func TestAuthRoleGrantScope(t *testing.T) {
 	}))
 
 	// GRANT-08: an admin-db user admin cannot grant a privilege on another db.
-	harness.AuthPairTest(t, authCase("GRANT-08-grantPrivilegesToRole-other-db", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("GRANT-08-grantPrivilegesToRole-other-db", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return grantScopeCase(ctx, t, tgt, adminUserAdmin, 13, nil,
 			func(n grantScopeNames) (string, bson.D) {
 				return "admin", bson.D{{Key: "grantPrivilegesToRole", Value: n.adminRole}, {Key: "privileges", Value: bson.A{
@@ -117,7 +117,7 @@ func TestAuthRoleGrantScope(t *testing.T) {
 
 	// GRANT-09: an admin-db user admin can grant an admin-db role to a user on
 	// another db; no privilege on the user's db is required.
-	harness.AuthPairTest(t, authCase("GRANT-09-grantRolesToUser-admin-role-from-admin", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("GRANT-09-grantRolesToUser-admin-role-from-admin", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return grantScopeCase(ctx, t, tgt, adminUserAdmin, 0, nil,
 			func(n grantScopeNames) (string, bson.D) {
 				return n.db, bson.D{{Key: "grantRolesToUser", Value: n.other}, {Key: "roles", Value: bson.A{
