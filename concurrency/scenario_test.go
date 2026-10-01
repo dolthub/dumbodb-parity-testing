@@ -79,7 +79,7 @@ func (c counterVersionCollection) FindOne(_ context.Context, _ interface{}, resu
 }
 
 func TestNewScenario(t *testing.T) {
-	names := []string{"cas", "uuid-cas", "blind-inc", "disjoint-set", "same-set", "identical-set", "divergent-cas"}
+	names := []string{"cas", "uuid-cas", "blind-inc", "disjoint-set", "same-set", "identical-set", "divergent-cas", "txn-commit-race"}
 	for _, name := range names {
 		scenario, err := NewScenario(name, 4, 0)
 		if err != nil {

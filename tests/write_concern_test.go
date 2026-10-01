@@ -10,6 +10,7 @@ package tests
 import (
 	"context"
 	"testing"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -66,6 +67,69 @@ func TestWriteConcern_insert_w1_nojournal(t *testing.T) {
 	})
 }
 
+func TestWriteConcern_insert_acknowledgement_shapes(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		wc   *writeconcern.WriteConcern
+	}{
+		{name: "w1", wc: writeconcern.New(writeconcern.W(1))},
+		{name: "majority", wc: writeconcern.New(writeconcern.WMajority())},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:     "WriteConcern_insert_acknowledgement_" + tc.name,
+				Support:  harness.DumboDBFull,
+				Topology: harness.TopologyReplicaSet,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					recorder := newStartedCommandRecorder()
+					client, err := monitoredClient(ctx, harness.ServerURI(ctx), recorder)
+					if err != nil {
+						return nil, err
+					}
+					defer func() { _ = client.Disconnect(ctx) }()
+					writeCol := client.Database(col.Database().Name()).Collection(col.Name(), options.Collection().SetWriteConcern(tc.wc))
+					result, err := writeCol.InsertOne(ctx, bson.D{{Key: "_id", Value: tc.name}})
+					if err != nil {
+						return nil, err
+					}
+					reply := recorder.lastReply("insert")
+					return bson.D{
+						{Key: "okPresent", Value: rawFieldPresent(reply, "ok")},
+						{Key: "nPresent", Value: rawFieldPresent(reply, "n")},
+						{Key: "insertedID", Value: result.InsertedID},
+					}, nil
+				},
+			})
+		})
+	}
+}
+
+func TestWriteConcern_unsatisfiableReturnsWriteConcernError(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:     "WriteConcern_unsatisfiable_returns_write_concern_error",
+		Support:  harness.DumboDBFull,
+		Topology: harness.TopologyReplicaSet,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			wc := writeconcern.New(writeconcern.W(2), writeconcern.WTimeout(100*time.Millisecond))
+			_, err := wcCollection(col, wc).InsertOne(ctx, bson.D{{Key: "_id", Value: "unsatisfiable"}})
+			return nil, err
+		},
+	})
+}
+
+func TestWriteConcern_unknownTagReturnsUnknownReplWriteConcern(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:     "WriteConcern_unknown_tag_returns_unknown_repl_write_concern",
+		Support:  harness.DumboDBFull,
+		Topology: harness.TopologyReplicaSet,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			wc := writeconcern.New(writeconcern.WTagSet("nonexistent"), writeconcern.WTimeout(100*time.Millisecond))
+			_, err := wcCollection(col, wc).InsertOne(ctx, bson.D{{Key: "_id", Value: "unknown-tag"}})
+			return nil, err
+		},
+	})
+}
+
 func TestWriteConcern_insert_w1_journal(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "WriteConcern_insert_w1_journal",
@@ -105,7 +169,7 @@ func TestWriteConcern_insert_w0_fire_and_forget(t *testing.T) {
 
 func TestWriteConcern_update_w1(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name: "WriteConcern_update_w1",
+		Name:    "WriteConcern_update_w1",
 		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "u1"}, {Key: "v", Value: int32(1)}})
@@ -140,7 +204,7 @@ func TestWriteConcern_update_w1(t *testing.T) {
 
 func TestWriteConcern_delete_w1(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name: "WriteConcern_delete_w1",
+		Name:    "WriteConcern_delete_w1",
 		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "d1"}})
@@ -172,7 +236,7 @@ func TestWriteConcern_delete_w1(t *testing.T) {
 
 func TestWriteConcern_bulkWrite_w1(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name: "WriteConcern_bulkWrite_w1",
+		Name:    "WriteConcern_bulkWrite_w1",
 		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			base, closeFn, err := freshCol(ctx, col)
@@ -210,7 +274,7 @@ func TestWriteConcern_bulkWrite_w1(t *testing.T) {
 
 func TestGetLastError_after_insert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name: "GetLastError_after_insert",
+		Name:    "GetLastError_after_insert",
 		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			base, closeFn, err := freshCol(ctx, col)
@@ -228,7 +292,7 @@ func TestGetLastError_after_insert(t *testing.T) {
 
 func TestGetLastError_with_j_true(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name: "GetLastError_with_j_true",
+		Name:    "GetLastError_with_j_true",
 		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			base, closeFn, err := freshCol(ctx, col)
@@ -252,7 +316,7 @@ func TestGetLastError_with_j_true(t *testing.T) {
 // implementation-specific trailers.
 func TestGetLastError_return_value(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name: "GetLastError_return_value",
+		Name:    "GetLastError_return_value",
 		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			base, closeFn, err := freshCol(ctx, col)

@@ -16,7 +16,6 @@ package tests
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -27,28 +26,13 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// insertIDCode inserts {_id: id} and returns the write-error code (0 on
-// success), so acceptance parity is compared on the code, not error wording.
+// insertIDCode inserts {_id: id} and lets the harness compare the complete
+// driver error contract when the ID is rejected.
 func insertIDCode(id interface{}) func(context.Context, *mongo.Collection) (interface{}, error) {
 	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 		_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: id}})
-		return bson.D{{Key: "code", Value: writeErrCode(err)}}, nil
+		return nil, err
 	}
-}
-
-func writeErrCode(err error) int32 {
-	if err == nil {
-		return 0
-	}
-	var we mongo.WriteException
-	if errors.As(err, &we) && len(we.WriteErrors) > 0 {
-		return int32(we.WriteErrors[0].Code)
-	}
-	var ce mongo.CommandError
-	if errors.As(err, &ce) {
-		return ce.Code
-	}
-	return -1
 }
 
 // Non-numeric _id equality edge cases. _id equality is by exact type and value:

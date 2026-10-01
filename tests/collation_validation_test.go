@@ -44,12 +44,7 @@ func runCollationValidation(t *testing.T, name, locale string, strength int, sup
 				{Key: "filter", Value: bson.D{}},
 				{Key: "collation", Value: bson.D{{Key: "locale", Value: locale}, {Key: "strength", Value: strength}}},
 			})
-			err := res.Err()
-			code, _, _ := harness.CommandErrorCode(err)
-			return bson.D{
-				{Key: "rejected", Value: err != nil},
-				{Key: "code", Value: code},
-			}, nil
+			return nil, res.Err()
 		},
 	})
 }

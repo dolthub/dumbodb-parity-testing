@@ -16,7 +16,7 @@ import (
 type CompareResult int
 
 const (
-	Match        CompareResult = iota
+	Match CompareResult = iota
 	Diverge
 	CompareError
 )
@@ -123,24 +123,36 @@ func compareErrors(mongoErr, dumboDBErr error) Comparison {
 			Diff:   fmt.Sprintf("error code mismatch: mongo=%d dumbodb=%d", mCode, dCode),
 		}
 	}
-	// codeName is the stable, human-readable identity of an error. Compare it
-	// when both sides provide one; a mismatch here (e.g. same numeric code but
-	// different codeName) is a real divergence and yields a clearer diagnostic
-	// than the raw message comparison below.
 	mName := errorName(mongoErr)
 	dName := errorName(dumboDBErr)
-	if mName != "" && dName != "" && mName != dName {
+	if mName != dName {
 		return Comparison{
 			Result: Diverge,
 			Diff:   fmt.Sprintf("error codeName mismatch: mongo=%q dumbodb=%q (code=%d)", mName, dName, mCode),
 		}
 	}
+	mLabels := errorLabels(mongoErr)
+	dLabels := errorLabels(dumboDBErr)
+	if !reflect.DeepEqual(mLabels, dLabels) {
+		return Comparison{
+			Result: Diverge,
+			Diff:   fmt.Sprintf("error labels mismatch: mongo=%v dumbodb=%v (code=%d)", mLabels, dLabels, mCode),
+		}
+	}
+
 	mMsg := mongoErr.Error()
 	dMsg := dumboDBErr.Error()
 	if mMsg != dMsg {
+		structured := mCode != 0 || dCode != 0 || mName != "" || dName != "" || len(mLabels) > 0 || len(dLabels) > 0
+		if !structured {
+			return Comparison{
+				Result: Diverge,
+				Diff:   fmt.Sprintf("unstructured error message mismatch:\n  mongo: %s\n  dumbodb: %s", mMsg, dMsg),
+			}
+		}
 		return Comparison{
-			Result: Diverge,
-			Diff:   fmt.Sprintf("error message mismatch:\n  mongo: %s\n  dumbodb: %s", mMsg, dMsg),
+			Result: Match,
+			Diff:   fmt.Sprintf("informational error message mismatch:\n  mongo: %s\n  dumbodb: %s", mMsg, dMsg),
 		}
 	}
 	return Comparison{Result: Match}
@@ -155,8 +167,22 @@ func errorCode(err error) int32 {
 		return int32(cmdErr.Code)
 	}
 	var writeExc mongo.WriteException
-	if errors.As(err, &writeExc) && len(writeExc.WriteErrors) > 0 {
-		return int32(writeExc.WriteErrors[0].Code)
+	if errors.As(err, &writeExc) {
+		if len(writeExc.WriteErrors) > 0 {
+			return int32(writeExc.WriteErrors[0].Code)
+		}
+		if writeExc.WriteConcernError != nil {
+			return int32(writeExc.WriteConcernError.Code)
+		}
+	}
+	var bulkExc mongo.BulkWriteException
+	if errors.As(err, &bulkExc) {
+		if len(bulkExc.WriteErrors) > 0 {
+			return int32(bulkExc.WriteErrors[0].Code)
+		}
+		if bulkExc.WriteConcernError != nil {
+			return int32(bulkExc.WriteConcernError.Code)
+		}
 	}
 	return 0
 }
@@ -171,7 +197,41 @@ func errorName(err error) string {
 	if errors.As(err, &cmdErr) {
 		return cmdErr.Name
 	}
+	var writeExc mongo.WriteException
+	if errors.As(err, &writeExc) && writeExc.WriteConcernError != nil {
+		return writeExc.WriteConcernError.Name
+	}
+	var bulkExc mongo.BulkWriteException
+	if errors.As(err, &bulkExc) && bulkExc.WriteConcernError != nil {
+		return bulkExc.WriteConcernError.Name
+	}
 	return ""
+}
+
+func errorLabels(err error) []string {
+	if err == nil {
+		return []string{}
+	}
+	var labels []string
+	var cmdErr mongo.CommandError
+	if errors.As(err, &cmdErr) {
+		labels = append(labels, cmdErr.Labels...)
+	} else {
+		var writeExc mongo.WriteException
+		if errors.As(err, &writeExc) {
+			labels = append(labels, writeExc.Labels...)
+		} else {
+			var bulkExc mongo.BulkWriteException
+			if errors.As(err, &bulkExc) {
+				labels = append(labels, bulkExc.Labels...)
+			}
+		}
+	}
+	sort.Strings(labels)
+	if labels == nil {
+		return []string{}
+	}
+	return labels
 }
 
 // normalize converts any value to a stable, comparable representation.

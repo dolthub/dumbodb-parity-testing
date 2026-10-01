@@ -35,6 +35,12 @@ type Collection interface {
 	UpdateOne(context.Context, interface{}, interface{}) (WriteResult, error)
 }
 
+type TransactionalCollection interface {
+	Collection
+	WithTransaction(context.Context, func(context.Context) error) error
+	VisitAll(context.Context, interface{}, func(bson.M) error) error
+}
+
 // BranchCollection exposes DumboDB branch operations to deterministic probes.
 type BranchCollection interface {
 	Collection
@@ -123,6 +129,8 @@ type mongoCollection struct {
 	collection string
 }
 
+var _ TransactionalCollection = mongoCollection{}
+
 func (c mongoCollection) InsertOne(ctx context.Context, document interface{}) error {
 	_, err := c.mongoCollection().InsertOne(ctx, document)
 	return err
@@ -138,6 +146,37 @@ func (c mongoCollection) UpdateOne(ctx context.Context, filter, update interface
 		return WriteResult{}, err
 	}
 	return WriteResult{Matched: result.MatchedCount, Modified: result.ModifiedCount}, nil
+}
+
+func (c mongoCollection) WithTransaction(ctx context.Context, fn func(context.Context) error) error {
+	session, err := c.client.StartSession()
+	if err != nil {
+		return err
+	}
+	defer session.EndSession(ctx)
+
+	_, err = session.WithTransaction(ctx, func(sessionCtx mongo.SessionContext) (interface{}, error) {
+		return nil, fn(sessionCtx)
+	})
+	return err
+}
+
+func (c mongoCollection) VisitAll(ctx context.Context, filter interface{}, visit func(bson.M) error) error {
+	cursor, err := c.mongoCollection().Find(ctx, filter)
+	if err != nil {
+		return err
+	}
+	defer cursor.Close(ctx)
+	for cursor.Next(ctx) {
+		var document bson.M
+		if err := cursor.Decode(&document); err != nil {
+			return err
+		}
+		if err := visit(document); err != nil {
+			return err
+		}
+	}
+	return cursor.Err()
 }
 
 func (c mongoCollection) DeleteOne(ctx context.Context, filter interface{}) (WriteResult, error) {

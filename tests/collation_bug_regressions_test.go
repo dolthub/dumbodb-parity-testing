@@ -104,8 +104,7 @@ func TestIndex_DuplicateKeyError_NamesIndex(t *testing.T) {
 					idx = m[1]
 				}
 			}
-			code, _, _ := harness.CommandErrorCode(err)
-			return bson.D{{Key: "code", Value: code}, {Key: "index", Value: idx}}, nil
+			return bson.D{{Key: "error", Value: comparableErrorInfo(err)}, {Key: "index", Value: idx}}, nil
 		},
 	})
 }

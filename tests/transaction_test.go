@@ -21,6 +21,7 @@ package tests
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"testing"
 	"time"
@@ -54,6 +55,16 @@ func errInfo(err error) transactionErrorInfo {
 		code := int32(0)
 		if len(writeExc.WriteErrors) > 0 {
 			code = int32(writeExc.WriteErrors[0].Code)
+		}
+		return transactionErrorInfo{code: code, labels: labels}
+	}
+	var bulkExc mongo.BulkWriteException
+	if errors.As(err, &bulkExc) {
+		labels := append([]string(nil), bulkExc.Labels...)
+		sort.Strings(labels)
+		code := int32(0)
+		if len(bulkExc.WriteErrors) > 0 {
+			code = int32(bulkExc.WriteErrors[0].Code)
 		}
 		return transactionErrorInfo{code: code, labels: labels}
 	}
@@ -406,6 +417,158 @@ func TestTransaction_non_conflicting_succeed(t *testing.T) {
 			}, nil
 		},
 	})
+}
+
+func TestTransaction_commit_publish_race_metadata(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	clients, err := harness.GetClients(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := clients.DumboDB.Database(fmt.Sprintf("commit_publish_race_%d", time.Now().UnixNano()))
+	defer func() { _ = db.Drop(context.Background()) }()
+	col := db.Collection("col")
+	if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	const workers = 16
+	for round := 0; round < 20; round++ {
+		sessions := make([]mongo.Session, workers)
+		for worker := 0; worker < workers; worker++ {
+			session, err := clients.DumboDB.StartSession()
+			if err != nil {
+				t.Fatal(err)
+			}
+			sessions[worker] = session
+			if err := session.StartTransaction(); err != nil {
+				t.Fatal(err)
+			}
+			sessionCtx := mongo.NewSessionContext(ctx, session)
+			if _, err := col.InsertOne(sessionCtx, bson.D{{Key: "_id", Value: fmt.Sprintf("r%d-w%d", round, worker)}}); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		start := make(chan struct{})
+		commitErrors := make(chan error, workers)
+		for _, session := range sessions {
+			go func(session mongo.Session) {
+				<-start
+				commitErrors <- session.CommitTransaction(ctx)
+			}(session)
+		}
+		close(start)
+		for range workers {
+			commitErr := <-commitErrors
+			if commitErr == nil {
+				continue
+			}
+			info := errInfo(commitErr)
+			if info.code != 112 || !containsLabel(info.labels, "TransientTransactionError") {
+				t.Fatalf("commit error metadata: code=%d name=%q labels=%v err=%v", info.code, info.codeName, info.labels, commitErr)
+			}
+			for _, session := range sessions {
+				session.EndSession(ctx)
+			}
+			return
+		}
+		for _, session := range sessions {
+			session.EndSession(ctx)
+		}
+	}
+	t.Fatal("did not observe a concurrent publish race")
+}
+
+func containsLabel(labels []string, want string) bool {
+	for _, label := range labels {
+		if label == want {
+			return true
+		}
+	}
+	return false
+}
+
+func TestTransaction_withTransaction_retries_commit_publish_race(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	clients, err := harness.GetClients(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := clients.DumboDB.Database(fmt.Sprintf("with_transaction_publish_race_%d", time.Now().UnixNano()))
+	defer func() { _ = db.Drop(context.Background()) }()
+	col := db.Collection("col")
+	if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	const workers = 16
+	type workerResult struct {
+		err      error
+		attempts int32
+	}
+	for round := 0; round < 10; round++ {
+		ready := make(chan struct{}, workers)
+		release := make(chan struct{})
+		results := make(chan workerResult, workers)
+		for worker := 0; worker < workers; worker++ {
+			go func(worker int) {
+				session, err := clients.DumboDB.StartSession()
+				if err != nil {
+					results <- workerResult{err: err}
+					return
+				}
+				defer session.EndSession(ctx)
+				attempts := int32(0)
+				_, err = session.WithTransaction(ctx, func(sessionCtx mongo.SessionContext) (interface{}, error) {
+					attempts++
+					_, insertErr := col.InsertOne(sessionCtx, bson.D{
+						{Key: "_id", Value: fmt.Sprintf("r%d-w%d", round, worker)},
+						{Key: "attempt", Value: attempts},
+					})
+					if insertErr != nil {
+						return nil, insertErr
+					}
+					if attempts == 1 {
+						ready <- struct{}{}
+						<-release
+					}
+					return nil, nil
+				})
+				results <- workerResult{err: err, attempts: attempts}
+			}(worker)
+		}
+		for range workers {
+			select {
+			case <-ready:
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			}
+		}
+		close(release)
+
+		totalAttempts := int32(0)
+		for range workers {
+			result := <-results
+			if result.err != nil {
+				t.Fatalf("WithTransaction failed after %d attempts: %v", result.attempts, result.err)
+			}
+			totalAttempts += result.attempts
+		}
+		count, err := col.CountDocuments(ctx, bson.D{{Key: "_id", Value: bson.D{{Key: "$regex", Value: fmt.Sprintf("^r%d-w", round)}}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if count != workers {
+			t.Fatalf("round %d committed documents=%d, want %d", round, count, workers)
+		}
+		if totalAttempts > workers {
+			return
+		}
+	}
+	t.Fatal("WithTransaction callbacks did not retry after concurrent publish races")
 }
 
 func TestTransaction_concurrent_inserts_preexisting_collection(t *testing.T) {

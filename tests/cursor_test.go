@@ -84,6 +84,83 @@ func TestCursor_find_batchSize_one(t *testing.T) {
 	})
 }
 
+func TestCursor_find_multiBatchEnvelope(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Cursor_find_multi_batch_envelope",
+		Support: harness.DumboDBFull,
+		Setup:   insertCursorSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			recorder := newStartedCommandRecorder()
+			client, err := monitoredClient(ctx, harness.ServerURI(ctx), recorder)
+			if err != nil {
+				return nil, err
+			}
+			defer func() { _ = client.Disconnect(ctx) }()
+			monitoredCol := client.Database(col.Database().Name()).Collection(col.Name())
+			cursor, err := monitoredCol.Find(ctx, bson.D{}, options.Find().SetBatchSize(2).SetSort(bson.D{{Key: "_id", Value: 1}}))
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			if err := cursor.All(ctx, &docs); err != nil {
+				return nil, err
+			}
+			findReply := recorder.lastReply("find")
+			getMoreReplies := recorder.repliesFor("getMore")
+			return bson.D{
+				{Key: "firstBatchCount", Value: cursorBatchLength(findReply, "firstBatch")},
+				{Key: "getMoreCount", Value: int32(len(getMoreReplies))},
+				{Key: "nextBatchCounts", Value: cursorBatchLengths(getMoreReplies, "nextBatch")},
+				{Key: "exhausted", Value: cursor.ID() == 0},
+				{Key: "documentCount", Value: int32(len(docs))},
+			}, nil
+		},
+	})
+}
+
+func cursorBatchLength(reply bson.Raw, field string) int32 {
+	if reply == nil {
+		return -1
+	}
+	cursorValue, err := reply.LookupErr("cursor")
+	if err != nil {
+		return -1
+	}
+	batchValue, err := cursorValue.Document().LookupErr(field)
+	if err != nil {
+		return -1
+	}
+	values, err := batchValue.Array().Values()
+	if err != nil {
+		return -1
+	}
+	return int32(len(values))
+}
+
+func cursorBatchLengths(replies []bson.Raw, field string) []int32 {
+	lengths := make([]int32, len(replies))
+	for i, reply := range replies {
+		lengths[i] = cursorBatchLength(reply, field)
+	}
+	return lengths
+}
+
+func TestCursor_getMoreUnknownCursor(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Cursor_getMore_unknown_cursor",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			var result bson.D
+			err := col.Database().RunCommand(ctx, bson.D{
+				{Key: "getMore", Value: int64(9223372036854775806)},
+				{Key: "collection", Value: col.Name()},
+				{Key: "batchSize", Value: int32(2)},
+			}).Decode(&result)
+			return result, err
+		},
+	})
+}
+
 func TestCursor_exhaustion_noDocsAfterAll(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_exhaustion_noDocsAfterAll",

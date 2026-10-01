@@ -319,6 +319,9 @@ func lifecycleFailure(result LifecycleResult, err error) (LifecycleResult, error
 }
 
 func scenarioLatencyScope(name string) string {
+	if name == "txn-commit-race" {
+		return "transaction"
+	}
 	if name == "cas" || name == "uuid-cas" || name == "divergent-cas" ||
 		name == "whole-document-convergent" || name == "whole-document-divergent" {
 		return "read-and-update"

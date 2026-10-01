@@ -93,13 +93,13 @@ work or is a local rebase that lost some of it, but that is a guess about a
 commit nobody here can inspect, and it should be confirmed by re-running
 against a pushed revision rather than assumed.
 
-## What this does not cover
+## Transaction coverage boundary
 
-Every scenario here reconciles at the end of the command. A fork that outlives
-the command -- `--session-isolation`, or an explicit transaction -- acknowledges
-a write before its boundary runs, so an acknowledgement is provisional and
-conservation has to be counted against acknowledged boundaries instead. That
-needs its own accounting rather than a new expectation on this one.
+The `txn-commit-race` scenario now covers explicit driver transactions. Each
+acknowledged boundary contains a batch of distinct documents, and final-state
+verification checks exact all-or-nothing retention across every attempted
+batch. Session-isolated writes whose boundary outlives the command remain out
+of scope because their acknowledgements are provisional.
 
 These runs declare no `mergeMode`, so they exercise the default, `fieldTouched`.
 The per-mode axis is being built on the `codex-tests-cas` branch.

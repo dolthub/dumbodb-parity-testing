@@ -80,10 +80,7 @@ func TestSetParameter_UnknownParameter(t *testing.T) {
 				{Key: "setParameter", Value: 1},
 				{Key: "notARealParameter_xyz", Value: int32(1)},
 			}).Err()
-			return bson.D{
-				{Key: "gotError", Value: err != nil},
-				{Key: "errCode", Value: errCode(err)},
-			}, nil
+			return nil, err
 		},
 	})
 }
@@ -97,10 +94,7 @@ func TestSetParameter_NotRuntimeSettable(t *testing.T) {
 				{Key: "setParameter", Value: 1},
 				{Key: "featureCompatibilityVersion", Value: "8.0"},
 			}).Err()
-			return bson.D{
-				{Key: "gotError", Value: err != nil},
-				{Key: "errCode", Value: errCode(err)},
-			}, nil
+			return nil, err
 		},
 	})
 }
@@ -114,11 +108,7 @@ func TestSetParameter_NonAdminDB(t *testing.T) {
 				{Key: "setParameter", Value: 1},
 				{Key: "maxTransactionLockRequestTimeoutMillis", Value: int32(1)},
 			}).Err()
-			return bson.D{
-				{Key: "gotError", Value: err != nil},
-				{Key: "errCode", Value: errCode(err)},
-			}, nil
+			return nil, err
 		},
 	})
 }
-

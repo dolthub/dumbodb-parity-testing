@@ -33,19 +33,31 @@ var veNonNegAge = bson.D{{Key: "age", Value: bson.D{{Key: "$gte", Value: int32(0
 // message text). Handles CommandError, WriteException, and BulkWriteException.
 func classifyWrite(err error) bson.D {
 	if err == nil {
-		return bson.D{{Key: "rejected", Value: false}}
+		return bson.D{{Key: "rejected", Value: false}, {Key: "labels", Value: []string{}}}
 	}
 	code, name, ok := harness.CommandErrorCode(err)
+	labels := []string{}
+	var commandError mongo.CommandError
+	if errors.As(err, &commandError) {
+		labels = append(labels, commandError.Labels...)
+	}
+	var writeException mongo.WriteException
+	if errors.As(err, &writeException) {
+		labels = append(labels, writeException.Labels...)
+	}
 	if !ok {
 		var bwe mongo.BulkWriteException
 		if errors.As(err, &bwe) && len(bwe.WriteErrors) > 0 {
 			code = int32(bwe.WriteErrors[0].Code)
+			labels = append(labels, bwe.Labels...)
 		}
 	}
+	sort.Strings(labels)
 	return bson.D{
 		{Key: "rejected", Value: true},
 		{Key: "code", Value: code},
 		{Key: "codeName", Value: name},
+		{Key: "labels", Value: labels},
 	}
 }
 
