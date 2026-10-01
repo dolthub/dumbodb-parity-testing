@@ -147,19 +147,19 @@ func TestAuthSelfService(t *testing.T) {
 	}))
 
 	// SELF-04: changeOwnPassword does not let a user change its own roles.
-	harness.AuthPairTest(t, authCase("SELF-04-changeOwnPassword-cannot-set-own-roles", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("SELF-04-changeOwnPassword-cannot-set-own-roles", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return updateUserEscalation(ctx, t, tgt, "changeOwnPassword", true,
 			bson.E{Key: "roles", Value: bson.A{bson.D{{Key: "role", Value: "root"}, {Key: "db", Value: "admin"}}}})
 	}))
 
 	// SELF-05: changeOwnPassword does not let a user change its own customData.
-	harness.AuthPairTest(t, authCase("SELF-05-changeOwnPassword-cannot-set-own-customData", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("SELF-05-changeOwnPassword-cannot-set-own-customData", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return updateUserEscalation(ctx, t, tgt, "changeOwnPassword", true,
 			bson.E{Key: "customData", Value: bson.D{{Key: "x", Value: 1}}})
 	}))
 
 	// SELF-06: changePassword does not let a user change another user's roles.
-	harness.AuthPairTest(t, authCase("SELF-06-changePassword-cannot-set-other-roles", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("SELF-06-changePassword-cannot-set-other-roles", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return updateUserEscalation(ctx, t, tgt, "changePassword", false,
 			bson.E{Key: "roles", Value: bson.A{bson.D{{Key: "role", Value: "root"}, {Key: "db", Value: "admin"}}}})
 	}))
