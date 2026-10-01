@@ -6,6 +6,7 @@ import (
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -37,7 +38,14 @@ func TestTransactionSmoke(t *testing.T) {
 				insertedID = res.InsertedID
 				return session.CommitTransaction(sc)
 			})
-			return insertedID, err
+			// The id is generated per call, so the two servers cannot agree
+			// on its value and comparing it would assert nothing. What the
+			// case means is that a transaction committed and produced an id.
+			oid, isObjectID := insertedID.(primitive.ObjectID)
+			return bson.D{
+				{Key: "insertedIDIsObjectID", Value: isObjectID},
+				{Key: "insertedIDNonZero", Value: isObjectID && !oid.IsZero()},
+			}, err
 		},
 	})
 }

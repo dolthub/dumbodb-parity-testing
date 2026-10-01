@@ -262,11 +262,7 @@ func normalize(v interface{}) interface{} {
 				m[k] = ignoredValueSentinel
 				continue
 			}
-			norm := normalize(v2)
-			if norm == objectIDSentinel {
-				continue
-			}
-			m[k] = norm
+			m[k] = normalize(v2)
 		}
 		return m
 	case bson.A:
@@ -290,7 +286,7 @@ func normalize(v interface{}) interface{} {
 	case []interface{}:
 		return normalizeSlice(val)
 	case primitive.ObjectID:
-		return objectIDSentinel
+		return val.Hex()
 	case primitive.Binary:
 		// UUID binaries (subtype 3 or 4) are server-generated and will differ
 		// between MongoDB and DumboDB instances. Normalize them to a sentinel so
@@ -334,7 +330,16 @@ func normalize(v interface{}) interface{} {
 	}
 }
 
-const objectIDSentinel = "<ObjectID>"
+// ObjectIDs used to normalize to a sentinel, and the callers then dropped the
+// key entirely, so an ObjectID-valued field was erased from the comparison in
+// both value and presence. Two different ids compared equal, and so did a
+// field present on only one side.
+//
+// They now normalize to their hex, so they are compared like any other value.
+// An id the TEST supplies must match on both servers, which is the point. An
+// id the server or driver generates cannot, so a case that wants one should
+// return what it means about it, as TestTransactionSmoke does, rather than
+// returning the raw id for a comparison that can never hold.
 
 // ignoredValueSentinel stands in for a field whose VALUE cannot be compared
 // but whose PRESENCE can.
@@ -354,11 +359,7 @@ func normalizeBSONDoc(d bson.D) map[string]interface{} {
 			m[elem.Key] = ignoredValueSentinel
 			continue
 		}
-		norm := normalize(elem.Value)
-		if norm == objectIDSentinel {
-			continue
-		}
-		m[elem.Key] = norm
+		m[elem.Key] = normalize(elem.Value)
 	}
 	return m
 }
