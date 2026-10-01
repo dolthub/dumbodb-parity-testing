@@ -136,22 +136,18 @@ func TestX509_SubjectNameMatchesOpenSSL(t *testing.T) {
 	_ = cli.Disconnect(context.Background())
 
 	if _, err := createX509User(ctx, t, dumbodb, dn); err != nil {
-		t.Logf("XFAIL %s: dumbodb would not create a certificate-named user: %v", x509Bead, err)
-		return
+		t.Fatalf("dumbodb would not create a certificate-named user: %v", err)
 	}
 	served, err := dumbodb.ConnectX509(ctx, t, certFile)
 	if err != nil {
-		t.Logf("XFAIL %s: dumbodb refused MONGODB-X509: %v", x509Bead, err)
-		return
+		t.Fatalf("dumbodb refused MONGODB-X509 for a certificate naming an existing user: %v", err)
 	}
 	got := authenticatedAs(ctx, t, served)
 	_ = served.Disconnect(context.Background())
 	if got != dn {
 		t.Errorf("dumbodb authenticated the certificate as %q where mongod says %q; the subject is rendered differently and users will not match",
 			got, dn)
-		return
 	}
-	t.Errorf("XPASS %s: dumbodb authenticates MONGODB-X509 and agrees on the name; remove the exemption", x509Bead)
 }
 
 // THE CASE THAT MATTERS. A client must be authenticated as the certificate it
@@ -178,23 +174,13 @@ func TestX509_IdentityComesFromTheCertificateNotTheClient(t *testing.T) {
 			for _, dn := range []string{holderDN, victimDN} {
 				where, err := createX509User(ctx, t, s.server, dn)
 				if err != nil {
-					if !s.oracle {
-						t.Skipf("XFAIL %s: dumbodb would not create certificate-named users: %v", x509Bead, err)
-					}
-					t.Fatalf("premise failed: mongod would not create %q: %v", dn, err)
+					t.Fatalf("%s would not create %q: %v", s.name, dn, err)
 				}
 				t.Logf("%s accepted a user named %q in %s", s.name, dn, where)
 			}
 
 			cli, err := s.server.ConnectX509Claiming(ctx, t, holderCert, victimDN)
 			if err != nil {
-				// A refusal only means the server checked the certificate if
-				// the server can do X.509 at all. Without this, the case
-				// passes against a server that has never heard of the
-				// mechanism, which is exactly what DumboDB is today.
-				if mechanismMissing(err) {
-					t.Skipf("XFAIL %s: dumbodb does not implement MONGODB-X509, so this proves nothing yet: %v", x509Bead, err)
-				}
 				t.Logf("%s refused the impersonation outright: %v", s.name, err)
 				return
 			}
@@ -269,19 +255,6 @@ func TestX509_UnknownSubjectIsRefused(t *testing.T) {
 	}
 }
 
-// mechanismMissing reports whether a failure means the server cannot do
-// MONGODB-X509 at all, as opposed to having done it and said no.
-func mechanismMissing(err error) bool {
-	if err == nil {
-		return false
-	}
-	text := err.Error()
-	return strings.Contains(text, "CommandNotFound") ||
-		strings.Contains(text, "no such command") ||
-		strings.Contains(text, "unsupported authentication mechanism") ||
-		strings.Contains(text, "mechanism") && strings.Contains(text, "not supported")
-}
-
 func authenticatedAs(ctx context.Context, t *testing.T, cli *mongo.Client) string {
 	t.Helper()
 	var res struct {
@@ -332,17 +305,11 @@ func TestX509_RolesApplyToTheDatabasesTheyName(t *testing.T) {
 			}).Err()
 			_ = admin.Disconnect(context.Background())
 			if err != nil {
-				if !s.oracle {
-					t.Skipf("XFAIL %s: dumbodb would not create the user: %v", x509Bead, err)
-				}
-				t.Fatalf("premise failed: mongod would not create %q: %v", dn, err)
+				t.Fatalf("%s would not create %q: %v", s.name, dn, err)
 			}
 
 			cli, err := s.server.ConnectX509(ctx, t, certFile)
 			if err != nil {
-				if !s.oracle && mechanismMissing(err) {
-					t.Skipf("XFAIL %s: dumbodb does not implement MONGODB-X509: %v", x509Bead, err)
-				}
 				t.Fatalf("%s refused a certificate naming an existing user: %v", s.name, err)
 			}
 			defer func() { _ = cli.Disconnect(context.Background()) }()
@@ -393,7 +360,7 @@ func TestX509_RoleShorthandIsRefused(t *testing.T) {
 
 			if err == nil {
 				if !s.oracle {
-					t.Logf("XFAIL %s: dumbodb accepted a shorthand role for an $external user, which resolves to readWrite@$external and grants nothing", x509Bead)
+					t.Logf("XFAIL %s: dumbodb accepted a shorthand role for an $external user, which resolves to readWrite@$external and grants nothing", storageBead)
 					return
 				}
 				t.Fatal("premise failed: mongod accepted a shorthand role for an $external user")

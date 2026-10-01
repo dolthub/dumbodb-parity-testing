@@ -75,9 +75,6 @@ func TestX509Matrix_CertificatePolicyAgainstMechanism(t *testing.T) {
 					t.Run("certificate presented, X509", func(t *testing.T) {
 						cli, err := s.server.ConnectX509(ctx, t, certFile)
 						if err != nil {
-							if !s.oracle && mechanismMissing(err) {
-								t.Skipf("XFAIL %s: dumbodb does not implement MONGODB-X509", x509Bead)
-							}
 							t.Fatalf("%s refused X.509 for a certificate naming an existing user: %v", s.name, err)
 						}
 						got := authenticatedAs(ctx, t, cli)

@@ -137,9 +137,6 @@ func TestX509CertState_SameSubjectDifferentKeyIsTheSameUser(t *testing.T) {
 			for i, cert := range []string{firstCert, secondCert} {
 				cli, err := s.server.ConnectX509(ctx, t, cert)
 				if err != nil {
-					if !s.oracle && mechanismMissing(err) {
-						t.Skipf("XFAIL %s: dumbodb does not implement MONGODB-X509", x509Bead)
-					}
 					t.Fatalf("%s refused certificate %d of two sharing the subject %q: %v", s.name, i+1, dn, err)
 				}
 				got := authenticatedAs(ctx, t, cli)
@@ -171,14 +168,9 @@ func TestX509CertState_WithoutClientAuthExtendedKeyUsage(t *testing.T) {
 	t.Logf("mongod: certificate with no extended key usage accepted=%v", oracleAccepts)
 
 	if err := createUserAs(ctx, t, dumbodb, dn); err != nil {
-		t.Logf("XFAIL %s: dumbodb would not create %q: %v", x509Bead, dn, err)
-		return
+		t.Fatalf("dumbodb would not create %q: %v", dn, err)
 	}
 	cli, err := dumbodb.ConnectX509(ctx, t, certFile)
-	if err != nil && mechanismMissing(err) {
-		t.Logf("XFAIL %s: dumbodb does not implement MONGODB-X509", x509Bead)
-		return
-	}
 	accepted := err == nil
 	if accepted {
 		_ = cli.Disconnect(context.Background())
@@ -211,8 +203,7 @@ func TestX509CertState_DropUserDeauthorizesLiveConnections(t *testing.T) {
 
 	stillWorks, ok := dropAndRetry(ctx, t, dumbodb, certFile, dn, false)
 	if !ok {
-		t.Logf("XFAIL %s: dumbodb does not implement MONGODB-X509", x509Bead)
-		return
+		t.Fatal("dumbodb could not run this case")
 	}
 	t.Logf("dumbodb: connection still usable after its user was dropped: %v", stillWorks)
 	if stillWorks != oracleStillWorks {

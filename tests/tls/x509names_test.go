@@ -38,14 +38,16 @@ func TestX509Name_RenderingRoundTrips(t *testing.T) {
 	cases := []struct {
 		name string
 		subj string
+		// bead names a tracked divergence; empty means the servers must agree.
+		bead string
 	}{
-		{"comma in values", "/CN=Smith, Alice/O=Example, Inc."},
-		{"equals in a value", "/CN=a=b/O=Example"},
-		{"plus in a value", `/CN=a\+b/O=Example`},
-		{"leading and trailing spaces", "/CN= padded /O=Example"},
-		{"non-ascii", "/CN=Zoë Müller/O=Example"},
-		{"four attributes, order fixed", "/C=US/O=Example/OU=engineering/CN=ordered"},
-		{"only an organization", "/O=Example"},
+		{"comma in values", "/CN=Smith, Alice/O=Example, Inc.", ""},
+		{"equals in a value", "/CN=a=b/O=Example", ""},
+		{"plus in a value", `/CN=a\+b/O=Example`, ""},
+		{"leading and trailing spaces", "/CN= padded /O=Example", ""},
+		{"non-ascii", "/CN=Zoë Müller/O=Example", "workspace-61n.8"},
+		{"four attributes, order fixed", "/C=US/O=Example/OU=engineering/CN=ordered", ""},
+		{"only an organization", "/O=Example", ""},
 	}
 
 	mongod, dumbodb := authedPair(t, f)
@@ -71,13 +73,12 @@ func TestX509Name_RenderingRoundTrips(t *testing.T) {
 			}
 
 			if err := createUserAs(ctx, t, dumbodb, dn); err != nil {
-				t.Logf("XFAIL %s: dumbodb would not create %q: %v", x509Bead, dn, err)
-				return
+				t.Fatalf("dumbodb would not create %q, which mongod accepts: %v", dn, err)
 			}
 			served, err := dumbodb.ConnectX509(ctx, t, certFile)
 			if err != nil {
-				if mechanismMissing(err) {
-					t.Logf("XFAIL %s: dumbodb does not implement MONGODB-X509", x509Bead)
+				if c.bead != "" {
+					t.Logf("XFAIL %s: dumbodb refused %q: %v", c.bead, dn, err)
 					return
 				}
 				t.Errorf("dumbodb refused a certificate naming the user %q that mongod accepts: %v", dn, err)
@@ -86,11 +87,17 @@ func TestX509Name_RenderingRoundTrips(t *testing.T) {
 			dumboGot := authenticatedAs(ctx, t, served)
 			_ = served.Disconnect(context.Background())
 			if dumboGot != dn {
+				if c.bead != "" {
+					t.Logf("XFAIL %s: dumbodb rendered %q where mongod says %q", c.bead, dumboGot, dn)
+					return
+				}
 				t.Errorf("dumbodb rendered the subject as %q where mongod says %q; users created from one will not match the other",
 					dumboGot, dn)
 				return
 			}
-			t.Errorf("XPASS %s: dumbodb agrees on %q; remove the exemption", x509Bead, dn)
+			if c.bead != "" {
+				t.Errorf("XPASS %s: dumbodb agrees on %q; remove the exemption", c.bead, dn)
+			}
 		})
 	}
 }

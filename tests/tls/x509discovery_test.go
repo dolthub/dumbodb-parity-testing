@@ -47,10 +47,7 @@ func TestX509Storage_MatchesMongoDB(t *testing.T) {
 	}{{"mongod", mongod, true}, {"dumbodb", dumbodb, false}} {
 		t.Run(s.name, func(t *testing.T) {
 			if err := createUserAs(ctx, t, s.server, dn); err != nil {
-				if !s.oracle {
-					t.Skipf("XFAIL %s: dumbodb would not create %q: %v", x509Bead, dn, err)
-				}
-				t.Fatalf("premise failed: mongod would not create %q: %v", dn, err)
+				t.Fatalf("%s would not create %q: %v", s.name, dn, err)
 			}
 			admin, err := s.server.ConnectAsUser(ctx, t, "root", "root")
 			if err != nil {
@@ -63,19 +60,12 @@ func TestX509Storage_MatchesMongoDB(t *testing.T) {
 			t.Logf("%s: usersInfo on $external=%v, on admin=%v", s.name, external, inAdmin)
 
 			if !contains(external, dn) {
-				if !s.oracle {
-					t.Logf("XFAIL %s: dumbodb accepted createUser for %q and usersInfo against $external does not list it",
-						storageBead, dn)
-					return
-				}
-				t.Errorf("mongod: usersInfo against $external does not list %q", dn)
+				t.Errorf("%s: usersInfo against $external does not list %q, so a certificate user cannot be found where MongoDB puts it",
+					s.name, dn)
 			}
 			if contains(inAdmin, dn) {
 				t.Errorf("%s: usersInfo against admin lists %q; a certificate user is showing up under the wrong database",
 					s.name, dn)
-			}
-			if !s.oracle {
-				t.Errorf("XPASS %s: dumbodb now stores certificate users where MongoDB does; remove the exemption", storageBead)
 			}
 
 			dbs := databaseNames(ctx, t, admin)
