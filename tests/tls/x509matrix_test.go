@@ -164,3 +164,55 @@ func createSCRAMUser(ctx context.Context, t *testing.T, s *harness.TLSServer) {
 		t.Fatalf("creating the SCRAM user on %s: %v", s.Addr, err)
 	}
 }
+
+// X.509 over TLS on a port that also accepts plaintext.
+//
+// Every other X.509 case runs under requireTLS, where the connection is a
+// plain *tls.Conn. Under allowTLS and preferTLS it is wrapped by the listener
+// so the first bytes can be peeked, and that wrapper embeds net.Conn rather
+// than exposing the TLS state. An implementation that reaches the peer
+// certificate by asserting *tls.Conn would work perfectly in the default
+// configuration and authenticate nobody on these two modes.
+func TestX509Matrix_AuthenticatesOnMixedModePorts(t *testing.T) {
+	t.Parallel()
+	for _, mode := range []string{"allowTLS", "preferTLS"} {
+		t.Run(mode, func(t *testing.T) {
+			ctx := tlsContext(t)
+			f := harness.NewTLSFixture(t)
+			certFile, dn := harness.ClientPEMWithSubjectString(t, f,
+				"mixed-"+mode+".pem", "/CN=mixed-mode-user/O=Example")
+
+			opts := harness.TLSOptions{Auth: true, Mode: mode}
+			mongod := harness.StartTLSMongod(t, f, opts)
+			if mongod.StartFailed {
+				t.Fatalf("premise failed: mongod would not start with --tlsMode %s and --auth:\n%s", mode, mongod.FailureOutput)
+			}
+			dumbodb := harness.StartTLSDumboDB(t, f, opts)
+			if dumbodb.StartFailed {
+				t.Fatalf("dumbodb would not start with --tlsMode %s and --auth: %s", mode, firstLine(dumbodb.FailureOutput))
+			}
+
+			for _, s := range []struct {
+				name   string
+				server *harness.TLSServer
+			}{{"mongod", mongod}, {"dumbodb", dumbodb}} {
+				t.Run(s.name, func(t *testing.T) {
+					bootstrapRoot(ctx, t, s.server)
+					if err := createUserAs(ctx, t, s.server, dn); err != nil {
+						t.Fatalf("%s would not create %q: %v", s.name, dn, err)
+					}
+					cli, err := s.server.ConnectX509(ctx, t, certFile)
+					if err != nil {
+						t.Fatalf("%s refused MONGODB-X509 on a --tlsMode %s port, where it accepts it on requireTLS: %v",
+							s.name, mode, err)
+					}
+					got := authenticatedAs(ctx, t, cli)
+					_ = cli.Disconnect(context.Background())
+					if got != dn {
+						t.Errorf("%s authenticated as %q on a --tlsMode %s port, expected %q", s.name, got, mode, dn)
+					}
+				})
+			}
+		})
+	}
+}
