@@ -2,8 +2,9 @@
 // https://www.mongodb.com/docs/manual/tutorial/aggregation-examples/group-and-total/
 //
 // The tutorial shows a 6-stage pipeline against an "orders" collection:
-//   $match (year 2020) → $sort (orderdate) → $group (by customer) →
-//   $sort (first_purchase_date) → $set (customer_id) → $unset (_id)
+//
+//	$match (year 2020) → $sort (orderdate) → $group (by customer) →
+//	$sort (first_purchase_date) → $set (customer_id) → $unset (_id)
 //
 // tutorialCheck is defined in mongodb_dev_patterns_test.go (same package).
 package tests

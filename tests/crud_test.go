@@ -191,7 +191,7 @@ func TestInsertMany_unordered_partial_failure(t *testing.T) {
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			docs := []interface{}{
 				bson.D{{Key: "_id", Value: "new1"}, {Key: "v", Value: int32(1)}},
-				bson.D{{Key: "_id", Value: "dup"}, {Key: "v", Value: int32(2)}},  // duplicate
+				bson.D{{Key: "_id", Value: "dup"}, {Key: "v", Value: int32(2)}}, // duplicate
 				bson.D{{Key: "_id", Value: "new2"}, {Key: "v", Value: int32(3)}},
 			}
 			opts := options.InsertMany().SetOrdered(false)

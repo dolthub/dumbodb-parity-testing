@@ -743,7 +743,7 @@ func TestSort_ArrayField_Descending(t *testing.T) {
 
 func TestSort_Natural_Ascending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "Sort_Natural_Ascending",
+		Name: "Sort_Natural_Ascending",
 		// MongoOnly: $natural (physical/insertion order) is not a supported
 		// concept in DumboDB. Documents are keyed by hash(_id) in a versioned
 		// prolly tree, which has no insertion/disk order to expose. Support
@@ -761,7 +761,7 @@ func TestSort_Natural_Ascending(t *testing.T) {
 
 func TestSort_Natural_Descending(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "Sort_Natural_Descending",
+		Name: "Sort_Natural_Descending",
 		// MongoOnly: $natural (physical/insertion order) is not a supported
 		// concept in DumboDB. Documents are keyed by hash(_id) in a versioned
 		// prolly tree, which has no insertion/disk order to expose. Support

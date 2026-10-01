@@ -2,11 +2,11 @@
 // https://www.mongodb.com/docs/manual/tutorial/aggregation-complete-examples/
 //
 // Sub-tutorials covered:
-//   1. Filter Data (filtered-subset)       — persons collection, $match/$sort/$limit/$unset
-//   2. Group and Total (group-and-total)   — orders collection, $match/$sort/$group/$set/$unset
-//   3. Unwind Arrays (unpack-arrays)       — orders with products array, $unwind/$match/$group
-//   4. One-to-One Join (one-to-one-join)   — orders + products, $lookup with foreignField
-//   5. Multi-Field Join (multi-field-join) — products + orders, $lookup with embedded pipeline
+//  1. Filter Data (filtered-subset)       — persons collection, $match/$sort/$limit/$unset
+//  2. Group and Total (group-and-total)   — orders collection, $match/$sort/$group/$set/$unset
+//  3. Unwind Arrays (unpack-arrays)       — orders with products array, $unwind/$match/$group
+//  4. One-to-One Join (one-to-one-join)   — orders + products, $lookup with foreignField
+//  5. Multi-Field Join (multi-field-join) — products + orders, $lookup with embedded pipeline
 //
 // tutorialCheck() is defined in mongodb_dev_patterns_test.go (same package).
 // Tests start as DumboDBXFail and graduate to DumboDBFull as DumboDB parity is verified.

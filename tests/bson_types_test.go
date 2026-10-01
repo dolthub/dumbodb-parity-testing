@@ -34,11 +34,14 @@ func TestBSON_objectid_auto_generated(t *testing.T) {
 }
 
 func TestBSON_objectid_explicit(t *testing.T) {
+	// Minted once, outside Run, so both servers are given the SAME id and the
+	// comparison can check they both echo it back. Minting inside Run gave
+	// each side a different id, which the comparison then had to ignore.
+	oid := primitive.NewObjectID()
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_objectid_explicit",
 		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			oid := primitive.NewObjectID()
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: oid}, {Key: "val", Value: "explicit"}})
 			if err != nil {
 				return nil, err
@@ -93,11 +96,12 @@ func TestBSON_objectid_hex_string_not_equal_oid(t *testing.T) {
 }
 
 func TestBSON_objectid_from_hex(t *testing.T) {
+	// Minted once; see TestBSON_objectid_explicit.
+	oid := primitive.NewObjectID()
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_objectid_from_hex",
 		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			oid := primitive.NewObjectID()
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: oid}, {Key: "v", Value: "hex-test"}})
 			if err != nil {
 				return nil, err

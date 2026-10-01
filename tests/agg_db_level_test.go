@@ -262,4 +262,3 @@ func listLocalSessionDistinctUIDs(ctx context.Context, col *mongo.Collection) (i
 	sort.Strings(uids)
 	return uids, nil
 }
-
