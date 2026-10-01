@@ -42,8 +42,7 @@ func TestX509Storage_MatchesMongoDB(t *testing.T) {
 	for _, s := range []struct {
 		name   string
 		server *harness.TLSServer
-		oracle bool
-	}{{"mongod", mongod, true}, {"dumbodb", dumbodb, false}} {
+	}{{"mongod", mongod}, {"dumbodb", dumbodb}} {
 		t.Run(s.name, func(t *testing.T) {
 			if err := createUserAs(ctx, t, s.server, dn); err != nil {
 				t.Fatalf("%s would not create %q: %v", s.name, dn, err)
@@ -140,11 +139,14 @@ func TestX509Discovery_NotAdvertisedAsASASLMechanism(t *testing.T) {
 	for _, s := range []struct {
 		name   string
 		server *harness.TLSServer
-		oracle bool
-	}{{"mongod", mongod, true}, {"dumbodb", dumbodb, false}} {
+	}{{"mongod", mongod}, {"dumbodb", dumbodb}} {
 		t.Run(s.name, func(t *testing.T) {
-			if err := createUserAs(ctx, t, s.server, dn); err != nil && s.oracle {
-				t.Fatalf("premise failed: mongod would not create %q: %v", dn, err)
+			// The user must exist on both. saslSupportedMechs for a name
+			// that does not exist naturally lists nothing, which would make
+			// the assertion below pass without exercising discovery at all.
+			if err := createUserAs(ctx, t, s.server, dn); err != nil {
+				t.Fatalf("%s would not create %q, so an empty mechanism list here would mean nothing: %v",
+					s.name, dn, err)
 			}
 			cli, err := s.server.Connect(ctx, t, true)
 			if err != nil {
@@ -172,6 +174,11 @@ func TestX509Discovery_NotAdvertisedAsASASLMechanism(t *testing.T) {
 	}
 }
 
+// usersIn lists the users a server reports for a database.
+//
+// A failure here is fatal rather than an empty list. Returning nil on error
+// made "admin does not list this user" pass as though the user were correctly
+// absent, when in fact the question was never answered.
 func usersIn(ctx context.Context, t *testing.T, cli *mongo.Client, db string) []string {
 	t.Helper()
 	var res struct {
@@ -180,8 +187,7 @@ func usersIn(ctx context.Context, t *testing.T, cli *mongo.Client, db string) []
 		} `bson:"users"`
 	}
 	if err := cli.Database(db).RunCommand(ctx, bson.D{{Key: "usersInfo", Value: 1}}).Decode(&res); err != nil {
-		t.Logf("usersInfo against %s: %v", db, err)
-		return nil
+		t.Fatalf("usersInfo against %s failed, so nothing can be concluded about where users are stored: %v", db, err)
 	}
 	out := make([]string, 0, len(res.Users))
 	for _, u := range res.Users {
@@ -199,8 +205,7 @@ func saslMechsFor(ctx context.Context, t *testing.T, cli *mongo.Client, user str
 		{Key: "hello", Value: 1},
 		{Key: "saslSupportedMechs", Value: user},
 	}).Decode(&res); err != nil {
-		t.Logf("hello with saslSupportedMechs=%s: %v", user, err)
-		return nil
+		t.Fatalf("hello with saslSupportedMechs=%s failed, so an empty mechanism list cannot be concluded: %v", user, err)
 	}
 	return res.SaslSupportedMechs
 }
@@ -209,8 +214,7 @@ func databaseNames(ctx context.Context, t *testing.T, cli *mongo.Client) []strin
 	t.Helper()
 	names, err := cli.ListDatabaseNames(ctx, bson.D{})
 	if err != nil {
-		t.Logf("listDatabases: %v", err)
-		return nil
+		t.Fatalf("listDatabases failed, so the absence of a $external database cannot be concluded: %v", err)
 	}
 	return names
 }

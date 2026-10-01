@@ -20,7 +20,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -535,14 +534,16 @@ func (s *TLSServer) ConnectAnyVersion(t *testing.T) (uint16, error) {
 }
 
 // isBenignReadError reports whether a read failure means the peer simply had
-// nothing to say, rather than that it rejected us. A server that accepted the
-// connection will not answer a junk byte with a protocol reply.
+// nothing to say, rather than that it rejected us.
+//
+// ONLY A TIMEOUT QUALIFIES. An accepted connection answers a junk byte with
+// silence, which arrives as the deadline expiring. EOF is the opposite: the
+// peer CLOSED, which is how a server refuses a protocol version when it
+// closes without sending an alert. Treating EOF as benign reported those
+// refusals as acceptances.
 func isBenignReadError(err error) bool {
 	var netErr net.Error
-	if errors.As(err, &netErr) && netErr.Timeout() {
-		return true
-	}
-	return errors.Is(err, io.EOF)
+	return errors.As(err, &netErr) && netErr.Timeout()
 }
 
 // ConnectPlaintext dials without TLS at all, to prove the port does not serve

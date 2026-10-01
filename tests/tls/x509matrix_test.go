@@ -69,8 +69,7 @@ func TestX509Matrix_CertificatePolicyAgainstMechanism(t *testing.T) {
 			for _, s := range []struct {
 				name   string
 				server *harness.TLSServer
-				oracle bool
-			}{{"mongod", mongod, true}, {"dumbodb", dumbodb, false}} {
+			}{{"mongod", mongod}, {"dumbodb", dumbodb}} {
 				t.Run(s.name, func(t *testing.T) {
 					// With a certificate: both mechanisms must work.
 					t.Run("certificate presented, X509", func(t *testing.T) {

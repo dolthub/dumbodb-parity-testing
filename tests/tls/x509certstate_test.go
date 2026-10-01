@@ -24,7 +24,9 @@ package tls
 
 import (
 	"context"
+	"errors"
 	"os"
+	"strings"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -46,11 +48,15 @@ func TestX509CertState_ExpiredCertificateNamingAGoodUser(t *testing.T) {
 	for _, s := range []struct {
 		name   string
 		server *harness.TLSServer
-		oracle bool
-	}{{"mongod", mongod, true}, {"dumbodb", dumbodb, false}} {
+	}{{"mongod", mongod}, {"dumbodb", dumbodb}} {
 		t.Run(s.name, func(t *testing.T) {
-			if err := createUserAs(ctx, t, s.server, dn); err != nil && s.oracle {
-				t.Fatalf("premise failed: mongod would not create %q: %v", dn, err)
+			// The user MUST exist on both. An unknown subject is refused
+			// anyway, so swallowing a creation failure here would let the
+			// case pass without ever showing that the expired certificate
+			// was what stopped it.
+			if err := createUserAs(ctx, t, s.server, dn); err != nil {
+				t.Fatalf("%s would not create %q, so this case cannot tell a rejected certificate from an unknown user: %v",
+					s.name, dn, err)
 			}
 			cli, err := s.server.ConnectX509(ctx, t, certFile)
 			if err == nil {
@@ -87,12 +93,13 @@ func TestX509CertState_RevokedCertificateNamingAGoodUser(t *testing.T) {
 	for _, s := range []struct {
 		name   string
 		server *harness.TLSServer
-		oracle bool
-	}{{"mongod", mongod, true}, {"dumbodb", dumbodb, false}} {
+	}{{"mongod", mongod}, {"dumbodb", dumbodb}} {
 		t.Run(s.name, func(t *testing.T) {
 			bootstrapRoot(ctx, t, s.server)
-			if err := createUserAs(ctx, t, s.server, dn); err != nil && s.oracle {
-				t.Fatalf("premise failed: mongod would not create %q: %v", dn, err)
+			// As above: without the user, a refusal proves nothing.
+			if err := createUserAs(ctx, t, s.server, dn); err != nil {
+				t.Fatalf("%s would not create %q, so this case cannot tell a revoked certificate from an unknown user: %v",
+					s.name, dn, err)
 			}
 			cli, err := s.server.ConnectX509(ctx, t, certFile)
 			if err == nil {
@@ -131,11 +138,10 @@ func TestX509CertState_SameSubjectDifferentKeyIsTheSameUser(t *testing.T) {
 	for _, s := range []struct {
 		name   string
 		server *harness.TLSServer
-		oracle bool
-	}{{"mongod", mongod, true}, {"dumbodb", dumbodb, false}} {
+	}{{"mongod", mongod}, {"dumbodb", dumbodb}} {
 		t.Run(s.name, func(t *testing.T) {
-			if err := createUserAs(ctx, t, s.server, dn); err != nil && s.oracle {
-				t.Fatalf("premise failed: mongod would not create %q: %v", dn, err)
+			if err := createUserAs(ctx, t, s.server, dn); err != nil {
+				t.Fatalf("%s would not create %q: %v", s.name, dn, err)
 			}
 			for i, cert := range []string{firstCert, secondCert} {
 				cli, err := s.server.ConnectX509(ctx, t, cert)
@@ -200,20 +206,21 @@ func TestX509CertState_DropUserDeauthorizesLiveConnections(t *testing.T) {
 	certFile, dn := harness.ClientPEMWithSubjectString(t, f, "dropped.pem", "/CN=dropped-user/O=Example")
 	mongod, dumbodb := authedPair(t, f)
 
-	oracleStillWorks, ok := dropAndRetry(ctx, t, mongod, certFile, dn, true)
+	oracleOutcome, ok := dropAndRetry(ctx, t, mongod, certFile, dn, true)
 	if !ok {
 		t.Fatal("premise failed: mongod could not run this case")
 	}
-	t.Logf("mongod: connection still usable after its user was dropped: %v", oracleStillWorks)
+	t.Logf("mongod after dropUser: %s", oracleOutcome)
 
-	stillWorks, ok := dropAndRetry(ctx, t, dumbodb, certFile, dn, false)
+	outcome, ok := dropAndRetry(ctx, t, dumbodb, certFile, dn, false)
 	if !ok {
 		t.Fatal("dumbodb could not run this case")
 	}
-	t.Logf("dumbodb: connection still usable after its user was dropped: %v", stillWorks)
-	if stillWorks != oracleStillWorks {
-		t.Errorf("mongod kept the connection usable=%v but dumbodb=%v after dropUser; revocation latency differs",
-			oracleStillWorks, stillWorks)
+	t.Logf("dumbodb after dropUser: %s", outcome)
+	if outcome != oracleOutcome {
+		t.Errorf("after dropUser mongod answered %q and dumbodb answered %q; "+
+			"these are different behaviours even when neither serves the command",
+			oracleOutcome, outcome)
 	}
 }
 
@@ -232,24 +239,24 @@ func x509Accepts(ctx context.Context, t *testing.T, s *harness.TLSServer, certFi
 // dropAndRetry authenticates, drops the user out from under the live
 // connection, and reports whether that connection still works. ok is false
 // when the server could not get far enough to answer.
-func dropAndRetry(ctx context.Context, t *testing.T, s *harness.TLSServer, certFile, dn string, oracle bool) (stillWorks, ok bool) {
+func dropAndRetry(ctx context.Context, t *testing.T, s *harness.TLSServer, certFile, dn string, oracle bool) (outcome string, ok bool) {
 	t.Helper()
 	if err := createUserAs(ctx, t, s, dn); err != nil {
 		if oracle {
 			t.Fatalf("premise failed: mongod would not create %q: %v", dn, err)
 		}
-		return false, false
+		return "", false
 	}
 	cli, err := s.ConnectX509(ctx, t, certFile)
 	if err != nil {
 		if oracle {
 			t.Fatalf("premise failed: mongod refused a valid certificate user: %v", err)
 		}
-		return false, false
+		return "", false
 	}
 	defer func() { _ = cli.Disconnect(context.Background()) }()
 
-	if err := cli.Database("shop").Collection("c").FindOne(ctx, bson.D{}).Err(); err != nil && err != mongo.ErrNoDocuments {
+	if err := cli.Database("shop").Collection("c").FindOne(ctx, bson.D{}).Err(); err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
 		t.Fatalf("the connection was not usable before the drop: %v", err)
 	}
 
@@ -264,7 +271,49 @@ func dropAndRetry(ctx context.Context, t *testing.T, s *harness.TLSServer, certF
 	}
 
 	err = cli.Database("shop").Collection("c").FindOne(ctx, bson.D{}).Err()
-	return err == nil || err == mongo.ErrNoDocuments, true
+	return classifyPostDrop(err), true
+}
+
+// classifyPostDrop names what the connection did after its user was dropped.
+//
+// A boolean cannot express this case. The point is that the connection SURVIVES
+// while losing its authority, so "mongod answered Unauthorized" and "the server
+// closed the socket" are opposite outcomes that both mean "the command did not
+// succeed". Comparing them as equal was the bug.
+func classifyPostDrop(err error) string {
+	switch {
+	case err == nil || errors.Is(err, mongo.ErrNoDocuments):
+		return "served"
+	case isUnauthorized(err):
+		return "refused-unauthorized"
+	case isConnectionGone(err):
+		return "connection-closed"
+	default:
+		return "other-error"
+	}
+}
+
+func isUnauthorized(err error) bool {
+	var cmdErr mongo.CommandError
+	if errors.As(err, &cmdErr) {
+		// 13 is Unauthorized; 18 is AuthenticationFailed.
+		if cmdErr.Code == 13 || cmdErr.Code == 18 {
+			return true
+		}
+	}
+	return strings.Contains(err.Error(), "not authorized") ||
+		strings.Contains(err.Error(), "requires authentication")
+}
+
+func isConnectionGone(err error) bool {
+	text := err.Error()
+	for _, marker := range []string{"socket was unexpectedly closed", "connection closed",
+		"connection(", "EOF", "server selection"} {
+		if strings.Contains(text, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func sameFile(t *testing.T, a, b string) bool {

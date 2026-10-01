@@ -166,8 +166,7 @@ func TestX509_IdentityComesFromTheCertificateNotTheClient(t *testing.T) {
 	for _, s := range []struct {
 		name   string
 		server *harness.TLSServer
-		oracle bool
-	}{{"mongod", mongod, true}, {"dumbodb", dumbodb, false}} {
+	}{{"mongod", mongod}, {"dumbodb", dumbodb}} {
 		t.Run(s.name, func(t *testing.T) {
 			// Both users exist, so the only thing standing between the holder
 			// and the victim's identity is the server checking the certificate.
@@ -295,8 +294,7 @@ func TestX509_RolesApplyToTheDatabasesTheyName(t *testing.T) {
 	for _, s := range []struct {
 		name   string
 		server *harness.TLSServer
-		oracle bool
-	}{{"mongod", mongod, true}, {"dumbodb", dumbodb, false}} {
+	}{{"mongod", mongod}, {"dumbodb", dumbodb}} {
 		t.Run(s.name, func(t *testing.T) {
 			admin, err := s.server.ConnectAsUser(ctx, t, "root", "root")
 			if err != nil {
@@ -347,8 +345,7 @@ func TestX509_RoleShorthandIsRefused(t *testing.T) {
 	for _, s := range []struct {
 		name   string
 		server *harness.TLSServer
-		oracle bool
-	}{{"mongod", mongod, true}, {"dumbodb", dumbodb, false}} {
+	}{{"mongod", mongod}, {"dumbodb", dumbodb}} {
 		t.Run(s.name, func(t *testing.T) {
 			admin, err := s.server.ConnectAsUser(ctx, t, "root", "root")
 			if err != nil {
