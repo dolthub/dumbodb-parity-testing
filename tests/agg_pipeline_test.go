@@ -750,7 +750,7 @@ func TestAgg_lookup_concise(t *testing.T) {
 	} {
 		harness.PairTest(t, harness.TestCase{
 			Name:    "Agg_lookup_concise_" + tc.name,
-			Support: harness.DumboDBXFail,
+			Support: harness.DumboDBFull,
 			Setup:   seed,
 			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 				results, err := runPipeline(ctx, col, concise(col, tc.extra, tc.pipeline))
