@@ -186,12 +186,12 @@ func TestCollation_IdIndex_CollationPinnedToDefault(t *testing.T) {
 		collation bson.D
 		support   harness.DumboDBSupport
 	}{
-		{"collated-fr", true, bson.D{{Key: "locale", Value: "fr"}}, harness.DumboDBXFail},
-		{"collated-en-strength3", true, bson.D{{Key: "locale", Value: "en"}, {Key: "strength", Value: 3}}, harness.DumboDBXFail},
-		{"collated-simple", true, bson.D{{Key: "locale", Value: "simple"}}, harness.DumboDBXFail},
+		{"collated-fr", true, bson.D{{Key: "locale", Value: "fr"}}, harness.DumboDBFull},
+		{"collated-en-strength3", true, bson.D{{Key: "locale", Value: "en"}, {Key: "strength", Value: 3}}, harness.DumboDBFull},
+		{"collated-simple", true, bson.D{{Key: "locale", Value: "simple"}}, harness.DumboDBFull},
 		{"collated-same", true, bson.D{{Key: "locale", Value: "en"}, {Key: "strength", Value: 2}}, harness.DumboDBFull},
 		{"collated-none", true, nil, harness.DumboDBFull},
-		{"simple-en", false, bson.D{{Key: "locale", Value: "en"}}, harness.DumboDBXFail},
+		{"simple-en", false, bson.D{{Key: "locale", Value: "en"}}, harness.DumboDBFull},
 		{"simple-simple", false, bson.D{{Key: "locale", Value: "simple"}}, harness.DumboDBFull},
 	}
 	for _, tc := range cases {
