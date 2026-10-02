@@ -62,11 +62,22 @@ variant proves the collated (sort-key) index seeks flat at scale end-to-end; its
 gap over the unindexed collated scan is wider than the plain case, because a
 collated scan pays per-document ICU comparison while the sort-key seek does not.
 
+**Join variants** (in `lookup_bench_test.go`): 100 `orders` documents join into
+the seeded collection of N documents, each matching exactly one foreign document
+on the unique field `i`, so the joined result is the same at every N and any
+growth with N is the cost of reaching the foreign side.
+`Lookup_Equality` (`localField`/`foreignField`) has `_1K`, `_10K`, `_50K`
+`[_Indexed]` variants; the indexed ones put an index on the foreign `i`.
+`Lookup_Pipeline` is the same join in the `let`/`pipeline` form, and
+`Lookup_Nested` adds a second `$lookup` inside the sub-pipeline, so the inner
+join runs once per order. `GraphLookup` follows `grp -> i` from each order; every
+traversal visits two documents. These are at `_10K` `[_Indexed]`.
+
 ## Scope - deferred
 
 These are enumerated in `bd pa-xp1` but not implemented in the first cut:
 
-- `$unwind + $group`, `$lookup` (join)
+- `$unwind + $group`
 - `CreateCollection`, `Drop` (they'd be their own benchmarks - mostly DDL timing)
 - Scaling dimensions beyond 1K x small docs (10K, 100K; medium, large). Helpers
   in `bench.go` already parameterize both - add parameterized sub-benchmarks when
