@@ -36,25 +36,25 @@ func TestAuthAggregationStagePrivileges(t *testing.T) {
 	readWriteRole := func(n aggPrivNames) []harness.RoleRef { return []harness.RoleRef{{Role: "readWrite", DB: n.db}} }
 	noRoles := func(aggPrivNames) []harness.RoleRef { return nil }
 
-	harness.AuthPairTest(t, authCase("AGGPRIV-01-read-cannot-out-same-db", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("AGGPRIV-01-read-cannot-out-same-db", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return aggStageCase(ctx, t, tgt, readRole, noPrivileges, 13, func(n aggPrivNames) bson.A {
 			return bson.A{bson.D{{Key: "$out", Value: "copy"}}}
 		})
 	}))
 
-	harness.AuthPairTest(t, authCase("AGGPRIV-02-read-cannot-out-other-db", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("AGGPRIV-02-read-cannot-out-other-db", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return aggStageCase(ctx, t, tgt, readRole, noPrivileges, 13, func(n aggPrivNames) bson.A {
 			return bson.A{bson.D{{Key: "$out", Value: bson.D{{Key: "db", Value: n.other}, {Key: "coll", Value: "copy"}}}}}
 		})
 	}))
 
-	harness.AuthPairTest(t, authCase("AGGPRIV-03-read-cannot-merge", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("AGGPRIV-03-read-cannot-merge", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return aggStageCase(ctx, t, tgt, readRole, noPrivileges, 13, func(n aggPrivNames) bson.A {
 			return bson.A{bson.D{{Key: "$merge", Value: bson.D{{Key: "into", Value: "copy"}}}}}
 		})
 	}))
 
-	harness.AuthPairTest(t, authCase("AGGPRIV-04-readWrite-cannot-out-other-db", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("AGGPRIV-04-readWrite-cannot-out-other-db", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return aggStageCase(ctx, t, tgt, readWriteRole, noPrivileges, 13, func(n aggPrivNames) bson.A {
 			return bson.A{bson.D{{Key: "$out", Value: bson.D{{Key: "db", Value: n.other}, {Key: "coll", Value: "copy"}}}}}
 		})
@@ -64,7 +64,7 @@ func TestAuthAggregationStagePrivileges(t *testing.T) {
 		return []harness.Privilege{{Resource: collResource(n.db, "c"), Actions: []string{"find"}}}
 	}
 
-	harness.AuthPairTest(t, authCase("AGGPRIV-05-lookup-needs-find-on-foreign", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("AGGPRIV-05-lookup-needs-find-on-foreign", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return aggStageCase(ctx, t, tgt, noRoles, findSourceOnly, 13, func(n aggPrivNames) bson.A {
 			return bson.A{bson.D{{Key: "$lookup", Value: bson.D{
 				{Key: "from", Value: "secret"}, {Key: "localField", Value: "a"},
@@ -73,7 +73,7 @@ func TestAuthAggregationStagePrivileges(t *testing.T) {
 		})
 	}))
 
-	harness.AuthPairTest(t, authCase("AGGPRIV-06-unionWith-needs-find-on-foreign", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("AGGPRIV-06-unionWith-needs-find-on-foreign", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return aggStageCase(ctx, t, tgt, noRoles, findSourceOnly, 13, func(n aggPrivNames) bson.A {
 			return bson.A{bson.D{{Key: "$unionWith", Value: "secret"}}}
 		})
@@ -97,7 +97,7 @@ func TestAuthAggregationStagePrivileges(t *testing.T) {
 		})
 	}))
 
-	harness.AuthPairTest(t, authCase("AGGPRIV-09-merge-default-needs-update", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("AGGPRIV-09-merge-default-needs-update", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return aggStageCase(ctx, t, tgt, noRoles, findAndInsert, 13, func(n aggPrivNames) bson.A {
 			return bson.A{bson.D{{Key: "$merge", Value: bson.D{{Key: "into", Value: "copy"}}}}}
 		})
