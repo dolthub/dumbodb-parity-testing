@@ -175,6 +175,60 @@ func TestCollation_IdIndex_SimpleCoexist(t *testing.T) {
 	})
 }
 
+// D4: the _id index collation is pinned to the collection default; createIndex
+// on _id with a different collation is BadValue (2), and with the same (or no)
+// collation is a no-op. Only the code is compared: MongoDB's message embeds its
+// ICU version.
+func TestCollation_IdIndex_CollationPinnedToDefault(t *testing.T) {
+	cases := []struct {
+		name      string
+		collated  bool
+		collation bson.D
+		support   harness.DumboDBSupport
+	}{
+		{"collated-fr", true, bson.D{{Key: "locale", Value: "fr"}}, harness.DumboDBXFail},
+		{"collated-en-strength3", true, bson.D{{Key: "locale", Value: "en"}, {Key: "strength", Value: 3}}, harness.DumboDBXFail},
+		{"collated-simple", true, bson.D{{Key: "locale", Value: "simple"}}, harness.DumboDBXFail},
+		{"collated-same", true, bson.D{{Key: "locale", Value: "en"}, {Key: "strength", Value: 2}}, harness.DumboDBFull},
+		{"collated-none", true, nil, harness.DumboDBFull},
+		{"simple-en", false, bson.D{{Key: "locale", Value: "en"}}, harness.DumboDBXFail},
+		{"simple-simple", false, bson.D{{Key: "locale", Value: "simple"}}, harness.DumboDBFull},
+	}
+	for _, tc := range cases {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "Collation_IdIndex_CollationPinned_" + tc.name,
+			Support: tc.support,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				target := col
+				if tc.collated {
+					c, err := collatedColl(ctx, col)
+					if err != nil {
+						return nil, err
+					}
+					target = c
+				} else if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "seed"}}); err != nil {
+					return nil, err
+				}
+				spec := bson.D{{Key: "key", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "name", Value: "_id_"}}
+				if tc.collation != nil {
+					spec = append(spec, bson.E{Key: "collation", Value: tc.collation})
+				}
+				err := target.Database().RunCommand(ctx, bson.D{
+					{Key: "createIndexes", Value: target.Name()},
+					{Key: "indexes", Value: bson.A{spec}},
+				}).Err()
+				code, _, _ := harness.CommandErrorCode(err)
+				idCollation, listErr := indexCollationByName(ctx, target, "_id_")
+				if listErr != nil {
+					return nil, listErr
+				}
+				m, _ := idCollation.(bson.M)
+				return bson.M{"code": code, "idLocale": m["locale"], "idStrength": m["strength"]}, nil
+			},
+		})
+	}
+}
+
 // F3: createCollection with an invalid locale is rejected. Full today (DumboDB
 // validates the locale against the accepted set).
 func TestCollation_CreateInvalidLocale(t *testing.T) {
