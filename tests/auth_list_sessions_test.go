@@ -37,30 +37,30 @@ func TestAuthListLocalSessions(t *testing.T) {
 	clusterMonitor := func(string) []harness.RoleRef { return []harness.RoleRef{{Role: "clusterMonitor", DB: "admin"}} }
 
 	// LSESS-01: an ordinary user may list its own sessions.
-	harness.AuthPairTest(t, authCase("LSESS-01-own-sessions-no-privilege", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("LSESS-01-own-sessions-no-privilege", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return listLocalSessionsCase(ctx, t, tgt, readWrite, func(string, string) bson.D { return bson.D{} }, 0)
 	}))
 
 	// LSESS-02: a user who can read admin still sees only its own sessions.
-	harness.AuthPairTest(t, authCase("LSESS-02-readAnyDatabase-sees-only-own", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("LSESS-02-readAnyDatabase-sees-only-own", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return listLocalSessionsCase(ctx, t, tgt, readAnyDatabase, func(string, string) bson.D { return bson.D{} }, 0)
 	}))
 
 	// LSESS-03: allUsers requires listSessions.
-	harness.AuthPairTest(t, authCase("LSESS-03-allUsers-needs-listSessions", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("LSESS-03-allUsers-needs-listSessions", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return listLocalSessionsCase(ctx, t, tgt, readAnyDatabase,
 			func(string, string) bson.D { return bson.D{{Key: "allUsers", Value: true}} }, 13)
 	}))
 
 	// LSESS-04: naming another user requires listSessions.
-	harness.AuthPairTest(t, authCase("LSESS-04-other-user-needs-listSessions", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("LSESS-04-other-user-needs-listSessions", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return listLocalSessionsCase(ctx, t, tgt, readAnyDatabase, func(other, db string) bson.D {
 			return bson.D{{Key: "users", Value: bson.A{bson.D{{Key: "user", Value: other}, {Key: "db", Value: db}}}}}
 		}, 13)
 	}))
 
 	// LSESS-05: clusterMonitor carries listSessions, so allUsers is allowed.
-	harness.AuthPairTest(t, authCase("LSESS-05-clusterMonitor-allUsers", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+	harness.AuthPairTest(t, authCaseFull("LSESS-05-clusterMonitor-allUsers", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
 		return listLocalSessionsCase(ctx, t, tgt, clusterMonitor,
 			func(string, string) bson.D { return bson.D{{Key: "allUsers", Value: true}} }, 0)
 	}))
