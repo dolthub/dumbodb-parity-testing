@@ -43,7 +43,7 @@ var viewCollationDocs = []interface{}{
 func viewCollationCase(name string, viewCollation *options.Collation, run func(ctx context.Context, v *mongo.Collection) (interface{}, error)) harness.TestCase {
 	return harness.TestCase{
 		Name:    name,
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			if _, err := col.InsertMany(ctx, viewCollationDocs); err != nil {
 				return nil, err
@@ -119,11 +119,9 @@ func TestViewCollation(t *testing.T) {
 		return viewFindIDs(ctx, v, bson.D{}, options.Find().SetSort(bson.D{{Key: "u", Value: 1}, {Key: "_id", Value: 1}}))
 	}))
 
-	sameCollation := viewCollationCase("VCOLL-06-find-same-collation-allowed", enS2, func(ctx context.Context, v *mongo.Collection) (interface{}, error) {
+	harness.PairTest(t, viewCollationCase("VCOLL-06-find-same-collation-allowed", enS2, func(ctx context.Context, v *mongo.Collection) (interface{}, error) {
 		return viewFindIDs(ctx, v, bson.D{{Key: "u", Value: "alice"}}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetCollation(enS2))
-	})
-	sameCollation.Support = harness.DumboDBFull
-	harness.PairTest(t, sameCollation)
+	}))
 
 	harness.PairTest(t, viewCollationCase("VCOLL-07-find-simple-override-rejected", enS2, func(ctx context.Context, v *mongo.Collection) (interface{}, error) {
 		return viewFindIDs(ctx, v, bson.D{}, options.Find().SetCollation(&options.Collation{Locale: "simple"}))
