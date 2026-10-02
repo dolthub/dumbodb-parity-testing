@@ -33,7 +33,7 @@ import (
 func lookupFromViewCase(name, source string, pipeline mongo.Pipeline, extraViews func(ctx context.Context, db *mongo.Database) error) harness.TestCase {
 	return harness.TestCase{
 		Name:    name,
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			seed := map[string][]interface{}{
@@ -127,7 +127,7 @@ func TestLookupFromView(t *testing.T) {
 func viewCycleCase(name string, define func(ctx context.Context, db *mongo.Database) error) harness.TestCase {
 	return harness.TestCase{
 		Name:    name,
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
 			if _, err := db.Collection("orders").InsertOne(ctx, bson.D{{Key: "item", Value: "apple"}}); err != nil {
