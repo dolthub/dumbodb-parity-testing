@@ -145,4 +145,64 @@ func TestAuthSelfService(t *testing.T) {
 		}
 		return bson.M{"selfOK": selfErr == nil, "otherCode": otherCode}, nil
 	}))
+
+	// SELF-04: changeOwnPassword does not let a user change its own roles.
+	harness.AuthPairTest(t, authCaseFull("SELF-04-changeOwnPassword-cannot-set-own-roles", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+		return updateUserEscalation(ctx, t, tgt, "changeOwnPassword", true,
+			bson.E{Key: "roles", Value: bson.A{bson.D{{Key: "role", Value: "root"}, {Key: "db", Value: "admin"}}}})
+	}))
+
+	// SELF-05: changeOwnPassword does not let a user change its own customData.
+	harness.AuthPairTest(t, authCaseFull("SELF-05-changeOwnPassword-cannot-set-own-customData", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+		return updateUserEscalation(ctx, t, tgt, "changeOwnPassword", true,
+			bson.E{Key: "customData", Value: bson.D{{Key: "x", Value: 1}}})
+	}))
+
+	// SELF-06: changePassword does not let a user change another user's roles.
+	harness.AuthPairTest(t, authCaseFull("SELF-06-changePassword-cannot-set-other-roles", func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+		return updateUserEscalation(ctx, t, tgt, "changePassword", false,
+			bson.E{Key: "roles", Value: bson.A{bson.D{{Key: "role", Value: "root"}, {Key: "db", Value: "admin"}}}})
+	}))
+}
+
+// updateUserEscalation has a user holding only |action| run updateUser with
+// |field| against itself (|self|) or another user, and reports the error code
+// plus the target's stored roles and customData afterwards.
+func updateUserEscalation(ctx context.Context, t *testing.T, tgt harness.AuthTarget, action string, self bool, field bson.E) (interface{}, error) {
+	db := "selfesc_" + tgt.NS
+	role, user, pwd, other := "role_"+tgt.NS, "u_"+tgt.NS, "pw-"+tgt.NS, "other_"+tgt.NS
+	defer func() {
+		_ = harness.DropUser(ctx, tgt.Admin, db, user)
+		_ = harness.DropUser(ctx, tgt.Admin, db, other)
+		_ = harness.DropRole(ctx, tgt.Admin, db, role)
+		_ = tgt.Admin.Database(db).Drop(ctx)
+	}()
+	tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, other, "pw", nil))
+	tgt.Setup(harness.CreateRole(ctx, tgt.Admin, db, role,
+		[]harness.Privilege{{Resource: collResource(db, ""), Actions: []string{action}}}, nil))
+	tgt.Setup(harness.CreateUser(ctx, tgt.Admin, db, user, pwd, []harness.RoleRef{{Role: role, DB: db}}))
+	c, err := harness.ConnectAs(ctx, tgt.BaseURI, user, pwd, db)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = c.Disconnect(ctx) }()
+
+	target := other
+	if self {
+		target = user
+	}
+	updErr := cmdErr(ctx, c, db, bson.D{{Key: "updateUser", Value: target}, field})
+	code, _, _ := harness.CommandErrorCode(updErr)
+	if tgt.BaseURI == harness.AuthMongoBaseURI() && (updErr == nil || code != 13) {
+		t.Errorf("updateUser %s on %s with only %s should be Unauthorized, got code=%d err=%v", field.Key, target, action, code, updErr)
+	}
+
+	var info bson.M
+	tgt.Setup(tgt.Admin.Database(db).RunCommand(ctx, bson.D{{Key: "usersInfo", Value: target}}).Decode(&info))
+	users, _ := info["users"].(bson.A)
+	if len(users) != 1 {
+		t.Fatalf("usersInfo %s: want 1 user, got %d", target, len(users))
+	}
+	stored, _ := users[0].(bson.M)
+	return bson.M{"code": code, "roles": stored["roles"], "customData": stored["customData"]}, nil
 }
