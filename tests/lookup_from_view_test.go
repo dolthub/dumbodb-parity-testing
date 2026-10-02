@@ -121,3 +121,52 @@ func TestLookupFromView(t *testing.T) {
 		bson.D{{Key: "$project", Value: bson.D{{Key: "n", Value: bson.D{{Key: "$size", Value: "$chain"}}}}}},
 	}, nil))
 }
+
+// A view that depends on itself through $lookup, $graphLookup, or $unionWith
+// is rejected at create or collMod time with GraphContainsCycle (LKVIEW-05..07).
+func viewCycleCase(name string, define func(ctx context.Context, db *mongo.Database) error) harness.TestCase {
+	return harness.TestCase{
+		Name:    name,
+		Support: harness.DumboDBXFail,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			if _, err := db.Collection("orders").InsertOne(ctx, bson.D{{Key: "item", Value: "apple"}}); err != nil {
+				return nil, err
+			}
+			code, _, _ := harness.CommandErrorCode(define(ctx, db))
+			return bson.M{"code": code}, nil
+		},
+	}
+}
+
+func selfLookup(from string) bson.D {
+	return bson.D{{Key: "$lookup", Value: bson.D{
+		{Key: "from", Value: from}, {Key: "localField", Value: "item"},
+		{Key: "foreignField", Value: "item"}, {Key: "as", Value: "x"},
+	}}}
+}
+
+func TestViewDependencyCycle(t *testing.T) {
+	harness.PairTest(t, viewCycleCase("LKVIEW-05-create-self-lookup", func(ctx context.Context, db *mongo.Database) error {
+		return db.CreateView(ctx, "selfv", "orders", mongo.Pipeline{selfLookup("selfv")})
+	}))
+
+	harness.PairTest(t, viewCycleCase("LKVIEW-06-create-self-unionWith-in-facet", func(ctx context.Context, db *mongo.Database) error {
+		return db.CreateView(ctx, "uw", "orders", mongo.Pipeline{
+			bson.D{{Key: "$facet", Value: bson.D{{Key: "a", Value: bson.A{bson.D{{Key: "$unionWith", Value: "uw"}}}}}}},
+		})
+	}))
+
+	harness.PairTest(t, viewCycleCase("LKVIEW-07-collMod-mutual-lookup", func(ctx context.Context, db *mongo.Database) error {
+		if err := db.CreateView(ctx, "ma", "orders", mongo.Pipeline{}); err != nil {
+			return err
+		}
+		if err := db.CreateView(ctx, "mb", "orders", mongo.Pipeline{selfLookup("ma")}); err != nil {
+			return err
+		}
+		return db.RunCommand(ctx, bson.D{
+			{Key: "collMod", Value: "ma"}, {Key: "viewOn", Value: "orders"},
+			{Key: "pipeline", Value: bson.A{selfLookup("mb")}},
+		}).Err()
+	}))
+}
