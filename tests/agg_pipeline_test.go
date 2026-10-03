@@ -687,7 +687,7 @@ func TestAgg_lookup_equality(t *testing.T) {
 func TestAgg_lookup_noCrossTypeEquality(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Agg_lookup_noCrossTypeEquality",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.Database().Collection("f_"+col.Name()).InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: 1}, {Key: "k", Value: "5"}},
