@@ -682,6 +682,39 @@ func TestAgg_lookup_equality(t *testing.T) {
 	})
 }
 
+// An equality $lookup matches numerically equal values across numeric types,
+// but never a string that prints the same as the number.
+func TestAgg_lookup_noCrossTypeEquality(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Agg_lookup_noCrossTypeEquality",
+		Support: harness.DumboDBXFail,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.Database().Collection("f_"+col.Name()).InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: 1}, {Key: "k", Value: "5"}},
+				bson.D{{Key: "_id", Value: 2}, {Key: "k", Value: 5.0}},
+				bson.D{{Key: "_id", Value: 3}, {Key: "k", Value: int64(5)}},
+				bson.D{{Key: "_id", Value: 4}, {Key: "k", Value: 6}},
+			}); err != nil {
+				return err
+			}
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "o"}, {Key: "ref", Value: 5}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$lookup", Value: bson.D{
+					{Key: "from", Value: "f_" + col.Name()}, {Key: "localField", Value: "ref"},
+					{Key: "foreignField", Value: "k"}, {Key: "as", Value: "j"},
+				}}},
+				{{Key: "$unwind", Value: "$j"}},
+				{{Key: "$sort", Value: bson.D{{Key: "j._id", Value: 1}}}},
+				{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "id", Value: "$j._id"}}}},
+			})
+			return docsToSlice(results), err
+		},
+	})
+}
+
 // Concise $lookup (localField/foreignField together with a pipeline): the
 // equality join selects the foreign documents and the pipeline runs on them.
 func TestAgg_lookup_concise(t *testing.T) {
