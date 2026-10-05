@@ -209,6 +209,10 @@ The comparator emits two artifacts:
 
 ## Notes on measurement hygiene
 
+- **Writes are journaled on both targets**: the client sets `j:true`, so
+  MongoDB acknowledges a write only after its journal is on disk. DumboDB
+  always does this; comparing it against MongoDB's default (unjournaled
+  acknowledgment) would compare durable writes with non-durable ones.
 - **Dataset seeding is untimed**: benchmarks that operate on a pre-populated
   collection (Find, Update, Delete, Count, Distinct, Aggregate) seed the
   collection before `b.ResetTimer()`.
