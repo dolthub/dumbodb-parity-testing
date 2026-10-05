@@ -4,8 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
-	"os"
-	"path/filepath"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -18,66 +17,41 @@ func results(target string, nsByName map[string]float64) []result {
 	return out
 }
 
-func TestHistoryRoundTrip(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "history.csv")
-
-	prev, date, err := previousRun(path)
-	if err != nil || prev != nil || date != "" {
-		t.Fatalf("missing history: got %v %q %v", prev, date, err)
-	}
-
-	first := runInfo{Date: "2026-10-05 06:00", DumboDBVersion: "v1", MongoDBVersion: "v8.0.28", Host: "h"}
-	second := runInfo{Date: "2026-10-06 06:00", DumboDBVersion: "v2", MongoDBVersion: "v8.0.28", Host: "h"}
-	if err := appendHistory(path, historyRecords(first, merge(
-		results("dumbodb", map[string]float64{"BenchmarkA": 100, "BenchmarkB": 200}),
-		results("mongodb", map[string]float64{"BenchmarkA": 50, "BenchmarkB": 100})))); err != nil {
-		t.Fatal(err)
-	}
-	if err := appendHistory(path, historyRecords(second, merge(
-		results("dumbodb", map[string]float64{"BenchmarkA": 120}),
-		results("mongodb", map[string]float64{"BenchmarkA": 50})))); err != nil {
-		t.Fatal(err)
-	}
-
-	data, _ := os.ReadFile(path)
-	if n := strings.Count(string(data), "date,dumbodb_version"); n != 1 {
-		t.Fatalf("header written %d times:\n%s", n, data)
-	}
-
-	prev, date, err = previousRun(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if date != second.Date || len(prev) != 1 || prev["BenchmarkA"] != 120 {
-		t.Fatalf("previous run = %q %v, want %q with only BenchmarkA=120", date, prev, second.Date)
-	}
-}
-
-func TestHistoryRecordsOneSided(t *testing.T) {
+func TestResultsCSVKeepsFormat(t *testing.T) {
 	rows := merge(results("dumbodb", map[string]float64{"BenchmarkA": 10, "BenchmarkB": 30}),
 		results("mongodb", map[string]float64{"BenchmarkA": 5}))
-	rec := historyRecords(runInfo{}, rows)
-	if rec[0][7] != "2.00" || rec[1][6] != "" || rec[1][7] != "" {
-		t.Fatalf("records = %v", rec)
+	var b bytes.Buffer
+	if err := writeResultsCSV(&b, rows); err != nil {
+		t.Fatal(err)
+	}
+	want := "name,dumbodb_ns_per_op,mongodb_ns_per_op,multiplier\nBenchmarkA,10.00,5.00,2.00\nBenchmarkB,30.00,,\n"
+	if b.String() != want {
+		t.Fatalf("csv =\n%s\nwant\n%s", b.String(), want)
 	}
 }
 
-func TestReport(t *testing.T) {
-	rows := merge(
-		results("dumbodb", map[string]float64{"BenchmarkA": 2e6, "BenchmarkB": 1e6}),
-		results("mongodb", map[string]float64{"BenchmarkA": 1e6, "BenchmarkB": 2e6}))
-	prev := map[string]float64{"BenchmarkA": 1e6}
+func TestReportShowsWorstOutliers(t *testing.T) {
+	dumbo, mongo := map[string]float64{}, map[string]float64{}
+	for i, m := range []float64{1, 9, 2, 8, 3, 7, 4, 6, 5} {
+		name := fmt.Sprintf("BenchmarkM%d", i)
+		dumbo[name], mongo[name] = m*1e6, 1e6
+	}
 	info := runInfo{Date: "2026-10-06 06:00", DumboDBVersion: "v0.7.1-30", MongoDBVersion: "v8.0.28", Host: "h"}
+	r := buildReport(info, merge(results("dumbodb", dumbo), results("mongodb", mongo)), nil, []byte("csv"))
 
-	r := buildReport(info, rows, prev, "2026-10-05 06:00", nil, []byte("csv"))
-	if !strings.Contains(r.Subject, "v0.7.1-30") || !strings.Contains(r.Subject, "median 1.25x") {
+	if !strings.Contains(r.Subject, "v0.7.1-30") || !strings.Contains(r.Subject, "median 5.00x") {
 		t.Fatalf("subject %q", r.Subject)
 	}
-	if !strings.Contains(r.HTMLBody, "+100.0%") || !strings.Contains(r.HTMLBody, "#fdd") {
-		t.Fatal("doubled DumboDB time is not highlighted")
+	for _, want := range []string{"9.00x", "8.00x", "7.00x", "6.00x", "5.00x"} {
+		if !strings.Contains(r.HTMLBody, want) {
+			t.Fatalf("report lacks outlier %s", want)
+		}
+	}
+	if strings.Contains(r.HTMLBody, "4.00x") {
+		t.Fatal("report lists more than the 5 worst")
 	}
 
-	failed := buildReport(info, nil, nil, "", errors.New("mongod exited"), nil)
+	failed := buildReport(info, nil, errors.New("mongod exited"), nil)
 	if !strings.Contains(failed.Subject, "FAILED") || !strings.Contains(failed.HTMLBody, "mongod exited") {
 		t.Fatalf("failure report: %q", failed.Subject)
 	}

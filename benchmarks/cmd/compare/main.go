@@ -17,11 +17,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/csv"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -53,10 +55,8 @@ var (
 	mongodBin = flag.String("mongod-bin", "", "run this mongod binary as a local process instead of using containers (requires -dumbodb-bin)")
 	workDir   = flag.String("work-dir", "", "with -dumbodb-bin/-mongod-bin, directory for server data and logs; defaults to a temporary directory")
 
-	historyPath     = flag.String("history", "", "append this run to a CSV of runs (the -csv columns prefixed with date, versions, and host); its last run is the baseline for the report's change column")
-	dumboVersion    = flag.String("dumbodb-version", "", "DumboDB version label for -history and the report; defaults to `dumbodb --version` or the image")
-	mongoVersion    = flag.String("mongodb-version", "", "MongoDB version label for -history and the report; defaults to `mongod --version` or the image")
-	changeThreshold = flag.Float64("change-threshold", 0.10, "fractional change in DumboDB time since the previous run that the report highlights")
+	dumboVersion = flag.String("dumbodb-version", "", "DumboDB version label for the report; defaults to `dumbodb --version` or the image")
+	mongoVersion = flag.String("mongodb-version", "", "MongoDB version label for the report; defaults to `mongod --version` or the image")
 
 	emailFrom    = flag.String("email-from", "", "SES verified From address for the report")
 	emailTo      = flag.String("email-to", "", "report recipient(s), comma-separated")
@@ -105,14 +105,6 @@ func run() error {
 	}
 	notifiers := buildNotifiers()
 
-	var prev map[string]float64
-	var prevDate string
-	if *historyPath != "" {
-		var err error
-		if prev, prevDate, err = previousRun(*historyPath); err != nil {
-			return err
-		}
-	}
 	info := currentRunInfo(local)
 
 	var dumboResults, mongoResults []result
@@ -137,19 +129,17 @@ func run() error {
 	rows := merge(dumboResults, mongoResults)
 	printTable(os.Stdout, rows)
 
-	if *csvOut != "" && len(rows) > 0 {
-		if err := writeCSV(*csvOut, rows); err != nil {
-			benchErr = errors.Join(benchErr, err)
-		}
+	var csvData bytes.Buffer
+	if err := writeResultsCSV(&csvData, rows); err != nil {
+		benchErr = errors.Join(benchErr, err)
 	}
-	records := historyRecords(info, rows)
-	if *historyPath != "" && len(records) > 0 {
-		if err := appendHistory(*historyPath, records); err != nil {
-			benchErr = errors.Join(benchErr, fmt.Errorf("append history: %w", err))
+	if *csvOut != "" && len(rows) > 0 {
+		if err := os.WriteFile(*csvOut, csvData.Bytes(), 0o644); err != nil {
+			benchErr = errors.Join(benchErr, fmt.Errorf("write %s: %w", *csvOut, err))
 		}
 	}
 	if len(notifiers) > 0 {
-		r := buildReport(info, rows, prev, prevDate, benchErr, historyCSVBytes(records))
+		r := buildReport(info, rows, benchErr, csvData.Bytes())
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 		for _, notify := range notifiers {
@@ -268,13 +258,8 @@ func prepareDumboImage(ctx context.Context) error {
 	return nil
 }
 
-func writeCSV(path string, rows []combined) error {
-	f, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("create %s: %w", path, err)
-	}
-	defer f.Close()
-	w := csv.NewWriter(f)
+func writeResultsCSV(out io.Writer, rows []combined) error {
+	w := csv.NewWriter(out)
 	if err := w.Write([]string{"name", "dumbodb_ns_per_op", "mongodb_ns_per_op", "multiplier"}); err != nil {
 		return fmt.Errorf("write csv header: %w", err)
 	}

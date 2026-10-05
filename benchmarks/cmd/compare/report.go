@@ -28,6 +28,15 @@ type report struct {
 	CSV      []byte
 }
 
+type runInfo struct {
+	Date           string
+	DumboDBVersion string
+	MongoDBVersion string
+	Host           string
+}
+
+const worstOutliers = 5
+
 type stats struct {
 	compared, faster, over2x int
 	median, geomean          float64
@@ -65,86 +74,55 @@ func summarize(rows []combined) stats {
 	return s
 }
 
-// prevChange is DumboDB's fractional change in ns/op since the previous run.
-func prevChange(r combined, prev map[string]float64) (float64, bool) {
-	p := prev[r.Name]
-	if p <= 0 || r.DumboDBNs == nil || *r.DumboDBNs <= 0 {
-		return 0, false
-	}
-	return *r.DumboDBNs/p - 1, true
-}
-
-func multiplierValue(r combined) float64 {
-	if r.Multiplier == nil {
-		return 0
-	}
-	return *r.Multiplier
-}
-
-func buildReport(info runInfo, rows []combined, prev map[string]float64, prevDate string, runErr error, csvData []byte) report {
-	s := summarize(rows)
-	var subject string
-	if runErr != nil {
-		subject = fmt.Sprintf("%s %s: FAILED", *emailSubject, info.DumboDBVersion)
-	} else {
-		subject = fmt.Sprintf("%s %s: median %.2fx vs MongoDB", *emailSubject, info.DumboDBVersion, s.median)
-	}
-
-	sorted := append([]combined(nil), rows...)
-	sort.SliceStable(sorted, func(i, j int) bool { return multiplierValue(sorted[i]) > multiplierValue(sorted[j]) })
-
-	var moved []string
-	for _, r := range sorted {
-		if c, ok := prevChange(r, prev); ok && math.Abs(c) > *changeThreshold {
-			moved = append(moved, fmt.Sprintf("%s %+.0f%%", strings.TrimPrefix(r.Name, "Benchmark"), c*100))
+// worst returns up to n compared benchmarks with the highest multipliers.
+func worst(rows []combined, n int) []combined {
+	var compared []combined
+	for _, r := range rows {
+		if r.Multiplier != nil {
+			compared = append(compared, r)
 		}
 	}
+	sort.SliceStable(compared, func(i, j int) bool { return *compared[i].Multiplier > *compared[j].Multiplier })
+	return compared[:min(n, len(compared))]
+}
+
+func buildReport(info runInfo, rows []combined, runErr error, csvData []byte) report {
+	s := summarize(rows)
+	subject := fmt.Sprintf("%s %s: median %.2fx vs MongoDB", *emailSubject, info.DumboDBVersion, s.median)
+	if runErr != nil {
+		subject = fmt.Sprintf("%s %s: FAILED", *emailSubject, info.DumboDBVersion)
+	}
+	header := fmt.Sprintf("DumboDB %s, MongoDB %s, host %s, run %s UTC.", info.DumboDBVersion, info.MongoDBVersion, info.Host, info.Date)
+	summary := fmt.Sprintf("%d benchmarks compared: median %.2fx, geometric mean %.2fx, %d faster than MongoDB, %d over 2x.",
+		s.compared, s.median, s.geomean, s.faster, s.over2x)
+	outliers := worst(rows, worstOutliers)
 
 	var t strings.Builder
-	fmt.Fprintf(&t, "%s\n\nDumboDB %s, MongoDB %s, host %s, run %s\n", subject, info.DumboDBVersion, info.MongoDBVersion, info.Host, info.Date)
+	fmt.Fprintf(&t, "%s\n\n%s\n", subject, header)
 	if runErr != nil {
 		fmt.Fprintf(&t, "\nERROR: %v\n", runErr)
 	}
-	fmt.Fprintf(&t, "\n%d benchmarks compared: median %.2fx, geometric mean %.2fx, %d faster than MongoDB, %d over 2x.\n",
-		s.compared, s.median, s.geomean, s.faster, s.over2x)
-	if prevDate != "" {
-		fmt.Fprintf(&t, "DumboDB changes over %.0f%% since %s: %d\n", *changeThreshold*100, prevDate, len(moved))
-		for _, m := range moved {
-			fmt.Fprintf(&t, "  %s\n", m)
-		}
-	}
-	fmt.Fprintf(&t, "\n%-48s %12s %12s %10s %10s\n", "benchmark", "dumbodb ms", "mongodb ms", "multiplier", "vs prev")
-	for _, r := range sorted {
-		fmt.Fprintf(&t, "%-48s %12s %12s %10s %10s\n", strings.TrimPrefix(r.Name, "Benchmark"),
-			fmtMs3(r.DumboDBNs), fmtMs3(r.MongoNs), fmtMultiplierStdout(r.DumboDBNs, r.MongoNs), changeText(r, prev))
+	fmt.Fprintf(&t, "\n%s\n\nWorst %d:\n", summary, len(outliers))
+	fmt.Fprintf(&t, "%-48s %12s %12s %10s\n", "benchmark", "dumbodb ms", "mongodb ms", "multiplier")
+	for _, r := range outliers {
+		fmt.Fprintf(&t, "%-48s %12s %12s %10s\n", strings.TrimPrefix(r.Name, "Benchmark"),
+			fmtMs3(r.DumboDBNs), fmtMs3(r.MongoNs), fmtMultiplierStdout(r.DumboDBNs, r.MongoNs))
 	}
 
 	var h strings.Builder
 	h.WriteString(`<html><body style="font-family:-apple-system,Helvetica,Arial,sans-serif;font-size:14px">`)
-	fmt.Fprintf(&h, "<h2>%s</h2>", html.EscapeString(subject))
-	fmt.Fprintf(&h, "<p>DumboDB <b>%s</b>, MongoDB <b>%s</b>, host %s, run %s UTC. Writes are journaled on both (<code>j:true</code>).</p>",
-		html.EscapeString(info.DumboDBVersion), html.EscapeString(info.MongoDBVersion), html.EscapeString(info.Host), html.EscapeString(info.Date))
+	fmt.Fprintf(&h, "<h2>%s</h2><p>%s</p>", html.EscapeString(subject), html.EscapeString(header))
 	if runErr != nil {
 		fmt.Fprintf(&h, `<pre style="background:#fee;padding:8px;white-space:pre-wrap">%s</pre>`, html.EscapeString(runErr.Error()))
 	}
-	fmt.Fprintf(&h, "<p>%d benchmarks compared: median <b>%.2fx</b>, geometric mean %.2fx, %d faster than MongoDB, %d over 2x.</p>",
-		s.compared, s.median, s.geomean, s.faster, s.over2x)
-	if prevDate != "" {
-		fmt.Fprintf(&h, "<p>DumboDB changes over %.0f%% since %s: <b>%d</b>, highlighted below.</p>", *changeThreshold*100, html.EscapeString(prevDate), len(moved))
-	}
+	fmt.Fprintf(&h, "<p>%s</p><h3>Worst %d</h3>", html.EscapeString(summary), len(outliers))
 	h.WriteString(`<table cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-size:13px">`)
-	h.WriteString(`<tr style="background:#eee;text-align:right"><th style="text-align:left">Benchmark</th><th>DumboDB ms/op</th><th>MongoDB ms/op</th><th>Multiplier</th><th>DumboDB vs prev</th></tr>`)
-	for _, r := range sorted {
-		style := ""
-		if c, ok := prevChange(r, prev); ok && c > *changeThreshold {
-			style = "background:#fdd"
-		} else if ok && c < -*changeThreshold {
-			style = "background:#dfd"
-		}
-		fmt.Fprintf(&h, `<tr style="text-align:right;border-bottom:1px solid #eee"><td style="text-align:left">%s</td><td>%s</td><td>%s</td><td>%s</td><td style="%s">%s</td></tr>`,
-			html.EscapeString(strings.TrimPrefix(r.Name, "Benchmark")), fmtMs3(r.DumboDBNs), fmtMs3(r.MongoNs), fmtMultiplierStdout(r.DumboDBNs, r.MongoNs), style, changeText(r, prev))
+	h.WriteString(`<tr style="background:#eee;text-align:right"><th style="text-align:left">Benchmark</th><th>DumboDB ms/op</th><th>MongoDB ms/op</th><th>Multiplier</th></tr>`)
+	for _, r := range outliers {
+		fmt.Fprintf(&h, `<tr style="text-align:right;border-bottom:1px solid #eee"><td style="text-align:left">%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+			html.EscapeString(strings.TrimPrefix(r.Name, "Benchmark")), fmtMs3(r.DumboDBNs), fmtMs3(r.MongoNs), fmtMultiplierStdout(r.DumboDBNs, r.MongoNs))
 	}
-	h.WriteString("</table><p>The CSV is attached; each row carries the run columns so runs stack in one sheet.</p></body></html>")
+	fmt.Fprintf(&h, "</table><p>All %d results are in the attached CSV.</p></body></html>", len(rows))
 
 	return report{
 		Subject:  subject,
@@ -160,14 +138,6 @@ func fmtMs3(ns *float64) string {
 		return "-"
 	}
 	return fmt.Sprintf("%.3f", *ns/1e6)
-}
-
-func changeText(r combined, prev map[string]float64) string {
-	c, ok := prevChange(r, prev)
-	if !ok {
-		return "-"
-	}
-	return fmt.Sprintf("%+.1f%%", c*100)
 }
 
 type notifier func(ctx context.Context, r report)

@@ -154,12 +154,10 @@ Flags:
 | `-test-timeout`    | `10m` | `-timeout` passed to `go test`. Bump to `45m` or higher when running the 50K-scale `*_50K` benchmarks - DumboDB's seed step alone takes ~30 minutes at that size. |
 | `-dumbodb-bin`, `-mongod-bin` | `""` | Run both targets as local processes instead of containers (set both) |
 | `-work-dir`        | temp dir | Server data and logs for `-dumbodb-bin`/`-mongod-bin` |
-| `-history`         | `""` | Append the run to a CSV of runs; baseline for the report's change column |
-| `-dumbodb-version`, `-mongodb-version` | from `--version` or the image | Version labels for `-history` and the report |
+| `-dumbodb-version`, `-mongodb-version` | from `--version` or the image | Version labels for the report |
 | `-email-from`, `-email-to`, `-email-region`, `-email-subject` | `""` | Email the report via SES |
 | `-report-dir`      | `""` | Write the report (txt, html, csv) here |
 | `-alert-cmd`       | `""` | Shell command given the text report on stdin |
-| `-change-threshold` | `0.10` | Change since the previous run that the report highlights |
 
 The runner reuses an already-present DumboDB image rather than re-pulling, so
 mutable tags like `:latest` do not auto-refresh. Run `docker pull
@@ -224,27 +222,23 @@ go run ./benchmarks/cmd/perfgate \
 To measure noise, dispatch the workflow with both `base` and `head` set to
 `main`; any regression it reports is a false positive.
 
-## Unattended runs: local binaries, history, and reports
+## Unattended runs: local binaries and reports
 
 For a host cron (as dumbodb's `cmd/soak` is run), `compare` can run without
-Docker, keep a history, and send a report:
+Docker and send a report:
 
 - `-dumbodb-bin` / `-mongod-bin` start each server from a local binary on a
   free port with a fresh on-disk data directory (under `-work-dir`), one
   target at a time, and stop it afterwards.
-- `-history` appends the run to a CSV whose rows are the `-csv` columns
-  prefixed with `date,dumbodb_version,mongodb_version,host`, so runs stack in
-  one file or spreadsheet. Its last run is the baseline for the report.
 - `-email-from`/`-email-to`/`-email-region` (SES), `-report-dir`, and
-  `-alert-cmd` send a report: every benchmark's multiplier, DumboDB's change
-  since the previous run (changes over `-change-threshold`, 10%, highlighted),
-  and the run's rows attached as CSV. A failed run still reports, with the
-  error and whatever results it has.
+  `-alert-cmd` send a report: the summary (median and geometric mean
+  multiplier) and the 5 worst benchmarks, with the results CSV attached. A
+  failed run still reports, with the error and whatever results it has.
 
 ```bash
 go run ./benchmarks/cmd/compare \
     -dumbodb-bin /path/to/dumbodb -mongod-bin /usr/bin/mongod \
-    -test-timeout 110m -history ~/dumbodb-bench/history.csv \
+    -test-timeout 110m -csv results.csv \
     -email-from sender@example.com -email-to you@example.com -email-region us-west-2
 ```
 
