@@ -188,6 +188,34 @@ go test ./benchmarks \
 generated database name. Each benchmark creates a uniquely-named database
 (`bench_<target>_<op>_<unixNano>`) and drops it on cleanup.
 
+## Regression gate (`cmd/perfgate`)
+
+`perfgate` compares two DumboDB builds rather than DumboDB with MongoDB. The
+`Performance` workflow in the dumbodb repository runs it on every PR (head vs
+the PR's base on main) and every push to main (vs the previous tip), split
+across four parallel jobs.
+
+- Both builds run on the same machine, with server data on a memory
+  filesystem so disk variance does not mask code changes.
+- Iteration counts are calibrated once per benchmark (`-calibrate`, default
+  300ms of timed work) and reused for every sample.
+- Each round starts both servers on fresh data directories and runs every
+  benchmark against each, alternating which build goes first.
+- A benchmark regresses when head's median is more than `-threshold` (10%)
+  slower and a one-sided Mann-Whitney test gives p < `-alpha` (0.05). With
+  the default 5 samples per build that requires all head samples to be slower
+  than nearly all base samples. Suspected regressions get `-confirm-samples`
+  (5) more samples per build before the verdict.
+
+```bash
+go run ./benchmarks/cmd/perfgate \
+    -base-bin /tmp/dumbodb-base -head-bin /tmp/dumbodb-head \
+    -data-root /mnt/perf -shard 0 -shards 4 -v
+```
+
+To measure noise, dispatch the workflow with both `base` and `head` set to
+`main`; any regression it reports is a false positive.
+
 ## Output format
 
 The comparator emits two artifacts:
