@@ -69,7 +69,7 @@ func batchShape(ctx context.Context, col *mongo.Collection, firstCommand string,
 func TestCursor_find_largeDocs_batchesCappedAt16MiB(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_large_docs_batches_capped_at_16MiB",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertLargeCursorDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return batchShape(ctx, col, "find", func(c *mongo.Collection) (*mongo.Cursor, error) {
@@ -82,7 +82,7 @@ func TestCursor_find_largeDocs_batchesCappedAt16MiB(t *testing.T) {
 func TestCursor_aggregate_largeDocs_batchesCappedAt16MiB(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_aggregate_large_docs_batches_capped_at_16MiB",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertLargeCursorDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return batchShape(ctx, col, "aggregate", func(c *mongo.Collection) (*mongo.Cursor, error) {
@@ -95,7 +95,7 @@ func TestCursor_aggregate_largeDocs_batchesCappedAt16MiB(t *testing.T) {
 func TestCursor_find_largeDocs_sizeCapBeatsBatchSize(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_find_large_docs_size_cap_beats_batchSize",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertLargeCursorDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return batchShape(ctx, col, "find", func(c *mongo.Collection) (*mongo.Cursor, error) {
@@ -108,7 +108,7 @@ func TestCursor_find_largeDocs_sizeCapBeatsBatchSize(t *testing.T) {
 func TestCursor_getMore_noBatchSize_hasNoCountLimit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Cursor_getMore_no_batchSize_has_no_count_limit",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   insertSmallCursorDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			db := col.Database()
