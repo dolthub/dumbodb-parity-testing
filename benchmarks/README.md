@@ -62,11 +62,22 @@ variant proves the collated (sort-key) index seeks flat at scale end-to-end; its
 gap over the unindexed collated scan is wider than the plain case, because a
 collated scan pays per-document ICU comparison while the sort-key seek does not.
 
+**Join variants** (in `lookup_bench_test.go`): 100 `orders` documents join into
+the seeded collection of N documents, each matching exactly one foreign document
+on the unique field `i`, so the joined result is the same at every N and any
+growth with N is the cost of reaching the foreign side.
+`Lookup_Equality` (`localField`/`foreignField`) has `_1K`, `_10K`, `_50K`
+`[_Indexed]` variants; the indexed ones put an index on the foreign `i`.
+`Lookup_Pipeline` is the same join in the `let`/`pipeline` form, and
+`Lookup_Nested` adds a second `$lookup` inside the sub-pipeline, so the inner
+join runs once per order. `GraphLookup` follows `grp -> i` from each order; every
+traversal visits two documents. These are at `_10K` `[_Indexed]`.
+
 ## Scope - deferred
 
 These are enumerated in `bd pa-xp1` but not implemented in the first cut:
 
-- `$unwind + $group`, `$lookup` (join)
+- `$unwind + $group`
 - `CreateCollection`, `Drop` (they'd be their own benchmarks - mostly DDL timing)
 - Scaling dimensions beyond 1K x small docs (10K, 100K; medium, large). Helpers
   in `bench.go` already parameterize both - add parameterized sub-benchmarks when
@@ -141,6 +152,12 @@ Flags:
 | `-no-containers`   | `false` | Skip container management; expect servers already at `:27017` / `:27018` |
 | `-health-timeout`  | `60s` | How long to wait for each container to accept connections |
 | `-test-timeout`    | `10m` | `-timeout` passed to `go test`. Bump to `45m` or higher when running the 50K-scale `*_50K` benchmarks - DumboDB's seed step alone takes ~30 minutes at that size. |
+| `-dumbodb-bin`, `-mongod-bin` | `""` | Run both targets as local processes instead of containers (set both) |
+| `-work-dir`        | temp dir | Server data and logs for `-dumbodb-bin`/`-mongod-bin` |
+| `-dumbodb-version`, `-mongodb-version` | from `--version` or the image | Version labels for the report |
+| `-email-from`, `-email-to`, `-email-region`, `-email-subject` | `""` | Email the report via SES |
+| `-report-dir`      | `""` | Write the report (txt, html, csv) here |
+| `-alert-cmd`       | `""` | Shell command given the text report on stdin |
 
 The runner reuses an already-present DumboDB image rather than re-pulling, so
 mutable tags like `:latest` do not auto-refresh. Run `docker pull
@@ -177,6 +194,54 @@ go test ./benchmarks \
 generated database name. Each benchmark creates a uniquely-named database
 (`bench_<target>_<op>_<unixNano>`) and drops it on cleanup.
 
+## Regression gate (`cmd/perfgate`)
+
+`perfgate` compares two DumboDB builds rather than DumboDB with MongoDB. The
+`Performance` workflow in the dumbodb repository runs it on every PR (head vs
+the PR's base on main) and every push to main (vs the previous tip), split
+across four parallel jobs.
+
+- Both builds run on the same machine, with server data on a memory
+  filesystem so disk variance does not mask code changes.
+- Iteration counts are calibrated once per benchmark (`-calibrate`, default
+  300ms of timed work) and reused for every sample.
+- Each round starts both servers on fresh data directories and runs every
+  benchmark against each, alternating which build goes first.
+- A benchmark regresses when head's median is more than `-threshold` (10%)
+  slower and a one-sided Mann-Whitney test gives p < `-alpha` (0.05). With
+  the default 5 samples per build that requires all head samples to be slower
+  than nearly all base samples. Suspected regressions get `-confirm-samples`
+  (5) more samples per build before the verdict.
+
+```bash
+go run ./benchmarks/cmd/perfgate \
+    -base-bin /tmp/dumbodb-base -head-bin /tmp/dumbodb-head \
+    -data-root /mnt/perf -shard 0 -shards 4 -v
+```
+
+To measure noise, dispatch the workflow with both `base` and `head` set to
+`main`; any regression it reports is a false positive.
+
+## Unattended runs: local binaries and reports
+
+For a host cron (as dumbodb's `cmd/soak` is run), `compare` can run without
+Docker and send a report:
+
+- `-dumbodb-bin` / `-mongod-bin` start each server from a local binary on a
+  free port with a fresh on-disk data directory (under `-work-dir`), one
+  target at a time, and stop it afterwards.
+- `-email-from`/`-email-to`/`-email-region` (SES), `-report-dir`, and
+  `-alert-cmd` send a report: the summary (median and geometric mean
+  multiplier) and the 5 worst benchmarks, with the results CSV attached. A
+  failed run still reports, with the error and whatever results it has.
+
+```bash
+go run ./benchmarks/cmd/compare \
+    -dumbodb-bin /path/to/dumbodb -mongod-bin /usr/bin/mongod \
+    -test-timeout 110m -csv results.csv \
+    -email-from sender@example.com -email-to you@example.com -email-region us-west-2
+```
+
 ## Output format
 
 The comparator emits two artifacts:
@@ -198,6 +263,10 @@ The comparator emits two artifacts:
 
 ## Notes on measurement hygiene
 
+- **Writes are journaled on both targets**: the client sets `j:true`, so
+  MongoDB acknowledges a write only after its journal is on disk. DumboDB
+  always does this; comparing it against MongoDB's default (unjournaled
+  acknowledgment) would compare durable writes with non-durable ones.
 - **Dataset seeding is untimed**: benchmarks that operate on a pre-populated
   collection (Find, Update, Delete, Count, Distinct, Aggregate) seed the
   collection before `b.ResetTimer()`.

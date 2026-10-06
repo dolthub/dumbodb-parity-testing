@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"sort"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -679,6 +680,117 @@ func TestAgg_lookup_equality(t *testing.T) {
 			return docsToSlice(results), err
 		},
 	})
+}
+
+// An equality $lookup matches numerically equal values across numeric types,
+// but never a string that prints the same as the number.
+func TestAgg_lookup_noCrossTypeEquality(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Agg_lookup_noCrossTypeEquality",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.Database().Collection("f_"+col.Name()).InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: 1}, {Key: "k", Value: "5"}},
+				bson.D{{Key: "_id", Value: 2}, {Key: "k", Value: 5.0}},
+				bson.D{{Key: "_id", Value: 3}, {Key: "k", Value: int64(5)}},
+				bson.D{{Key: "_id", Value: 4}, {Key: "k", Value: 6}},
+			}); err != nil {
+				return err
+			}
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "o"}, {Key: "ref", Value: 5}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			results, err := runPipeline(ctx, col, []bson.D{
+				{{Key: "$lookup", Value: bson.D{
+					{Key: "from", Value: "f_" + col.Name()}, {Key: "localField", Value: "ref"},
+					{Key: "foreignField", Value: "k"}, {Key: "as", Value: "j"},
+				}}},
+				{{Key: "$unwind", Value: "$j"}},
+				{{Key: "$sort", Value: bson.D{{Key: "j._id", Value: 1}}}},
+				{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "id", Value: "$j._id"}}}},
+			})
+			return docsToSlice(results), err
+		},
+	})
+}
+
+// Concise $lookup (localField/foreignField together with a pipeline): the
+// equality join selects the foreign documents and the pipeline runs on them.
+func TestAgg_lookup_concise(t *testing.T) {
+	seed := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.Database().Collection("f_"+col.Name()).InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: 1}, {Key: "k", Value: "a"}, {Key: "grp", Value: 1}},
+			bson.D{{Key: "_id", Value: 2}, {Key: "k", Value: "b"}, {Key: "grp", Value: 1}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "k", Value: "b"}, {Key: "grp", Value: 2}},
+			bson.D{{Key: "_id", Value: 4}, {Key: "k", Value: "c"}, {Key: "grp", Value: 2}},
+		}); err != nil {
+			return err
+		}
+		_, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: "o1"}, {Key: "ref", Value: "b"}, {Key: "want", Value: 2}},
+			bson.D{{Key: "_id", Value: "o2"}, {Key: "ref", Value: bson.A{"a", "c"}}, {Key: "want", Value: 1}},
+			bson.D{{Key: "_id", Value: "o3"}, {Key: "ref", Value: "z"}, {Key: "want", Value: 1}},
+		})
+		return err
+	}
+	concise := func(col *mongo.Collection, extra bson.D, pipeline []bson.D) []bson.D {
+		spec := bson.D{
+			{Key: "from", Value: "f_" + col.Name()},
+			{Key: "localField", Value: "ref"},
+			{Key: "foreignField", Value: "k"},
+		}
+		spec = append(spec, extra...)
+		spec = append(spec, bson.E{Key: "pipeline", Value: pipeline}, bson.E{Key: "as", Value: "j"})
+		return []bson.D{
+			{{Key: "$lookup", Value: spec}},
+			{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+		}
+	}
+	joinedIDs := func(results []bson.D) []interface{} {
+		out := make([]interface{}, 0, len(results))
+		for _, doc := range results {
+			var ids []int
+			for _, e := range doc {
+				if e.Key != "j" {
+					continue
+				}
+				joined, _ := e.Value.(bson.A)
+				for _, j := range joined {
+					for _, f := range j.(bson.D) {
+						if f.Key == "_id" {
+							ids = append(ids, int(f.Value.(int32)))
+						}
+					}
+				}
+			}
+			sort.Ints(ids)
+			out = append(out, ids)
+		}
+		return out
+	}
+
+	for _, tc := range []struct {
+		name     string
+		extra    bson.D
+		pipeline []bson.D
+	}{
+		{"empty-pipeline", nil, []bson.D{}},
+		{"match-pipeline", nil, []bson.D{{{Key: "$match", Value: bson.D{{Key: "grp", Value: 1}}}}}},
+		{"let-pipeline", bson.D{{Key: "let", Value: bson.D{{Key: "want", Value: "$want"}}}}, []bson.D{
+			{{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{"$grp", "$$want"}}}}}}},
+		}},
+	} {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "Agg_lookup_concise_" + tc.name,
+			Support: harness.DumboDBFull,
+			Setup:   seed,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				results, err := runPipeline(ctx, col, concise(col, tc.extra, tc.pipeline))
+				return joinedIDs(results), err
+			},
+		})
+	}
 }
 
 func TestAgg_lookup_pipeline_form(t *testing.T) {

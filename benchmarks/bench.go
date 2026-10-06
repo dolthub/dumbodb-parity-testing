@@ -19,6 +19,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/writeconcern"
 )
 
 var (
@@ -34,10 +35,11 @@ func envOr(key, fallback string) string {
 	return fallback
 }
 
-// connect dials the configured target URI. It pings once to surface config errors
-// before the benchmark timer starts.
+// connect dials the configured target URI with a journaled write concern, so
+// MongoDB acknowledges writes only once they are durable, as DumboDB does. It
+// pings once to surface config errors before the benchmark timer starts.
 func connect(ctx context.Context) (*mongo.Client, error) {
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(*targetURI))
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(*targetURI).SetWriteConcern(writeconcern.Journaled()))
 	if err != nil {
 		return nil, fmt.Errorf("connect %s: %w", *targetURI, err)
 	}

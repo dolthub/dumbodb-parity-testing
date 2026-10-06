@@ -17,11 +17,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/csv"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -48,6 +50,20 @@ var (
 	noContainers  = flag.Bool("no-containers", false, "skip container management entirely (expects servers already reachable at the default ports)")
 	healthTimeout = flag.Duration("health-timeout", 60*time.Second, "how long to wait for each container to accept connections")
 	testTimeout   = flag.Duration("test-timeout", 10*time.Minute, "-timeout value passed to go test (caps the entire bench run; large-N benchmarks exceed the 10m default while seeding)")
+
+	dumboBin  = flag.String("dumbodb-bin", "", "run this dumbodb binary as a local process instead of using containers (requires -mongod-bin)")
+	mongodBin = flag.String("mongod-bin", "", "run this mongod binary as a local process instead of using containers (requires -dumbodb-bin)")
+	workDir   = flag.String("work-dir", "", "with -dumbodb-bin/-mongod-bin, directory for server data and logs; defaults to a temporary directory")
+
+	dumboVersion = flag.String("dumbodb-version", "", "DumboDB version label for the report; defaults to `dumbodb --version` or the image")
+	mongoVersion = flag.String("mongodb-version", "", "MongoDB version label for the report; defaults to `mongod --version` or the image")
+
+	emailFrom    = flag.String("email-from", "", "SES verified From address for the report")
+	emailTo      = flag.String("email-to", "", "report recipient(s), comma-separated")
+	emailRegion  = flag.String("email-region", "", "AWS region for SES; default chain region when blank")
+	emailSubject = flag.String("email-subject", "dumbodb benchmarks", "report subject prefix")
+	reportDir    = flag.String("report-dir", "", "write the report (txt, html, csv) to this directory")
+	alertCmd     = flag.String("alert-cmd", "", "shell command run with the text report on stdin and the subject in ALERT_SUBJECT")
 )
 
 func envOr(key, fallback string) string {
@@ -83,40 +99,108 @@ func main() {
 }
 
 func run() error {
-	ctx := context.Background()
-
-	if !*noContainers {
-		if err := setupContainers(ctx); err != nil {
-			return fmt.Errorf("container setup: %w", err)
-		}
-		// Teardown iff we're not keeping containers alive. Always runs even if
-		// benchmarks fail partway — a stopped container from a crashed run is
-		// much less confusing than leftover daemons.
-		if !*keepAlive {
-			defer stopContainer(context.Background(), dumboContainer)
-			defer stopContainer(context.Background(), mongoContainer)
-		}
+	local := *dumboBin != "" || *mongodBin != ""
+	if local && (*dumboBin == "" || *mongodBin == "") {
+		return errors.New("-dumbodb-bin and -mongod-bin must be set together")
 	}
+	notifiers := buildNotifiers()
 
-	dumboResults, dumboErr := runTargetBench(ctx, "dumbodb", dumboContainer)
-	mongoResults, mongoErr := runTargetBench(ctx, "mongodb", mongoContainer)
-	if dumboErr != nil || mongoErr != nil {
-		return errors.Join(dumboErr, mongoErr)
+	info := currentRunInfo(local)
+
+	var dumboResults, mongoResults []result
+	var benchErr error
+	if local {
+		dir := *workDir
+		if dir == "" {
+			tmp, err := os.MkdirTemp("", "dumbodb-compare-")
+			if err != nil {
+				return err
+			}
+			defer os.RemoveAll(tmp)
+			dir = tmp
+		}
+		dumboResults, mongoResults, benchErr = runLocalTargets(dir)
+	} else {
+		var cleanup func()
+		dumboResults, mongoResults, cleanup, benchErr = runContainerTargets()
+		defer cleanup()
 	}
 
 	rows := merge(dumboResults, mongoResults)
 	printTable(os.Stdout, rows)
 
-	if *csvOut != "" {
-		if err := writeCSV(*csvOut, rows); err != nil {
-			return err
+	var csvData bytes.Buffer
+	if err := writeResultsCSV(&csvData, rows); err != nil {
+		benchErr = errors.Join(benchErr, err)
+	}
+	if *csvOut != "" && len(rows) > 0 {
+		if err := os.WriteFile(*csvOut, csvData.Bytes(), 0o644); err != nil {
+			benchErr = errors.Join(benchErr, fmt.Errorf("write %s: %w", *csvOut, err))
+		}
+	}
+	if len(notifiers) > 0 {
+		r := buildReport(info, rows, benchErr, csvData.Bytes())
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		for _, notify := range notifiers {
+			notify(ctx, r)
 		}
 	}
 
-	if *keepAlive && !*noContainers {
+	if *keepAlive && !*noContainers && !local {
 		printKeepAliveBanner(os.Stdout)
 	}
-	return nil
+	return benchErr
+}
+
+func runContainerTargets() (dumbo, mongo []result, cleanup func(), err error) {
+	ctx := context.Background()
+	cleanup = func() {}
+	if !*noContainers {
+		if err := setupContainers(ctx); err != nil {
+			return nil, nil, cleanup, fmt.Errorf("container setup: %w", err)
+		}
+		// Teardown iff we're not keeping containers alive. Always runs even if
+		// benchmarks fail partway; a stopped container from a crashed run is
+		// much less confusing than leftover daemons.
+		if !*keepAlive {
+			cleanup = func() {
+				stopContainer(context.Background(), mongoContainer)
+				stopContainer(context.Background(), dumboContainer)
+			}
+		}
+	}
+	dumbo, dumboErr := runTargetBench(ctx, "dumbodb", dumboContainer)
+	mongo, mongoErr := runTargetBench(ctx, "mongodb", mongoContainer)
+	return dumbo, mongo, cleanup, errors.Join(dumboErr, mongoErr)
+}
+
+func currentRunInfo(local bool) runInfo {
+	host, _ := os.Hostname()
+	info := runInfo{
+		Date:           time.Now().UTC().Format("2006-01-02 15:04"),
+		DumboDBVersion: *dumboVersion,
+		MongoDBVersion: *mongoVersion,
+		Host:           host,
+	}
+	if info.DumboDBVersion == "" {
+		switch {
+		case local:
+			info.DumboDBVersion = binaryVersion(*dumboBin, "dumbodb ")
+		case *dumboSrc != "":
+			info.DumboDBVersion = "source " + *dumboSrc
+		default:
+			info.DumboDBVersion = *dumboImage
+		}
+	}
+	if info.MongoDBVersion == "" {
+		if local {
+			info.MongoDBVersion = binaryVersion(*mongodBin, "db version ")
+		} else {
+			info.MongoDBVersion = mongoContainer.image
+		}
+	}
+	return info
 }
 
 // setupContainers brings both target servers up and waits for them to accept
@@ -174,13 +258,8 @@ func prepareDumboImage(ctx context.Context) error {
 	return nil
 }
 
-func writeCSV(path string, rows []combined) error {
-	f, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("create %s: %w", path, err)
-	}
-	defer f.Close()
-	w := csv.NewWriter(f)
+func writeResultsCSV(out io.Writer, rows []combined) error {
+	w := csv.NewWriter(out)
 	if err := w.Write([]string{"name", "dumbodb_ns_per_op", "mongodb_ns_per_op", "multiplier"}); err != nil {
 		return fmt.Errorf("write csv header: %w", err)
 	}
