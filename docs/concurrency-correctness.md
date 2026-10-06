@@ -246,7 +246,8 @@ other.
 
 Not yet covered, and the reason the mode axis is not the whole remaining story:
 every scenario here reconciles at the end of the command. A fork that outlives
-the command -- `--session-isolation`, or an explicit transaction -- acknowledges
-a write before its boundary runs, so conservation there has to be counted
-against acknowledged BOUNDARIES rather than acknowledged writes. That needs its
-own accounting, not a new expectation on the existing one.
+the command -- an explicit transaction, or `--session-isolation` (currently
+disabled in dumbodb; the plumbing remains) -- acknowledges a write before its
+boundary runs, so conservation there has to be counted against acknowledged
+BOUNDARIES rather than acknowledged writes. That needs its own accounting, not
+a new expectation on the existing one.

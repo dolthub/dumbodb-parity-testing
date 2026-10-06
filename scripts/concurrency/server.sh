@@ -3,7 +3,7 @@
 # Build and manage a DumboDB server for concurrency tests.
 #
 #   ./server.sh start [mode]   build (via make) and start the server; mode is
-#                              auto-commit (default), session-isolation, or bare
+#                              auto-commit (default) or bare
 #   ./server.sh stop           stop the server
 #   ./server.sh status         report whether the server is up, with its revision
 #
@@ -39,9 +39,8 @@ do_start() {
 	local -a flags=()
 	case "$mode" in
 		auto-commit)       flags+=("-auto-commit") ;;
-		session-isolation) flags+=("-session-isolation") ;;
 		bare) ;;
-		*) die "unknown mode '$mode' (use auto-commit, session-isolation, or bare)" ;;
+		*) die "unknown mode '$mode' (use auto-commit or bare)" ;;
 	esac
 	[ -z "${SESSION_TIMEOUT:-}" ] || flags+=("-session-timeout" "$SESSION_TIMEOUT")
 	[ -z "${SESSION_SWEEP_PERIOD:-}" ] || flags+=("-session-sweep-period" "$SESSION_SWEEP_PERIOD")
@@ -87,5 +86,5 @@ case "${1:-}" in
   start)  shift; do_start "${1:-auto-commit}" ;;
   stop)   do_stop ;;
   status) do_status ;;
-  *) die "usage: $0 {start [auto-commit|session-isolation|bare] | stop | status}" ;;
+  *) die "usage: $0 {start [auto-commit|bare] | stop | status}" ;;
 esac
