@@ -51,7 +51,7 @@ settings are part of `suite.sh`, not a manual reproduction knob.
 ## Scripts
 
 - `server.sh {start [mode] | stop | status}` -- build (via `make`) and manage the
-  server. Modes: `auto-commit` (default), `session-isolation`, `bare`.
+  server. Modes: `auto-commit` (default), `bare`.
 - `run.sh --scenario NAME [flags]` -- run one scenario, print a PASS/FAIL
   summary and any collision findings, exit with the harness code (0/1/3).
 - `repro-4.5.sh [--fast]` -- the canned CAS reproduction.
