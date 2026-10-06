@@ -18,6 +18,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -29,6 +30,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -48,7 +50,7 @@ var (
 	basePort       = flag.Int("base-port", 27401, "port for the base server")
 	headPort       = flag.Int("head-port", 27402, "port for the head server")
 	healthTimeout  = flag.Duration("health-timeout", 60*time.Second, "how long to wait for a server to accept connections")
-	benchTimeout   = flag.Duration("bench-timeout", 10*time.Minute, "timeout for one benchmark run")
+	benchTimeout   = flag.Duration("bench-timeout", 3*time.Minute, "kill a benchmark run after this long and count it as a failure on that build")
 	summaryPath    = flag.String("summary", "", "append a markdown report to this file (e.g. $GITHUB_STEP_SUMMARY)")
 	jsonPath       = flag.String("json", "", "write per-benchmark samples and verdicts to this file")
 	verbose        = flag.Bool("v", false, "log every benchmark run")
@@ -60,7 +62,12 @@ const (
 	verdictOK         verdict = "ok"
 	verdictRegression verdict = "REGRESSION"
 	verdictFaster     verdict = "faster"
+	verdictHeadFailed verdict = "HEAD FAILED"
+	// verdictBaseFailed means only base failed: head fixed the benchmark.
+	verdictBaseFailed verdict = "base failed"
 )
+
+func (v verdict) failsGate() bool { return v == verdictRegression || v == verdictHeadFailed }
 
 type benchResult struct {
 	Name       string    `json:"name"`
@@ -72,8 +79,12 @@ type benchResult struct {
 	Delta      float64   `json:"delta"`
 	PSlower    float64   `json:"p_slower"`
 	PFaster    float64   `json:"p_faster"`
+	BaseError  string    `json:"base_error,omitempty"`
+	HeadError  string    `json:"head_error,omitempty"`
 	Verdict    verdict   `json:"verdict"`
 }
+
+func (r *benchResult) failed() bool { return r.BaseError != "" || r.HeadError != "" }
 
 func main() {
 	flag.Parse()
@@ -107,20 +118,15 @@ func run() (bool, error) {
 	names := assignShard(all, *shard, *shards)
 	logf("shard %d/%d: %d of %d benchmarks", *shard, *shards, len(names), len(all))
 
-	iterations, err := calibrateIterations(testBin, names)
+	results, err := calibrateIterations(testBin, names)
 	if err != nil {
 		return false, err
 	}
 	names = names[:0]
-	for name := range iterations {
+	for name := range results {
 		names = append(names, name)
 	}
 	sort.Strings(names)
-
-	results := make(map[string]*benchResult, len(names))
-	for _, name := range names {
-		results[name] = &benchResult{Name: name, Iterations: iterations[name]}
-	}
 
 	round := 1
 	if err := sampleRounds(testBin, names, results, &round, *samples); err != nil {
@@ -144,11 +150,11 @@ func run() (bool, error) {
 	for _, name := range names {
 		r := results[name]
 		r.Verdict = judge(r)
-		regressed = regressed || r.Verdict == verdictRegression
+		regressed = regressed || r.Verdict.failsGate()
 		ordered = append(ordered, r)
 	}
 	sort.SliceStable(ordered, func(i, j int) bool {
-		ri, rj := ordered[i].Verdict == verdictRegression, ordered[j].Verdict == verdictRegression
+		ri, rj := ordered[i].Verdict.failsGate(), ordered[j].Verdict.failsGate()
 		if ri != rj {
 			return ri
 		}
@@ -183,6 +189,12 @@ func run() (bool, error) {
 }
 
 func judge(r *benchResult) verdict {
+	switch {
+	case r.HeadError != "":
+		return verdictHeadFailed
+	case r.BaseError != "":
+		return verdictBaseFailed
+	}
 	r.BaseMedian, r.HeadMedian = median(r.Base), median(r.Head)
 	if r.BaseMedian > 0 {
 		r.Delta = r.HeadMedian/r.BaseMedian - 1
@@ -255,32 +267,91 @@ func assignShard(names []string, index, count int) []string {
 	return mine
 }
 
-func calibrateIterations(testBin string, names []string) (map[string]int, error) {
-	srv, err := startServer("base", *baseBin, *basePort, roundDataDir(*dataRoot, "base", 0))
-	if err != nil {
-		return nil, err
-	}
-	defer srv.stop()
+// target is one build's server, restarted on demand if it dies mid-run.
+type target struct {
+	label, bin string
+	port       int
+	srv        *server
+}
 
-	iterations := make(map[string]int, len(names))
+func (t *target) ensure(round int) error {
+	if t.srv != nil && t.srv.alive() {
+		return nil
+	}
+	if t.srv != nil {
+		logf("%s server is not running; restarting (log: %s)", t.label, t.srv.logPath)
+		t.srv.stop()
+	}
+	srv, err := startServer(t.label, t.bin, t.port, roundDataDir(*dataRoot, t.label, round))
+	t.srv = srv
+	return err
+}
+
+func (t *target) stop() {
+	if t.srv != nil {
+		t.srv.stop()
+	}
+}
+
+// run returns a benchmark failure in benchErr; a server that cannot be
+// started is fatal and returned in err.
+func (t *target) run(testBin, name, benchtime string, round int) (res runResult, skipped bool, benchErr, err error) {
+	if err := t.ensure(round); err != nil {
+		return runResult{}, false, nil, err
+	}
+	res, skipped, benchErr = runBenchmark(testBin, name, t.srv, benchtime)
+	if errors.Is(benchErr, errBenchTimeout) {
+		// The server may still be executing the abandoned work; replace it.
+		t.srv.stop()
+	}
+	return res, skipped, benchErr, nil
+}
+
+func newTargets() (base, head *target) {
+	return &target{label: "base", bin: *baseBin, port: *basePort}, &target{label: "head", bin: *headBin, port: *headPort}
+}
+
+// calibrateIterations picks each benchmark's iteration count on base, or on
+// head when base fails. Benchmarks that skip themselves are dropped.
+func calibrateIterations(testBin string, names []string) (map[string]*benchResult, error) {
+	base, head := newTargets()
+	defer base.stop()
+	defer head.stop()
+
+	results := make(map[string]*benchResult, len(names))
 	for _, name := range names {
-		res, skipped, err := runBenchmark(testBin, name, srv, calibrate.String())
+		r := &benchResult{Name: name}
+		res, skipped, benchErr, err := base.run(testBin, name, calibrate.String(), 0)
 		if err != nil {
 			return nil, err
+		}
+		if benchErr != nil {
+			r.BaseError = errorSummary(benchErr)
+			logf("%s: failed on base: %s", name, r.BaseError)
+			if res, skipped, benchErr, err = head.run(testBin, name, calibrate.String(), 0); err != nil {
+				return nil, err
+			}
+			if benchErr != nil {
+				r.HeadError = errorSummary(benchErr)
+				logf("%s: failed on head: %s", name, r.HeadError)
+			}
 		}
 		if skipped {
 			logf("%s: skipped by the benchmark", name)
 			continue
 		}
-		perOp := time.Duration(res.nsPerOp)
+		results[name] = r
+		if r.failed() {
+			continue
+		}
 		n := 1
-		if perOp > 0 {
+		if perOp := time.Duration(res.nsPerOp); perOp > 0 {
 			n = int(*calibrate / perOp)
 		}
-		iterations[name] = max(n, 1)
-		logf("%s: %d iterations (%.3f ms/op)", name, iterations[name], res.nsPerOp/1e6)
+		r.Iterations = max(n, 1)
+		logf("%s: %d iterations (%.3f ms/op)", name, r.Iterations, res.nsPerOp/1e6)
 	}
-	return iterations, nil
+	return results, nil
 }
 
 func sampleRounds(testBin string, names []string, results map[string]*benchResult, round *int, count int) error {
@@ -293,34 +364,48 @@ func sampleRounds(testBin string, names []string, results map[string]*benchResul
 	return nil
 }
 
+// sampleRound runs each benchmark once per build on fresh servers. A
+// benchmark that fails records the error for that build and is not run again.
 func sampleRound(testBin string, names []string, results map[string]*benchResult, round int) error {
-	base, err := startServer("base", *baseBin, *basePort, roundDataDir(*dataRoot, "base", round))
-	if err != nil {
-		return err
-	}
+	base, head := newTargets()
 	defer base.stop()
-	head, err := startServer("head", *headBin, *headPort, roundDataDir(*dataRoot, "head", round))
-	if err != nil {
+	defer head.stop()
+	if err := base.ensure(round); err != nil {
 		return err
 	}
-	defer head.stop()
+	if err := head.ensure(round); err != nil {
+		return err
+	}
 
-	order := []*server{base, head}
+	order := []*target{base, head}
 	if round%2 == 0 {
-		order = []*server{head, base}
+		order = []*target{head, base}
 	}
 	for _, name := range names {
 		r := results[name]
+		if r.failed() {
+			continue
+		}
 		benchtime := fmt.Sprintf("%dx", r.Iterations)
-		for _, srv := range order {
-			res, skipped, err := runBenchmark(testBin, name, srv, benchtime)
+		for _, t := range order {
+			res, skipped, benchErr, err := t.run(testBin, name, benchtime, round)
 			if err != nil {
 				return err
 			}
-			if skipped {
-				return fmt.Errorf("%s skipped on %s after calibrating", name, srv.label)
+			if benchErr == nil && skipped {
+				benchErr = errors.New("skipped after calibrating")
 			}
-			if srv == base {
+			if benchErr != nil {
+				msg := errorSummary(benchErr)
+				logf("%s: failed on %s: %s", name, t.label, msg)
+				if t == base {
+					r.BaseError = msg
+				} else {
+					r.HeadError = msg
+				}
+				break
+			}
+			if t == base {
 				r.Base = append(r.Base, res.nsPerOp)
 			} else {
 				r.Head = append(r.Head, res.nsPerOp)
@@ -330,6 +415,29 @@ func sampleRound(testBin string, names []string, results map[string]*benchResult
 	logf("round %d done", round)
 	return nil
 }
+
+// errorSummary keeps the informative tail of a benchmark failure.
+func errorSummary(err error) string {
+	var keep []string
+	for _, line := range strings.Split(err.Error(), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || line == "FAIL" || strings.HasPrefix(line, "exit status") || strings.HasPrefix(line, "goos:") ||
+			strings.HasPrefix(line, "goarch:") || strings.HasPrefix(line, "pkg:") || strings.HasPrefix(line, "cpu:") {
+			continue
+		}
+		keep = append(keep, line)
+	}
+	if len(keep) > 3 {
+		keep = keep[len(keep)-3:]
+	}
+	msg := strings.Join(keep, " | ")
+	if len(msg) > 400 {
+		msg = msg[:400] + "..."
+	}
+	return msg
+}
+
+var errBenchTimeout = errors.New("timed out")
 
 type runResult struct {
 	iterations int
@@ -342,18 +450,27 @@ func runBenchmark(testBin, name string, srv *server, benchtime string) (runResul
 	if !srv.alive() {
 		return runResult{}, false, fmt.Errorf("%s server is not running; log: %s", srv.label, srv.logPath)
 	}
-	cmd := exec.Command(testBin,
+	// The test binary's -test.timeout does not cover benchmarks, so the
+	// deadline is enforced here.
+	ctx, cancel := context.WithTimeout(context.Background(), *benchTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, testBin,
 		"-test.run", "^$",
 		"-test.bench", "^"+regexp.QuoteMeta(name)+"$",
 		"-test.benchtime", benchtime,
-		"-test.timeout", benchTimeout.String(),
 		"-bench.target-uri", srv.uri(),
 		"-bench.target-name", srv.label,
 	)
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
+	cmd.WaitDelay = 10 * time.Second
 	started := time.Now()
 	err := cmd.Run()
+	if ctx.Err() != nil {
+		return runResult{}, false, fmt.Errorf("%s on %s: %w after %s", name, srv.label, errBenchTimeout, *benchTimeout)
+	}
 	if err != nil {
 		return runResult{}, false, fmt.Errorf("%s on %s: %w\n%s", name, srv.label, err, out.String())
 	}
@@ -381,27 +498,48 @@ func runBenchmark(testBin, name string, srv *server, benchtime string) (runResul
 
 func markdownReport(results []*benchResult, elapsed time.Duration) string {
 	var b strings.Builder
-	regressions := 0
+	counts := map[verdict]int{}
 	for _, r := range results {
-		if r.Verdict == verdictRegression {
-			regressions++
-		}
+		counts[r.Verdict]++
 	}
 	fmt.Fprintf(&b, "## Performance: shard %d/%d\n\n", *shard+1, *shards)
-	if regressions > 0 {
-		fmt.Fprintf(&b, "**%d regression(s)**: head median more than %.0f%% slower than base with p < %.2f.\n\n", regressions, *threshold*100, *alpha)
+	if n := counts[verdictRegression]; n > 0 {
+		fmt.Fprintf(&b, "**%d regression(s)**: head median more than %.0f%% slower than base with p < %.2f.\n\n", n, *threshold*100, *alpha)
 	} else {
 		fmt.Fprintf(&b, "No regressions (threshold %.0f%%, p < %.2f).\n\n", *threshold*100, *alpha)
+	}
+	if n := counts[verdictHeadFailed]; n > 0 {
+		fmt.Fprintf(&b, "**%d benchmark(s) fail on head.**\n\n", n)
+	}
+	if n := counts[verdictBaseFailed]; n > 0 {
+		fmt.Fprintf(&b, "%d benchmark(s) fail on base but pass on head; they are not compared.\n\n", n)
 	}
 	fmt.Fprintf(&b, "| Benchmark | Base (ms/op) | Head (ms/op) | Change | p | Samples | Verdict |\n")
 	fmt.Fprintf(&b, "|---|---:|---:|---:|---:|---:|---|\n")
 	for _, r := range results {
+		name := strings.TrimPrefix(r.Name, "Benchmark")
+		if r.failed() {
+			fmt.Fprintf(&b, "| %s | - | - | - | - | - | %s |\n", name, r.Verdict)
+			continue
+		}
 		p := r.PSlower
 		if r.Delta < 0 {
 			p = r.PFaster
 		}
 		fmt.Fprintf(&b, "| %s | %.3f | %.3f | %+.1f%% | %.3f | %d | %s |\n",
-			strings.TrimPrefix(r.Name, "Benchmark"), r.BaseMedian/1e6, r.HeadMedian/1e6, r.Delta*100, p, len(r.Head), r.Verdict)
+			name, r.BaseMedian/1e6, r.HeadMedian/1e6, r.Delta*100, p, len(r.Head), r.Verdict)
+	}
+	var failures []string
+	for _, r := range results {
+		if r.HeadError != "" {
+			failures = append(failures, fmt.Sprintf("- `%s` on head: `%s`", r.Name, r.HeadError))
+		}
+		if r.BaseError != "" {
+			failures = append(failures, fmt.Sprintf("- `%s` on base: `%s`", r.Name, r.BaseError))
+		}
+	}
+	if len(failures) > 0 {
+		fmt.Fprintf(&b, "\n### Failures\n\n%s\n", strings.Join(failures, "\n"))
 	}
 	fmt.Fprintf(&b, "\n%d benchmarks in %s.\n\n", len(results), elapsed.Round(time.Second))
 	return b.String()

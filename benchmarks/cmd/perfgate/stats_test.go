@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"math"
 	"testing"
 )
@@ -79,5 +80,32 @@ func TestAssignShards(t *testing.T) {
 		if w > 9 {
 			t.Fatalf("shard %d weight %d, shards %v are unbalanced", shard, w, weights)
 		}
+	}
+}
+
+func TestJudgeFailures(t *testing.T) {
+	for _, tc := range []struct {
+		r    benchResult
+		want verdict
+	}{
+		{benchResult{BaseError: "boom"}, verdictBaseFailed},
+		{benchResult{HeadError: "boom"}, verdictHeadFailed},
+		{benchResult{BaseError: "boom", HeadError: "boom"}, verdictHeadFailed},
+	} {
+		if got := judge(&tc.r); got != tc.want {
+			t.Errorf("judge(%+v) = %q, want %q", tc.r, got, tc.want)
+		}
+	}
+	if verdictBaseFailed.failsGate() || !verdictHeadFailed.failsGate() || !verdictRegression.failsGate() {
+		t.Fatal("only head failures and regressions fail the gate")
+	}
+}
+
+func TestErrorSummary(t *testing.T) {
+	err := errors.New("BenchmarkX on base: exit status 1\n--- FAIL: BenchmarkX\n    lookup_bench_test.go:55: Aggregate: length of read message too large\nFAIL\n\nexit status 2")
+	got := errorSummary(err)
+	want := "BenchmarkX on base: exit status 1 | --- FAIL: BenchmarkX | lookup_bench_test.go:55: Aggregate: length of read message too large"
+	if got != want {
+		t.Fatalf("errorSummary = %q, want %q", got, want)
 	}
 }
