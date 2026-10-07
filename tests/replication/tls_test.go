@@ -19,7 +19,6 @@ package replication
 import (
 	"context"
 	"testing"
-	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -59,32 +58,25 @@ func TestReplication_TLSWithKeyFile(t *testing.T) {
 // members encrypt but never authenticate to each other. mongod supports this,
 // so DumboDB must too.
 //
-// XFail for workspace-3y6.27, a regression in ea23347 that is not about TLS
-// at all: DumboDB cannot join ANY no-keyfile set, plaintext included, because
-// observeLogicalTime refuses an unsigned $clusterTime and a set with no
-// internal authentication never produces a signed one. This case is that bug
-// seen through TLS, and it will pass when 3y6.27 does.
+// Was XFail for workspace-3y6.27, a regression in ea23347 that was never about
+// TLS: observeLogicalTime refused an unsigned $clusterTime, and a set with no
+// internal authentication never produces a signed one, so DumboDB could join
+// no keyfile-less set at all. Fixed by 66eaef4, which accepts an absent
+// signature as the dummy proof when membership authentication is not
+// configured. Promoted here after the case reported XPASS against
+// v0.7.1-39-gd56dce0.
 //
-// Keeping it is still worth it. The whole of tests/replication fails on the
-// branch today, so if the fix restored only the plaintext path nothing else
-// here would notice.
-//
-// Promote to DumboDBFull when it passes; the XPASS is the signal.
+// It stays as its own case rather than folding into the plaintext ones: this
+// is the only thing that would notice a fix restoring the plaintext path and
+// not the encrypted one.
 func TestReplication_TLSWithoutKeyFile(t *testing.T) {
 	t.Parallel()
 	harness.ReplicaTest(t, harness.ReplicaCase{
-		Name:    "Replication_TLSWithoutKeyFile",
-		Support: harness.DumboDBXFail,
-		TLS:     harness.NewTLSFixture(t),
-		// The keyfile case above joins in under ten seconds, so ninety is a
-		// wide margin for a member that is going to join. Waiting the default
-		// three minutes twice over to confirm a known failure costs six
-		// minutes of every CI run and proves nothing the first ninety seconds
-		// did not. Raise this, do not delete it, if a slow runner ever makes
-		// the margin look thin.
-		SubjectWait: 90 * time.Second,
-		Workload:    insertTLSDocuments,
-		Assert:      assertSubjectHoldsTLSDocuments,
+		Name:     "Replication_TLSWithoutKeyFile",
+		Support:  harness.DumboDBFull,
+		TLS:      harness.NewTLSFixture(t),
+		Workload: insertTLSDocuments,
+		Assert:   assertSubjectHoldsTLSDocuments,
 	})
 }
 
