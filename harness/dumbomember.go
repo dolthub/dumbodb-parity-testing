@@ -24,6 +24,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const dumboMemberGrace = 15 * time.Second
@@ -36,9 +37,19 @@ type DumboMember struct {
 	rs   *ReplicaSet
 	proc *serverProc
 	t    *testing.T
+	opts DumboMemberOptions
 }
 
+// JoinDumboDB adds a DumboDB member configured to match the set.
 func (rs *ReplicaSet) JoinDumboDB(t *testing.T) *DumboMember {
+	t.Helper()
+	return rs.JoinDumboDBWith(t, rs.MatchingDumboOptions())
+}
+
+// JoinDumboDBWith adds a DumboDB member with an explicit configuration, which
+// need not match the set's. A deliberate mismatch is the subject of several
+// cases rather than a mistake.
+func (rs *ReplicaSet) JoinDumboDBWith(t *testing.T, opts DumboMemberOptions) *DumboMember {
 	t.Helper()
 
 	bin := findDumboDBBinary()
@@ -62,6 +73,7 @@ func (rs *ReplicaSet) JoinDumboDB(t *testing.T) *DumboMember {
 		bin:     bin,
 		rs:      rs,
 		t:       t,
+		opts:    opts,
 	}
 	t.Cleanup(d.teardown)
 
@@ -78,7 +90,8 @@ func (rs *ReplicaSet) JoinDumboDB(t *testing.T) *DumboMember {
 
 func (d *DumboMember) launch() {
 	d.t.Helper()
-	cmd := exec.Command(d.bin, "--replSet", d.rs.Name, "--addr", d.Addr, "--data-dir", d.DataDir)
+	args := []string{"--replSet", d.rs.Name, "--addr", d.Addr, "--data-dir", d.DataDir}
+	cmd := exec.Command(d.bin, append(args, d.opts.memberArgs()...)...)
 	proc, err := startProc(cmd, "dumbodb-member", "")
 	if err != nil {
 		d.t.Fatalf("launch dumbodb: %v", err)
@@ -87,7 +100,7 @@ func (d *DumboMember) launch() {
 	if !waitPort(d.Addr, 60*time.Second) {
 		d.t.Fatalf("dumbodb did not listen on %s (log %s)", d.Addr, proc.log)
 	}
-	if err := waitServerReady(d.Addr, 60*time.Second); err != nil {
+	if err := d.waitReady(60 * time.Second); err != nil {
 		d.t.Fatalf("dumbodb on %s never became ready (log %s): %v", d.Addr, proc.log, err)
 	}
 }
@@ -127,7 +140,7 @@ func (d *DumboMember) Restart() {
 }
 
 func (d *DumboMember) Commit(ctx context.Context) (string, error) {
-	cli, err := directClient(ctx, d.Addr)
+	cli, err := d.dial(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -141,7 +154,64 @@ func (d *DumboMember) Commit(ctx context.Context) (string, error) {
 }
 
 func (d *DumboMember) Client(ctx context.Context) (*mongo.Client, error) {
-	return directClient(ctx, d.Addr)
+	return d.dial(ctx)
+}
+
+// dial connects to the member using its own TLS material and the set's
+// credentials.
+//
+// The member's configuration decides TLS, because a member may deliberately
+// differ from the set; the credentials come from the set, because the users a
+// client authenticates as arrive by replication.
+func (d *DumboMember) dial(ctx context.Context) (*mongo.Client, error) {
+	return d.dialWith(ctx, d.rs.cred)
+}
+
+func (d *DumboMember) dialWith(ctx context.Context, cred *options.Credential) (*mongo.Client, error) {
+	uri := "mongodb://" + d.Addr + "/?directConnection=true"
+	opts := options.Client().ApplyURI(uri)
+	if f := d.opts.TLS; f != nil {
+		config, err := clientTLSConfig(f)
+		if err != nil {
+			return nil, err
+		}
+		opts = opts.SetTLSConfig(config)
+	}
+	if cred != nil {
+		opts = opts.SetAuth(*cred)
+	}
+	cli, err := mongo.Connect(ctx, opts)
+	if err != nil {
+		return nil, fmt.Errorf("connect %s: %w", d.Addr, err)
+	}
+	return cli, nil
+}
+
+// waitReady polls the member until it answers ping, deliberately without
+// credentials.
+//
+// A member that has just started has replicated nothing, so the set's users do
+// not exist on it yet and authenticating would fail for as long as the timeout
+// allows. ping is exempt from access control, which is what makes an
+// unauthenticated readiness check possible at all.
+func (d *DumboMember) waitReady(timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	var last error
+	for time.Now().Before(deadline) {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		cli, err := d.dialWith(ctx, nil)
+		if err == nil {
+			err = cli.Database("admin").RunCommand(ctx, bson.D{{Key: "ping", Value: 1}}).Err()
+			_ = cli.Disconnect(context.Background())
+		}
+		cancel()
+		if err == nil {
+			return nil
+		}
+		last = err
+		time.Sleep(250 * time.Millisecond)
+	}
+	return fmt.Errorf("no response to ping on %s within %s: %w", d.Addr, timeout, last)
 }
 
 func (d *DumboMember) ReadLog() (string, error) {

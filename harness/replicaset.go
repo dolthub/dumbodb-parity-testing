@@ -46,6 +46,8 @@ type ReplicaSet struct {
 
 	t        *testing.T
 	external bool
+	opts     ReplicaSetOptions
+	cred     *options.Credential
 
 	mu   sync.Mutex
 	pool map[string]*mongo.Client
@@ -106,14 +108,15 @@ func (rs *ReplicaSet) spawnMongod(bin string, id int) (*Member, error) {
 		return nil, err
 	}
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
-	cmd := exec.Command(bin,
+	args := []string{
 		"--replSet", rs.Name,
 		"--port", fmt.Sprintf("%d", port),
 		"--dbpath", dir,
 		"--bind_ip", "127.0.0.1",
 		"--nounixsocket",
 		"--wiredTigerCacheSizeGB", "0.25",
-	)
+	}
+	cmd := exec.Command(bin, append(args, rs.memberArgs()...)...)
 	proc, err := startProc(cmd, fmt.Sprintf("mongod-%s-%d", rs.Name, id), dir)
 	if err != nil {
 		_ = os.RemoveAll(dir)
@@ -122,7 +125,7 @@ func (rs *ReplicaSet) spawnMongod(bin string, id int) (*Member, error) {
 	if !waitPort(addr, 40*time.Second) {
 		return nil, fmt.Errorf("mongod %s did not listen on %s (log %s)", rs.Name, addr, proc.log)
 	}
-	if err := waitServerReady(addr, 60*time.Second); err != nil {
+	if err := rs.waitReady(addr, 60*time.Second); err != nil {
 		return nil, fmt.Errorf("mongod %s on %s never became ready (log %s): %w", rs.Name, addr, proc.log, err)
 	}
 	return &Member{ID: id, Addr: addr, URI: "mongodb://" + addr, proc: proc}, nil
@@ -130,7 +133,7 @@ func (rs *ReplicaSet) spawnMongod(bin string, id int) (*Member, error) {
 
 func (rs *ReplicaSet) initiate(ctx context.Context) error {
 	seed := rs.Members[0]
-	cli, err := directClient(ctx, seed.Addr)
+	cli, err := rs.dial(ctx, seed.Addr)
 	if err != nil {
 		return err
 	}
@@ -149,6 +152,9 @@ func (rs *ReplicaSet) initiate(ctx context.Context) error {
 		return fmt.Errorf("replSetInitiate %s: %w", rs.Name, err)
 	}
 	if _, err := rs.WaitForPrimary(ctx, 60*time.Second); err != nil {
+		return err
+	}
+	if err := rs.bootstrapRoot(ctx); err != nil {
 		return err
 	}
 	return rs.WaitForSteadyState(ctx, 90*time.Second)
@@ -475,11 +481,15 @@ func isStepDownDisconnect(err error) bool {
 }
 
 func (rs *ReplicaSet) Client(ctx context.Context) (*mongo.Client, error) {
-	return mongo.Connect(ctx, options.Client().ApplyURI(rs.URI()))
+	opts, err := rs.clientOptions(rs.URI())
+	if err != nil {
+		return nil, err
+	}
+	return mongo.Connect(ctx, opts)
 }
 
 func (rs *ReplicaSet) DirectClient(ctx context.Context, m *Member) (*mongo.Client, error) {
-	return directClient(ctx, m.Addr)
+	return rs.dial(ctx, m.Addr)
 }
 
 func (rs *ReplicaSet) client(ctx context.Context, addr string) (*mongo.Client, error) {
@@ -488,7 +498,7 @@ func (rs *ReplicaSet) client(ctx context.Context, addr string) (*mongo.Client, e
 	if c, ok := rs.pool[addr]; ok {
 		return c, nil
 	}
-	c, err := directClient(ctx, addr)
+	c, err := rs.dial(ctx, addr)
 	if err != nil {
 		return nil, err
 	}

@@ -17,6 +17,7 @@ package harness
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"testing"
 	"time"
@@ -38,6 +39,27 @@ type ReplicaCase struct {
 
 	Timeout time.Duration
 
+	// SubjectWait caps how long the subject is given to join and converge.
+	// Zero means defaultConvergeWait.
+	//
+	// It applies only to the subject. The control's budget is deliberately
+	// not adjustable: shortening the time a stock mongod secondary is given
+	// would turn a slow runner into "the apparatus is broken".
+	//
+	// A case that expects the subject never to join should set this. The
+	// default is three minutes twice over, and spending six minutes
+	// confirming a known failure on every CI run buys nothing.
+	SubjectWait time.Duration
+
+	// TLS runs every mongod in the set, and the DumboDB subject, with
+	// requireTLS using this fixture's material. Nil leaves the set plaintext.
+	TLS *TLSFixture
+
+	// KeyFile is the shared secret for internal membership authentication,
+	// from NewKeyFile. Empty means the set has none, which also means it has
+	// no access control.
+	KeyFile string
+
 	SeedBeforeJoin func(ctx context.Context, primary *mongo.Client) error
 
 	DuringClone func(ctx context.Context, primary *mongo.Client) error
@@ -58,6 +80,14 @@ type ReplicaResult struct {
 	Divergences   []Divergence
 }
 
+// subjectWait returns the budget for the subject's own progress.
+func (tc ReplicaCase) subjectWait() time.Duration {
+	if tc.SubjectWait == 0 {
+		return defaultConvergeWait
+	}
+	return tc.SubjectWait
+}
+
 func ReplicaTest(t *testing.T, tc ReplicaCase) TestResult {
 	t.Helper()
 
@@ -76,7 +106,7 @@ func ReplicaTest(t *testing.T, tc ReplicaCase) TestResult {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	rs := StartReplicaSet(t, members)
+	rs := startReplicaSetFor(t, members, tc)
 
 	seedPrimary, err := rs.Primary(ctx)
 	if err != nil {
@@ -124,8 +154,15 @@ func ReplicaTest(t *testing.T, tc ReplicaCase) TestResult {
 	} else {
 		cloneDone <- nil
 		if subject != nil {
-			if err := rs.WaitForState(ctx, subject.Member, StateSecondary, defaultConvergeWait); err != nil {
-				t.Fatalf("%s: subject did not reach SECONDARY before the workload, so this case would have exercised initial sync rather than steady-state application: %v", tc.Name, err)
+			if err := rs.WaitForState(ctx, subject.Member, StateSecondary, tc.subjectWait()); err != nil {
+				// A subject that never joins is the expected outcome of an
+				// XFail case about joining, and grading it is the whole
+				// point. Only a case claiming to work treats this as the
+				// apparatus being broken.
+				if tc.Support != DumboDBXFail {
+					t.Fatalf("%s: subject did not reach SECONDARY before the workload, so this case would have exercised initial sync rather than steady-state application: %v", tc.Name, err)
+				}
+				t.Logf("%s: subject did not reach SECONDARY (%v); grading it as the XFail case it is", tc.Name, err)
 			}
 		}
 	}
@@ -167,6 +204,18 @@ func ReplicaTest(t *testing.T, tc ReplicaCase) TestResult {
 	return finish(t, tc, res, subjectFailure)
 }
 
+// startReplicaSetFor starts the set a case needs. A case asking for neither
+// TLS nor a keyfile keeps the plaintext path, including its MONGO_REPL_SET_URI
+// override; a case asking for either gets a dedicated set, since an adopted
+// one is neither encrypted nor authenticated.
+func startReplicaSetFor(t *testing.T, members int, tc ReplicaCase) *ReplicaSet {
+	t.Helper()
+	if tc.TLS == nil && tc.KeyFile == "" {
+		return StartReplicaSet(t, members)
+	}
+	return StartReplicaSetWith(t, members, ReplicaSetOptions{TLS: tc.TLS, KeyFile: tc.KeyFile})
+}
+
 func runControl(t *testing.T, ctx context.Context, rs *ReplicaSet, name string, primary, reference *Member) (OpTime, *ServerState, *ServerState) {
 	t.Helper()
 
@@ -189,8 +238,13 @@ func gradeSubject(t *testing.T, ctx context.Context, rs *ReplicaSet, tc ReplicaC
 	t.Helper()
 
 	failure := ""
-	if _, err := rs.WaitConverged(ctx, defaultConvergeWait, subject.Addr); err != nil {
-		failure = err.Error()
+	if _, err := rs.WaitConverged(ctx, tc.subjectWait(), subject.Addr); err != nil {
+		// Append what the rest of the set makes of the subject. A subject that
+		// never converged usually cannot say why, and "did not answer
+		// replSetGetStatus" is a symptom; the primary's own heartbeat message
+		// is the nearest thing to a cause, and an XFail case is only worth
+		// keeping if it records one.
+		failure = err.Error() + rs.heartbeatDiagnosis(ctx, subject.Addr)
 	} else {
 		res.Subject = captureOrFail(t, ctx, rs, subject.Member, "subject")
 		res.Divergences = DiffServerState(res.Reference, res.Subject)
@@ -223,12 +277,36 @@ func gradeSubject(t *testing.T, ctx context.Context, rs *ReplicaSet, tc ReplicaC
 	}
 }
 
-func finish(t *testing.T, tc ReplicaCase, res ReplicaResult, result TestResult) TestResult {
+// finish runs the case's Assert, if it has one, and returns the grade.
+//
+// A panicking Assert is contained here rather than left to escape. A Go panic
+// takes down the whole test binary: every other case still running loses its
+// result, and no t.Cleanup runs, so the harness abandons its mongod processes
+// and data directories. One case with a bad Assert is worth one failed case,
+// not a destroyed run.
+//
+// The usual cause is reading res.Subject, which grading leaves nil whenever
+// the subject never converged, so the message says so.
+func finish(t *testing.T, tc ReplicaCase, res ReplicaResult, result TestResult) (graded TestResult) {
 	t.Helper()
-	if tc.Assert != nil {
-		tc.Assert(t, res)
+	graded = result
+	if tc.Assert == nil {
+		return graded
 	}
-	return result
+	defer func() {
+		recovered := recover()
+		if recovered == nil {
+			return
+		}
+		detail := fmt.Sprintf("Assert panicked: %v", recovered)
+		if res.Subject == nil {
+			detail += "\n(res.Subject is nil: the subject did not converge, and gradeSubject has already recorded why)"
+		}
+		t.Errorf("%s: %s\n%s", tc.Name, detail, debug.Stack())
+		graded = TestResult{Name: tc.Name, Status: StatusFail, Diff: detail}
+	}()
+	tc.Assert(t, res)
+	return graded
 }
 
 func captureOrFail(t *testing.T, ctx context.Context, rs *ReplicaSet, m *Member, role string) *ServerState {

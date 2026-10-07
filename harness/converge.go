@@ -322,5 +322,5 @@ func (rs *ReplicaSet) Hello(ctx context.Context, addr string) (bson.M, error) {
 func ReadOpTime(v interface{}) OpTime { return readOpTime(v) }
 
 func (rs *ReplicaSet) ClientFor(ctx context.Context, addr string) (*mongo.Client, error) {
-	return directClient(ctx, addr)
+	return rs.dial(ctx, addr)
 }
