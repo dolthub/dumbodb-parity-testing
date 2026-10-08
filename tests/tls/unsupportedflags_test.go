@@ -41,19 +41,19 @@ var implementedTLSFlags = map[string]bool{
 	"tlsDisabledProtocols":                   true,
 	"tlsAllowConnectionsWithoutCertificates": true,
 	"tlsCertificateKeyFilePassword":          true,
+	"tlsClusterFile":                         true,
+	"tlsClusterCAFile":                       true,
+	"tlsClusterPassword":                     true,
+	"tlsClusterAuthX509Attributes":           true,
+	"tlsClusterAuthX509ExtensionValue":       true,
 }
 
-func unsupportedFlagArgs(f *harness.TLSFixture) map[string][]string {
+func unsupportedFlagArgs() map[string][]string {
 	return map[string][]string{
-		"tlsAllowInvalidCertificates":      {"--tlsAllowInvalidCertificates"},
-		"tlsAllowInvalidHostnames":         {"--tlsAllowInvalidHostnames"},
-		"tlsLogVersions":                   {"--tlsLogVersions", "TLS1_2"},
-		"tlsOnNormalPorts":                 {"--tlsOnNormalPorts"},
-		"tlsClusterFile":                   {"--tlsClusterFile", f.ServerPEMFile},
-		"tlsClusterCAFile":                 {"--tlsClusterCAFile", f.CAFile},
-		"tlsClusterPassword":               {"--tlsClusterPassword", "hunter2"},
-		"tlsClusterAuthX509Attributes":     {"--tlsClusterAuthX509Attributes", "CN=client"},
-		"tlsClusterAuthX509ExtensionValue": {"--tlsClusterAuthX509ExtensionValue", "1.2.3.4"},
+		"tlsAllowInvalidCertificates": {"--tlsAllowInvalidCertificates"},
+		"tlsAllowInvalidHostnames":    {"--tlsAllowInvalidHostnames"},
+		"tlsLogVersions":              {"--tlsLogVersions", "TLS1_2"},
+		"tlsOnNormalPorts":            {"--tlsOnNormalPorts"},
 	}
 }
 
@@ -62,8 +62,7 @@ func unsupportedFlagArgs(f *harness.TLSFixture) map[string][]string {
 // arrives as a failing test rather than as a silently unhandled option.
 func TestTLSUnsupportedFlags_EveryMongodFlagIsAccountedFor(t *testing.T) {
 	t.Parallel()
-	f := harness.NewTLSFixture(t)
-	known := unsupportedFlagArgs(f)
+	known := unsupportedFlagArgs()
 
 	for _, flag := range harness.MongodTLSFlags(t) {
 		if implementedTLSFlags[flag] || known[flag] != nil {
@@ -78,8 +77,7 @@ func TestTLSUnsupportedFlags_EveryMongodFlagIsAccountedFor(t *testing.T) {
 func TestTLSUnsupportedFlags_RefusedByName(t *testing.T) {
 	t.Parallel()
 	f := harness.NewTLSFixture(t)
-
-	for flag, args := range unsupportedFlagArgs(f) {
+	for flag, args := range unsupportedFlagArgs() {
 		c := struct {
 			flag string
 			args []string
@@ -112,7 +110,6 @@ func TestTLSUnsupportedFlags_MongodAcceptsThem(t *testing.T) {
 	}{
 		{"tlsAllowInvalidCertificates", []string{"--tlsAllowInvalidCertificates"}},
 		{"tlsAllowInvalidHostnames", []string{"--tlsAllowInvalidHostnames"}},
-		{"tlsClusterFile", []string{"--tlsClusterFile", f.ServerPEMFile}},
 	} {
 		t.Run(c.flag, func(t *testing.T) {
 			mongod := harness.StartTLSMongod(t, f, harness.TLSOptions{ExtraArgs: c.args})
