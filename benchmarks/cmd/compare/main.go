@@ -53,7 +53,7 @@ var (
 
 	dumboBin  = flag.String("dumbodb-bin", "", "run this dumbodb binary as a local process instead of using containers (requires -mongod-bin)")
 	mongodBin = flag.String("mongod-bin", "", "run this mongod binary as a local process instead of using containers (requires -dumbodb-bin)")
-	workDir   = flag.String("work-dir", "", "with -dumbodb-bin/-mongod-bin, directory for server data and logs; defaults to a temporary directory")
+	workDir   = flag.String("work-dir", "", "with -dumbodb-bin/-mongod-bin, directory for server data and logs; must not be a RAM filesystem; defaults to a temporary directory")
 
 	dumboVersion = flag.String("dumbodb-version", "", "DumboDB version label for the report; defaults to `dumbodb --version` or the image")
 	mongoVersion = flag.String("mongodb-version", "", "MongoDB version label for the report; defaults to `mongod --version` or the image")
@@ -119,7 +119,12 @@ func run() error {
 			defer os.RemoveAll(tmp)
 			dir = tmp
 		}
-		dumboResults, mongoResults, benchErr = runLocalTargets(dir)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return err
+		}
+		if benchErr = requireDiskBacked(dir); benchErr == nil {
+			dumboResults, mongoResults, benchErr = runLocalTargets(dir)
+		}
 	} else {
 		var cleanup func()
 		dumboResults, mongoResults, cleanup, benchErr = runContainerTargets()
