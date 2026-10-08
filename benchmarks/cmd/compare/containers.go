@@ -29,7 +29,7 @@ type container struct {
 // URIs use 127.0.0.1 rather than "localhost" deliberately: on hosts where
 // Go's resolver hands back the IPv6 loopback first, clients can see
 // `dial tcp [::1]:27017: connect: connection refused` even though the mongo
-// container is listening — mongod binds IPv4 only inside the container, and
+// container is listening - mongod binds IPv4 only inside the container, and
 // docker's IPv6 host-port proxy is best-effort. Explicit IPv4 sidesteps the
 // whole class of "connects sometimes, refused sometimes" failures reported
 // against the first cut of this runner.
@@ -49,7 +49,7 @@ var (
 	}
 )
 
-// ensureMongoImage pulls mongo:8.0 if it's missing. Not fatal if pull fails —
+// ensureMongoImage pulls mongo:8.0 if it's missing. Not fatal if pull fails -
 // the subsequent `docker run` will surface the real error.
 func ensureMongoImage(ctx context.Context) error {
 	if imagePresent(ctx, mongoContainer.image) {
@@ -72,7 +72,7 @@ func ensureDumboImage(ctx context.Context) error {
 }
 
 // buildDumboImage builds dumbodb-bench:local from the product repo. Always
-// rebuilds — Docker's layer cache makes repeat builds cheap when the source
+// rebuilds - Docker's layer cache makes repeat builds cheap when the source
 // hasn't changed, and stale binaries are the worst possible benchmark bug.
 func buildDumboImage(ctx context.Context, productRepoPath string) error {
 	dockerfile, err := locateDockerfile()
@@ -125,7 +125,7 @@ func startContainer(ctx context.Context, c container) error {
 	case "":
 		// no such container, fall through
 	default:
-		fmt.Fprintf(os.Stderr, "==> container %s in unexpected state %q — recreating\n", c.name, state)
+		fmt.Fprintf(os.Stderr, "==> container %s in unexpected state %q - recreating\n", c.name, state)
 		_ = runDocker(ctx, nil, "rm", "-f", c.name)
 	}
 	args := []string{"run", "-d", "--name", c.name}
@@ -135,7 +135,7 @@ func startContainer(ctx context.Context, c container) error {
 	return runDocker(ctx, nil, args...)
 }
 
-// stopContainer stops and removes c. Missing containers are fine — this is
+// stopContainer stops and removes c. Missing containers are fine - this is
 // the teardown path and we want it to be idempotent.
 func stopContainer(ctx context.Context, c container) {
 	if containerState(ctx, c.name) == "" {
@@ -173,7 +173,7 @@ func waitHealthy(ctx context.Context, c container, timeout time.Duration) error 
 		time.Sleep(500 * time.Millisecond)
 	}
 	// Dump container logs and state to help diagnose the failure.
-	fmt.Fprintf(os.Stderr, "\n==> %s failed health check — dumping diagnostics:\n", c.name)
+	fmt.Fprintf(os.Stderr, "\n==> %s failed health check - dumping diagnostics:\n", c.name)
 	fmt.Fprintf(os.Stderr, "    state: %s\n", containerState(ctx, c.name))
 	_ = runDocker(ctx, os.Stderr, "logs", "--tail", "30", c.name)
 	return fmt.Errorf("%s never became healthy at %s: %w", c.name, c.hostURI, lastErr)

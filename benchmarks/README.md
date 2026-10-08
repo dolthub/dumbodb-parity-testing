@@ -153,7 +153,7 @@ Flags:
 | `-health-timeout`  | `60s` | How long to wait for each container to accept connections |
 | `-test-timeout`    | `10m` | `-timeout` passed to `go test`. Bump to `45m` or higher when running the 50K-scale `*_50K` benchmarks - DumboDB's seed step alone takes ~30 minutes at that size. |
 | `-dumbodb-bin`, `-mongod-bin` | `""` | Run both targets as local processes instead of containers (set both) |
-| `-work-dir`        | temp dir | Server data and logs for `-dumbodb-bin`/`-mongod-bin` |
+| `-work-dir`        | temp dir | Server data and logs for `-dumbodb-bin`/`-mongod-bin`. On Linux the run fails if this is on tmpfs or ramfs. |
 | `-dumbodb-version`, `-mongodb-version` | from `--version` or the image | Version labels for the report |
 | `-email-from`, `-email-to`, `-email-region`, `-email-subject` | `""` | Email the report via SES |
 | `-report-dir`      | `""` | Write the report (txt, html, csv) here |
@@ -229,7 +229,9 @@ Docker and send a report:
 
 - `-dumbodb-bin` / `-mongod-bin` start each server from a local binary on a
   free port with a fresh on-disk data directory (under `-work-dir`), one
-  target at a time, and stop it afterwards.
+  target at a time, and stop it afterwards. `-work-dir` must be disk-backed:
+  on a RAM filesystem syncs are free and write latencies are meaningless.
+  Set it explicitly where `/tmp` is tmpfs.
 - `-email-from`/`-email-to`/`-email-region` (SES), `-report-dir`, and
   `-alert-cmd` send a report: the summary (median and geometric mean
   multiplier) and the 5 worst benchmarks, with the results CSV attached. A
