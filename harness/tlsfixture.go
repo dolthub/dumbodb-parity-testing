@@ -659,3 +659,95 @@ func (f *TLSFixture) opensslClient(t *testing.T, name, subj string, extra []stri
 	_ = os.Remove(csr)
 	return path, SubjectRFC2253(t, crt)
 }
+
+// clusterMembershipOID is the extension MongoDB reads for cluster membership,
+// which --tlsClusterAuthX509ExtensionValue matches against.
+const clusterMembershipOID = "1.3.6.1.4.1.34601.2.1.2"
+
+// ClusterMemberPEM writes combined material fit to be both a member's serving
+// certificate and its cluster certificate: loopback SANs, both extended key
+// usages, an Organization attribute, and optionally MongoDB's cluster
+// membership extension.
+//
+// Both usages in one file because that is what the cluster X.509 options
+// demand. mongod validates the attributes against the SERVING certificate and
+// the cluster certificate alike, so material that satisfies only one of them
+// cannot start a server, and a fixture that produced it could only ever test
+// the failure.
+func ClusterMemberPEM(t *testing.T, f *TLSFixture, name, organization, extensionValue string) string {
+	t.Helper()
+	if _, err := exec.LookPath("openssl"); err != nil {
+		t.Skip("openssl not found; cannot generate cluster member material")
+	}
+	path := filepath.Join(f.Dir, name)
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	key := filepath.Join(f.Dir, name+".key")
+	csr := filepath.Join(f.Dir, name+".csr")
+	crt := filepath.Join(f.Dir, name+".crt")
+	ext := filepath.Join(f.Dir, name+".ext")
+
+	run := func(args ...string) {
+		if out, err := exec.Command("openssl", args...).CombinedOutput(); err != nil {
+			t.Fatalf("%s: openssl %v: %v: %s", name, args, err, out)
+		}
+	}
+	run("req", "-utf8", "-newkey", "rsa:2048", "-nodes", "-keyout", key, "-out", csr,
+		"-subj", "/CN=127.0.0.1/O="+organization)
+
+	config := "subjectAltName=IP:127.0.0.1,DNS:localhost\nextendedKeyUsage=serverAuth,clientAuth\n"
+	if extensionValue != "" {
+		config += clusterMembershipOID + "=ASN1:UTF8String:" + extensionValue + "\n"
+	}
+	if err := os.WriteFile(ext, []byte(config), 0o600); err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	run("x509", "-req", "-in", csr, "-CA", f.CAFile, "-CAkey", f.caKeyFile(),
+		"-CAcreateserial", "-out", crt, "-days", "1", "-extfile", ext)
+
+	certPEM, err := os.ReadFile(crt)
+	if err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	keyPEM, err := os.ReadFile(key)
+	if err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	if err := os.WriteFile(path, append(certPEM, keyPEM...), 0o600); err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	_ = os.Remove(csr)
+	return path
+}
+
+// EncryptedClusterPEM returns cluster member material whose key is encrypted,
+// for exercising --tlsClusterPassword.
+func EncryptedClusterPEM(t *testing.T, f *TLSFixture, name, organization, password string) string {
+	t.Helper()
+	plain := ClusterMemberPEM(t, f, name+"-plain.pem", organization, "")
+	path := filepath.Join(f.Dir, name)
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	encrypted := filepath.Join(f.Dir, name+".key")
+	out, err := exec.Command("openssl", "pkcs8", "-topk8",
+		"-in", filepath.Join(f.Dir, name+"-plain.pem.key"),
+		"-out", encrypted, "-passout", "pass:"+password).CombinedOutput()
+	if err != nil {
+		t.Fatalf("%s: openssl pkcs8: %v: %s", name, err, out)
+	}
+	certPEM, err := os.ReadFile(filepath.Join(f.Dir, name+"-plain.pem.crt"))
+	if err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	keyPEM, err := os.ReadFile(encrypted)
+	if err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	if err := os.WriteFile(path, append(certPEM, keyPEM...), 0o600); err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	_ = plain
+	return path
+}

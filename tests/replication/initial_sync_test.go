@@ -104,6 +104,9 @@ func TestInitialSync_ManyDatabasesAndCollections(t *testing.T) {
 		},
 		Workload: noWorkload,
 		Assert: func(t *testing.T, res harness.ReplicaResult) {
+			if res.Subject == nil {
+				return
+			}
 			for d := 0; d < 4; d++ {
 				name := fmt.Sprintf("%s_db%d", syncDB, d)
 				db, ok := res.Subject.Databases[name]
@@ -227,6 +230,11 @@ func TestInitialSync_CollectionDroppedDuringClone(t *testing.T) {
 		},
 		Workload: noWorkload,
 		Assert: func(t *testing.T, res harness.ReplicaResult) {
+			// A subject that never converged has no captured state, and
+			// gradeSubject has already recorded why it did not.
+			if res.Subject == nil {
+				return
+			}
 			db, ok := res.Subject.Databases[syncDB]
 			if !ok {
 				t.Fatal("subject is missing the sync database")
