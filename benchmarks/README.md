@@ -30,7 +30,8 @@ filter, `UpdateOne`, `UpdateMany`, `ReplaceOne`, `DeleteOne`, `DeleteMany`,
 `{i, tag}` from the 1K small-doc set; `Find_Projection_10KB` and
 `Find_Projection_FilterEq_10KB` do the same over 500 10KB documents, where the
 projection discards almost all of each document, without and with a `grp`
-filter.
+filter. `Agg_Project_10KB` is the same `$project` as `Agg_Project` over those
+10KB documents.
 
 **Dataset**: 1,000 small (~100 byte) documents per benchmark. A single
 collection is seeded fresh per benchmark; the server used depends on the
