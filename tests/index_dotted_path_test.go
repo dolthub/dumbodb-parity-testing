@@ -136,9 +136,6 @@ func dottedFindAllWays(filter, sort bson.D) func(context.Context, *mongo.Collect
 	}
 }
 
-// XFail cases diverge on the collection scan too, so they are query-engine
-// bugs rather than index bugs: EqNull/InWithNull (workspace-gf1), Ne
-// (workspace-gjg), Sort* (workspace-gr8).
 func TestIndex_DottedPath_Find(t *testing.T) {
 	shallow := bson.D{{Key: "a.b", Value: 1}}
 	deep := bson.D{{Key: "a.b.c.d", Value: 1}}
@@ -154,27 +151,30 @@ func TestIndex_DottedPath_Find(t *testing.T) {
 		{"Eq", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: int32(1)}}, nil, harness.DumboDBFull},
 		{"EqNoMatch", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: int32(99)}}, nil, harness.DumboDBFull},
 		{"EqString", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: "s"}}, nil, harness.DumboDBFull},
-		{"EqNull", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: nil}}, nil, harness.DumboDBXFail},
+		{"EqNull", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: nil}}, nil, harness.DumboDBFull},
 		{"EqEmptyArray", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: bson.A{}}}, nil, harness.DumboDBFull},
 		{"EqWholeArray", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: bson.A{int32(1), int32(3)}}}, nil, harness.DumboDBFull},
 		{"EqSubdoc", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: bson.D{{Key: "c", Value: int32(1)}}}}, nil, harness.DumboDBFull},
 		{"Gt", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: bson.D{{Key: "$gt", Value: int32(2)}}}}, nil, harness.DumboDBFull},
 		{"Range", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: bson.D{{Key: "$gte", Value: int32(2)}, {Key: "$lt", Value: int32(5)}}}}, nil, harness.DumboDBFull},
 		{"In", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: bson.D{{Key: "$in", Value: bson.A{int32(2), int32(5)}}}}}, nil, harness.DumboDBFull},
-		{"InWithNull", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: bson.D{{Key: "$in", Value: bson.A{int32(4), nil}}}}}, nil, harness.DumboDBXFail},
-		{"Ne", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: bson.D{{Key: "$ne", Value: int32(1)}}}}, nil, harness.DumboDBXFail},
+		{"InWithNull", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: bson.D{{Key: "$in", Value: bson.A{int32(4), nil}}}}}, nil, harness.DumboDBFull},
+		{"Ne", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: bson.D{{Key: "$ne", Value: int32(1)}}}}, nil, harness.DumboDBFull},
+		{"Nin", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: bson.D{{Key: "$nin", Value: bson.A{int32(1), int32(5)}}}}}, nil, harness.DumboDBFull},
+		{"NotGt", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$gt", Value: int32(2)}}}}}}, nil, harness.DumboDBFull},
+		{"OpsEvaluatedSeparately", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: bson.D{{Key: "$gt", Value: int32(2)}, {Key: "$lt", Value: int32(3)}}}}, nil, harness.DumboDBFull},
 		{"ExistsTrue", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: bson.D{{Key: "$exists", Value: true}}}}, nil, harness.DumboDBFull},
 		{"ExistsFalse", dottedShallowDocs(), shallow, bson.D{{Key: "a.b", Value: bson.D{{Key: "$exists", Value: false}}}}, nil, harness.DumboDBFull},
 		{"Positional", dottedShallowDocs(), shallow, bson.D{{Key: "a.b.0", Value: int32(1)}}, nil, harness.DumboDBFull},
-		{"SortAsc", dottedShallowDocs(), shallow, bson.D{}, bson.D{{Key: "a.b", Value: 1}, {Key: "_id", Value: 1}}, harness.DumboDBXFail},
-		{"SortDesc", dottedShallowDocs(), shallow, bson.D{}, bson.D{{Key: "a.b", Value: -1}, {Key: "_id", Value: 1}}, harness.DumboDBXFail},
+		{"SortAsc", dottedShallowDocs(), shallow, bson.D{}, bson.D{{Key: "a.b", Value: 1}, {Key: "_id", Value: 1}}, harness.DumboDBFull},
+		{"SortDesc", dottedShallowDocs(), shallow, bson.D{}, bson.D{{Key: "a.b", Value: -1}, {Key: "_id", Value: 1}}, harness.DumboDBFull},
 		{"CompoundPrefix", dottedShallowDocs(), compound, bson.D{{Key: "a.b", Value: int32(1)}}, nil, harness.DumboDBFull},
 		{"CompoundFull", dottedShallowDocs(), compound, bson.D{{Key: "a.b", Value: int32(1)}, {Key: "k", Value: int32(2)}}, nil, harness.DumboDBFull},
 		{"DeepEq", dottedDeepDocs(), deep, bson.D{{Key: "a.b.c.d", Value: int32(1)}}, nil, harness.DumboDBFull},
 		{"DeepEqArrayElem", dottedDeepDocs(), deep, bson.D{{Key: "a.b.c.d", Value: int32(2)}}, nil, harness.DumboDBFull},
 		{"DeepEqNull", dottedDeepDocs(), deep, bson.D{{Key: "a.b.c.d", Value: nil}}, nil, harness.DumboDBFull},
 		{"DeepRange", dottedDeepDocs(), deep, bson.D{{Key: "a.b.c.d", Value: bson.D{{Key: "$gte", Value: int32(3)}, {Key: "$lte", Value: int32(5)}}}}, nil, harness.DumboDBFull},
-		{"DeepSortAsc", dottedDeepDocs(), deep, bson.D{}, bson.D{{Key: "a.b.c.d", Value: 1}, {Key: "_id", Value: 1}}, harness.DumboDBXFail},
+		{"DeepSortAsc", dottedDeepDocs(), deep, bson.D{}, bson.D{{Key: "a.b.c.d", Value: 1}, {Key: "_id", Value: 1}}, harness.DumboDBFull},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -188,7 +188,6 @@ func TestIndex_DottedPath_Find(t *testing.T) {
 	}
 }
 
-// Null XFail: workspace-gf1.
 func TestIndex_DottedPath_Count(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -197,7 +196,7 @@ func TestIndex_DottedPath_Count(t *testing.T) {
 	}{
 		{"Eq", bson.D{{Key: "a.b", Value: int32(1)}}, harness.DumboDBFull},
 		{"Range", bson.D{{Key: "a.b", Value: bson.D{{Key: "$gte", Value: int32(2)}, {Key: "$lt", Value: int32(5)}}}}, harness.DumboDBFull},
-		{"Null", bson.D{{Key: "a.b", Value: nil}}, harness.DumboDBXFail},
+		{"Null", bson.D{{Key: "a.b", Value: nil}}, harness.DumboDBFull},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
@@ -220,7 +219,10 @@ func TestIndex_DottedPath_Count(t *testing.T) {
 	}
 }
 
-// All XFail: dumbodb omits [] (shallow) and null (deep) (workspace-3cb).
+// All XFail (workspace-3cb): unfiltered, MongoDB answers from the multikey
+// index with DISTINCT_SCAN and returns raw index keys, so an empty array yields
+// undefined and a missing branch yields null. Filtered, it reads documents and
+// returns neither; dumbodb always reads documents.
 func TestIndex_DottedPath_Distinct(t *testing.T) {
 	filtered := bson.D{{Key: "_id", Value: bson.D{{Key: "$lte", Value: int32(4)}}}}
 	for _, tc := range []struct {
