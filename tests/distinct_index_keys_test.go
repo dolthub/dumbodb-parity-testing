@@ -43,6 +43,9 @@ func distinctKeyDocs() []interface{} {
 		bson.D{{Key: "_id", Value: int32(8)}, {Key: "a", Value: int32(9)}},
 		bson.D{{Key: "_id", Value: int32(9)}, {Key: "x", Value: bson.A{}}},
 		bson.D{{Key: "_id", Value: int32(10)}, {Key: "x", Value: bson.A{bson.A{int32(1), int32(2)}, int32(3)}}},
+		bson.D{{Key: "_id", Value: int32(11)}, {Key: "y", Value: bson.D{{Key: "p", Value: int32(1)}}}},
+		bson.D{{Key: "_id", Value: int32(12)}, {Key: "y", Value: bson.D{{Key: "p", Value: int32(2)}}}},
+		bson.D{{Key: "_id", Value: int32(13)}, {Key: "y", Value: bson.A{bson.A{int32(7)}, bson.A{int32(8)}}}},
 	}
 }
 
@@ -50,27 +53,31 @@ func TestDistinct_IndexKeys(t *testing.T) {
 	ab := bson.D{{Key: "a.b", Value: 1}}
 	idDollar := bson.D{{Key: "_id", Value: bson.D{{Key: "$gt", Value: int32(0)}}}}
 	for _, tc := range []struct {
-		name   string
-		field  string
-		index  *mongo.IndexModel
-		filter bson.D
+		name    string
+		field   string
+		index   *mongo.IndexModel
+		filter  bson.D
+		support harness.DumboDBSupport
 	}{
-		{"DottedNoIndex", "a.b", nil, bson.D{}},
-		{"DottedIndex", "a.b", &mongo.IndexModel{Keys: ab}, bson.D{}},
-		{"DottedIndexDescending", "a.b", &mongo.IndexModel{Keys: bson.D{{Key: "a.b", Value: -1}}}, bson.D{}},
-		{"DottedIndexSparse", "a.b", &mongo.IndexModel{Keys: ab, Options: options.Index().SetSparse(true)}, bson.D{}},
-		{"DottedIndexPartial", "a.b", &mongo.IndexModel{Keys: ab, Options: options.Index().SetPartialFilterExpression(idDollar)}, bson.D{}},
-		{"DottedCompoundLeading", "a.b", &mongo.IndexModel{Keys: bson.D{{Key: "a.b", Value: 1}, {Key: "_id", Value: 1}}}, bson.D{}},
-		{"DottedCompoundSecond", "a.b", &mongo.IndexModel{Keys: bson.D{{Key: "_id", Value: 1}, {Key: "a.b", Value: 1}}}, bson.D{}},
-		{"DottedIndexFilterOnKey", "a.b", &mongo.IndexModel{Keys: ab}, bson.D{{Key: "a.b", Value: bson.D{{Key: "$gt", Value: int32(0)}}}}},
-		{"DottedIndexFilterOther", "a.b", &mongo.IndexModel{Keys: ab}, idDollar},
-		{"TopLevelNoIndex", "x", nil, bson.D{}},
-		{"TopLevelIndex", "x", &mongo.IndexModel{Keys: bson.D{{Key: "x", Value: 1}}}, bson.D{}},
+		{"DottedNoIndex", "a.b", nil, bson.D{}, harness.DumboDBFull},
+		{"DottedIndex", "a.b", &mongo.IndexModel{Keys: ab}, bson.D{}, harness.DumboDBFull},
+		{"DottedIndexDescending", "a.b", &mongo.IndexModel{Keys: bson.D{{Key: "a.b", Value: -1}}}, bson.D{}, harness.DumboDBFull},
+		{"DottedIndexSparse", "a.b", &mongo.IndexModel{Keys: ab, Options: options.Index().SetSparse(true)}, bson.D{}, harness.DumboDBFull},
+		{"DottedIndexPartial", "a.b", &mongo.IndexModel{Keys: ab, Options: options.Index().SetPartialFilterExpression(idDollar)}, bson.D{}, harness.DumboDBFull},
+		{"DottedCompoundLeading", "a.b", &mongo.IndexModel{Keys: bson.D{{Key: "a.b", Value: 1}, {Key: "_id", Value: 1}}}, bson.D{}, harness.DumboDBFull},
+		{"DottedCompoundSecond", "a.b", &mongo.IndexModel{Keys: bson.D{{Key: "_id", Value: 1}, {Key: "a.b", Value: 1}}}, bson.D{}, harness.DumboDBFull},
+		{"DottedIndexFilterOnKey", "a.b", &mongo.IndexModel{Keys: ab}, bson.D{{Key: "a.b", Value: bson.D{{Key: "$gt", Value: int32(0)}}}}, harness.DumboDBFull},
+		{"DottedIndexFilterOther", "a.b", &mongo.IndexModel{Keys: ab}, idDollar, harness.DumboDBFull},
+		{"TopLevelNoIndex", "x", nil, bson.D{}, harness.DumboDBFull},
+		{"TopLevelIndex", "x", &mongo.IndexModel{Keys: bson.D{{Key: "x", Value: 1}}}, bson.D{}, harness.DumboDBFull},
+		// Distinct subdocuments and nested arrays share an index key byte
+		// string; every one must still be returned (workspace-4tl.2).
+		{"TopLevelIndexSubdocsAndArrays", "y", &mongo.IndexModel{Keys: bson.D{{Key: "y", Value: 1}}}, bson.D{}, harness.DumboDBXFail},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "Distinct_IndexKeys_" + tc.name,
-				Support: harness.DumboDBFull,
+				Support: tc.support,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					if _, err := col.InsertMany(ctx, distinctKeyDocs()); err != nil {
 						return err
