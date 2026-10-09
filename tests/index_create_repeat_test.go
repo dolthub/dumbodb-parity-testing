@@ -88,9 +88,9 @@ func TestIndex_CreateIndexes_Repeat(t *testing.T) {
 		support harness.DumboDBSupport
 	}{
 		{"Single", []bson.D{method}, []bson.D{method}, harness.DumboDBFull},
-		{"TwoTopLevel", []bson.D{method, name}, []bson.D{method, name}, harness.DumboDBXFail},
-		{"CompoundNested", []bson.D{nested, name}, []bson.D{nested, name}, harness.DumboDBXFail},
-		{"OneExistingOneNew", []bson.D{method}, []bson.D{method, name}, harness.DumboDBXFail},
+		{"TwoTopLevel", []bson.D{method, name}, []bson.D{method, name}, harness.DumboDBFull},
+		{"CompoundNested", []bson.D{nested, name}, []bson.D{nested, name}, harness.DumboDBFull},
+		{"OneExistingOneNew", []bson.D{method}, []bson.D{method, name}, harness.DumboDBFull},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
