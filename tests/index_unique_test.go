@@ -254,8 +254,6 @@ func TestIndex_Unique_IncCollision(t *testing.T) {
 // TestIndex_Unique_CompoundNestedObjectID: a unique compound index on a dotted
 // path must key on the nested value; distinct nested ObjectIds do not collide,
 // a repeated one does. Reported in dolthub/dumbodb#112.
-// XFail: dumbodb resolves dotted index fields as literal top-level keys, so
-// every doc indexes the nested field as null and the second insert collides.
 func TestIndex_Unique_CompoundNestedObjectID(t *testing.T) {
 	oid := func(hex string) primitive.ObjectID {
 		id, err := primitive.ObjectIDFromHex(hex)
@@ -273,7 +271,7 @@ func TestIndex_Unique_CompoundNestedObjectID(t *testing.T) {
 	}
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_Unique_CompoundNestedObjectID",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys:    bson.D{{Key: "discoveryDomain.ID", Value: 1}, {Key: "methodKey", Value: 1}},
@@ -294,6 +292,57 @@ func TestIndex_Unique_CompoundNestedObjectID(t *testing.T) {
 				{Key: "distinctError", Value: comparableErrorInfo(distinctErr)},
 				{Key: "repeatError", Value: comparableErrorInfo(repeatErr)},
 				{Key: "present", Value: ids},
+			}, nil
+		},
+	})
+}
+
+// TestIndex_Unique_DeepNestedPath: a unique index on a four-level dotted path
+// keys on the leaf. A doc whose path stops early (missing field or scalar
+// intermediate) indexes as null, so a second such doc collides.
+func TestIndex_Unique_DeepNestedPath(t *testing.T) {
+	deep := func(id int32, d interface{}) bson.D {
+		return bson.D{
+			{Key: "_id", Value: id},
+			{Key: "a", Value: bson.D{{Key: "b", Value: bson.D{{Key: "c", Value: bson.D{{Key: "d", Value: d}}}}}}},
+		}
+	}
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Index_Unique_DeepNestedPath",
+		Support: harness.DumboDBFull,
+		Setup:   uniqIndexSetup("a.b.c.d"),
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			_, firstErr := col.InsertOne(ctx, deep(1, "x"))
+			_, distinctErr := col.InsertOne(ctx, deep(2, "y"))
+			_, repeatErr := col.InsertOne(ctx, deep(3, "x"))
+			_, missingLeafErr := col.InsertOne(ctx, bson.D{
+				{Key: "_id", Value: int32(4)},
+				{Key: "a", Value: bson.D{{Key: "b", Value: bson.D{{Key: "c", Value: bson.D{}}}}}},
+			})
+			_, scalarMidErr := col.InsertOne(ctx, bson.D{
+				{Key: "_id", Value: int32(5)},
+				{Key: "a", Value: bson.D{{Key: "b", Value: int32(7)}}},
+			})
+			ids, idErr := uniqIDs(ctx, col)
+			if idErr != nil {
+				return nil, idErr
+			}
+			cur, err := col.Find(ctx, bson.D{{Key: "a.b.c.d", Value: "y"}})
+			if err != nil {
+				return nil, err
+			}
+			var found []bson.M
+			if err := cur.All(ctx, &found); err != nil {
+				return nil, err
+			}
+			return bson.D{
+				{Key: "firstError", Value: comparableErrorInfo(firstErr)},
+				{Key: "distinctError", Value: comparableErrorInfo(distinctErr)},
+				{Key: "repeatError", Value: comparableErrorInfo(repeatErr)},
+				{Key: "missingLeafError", Value: comparableErrorInfo(missingLeafErr)},
+				{Key: "scalarMidError", Value: comparableErrorInfo(scalarMidErr)},
+				{Key: "present", Value: ids},
+				{Key: "foundY", Value: len(found)},
 			}, nil
 		},
 	})
