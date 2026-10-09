@@ -151,7 +151,7 @@ Flags:
 | `-dumbodb-src`     | `""` | If set, build DumboDB from this source directory via `benchmarks/Dockerfile.dumbodb` instead of pulling `-dumbodb-image` (env: `DUMBODB_SRC`). |
 | `-no-containers`   | `false` | Skip container management; expect servers already at `:27017` / `:27018` |
 | `-health-timeout`  | `60s` | How long to wait for each container to accept connections |
-| `-test-timeout`    | `10m` | `-timeout` passed to `go test`. Bump to `45m` or higher when running the 50K-scale `*_50K` benchmarks - DumboDB's seed step alone takes ~30 minutes at that size. |
+| `-test-timeout`    | `10m` | `-timeout` passed to `go test`. |
 | `-dumbodb-bin`, `-mongod-bin` | `""` | Run both targets as local processes instead of containers (set both) |
 | `-work-dir`        | temp dir | Server data and logs for `-dumbodb-bin`/`-mongod-bin`. On Linux the run fails if this is on tmpfs or ramfs. |
 | `-dumbodb-version`, `-mongodb-version` | from `--version` or the image | Version labels for the report |
