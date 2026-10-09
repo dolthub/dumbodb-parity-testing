@@ -254,27 +254,60 @@ func TestIndex_DottedPath_Distinct(t *testing.T) {
 }
 
 // TestIndex_DottedPath_ExplainUsesIndex compares the winning plan's stage chain
-// and index for selective filters on a dotted-path index.
-// XFail: dumbodb's planner skips dotted filter fields (workspace-4tl.2) and
-// reports COLLSCAN where MongoDB reports FETCH over IXSCAN.
+// and index for queries a dotted-path index can serve.
+// XFail: dumbodb's planner skips dotted filter fields (workspace-4tl.2).
 func TestIndex_DottedPath_ExplainUsesIndex(t *testing.T) {
+	shallow := bson.D{{Key: "a.b", Value: 1}}
+	compound := bson.D{{Key: "a.b", Value: 1}, {Key: "k", Value: 1}}
+	eq := bson.D{{Key: "a.b", Value: int32(2)}}
+	find := func(filter, sort bson.D) func(string) bson.D {
+		return func(coll string) bson.D {
+			cmd := bson.D{{Key: "find", Value: coll}, {Key: "filter", Value: filter}}
+			if sort != nil {
+				cmd = append(cmd, bson.E{Key: "sort", Value: sort})
+			}
+			return cmd
+		}
+	}
 	for _, tc := range []struct {
-		name   string
-		filter bson.D
+		name  string
+		keys  bson.D
+		inner func(coll string) bson.D
+		extra bson.D
 	}{
-		{"Eq", bson.D{{Key: "a.b", Value: int32(2)}}},
-		{"Range", bson.D{{Key: "a.b", Value: bson.D{{Key: "$gte", Value: int32(2)}, {Key: "$lt", Value: int32(5)}}}}},
+		{"Eq", shallow, find(eq, nil), nil},
+		{"Range", shallow, find(bson.D{{Key: "a.b", Value: bson.D{{Key: "$gte", Value: int32(2)}, {Key: "$lt", Value: int32(5)}}}}, nil), nil},
+		{"In", shallow, find(bson.D{{Key: "a.b", Value: bson.D{{Key: "$in", Value: bson.A{int32(2), int32(5)}}}}}, nil), nil},
+		{"CompoundPrefix", compound, find(eq, nil), nil},
+		{"CompoundFull", compound, find(bson.D{{Key: "a.b", Value: int32(2)}, {Key: "k", Value: int32(2)}}, nil), nil},
+		{"EqSortOnKey", shallow, find(eq, bson.D{{Key: "a.b", Value: 1}}), nil},
+		{"SortOnly", shallow, find(bson.D{}, bson.D{{Key: "a.b", Value: 1}}), nil},
+		{"Count", shallow, func(coll string) bson.D {
+			return bson.D{{Key: "count", Value: coll}, {Key: "query", Value: eq}}
+		}, nil},
+		{"Distinct", shallow, func(coll string) bson.D {
+			return bson.D{{Key: "distinct", Value: coll}, {Key: "key", Value: "a.b"}, {Key: "query", Value: bson.D{}}}
+		}, nil},
+		{"Or", shallow, find(bson.D{{Key: "$or", Value: bson.A{
+			bson.D{{Key: "a.b", Value: int32(2)}},
+			bson.D{{Key: "k", Value: int32(1)}},
+		}}}, nil), bson.D{{Key: "k", Value: 1}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "Index_DottedPath_ExplainUsesIndex_" + tc.name,
 				Support: harness.DumboDBXFail,
-				Setup:   dottedSetup(dottedShallowDocs(), bson.D{{Key: "a.b", Value: 1}}),
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					if err := dottedSetup(dottedShallowDocs(), tc.keys)(ctx, col); err != nil {
+						return err
+					}
+					if tc.extra == nil {
+						return nil
+					}
+					return createIndex(ctx, col, tc.extra)
+				},
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-					doc, err := explainRunExplain(ctx, col, bson.D{
-						{Key: "find", Value: col.Name()},
-						{Key: "filter", Value: tc.filter},
-					}, "queryPlanner")
+					doc, err := explainRunExplain(ctx, col, tc.inner(col.Name()), "queryPlanner")
 					if err != nil {
 						return nil, err
 					}
