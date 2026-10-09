@@ -219,10 +219,9 @@ func TestIndex_DottedPath_Count(t *testing.T) {
 	}
 }
 
-// All XFail (workspace-3cb): unfiltered, MongoDB answers from the multikey
-// index with DISTINCT_SCAN and returns raw index keys, so an empty array yields
-// undefined and a missing branch yields null. Filtered, it reads documents and
-// returns neither; dumbodb always reads documents.
+// Unfiltered, MongoDB answers from the index with DISTINCT_SCAN and returns
+// index keys, so an empty array yields undefined and a missing branch yields
+// null. Filtered, it reads documents and returns neither.
 func TestIndex_DottedPath_Distinct(t *testing.T) {
 	filtered := bson.D{{Key: "_id", Value: bson.D{{Key: "$lte", Value: int32(4)}}}}
 	for _, tc := range []struct {
@@ -232,9 +231,9 @@ func TestIndex_DottedPath_Distinct(t *testing.T) {
 		filter  bson.D
 		support harness.DumboDBSupport
 	}{
-		{"ShallowAll", dottedShallowDocs(), "a.b", bson.D{}, harness.DumboDBXFail},
+		{"ShallowAll", dottedShallowDocs(), "a.b", bson.D{}, harness.DumboDBFull},
 		{"ShallowFiltered", dottedShallowDocs(), "a.b", filtered, harness.DumboDBFull},
-		{"DeepAll", dottedDeepDocs(), "a.b.c.d", bson.D{}, harness.DumboDBXFail},
+		{"DeepAll", dottedDeepDocs(), "a.b.c.d", bson.D{}, harness.DumboDBFull},
 		{"DeepFiltered", dottedDeepDocs(), "a.b.c.d", filtered, harness.DumboDBFull},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
