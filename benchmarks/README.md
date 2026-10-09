@@ -73,6 +73,22 @@ growth with N is the cost of reaching the foreign side.
 join runs once per order. `GraphLookup` follows `grp -> i` from each order; every
 traversal visits two documents. These are at `_10K` `[_Indexed]`.
 
+**Index-use variants** (in `index_use_bench_test.go`): a query that silently
+falls back to a collection scan still returns correct results, so only latency
+shows it. Each `IndexUse_*` benchmark seeds 10K documents and, before timing,
+runs the operation through `explain` (`executionStats`) and fails unless the
+winning plan has an `IXSCAN`, `COUNT_SCAN`, or `DISTINCT_SCAN` on the expected
+index and, for `find`, the documents examined stay under a tenth of the
+collection. The assertion runs against MongoDB as well, which validates it.
+Covered: flat equality, range, and `$in`; compound prefix and full; dotted,
+deep dotted, and through-array equality, range, and `$in`; sort with limit;
+count; distinct; and unique inserts maintaining flat, dotted, and through-array
+indexes. DumboDB reports plan stages but no counts for count and distinct, so
+for those only the plan is checked and the timing carries the rest. A known
+DumboDB gap is declared with its tracking issue: it is logged while it persists
+and fails the benchmark once DumboDB starts using the index, so the expectation
+gets promoted.
+
 ## Scope - deferred
 
 These are enumerated in `bd pa-xp1` but not implemented in the first cut:
@@ -151,7 +167,7 @@ Flags:
 | `-dumbodb-src`     | `""` | If set, build DumboDB from this source directory via `benchmarks/Dockerfile.dumbodb` instead of pulling `-dumbodb-image` (env: `DUMBODB_SRC`). |
 | `-no-containers`   | `false` | Skip container management; expect servers already at `:27017` / `:27018` |
 | `-health-timeout`  | `60s` | How long to wait for each container to accept connections |
-| `-test-timeout`    | `10m` | `-timeout` passed to `go test`. Bump to `45m` or higher when running the 50K-scale `*_50K` benchmarks - DumboDB's seed step alone takes ~30 minutes at that size. |
+| `-test-timeout`    | `10m` | `-timeout` passed to `go test`. |
 | `-dumbodb-bin`, `-mongod-bin` | `""` | Run both targets as local processes instead of containers (set both) |
 | `-work-dir`        | temp dir | Server data and logs for `-dumbodb-bin`/`-mongod-bin`. On Linux the run fails if this is on tmpfs or ramfs. |
 | `-dumbodb-version`, `-mongodb-version` | from `--version` or the image | Version labels for the report |
