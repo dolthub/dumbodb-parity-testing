@@ -87,7 +87,7 @@ indexes. DumboDB reports plan stages but no counts for count and distinct, so
 for those only the plan is checked and the timing carries the rest. A known
 DumboDB gap is declared with its tracking issue: it is logged while it persists
 and fails the benchmark once DumboDB starts using the index, so the expectation
-gets promoted (sort with limit is one today: `workspace-rdu`).
+gets promoted.
 
 ## Scope - deferred
 

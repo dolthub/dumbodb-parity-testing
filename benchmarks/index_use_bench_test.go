@@ -313,11 +313,9 @@ func BenchmarkIndexUse_ThroughArrayEq_10K(b *testing.B) {
 	}, nil, 0, mustUseIndex)
 }
 
-// DumboDB's explain claims the index provides the order, but the backend scans
-// and sorts in memory.
 func BenchmarkIndexUse_FlatSortLimit_10K(b *testing.B) {
 	benchmarkIndexedFind(b, "iu_flat_sort", flatKey, func(int) bson.D { return bson.D{} },
-		bson.D{{Key: "k", Value: 1}}, 10, indexUseExpectation{knownDumboGap: "workspace-rdu"})
+		bson.D{{Key: "k", Value: 1}}, 10, mustUseIndex)
 }
 
 func benchmarkIndexedCount(b *testing.B, label string, keys bson.D, filter func(i int) bson.D) {
