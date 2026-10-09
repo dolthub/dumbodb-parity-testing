@@ -70,9 +70,7 @@ func TestDistinct_IndexKeys(t *testing.T) {
 		{"DottedIndexFilterOther", "a.b", &mongo.IndexModel{Keys: ab}, idDollar, harness.DumboDBFull},
 		{"TopLevelNoIndex", "x", nil, bson.D{}, harness.DumboDBFull},
 		{"TopLevelIndex", "x", &mongo.IndexModel{Keys: bson.D{{Key: "x", Value: 1}}}, bson.D{}, harness.DumboDBFull},
-		// Distinct subdocuments and nested arrays share an index key byte
-		// string; every one must still be returned (workspace-4tl.2).
-		{"TopLevelIndexSubdocsAndArrays", "y", &mongo.IndexModel{Keys: bson.D{{Key: "y", Value: 1}}}, bson.D{}, harness.DumboDBXFail},
+		{"TopLevelIndexSubdocsAndArrays", "y", &mongo.IndexModel{Keys: bson.D{{Key: "y", Value: 1}}}, bson.D{}, harness.DumboDBFull},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{

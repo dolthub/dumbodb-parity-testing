@@ -255,7 +255,6 @@ func TestIndex_DottedPath_Distinct(t *testing.T) {
 
 // TestIndex_DottedPath_ExplainUsesIndex compares the winning plan's stage chain
 // and index for queries a dotted-path index can serve.
-// XFail: dumbodb's planner skips dotted filter fields (workspace-4tl.2).
 func TestIndex_DottedPath_ExplainUsesIndex(t *testing.T) {
 	shallow := bson.D{{Key: "a.b", Value: 1}}
 	compound := bson.D{{Key: "a.b", Value: 1}, {Key: "k", Value: 1}}
@@ -296,7 +295,7 @@ func TestIndex_DottedPath_ExplainUsesIndex(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "Index_DottedPath_ExplainUsesIndex_" + tc.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					if err := dottedSetup(dottedShallowDocs(), tc.keys)(ctx, col); err != nil {
 						return err
