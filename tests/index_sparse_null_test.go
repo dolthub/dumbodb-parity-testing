@@ -29,7 +29,6 @@ import (
 // A sparse index skips only documents missing the indexed field. A document
 // whose field is explicitly null is indexed: it collides on a sparse unique
 // index, appears in distinct, and is found through a hinted sparse index.
-// XFail: dumbodb skips explicit nulls from sparse indexes (workspace-26x).
 
 const sparseNullIndexName = "sparse_null_idx"
 
@@ -65,7 +64,7 @@ func sparseNullInsertEach(ctx context.Context, col *mongo.Collection, docs ...bs
 func TestIndex_SparseNull_Unique(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_SparseNull_Unique",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   sparseNullSetup("x", true),
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return sparseNullInsertEach(ctx, col,
@@ -82,7 +81,7 @@ func TestIndex_SparseNull_Unique(t *testing.T) {
 func TestIndex_SparseNull_UniqueDotted(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_SparseNull_UniqueDotted",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup:   sparseNullSetup("a.b", true),
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return sparseNullInsertEach(ctx, col,
@@ -100,7 +99,7 @@ func TestIndex_SparseNull_UniqueDotted(t *testing.T) {
 func TestIndex_SparseNull_UniqueUpdateToNull(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_SparseNull_UniqueUpdateToNull",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: sparseNullSetup("x", true,
 			bson.D{{Key: "_id", Value: int32(1)}, {Key: "x", Value: nil}},
 			bson.D{{Key: "_id", Value: int32(2)}, {Key: "x", Value: int32(1)}},
@@ -117,7 +116,7 @@ func TestIndex_SparseNull_UniqueUpdateToNull(t *testing.T) {
 func TestIndex_SparseNull_Distinct(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Index_SparseNull_Distinct",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: sparseNullSetup("x", false,
 			bson.D{{Key: "_id", Value: int32(1)}},
 			bson.D{{Key: "_id", Value: int32(2)}, {Key: "x", Value: nil}},
@@ -141,7 +140,7 @@ func TestIndex_SparseNull_HintedQuery(t *testing.T) {
 	}{
 		// MongoDB answers from the hinted sparse index alone, so docs missing x
 		// drop out even though {x: null} matches them.
-		{"EqNull", bson.D{{Key: "x", Value: nil}}, harness.DumboDBXFail},
+		{"EqNull", bson.D{{Key: "x", Value: nil}}, harness.DumboDBFull},
 		{"ExistsTrue", bson.D{{Key: "x", Value: bson.D{{Key: "$exists", Value: true}}}}, harness.DumboDBFull},
 		{"TypeNull", bson.D{{Key: "x", Value: bson.D{{Key: "$type", Value: "null"}}}}, harness.DumboDBFull},
 	} {
