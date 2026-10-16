@@ -28,7 +28,7 @@ import (
 func requireMongod(t *testing.T) {
 	t.Helper()
 	if findMongodBin() == "" && os.Getenv(replSetURIEnv) == "" {
-		t.Skipf("no mongod (set MONGOD_BIN or %s)", replSetURIEnv)
+		t.Fatalf("no mongod (set MONGOD_BIN or %s)", replSetURIEnv)
 	}
 }
 

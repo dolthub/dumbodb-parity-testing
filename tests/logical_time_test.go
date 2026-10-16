@@ -47,7 +47,7 @@ func TestLogicalTime_AbsentOnStandalone(t *testing.T) {
 	} {
 		t.Run(s.name, func(t *testing.T) {
 			if s.uri == "" {
-				t.Skipf("no URI for %s", s.name)
+				t.Fatalf("no URI for %s", s.name)
 			}
 			cli, err := mongo.Connect(ctx, options.Client().ApplyURI(s.uri))
 			if err != nil {

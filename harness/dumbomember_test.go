@@ -28,7 +28,7 @@ func requireDumboDB(t *testing.T) {
 	t.Helper()
 	requireMongod(t)
 	if findDumboDBBinary() == "" {
-		t.Skip("no dumbodb binary (set DUMBODB_BIN)")
+		t.Fatal("no dumbodb binary (set DUMBODB_BIN)")
 	}
 }
 

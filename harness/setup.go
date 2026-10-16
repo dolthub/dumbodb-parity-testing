@@ -132,7 +132,7 @@ func (c *Clients) TestDB(ctx context.Context, testName string) (mongoCol, dumboD
 // returns an error immediately rather than blocking for the 30-second
 // server-selection timeout. If the requested topology's Mongo client is
 // not configured (typically MONGO_RS_URI unset), mongoCol is nil and the
-// error is ErrTopologyUnavailable so callers can skip cleanly.
+// error is ErrTopologyUnavailable.
 func (c *Clients) TestDBForTopology(ctx context.Context, testName string, topo Topology) (mongoCol, dumboDBCol *mongo.Collection, cleanup func(), err error) {
 	mongoClient, ok := c.clientForTopology(topo)
 	if !ok {
@@ -189,7 +189,7 @@ func mongoURIForTopology(topo Topology) string {
 
 // ErrTopologyUnavailable is returned by TestDBForTopology when the
 // requested Mongo topology is not configured in this environment.
-// PairTest translates this into a skip.
+// PairTest fails on it: a missing server must never pass as a skip.
 var ErrTopologyUnavailable = topologyUnavailableError{}
 
 type topologyUnavailableError struct{}

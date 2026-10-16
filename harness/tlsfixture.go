@@ -473,7 +473,7 @@ func LegacyEncryptedPEM(t *testing.T, f *TLSFixture, password string) string {
 func (f *TLSFixture) encryptedPEM(t *testing.T, name, password, form string) string {
 	t.Helper()
 	if _, err := exec.LookPath("openssl"); err != nil {
-		t.Skip("openssl not found; cannot generate encrypted key material")
+		t.Fatal("openssl not found; cannot generate encrypted key material")
 	}
 	path := filepath.Join(f.Dir, name)
 	if _, err := os.Stat(path); err == nil {
@@ -562,7 +562,7 @@ func ClientPEMWithSubject(t *testing.T, f *TLSFixture, name string, subject pkix
 func SubjectRFC2253(t *testing.T, pemPath string) string {
 	t.Helper()
 	if _, err := exec.LookPath("openssl"); err != nil {
-		t.Skip("openssl not found; cannot render a subject for comparison")
+		t.Fatal("openssl not found; cannot render a subject for comparison")
 	}
 	out, err := exec.Command("openssl", "x509", "-in", pemPath,
 		"-noout", "-subject", "-nameopt", "RFC2253").Output()
@@ -609,7 +609,7 @@ func ClientPEMWithoutClientAuth(t *testing.T, f *TLSFixture, name, subj string) 
 func (f *TLSFixture) opensslClient(t *testing.T, name, subj string, extra []string) (string, string) {
 	t.Helper()
 	if _, err := exec.LookPath("openssl"); err != nil {
-		t.Skip("openssl not found; cannot generate client material")
+		t.Fatal("openssl not found; cannot generate client material")
 	}
 	path := filepath.Join(f.Dir, name)
 	key := filepath.Join(f.Dir, name+".key")
@@ -677,7 +677,7 @@ const clusterMembershipOID = "1.3.6.1.4.1.34601.2.1.2"
 func ClusterMemberPEM(t *testing.T, f *TLSFixture, name, organization, extensionValue string) string {
 	t.Helper()
 	if _, err := exec.LookPath("openssl"); err != nil {
-		t.Skip("openssl not found; cannot generate cluster member material")
+		t.Fatal("openssl not found; cannot generate cluster member material")
 	}
 	path := filepath.Join(f.Dir, name)
 	if _, err := os.Stat(path); err == nil {

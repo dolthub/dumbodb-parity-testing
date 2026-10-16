@@ -105,7 +105,7 @@ func StartTLSDumboDB(t *testing.T, f *TLSFixture, opts TLSOptions) *TLSServer {
 	t.Helper()
 	bin := findDumboDBBinary()
 	if bin == "" {
-		t.Skip("dumbodb binary not found (set DUMBODB_BIN)")
+		t.Fatal("dumbodb binary not found (set DUMBODB_BIN)")
 	}
 	port, dir := tlsPortAndDir(t, "dumbodb-tls-")
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
@@ -132,7 +132,7 @@ func StartTLSMongod(t *testing.T, f *TLSFixture, opts TLSOptions) *TLSServer {
 	t.Helper()
 	bin := findMongodBin()
 	if bin == "" {
-		t.Skip("mongod binary not found (set MONGOD_BIN)")
+		t.Fatal("mongod binary not found (set MONGOD_BIN)")
 	}
 	port, dir := tlsPortAndDir(t, "mongod-tls-")
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
@@ -500,7 +500,7 @@ func MongodTLSFlags(t *testing.T) []string {
 	t.Helper()
 	bin := findMongodBin()
 	if bin == "" {
-		t.Skip("mongod binary not found (set MONGOD_BIN)")
+		t.Fatal("mongod binary not found (set MONGOD_BIN)")
 	}
 	out, err := exec.Command(bin, "--help").CombinedOutput()
 	if err != nil {
