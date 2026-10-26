@@ -82,8 +82,8 @@ func runPlannerCases(t *testing.T, prefix string, setup func(context.Context, *m
 }
 
 // TestIndexPlanner_CompoundIn: $in on the leading field of a compound index
-// (dolthub/dumbodb#131). The limit cases also need streaming index ranges
-// (#139, #140) and SORT_MERGE (#146) to fetch only the limit's documents.
+// (dolthub/dumbodb#131). A limit without a sort still fetches every match
+// until index ranges stream (#139, #140).
 func TestIndexPlanner_CompoundIn(t *testing.T) {
 	setup := func(ctx context.Context, col *mongo.Collection) error {
 		docs := make([]interface{}, 0, 10000)
@@ -99,9 +99,9 @@ func TestIndexPlanner_CompoundIn(t *testing.T) {
 	in := bson.D{{Key: "bucket", Value: bson.D{{Key: "$in", Value: bson.A{int32(1), int32(3)}}}}}
 	sortK := bson.D{{Key: "k", Value: 1}}
 	runPlannerCases(t, "IndexPlanner_CompoundIn", setup, []plannerCase{
-		{"find", harness.DumboDBXFail, in, nil},
-		{"find_sort", harness.DumboDBXFail, in, options.Find().SetSort(sortK)},
+		{"find", harness.DumboDBFull, in, nil},
+		{"find_sort", harness.DumboDBFull, in, options.Find().SetSort(sortK)},
 		{"find_limit", harness.DumboDBXFail, in, options.Find().SetLimit(5)},
-		{"find_sort_limit", harness.DumboDBXFail, in, options.Find().SetSort(sortK).SetLimit(5)},
+		{"find_sort_limit", harness.DumboDBFull, in, options.Find().SetSort(sortK).SetLimit(5)},
 	})
 }
