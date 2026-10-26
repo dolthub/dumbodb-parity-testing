@@ -143,3 +143,40 @@ func TestIndexPlanner_BoundShapes(t *testing.T) {
 		{"regex_prefix_operator", harness.DumboDBFull, bson.D{{Key: "s", Value: bson.D{{Key: "$regex", Value: "^s050"}}}}, nil},
 	})
 }
+
+// TestIndexPlanner_PartialImplication: a partial index whose condition is a
+// range or $exists is usable when the query implies that condition
+// (dolthub/dumbodb#136). A query that does not imply it must not use it.
+func TestIndexPlanner_PartialImplication(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 0, 10000)
+		for i := 0; i < 10000; i++ {
+			doc := bson.D{{Key: "_id", Value: int32(i)}, {Key: "k", Value: int32(i)}, {Key: "grp", Value: int32(i % 1000)}, {Key: "m", Value: int32(i)}}
+			if i%10 == 0 {
+				doc = append(doc, bson.E{Key: "opt", Value: int32(i)})
+			}
+			docs = append(docs, doc)
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateMany(ctx, []mongo.IndexModel{
+			{Keys: bson.D{{Key: "k", Value: 1}}, Options: options.Index().SetPartialFilterExpression(
+				bson.D{{Key: "grp", Value: bson.D{{Key: "$lt", Value: int32(100)}}}})},
+			{Keys: bson.D{{Key: "m", Value: 1}}, Options: options.Index().SetPartialFilterExpression(
+				bson.D{{Key: "opt", Value: bson.D{{Key: "$exists", Value: true}}}})},
+		})
+		return err
+	}
+	k := bson.E{Key: "k", Value: int32(5055)}
+	m := bson.E{Key: "m", Value: int32(5050)}
+	runPlannerCases(t, "IndexPlanner_PartialImplication", setup, []plannerCase{
+		{"range_repeated", harness.DumboDBFull, bson.D{k, {Key: "grp", Value: bson.D{{Key: "$lt", Value: int32(100)}}}}, nil},
+		{"range_tightened", harness.DumboDBFull, bson.D{k, {Key: "grp", Value: bson.D{{Key: "$gte", Value: int32(10)}, {Key: "$lt", Value: int32(60)}}}}, nil},
+		{"range_by_equality", harness.DumboDBFull, bson.D{k, {Key: "grp", Value: int32(55)}}, nil},
+		{"range_not_implied", harness.DumboDBFull, bson.D{k, {Key: "grp", Value: bson.D{{Key: "$lt", Value: int32(200)}}}}, nil},
+		{"exists_repeated", harness.DumboDBXFail, bson.D{m, {Key: "opt", Value: bson.D{{Key: "$exists", Value: true}}}}, nil},
+		{"exists_by_equality", harness.DumboDBXFail, bson.D{m, {Key: "opt", Value: int32(5050)}}, nil},
+		{"exists_not_implied", harness.DumboDBFull, bson.D{m}, nil},
+	})
+}
