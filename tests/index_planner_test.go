@@ -175,8 +175,8 @@ func TestIndexPlanner_PartialImplication(t *testing.T) {
 		{"range_tightened", harness.DumboDBFull, bson.D{k, {Key: "grp", Value: bson.D{{Key: "$gte", Value: int32(10)}, {Key: "$lt", Value: int32(60)}}}}, nil},
 		{"range_by_equality", harness.DumboDBFull, bson.D{k, {Key: "grp", Value: int32(55)}}, nil},
 		{"range_not_implied", harness.DumboDBFull, bson.D{k, {Key: "grp", Value: bson.D{{Key: "$lt", Value: int32(200)}}}}, nil},
-		{"exists_repeated", harness.DumboDBXFail, bson.D{m, {Key: "opt", Value: bson.D{{Key: "$exists", Value: true}}}}, nil},
-		{"exists_by_equality", harness.DumboDBXFail, bson.D{m, {Key: "opt", Value: int32(5050)}}, nil},
+		{"exists_repeated", harness.DumboDBFull, bson.D{m, {Key: "opt", Value: bson.D{{Key: "$exists", Value: true}}}}, nil},
+		{"exists_by_equality", harness.DumboDBFull, bson.D{m, {Key: "opt", Value: int32(5050)}}, nil},
 		{"exists_not_implied", harness.DumboDBFull, bson.D{m}, nil},
 	})
 }
