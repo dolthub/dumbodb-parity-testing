@@ -43,33 +43,32 @@ func existsValuesSetup(ctx context.Context, col *mongo.Collection) error {
 
 func TestFilter_ExistsValues(t *testing.T) {
 	for _, tc := range []struct {
-		name    string
-		value   interface{}
-		support harness.DumboDBSupport
+		name  string
+		value interface{}
 	}{
-		{"True", true, harness.DumboDBFull},
-		{"False", false, harness.DumboDBFull},
-		{"Int1", int32(1), harness.DumboDBXFail},
-		{"Int0", int32(0), harness.DumboDBXFail},
-		{"IntNegative", int32(-1), harness.DumboDBXFail},
-		{"Long1", int64(1), harness.DumboDBXFail},
-		{"Long0", int64(0), harness.DumboDBXFail},
-		{"Double", 0.5, harness.DumboDBXFail},
-		{"Double0", 0.0, harness.DumboDBXFail},
-		{"NegativeZero", math.Copysign(0, -1), harness.DumboDBXFail},
-		{"NaN", math.NaN(), harness.DumboDBXFail},
-		{"Decimal0", primitive.NewDecimal128(0, 0), harness.DumboDBXFail},
-		{"Decimal1", primitive.NewDecimal128(0, 1), harness.DumboDBXFail},
-		{"Null", nil, harness.DumboDBXFail},
-		{"String", "x", harness.DumboDBXFail},
-		{"EmptyString", "", harness.DumboDBXFail},
-		{"Document", bson.D{}, harness.DumboDBXFail},
-		{"Array", bson.A{}, harness.DumboDBXFail},
+		{"True", true},
+		{"False", false},
+		{"Int1", int32(1)},
+		{"Int0", int32(0)},
+		{"IntNegative", int32(-1)},
+		{"Long1", int64(1)},
+		{"Long0", int64(0)},
+		{"Double", 0.5},
+		{"Double0", 0.0},
+		{"NegativeZero", math.Copysign(0, -1)},
+		{"NaN", math.NaN()},
+		{"Decimal0", primitive.NewDecimal128(0, 0)},
+		{"Decimal1", primitive.NewDecimal128(0, 1)},
+		{"Null", nil},
+		{"String", "x"},
+		{"EmptyString", ""},
+		{"Document", bson.D{}},
+		{"Array", bson.A{}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "Filter_ExistsValues_" + tc.name,
-				Support: tc.support,
+				Support: harness.DumboDBFull,
 				Setup:   existsValuesSetup,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
