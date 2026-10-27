@@ -36,36 +36,6 @@ func filterValidationSetup(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
-// filterValidationMatches lists the cases DumboDB already answers like MongoDB.
-var filterValidationMatches = map[string]bool{
-	"Find_InNotArray":           true,
-	"Find_InsideOr":             true,
-	"Find_Valid":                true,
-	"Find_Valid_Empty":          true,
-	"Count_InNotArray":          true,
-	"Count_InsideOr":            true,
-	"Count_Valid":               true,
-	"Count_Valid_Empty":         true,
-	"Distinct_InNotArray":       true,
-	"Distinct_InsideOr":         true,
-	"Distinct_Valid":            true,
-	"Distinct_Valid_Empty":      true,
-	"Aggregate_InNotArray":      true,
-	"Aggregate_InsideOr":        true,
-	"Aggregate_Valid":           true,
-	"Aggregate_Valid_Empty":     true,
-	"Update_Valid":              true,
-	"Update_Valid_Empty":        true,
-	"Delete_InNotArray":         true,
-	"Delete_InsideOr":           true,
-	"Delete_Valid":              true,
-	"Delete_Valid_Empty":        true,
-	"FindAndModify_InNotArray":  true,
-	"FindAndModify_InsideOr":    true,
-	"FindAndModify_Valid":       true,
-	"FindAndModify_Valid_Empty": true,
-}
-
 func TestFilter_Validation(t *testing.T) {
 	filters := []struct {
 		name   string
@@ -145,13 +115,9 @@ func TestFilter_Validation(t *testing.T) {
 					if empty {
 						setup = func(context.Context, *mongo.Collection) error { return nil }
 					}
-					support := harness.DumboDBXFail
-					if filterValidationMatches[name] {
-						support = harness.DumboDBFull
-					}
 					harness.PairTest(t, harness.TestCase{
 						Name:    "Filter_Validation_" + name,
-						Support: support,
+						Support: harness.DumboDBFull,
 						Setup:   setup,
 						Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 							return cmd.run(ctx, col, f.filter)
