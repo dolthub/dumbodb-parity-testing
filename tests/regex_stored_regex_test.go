@@ -48,25 +48,24 @@ func storedRegexSetup(ctx context.Context, col *mongo.Collection) error {
 func TestFilter_RegexMatchesStoredRegex(t *testing.T) {
 	re := primitive.Regex{Pattern: "^ab", Options: ""}
 	for _, tc := range []struct {
-		name    string
-		filter  bson.D
-		support harness.DumboDBSupport
+		name   string
+		filter bson.D
 	}{
-		{"Bare", bson.D{{Key: "s", Value: re}}, harness.DumboDBXFail},
-		{"Operator", bson.D{{Key: "s", Value: bson.D{{Key: "$regex", Value: "^ab"}}}}, harness.DumboDBXFail},
-		{"OperatorRegexValue", bson.D{{Key: "s", Value: bson.D{{Key: "$regex", Value: re}}}}, harness.DumboDBXFail},
-		{"OtherOptions", bson.D{{Key: "s", Value: primitive.Regex{Pattern: "^ab", Options: "i"}}}, harness.DumboDBXFail},
-		{"In", bson.D{{Key: "s", Value: bson.D{{Key: "$in", Value: bson.A{re}}}}}, harness.DumboDBXFail},
-		{"Nin", bson.D{{Key: "s", Value: bson.D{{Key: "$nin", Value: bson.A{re}}}}}, harness.DumboDBXFail},
-		{"Not", bson.D{{Key: "s", Value: bson.D{{Key: "$not", Value: re}}}}, harness.DumboDBXFail},
-		{"All", bson.D{{Key: "s", Value: bson.D{{Key: "$all", Value: bson.A{re}}}}}, harness.DumboDBXFail},
-		{"Dotted", bson.D{{Key: "d.s", Value: re}}, harness.DumboDBFull},
-		{"ElemMatch", bson.D{{Key: "s", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$regex", Value: "^ab"}}}}}}, harness.DumboDBXFail},
+		{"Bare", bson.D{{Key: "s", Value: re}}},
+		{"Operator", bson.D{{Key: "s", Value: bson.D{{Key: "$regex", Value: "^ab"}}}}},
+		{"OperatorRegexValue", bson.D{{Key: "s", Value: bson.D{{Key: "$regex", Value: re}}}}},
+		{"OtherOptions", bson.D{{Key: "s", Value: primitive.Regex{Pattern: "^ab", Options: "i"}}}},
+		{"In", bson.D{{Key: "s", Value: bson.D{{Key: "$in", Value: bson.A{re}}}}}},
+		{"Nin", bson.D{{Key: "s", Value: bson.D{{Key: "$nin", Value: bson.A{re}}}}}},
+		{"Not", bson.D{{Key: "s", Value: bson.D{{Key: "$not", Value: re}}}}},
+		{"All", bson.D{{Key: "s", Value: bson.D{{Key: "$all", Value: bson.A{re}}}}}},
+		{"Dotted", bson.D{{Key: "d.s", Value: re}}},
+		{"ElemMatch", bson.D{{Key: "s", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$regex", Value: "^ab"}}}}}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "Filter_RegexMatchesStoredRegex_" + tc.name,
-				Support: tc.support,
+				Support: harness.DumboDBFull,
 				Setup:   storedRegexSetup,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}})
