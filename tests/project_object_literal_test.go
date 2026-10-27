@@ -20,6 +20,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
@@ -39,31 +40,74 @@ func projectObjectSetup(ctx context.Context, col *mongo.Collection) error {
 
 func TestProject_ObjectLiteral(t *testing.T) {
 	for _, tc := range []struct {
-		name    string
-		stage   string
-		spec    bson.D
-		support harness.DumboDBSupport
+		name  string
+		stage string
+		spec  bson.D
 	}{
-		{"Computed", "$project", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$literal", Value: int32(5)}}}, {Key: "b", Value: "$f"}}}}, harness.DumboDBXFail},
-		{"Constant", "$project", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: "x"}}}}, harness.DumboDBXFail},
-		{"Deep", "$project", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: bson.D{{Key: "b", Value: "$f"}}}}}}, harness.DumboDBXFail},
-		{"Inclusion", "$project", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: int32(1)}}}}, harness.DumboDBXFail},
-		{"InclusionAndComputed", "$project", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: true}, {Key: "c", Value: "$f"}}}}, harness.DumboDBXFail},
-		{"Exclusion", "$project", bson.D{{Key: "v", Value: bson.D{{Key: "z", Value: int32(0)}}}}, harness.DumboDBXFail},
-		{"Empty", "$project", bson.D{{Key: "v", Value: bson.D{}}}, harness.DumboDBFull},
-		{"AddFields", "$addFields", bson.D{{Key: "v", Value: bson.D{{Key: "b", Value: "$f"}}}}, harness.DumboDBXFail},
-		{"Set", "$set", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$add", Value: bson.A{int32(1), int32(1)}}}}}}}, harness.DumboDBXFail},
+		{"Computed", "$project", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$literal", Value: int32(5)}}}, {Key: "b", Value: "$f"}}}}},
+		{"Constant", "$project", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: "x"}}}}},
+		{"Deep", "$project", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: bson.D{{Key: "b", Value: "$f"}}}}}}},
+		{"Inclusion", "$project", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: int32(1)}}}}},
+		{"InclusionAndComputed", "$project", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: true}, {Key: "c", Value: "$f"}}}}},
+		{"Exclusion", "$project", bson.D{{Key: "v", Value: bson.D{{Key: "z", Value: int32(0)}}}}},
+		{"DottedComputed", "$project", bson.D{{Key: "v.a", Value: bson.D{{Key: "$literal", Value: int32(5)}}}, {Key: "v.b", Value: "$f"}}},
+		{"DottedDeep", "$project", bson.D{{Key: "v.a.b", Value: "$f"}}},
+		{"DottedInclusionAndComputed", "$project", bson.D{{Key: "v.a", Value: true}, {Key: "v.c", Value: "$f"}}},
+		{"DottedAndNested", "$project", bson.D{{Key: "v.a", Value: int32(1)}, {Key: "w", Value: bson.D{{Key: "x", Value: "$_id"}}}}},
+		{"WithTopLevelFields", "$project", bson.D{{Key: "f", Value: int32(1)}, {Key: "v", Value: bson.D{{Key: "b", Value: "$f"}}}, {Key: "t", Value: "$_id"}}},
+		{"ExcludeID", "$project", bson.D{{Key: "_id", Value: int32(0)}, {Key: "v", Value: bson.D{{Key: "b", Value: "$f"}}}}},
+		{"ComputedID", "$project", bson.D{{Key: "_id", Value: "$f"}, {Key: "v", Value: bson.D{{Key: "b", Value: "$_id"}}}}},
+		{"NestedExclusionDeep", "$project", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: false}, {Key: "z", Value: int32(0)}}}}},
+		{"DottedAddFields", "$addFields", bson.D{{Key: "v.b", Value: "$f"}}},
+		{"DottedSet", "$set", bson.D{{Key: "v.a", Value: bson.D{{Key: "$add", Value: bson.A{int32(1), int32(1)}}}}}},
+		{"AddFieldsArray", "$addFields", bson.D{{Key: "arr", Value: bson.A{"$_id", "$f", "lit"}}}},
+		{"AddFieldsNestedDeep", "$addFields", bson.D{{Key: "v", Value: bson.D{{Key: "n", Value: bson.D{{Key: "m", Value: "$_id"}}}}}}},
+		{"AddFieldsNestedLiteralNumber", "$addFields", bson.D{{Key: "v", Value: bson.D{{Key: "one", Value: int32(1)}, {Key: "no", Value: false}}}}},
+		{"AddFieldsNestedMissing", "$addFields", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: "$nope"}}}}},
+		{"Empty", "$project", bson.D{{Key: "v", Value: bson.D{}}}},
+		{"AddFields", "$addFields", bson.D{{Key: "v", Value: bson.D{{Key: "b", Value: "$f"}}}}},
+		{"Set", "$set", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$add", Value: bson.A{int32(1), int32(1)}}}}}}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "Project_ObjectLiteral_" + tc.name,
-				Support: tc.support,
+				Support: harness.DumboDBFull,
 				Setup:   projectObjectSetup,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					cursor, err := col.Aggregate(ctx, bson.A{
 						bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
 						bson.D{{Key: tc.stage, Value: tc.spec}},
 					})
+					if err != nil {
+						return nil, err
+					}
+					var results []bson.D
+					return results, cursor.All(ctx, &results)
+				},
+			})
+		})
+	}
+}
+
+func TestFind_ProjectionObjectLiteral(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		proj bson.D
+	}{
+		{"Nested", bson.D{{Key: "v", Value: bson.D{{Key: "b", Value: "$f"}}}}},
+		{"Dotted", bson.D{{Key: "v.b", Value: "$f"}}},
+		{"NestedInclusion", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: int32(1)}}}}},
+		{"NestedInclusionAndComputed", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: true}, {Key: "c", Value: "$f"}}}}},
+		{"NestedExclusion", bson.D{{Key: "v", Value: bson.D{{Key: "z", Value: int32(0)}}}}},
+		{"WithSlice", bson.D{{Key: "v", Value: bson.D{{Key: "$slice", Value: int32(1)}}}, {Key: "f", Value: int32(1)}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Find_ProjectionObjectLiteral_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup:   projectObjectSetup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					cursor, err := col.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(tc.proj))
 					if err != nil {
 						return nil, err
 					}
