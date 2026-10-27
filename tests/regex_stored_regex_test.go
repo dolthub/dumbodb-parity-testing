@@ -40,6 +40,7 @@ func storedRegexSetup(ctx context.Context, col *mongo.Collection) error {
 		bson.D{{Key: "_id", Value: int32(6)}, {Key: "s", Value: bson.A{"abc"}}},
 		bson.D{{Key: "_id", Value: int32(7)}, {Key: "s", Value: "abc"}},
 		bson.D{{Key: "_id", Value: int32(8)}, {Key: "d", Value: bson.A{bson.D{{Key: "s", Value: re}}}}},
+		bson.D{{Key: "_id", Value: int32(9)}, {Key: "s", Value: bson.A{bson.A{"abc"}}}},
 	})
 	return err
 }
@@ -60,7 +61,7 @@ func TestFilter_RegexMatchesStoredRegex(t *testing.T) {
 		{"Not", bson.D{{Key: "s", Value: bson.D{{Key: "$not", Value: re}}}}, harness.DumboDBXFail},
 		{"All", bson.D{{Key: "s", Value: bson.D{{Key: "$all", Value: bson.A{re}}}}}, harness.DumboDBXFail},
 		{"Dotted", bson.D{{Key: "d.s", Value: re}}, harness.DumboDBFull},
-		{"ElemMatch", bson.D{{Key: "s", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$regex", Value: "^ab"}}}}}}, harness.DumboDBFull},
+		{"ElemMatch", bson.D{{Key: "s", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$regex", Value: "^ab"}}}}}}, harness.DumboDBXFail},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
