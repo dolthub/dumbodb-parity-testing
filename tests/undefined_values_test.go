@@ -67,6 +67,8 @@ func TestUndefinedValues(t *testing.T) {
 		{"DottedEquality", undefinedFind(bson.D{{Key: "g.h", Value: undef}})},
 		{"InsideArrayEquality", undefinedFind(bson.D{{Key: "f", Value: bson.A{undef}}})},
 		{"InsideDocumentEquality", undefinedFind(bson.D{{Key: "f", Value: bson.D{{Key: "x", Value: undef}}}})},
+		{"NotEq", undefinedFind(bson.D{{Key: "f", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$eq", Value: undef}}}}}})},
+		{"AfterFailingOperator", undefinedFind(bson.D{{Key: "f", Value: bson.D{{Key: "$gt", Value: int32(100)}, {Key: "$eq", Value: undef}}}})},
 		{"ElemMatchValue", undefinedFind(bson.D{{Key: "f", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$eq", Value: undef}}}}}})},
 		{"Insert", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(10)}, {Key: "u", Value: undef}, {Key: "a", Value: bson.A{undef}}}); err != nil {
@@ -100,7 +102,7 @@ func TestUndefinedValues(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "UndefinedValues_" + tc.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   undefinedSetup,
 				Run:     tc.run,
 			})
