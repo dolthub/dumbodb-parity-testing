@@ -40,53 +40,18 @@ func insertAccumulatorExprDocs(ctx context.Context, col *mongo.Collection) error
 	return err
 }
 
-// accumulatorExprAlreadyMatching are the cases DumboDB matched before
-// accumulators evaluated arbitrary expressions (workspace-7kn).
-var accumulatorExprAlreadyMatching = map[string]bool{
-	"addToSet_Constant":                true,
-	"avg_Constant":                     true,
-	"avg_FieldPath":                    true,
-	"avg_Root":                         true,
-	"avg_Subdocument":                  true,
-	"first_Constant":                   true,
-	"first_FieldPath":                  true,
-	"first_Subdocument":                true,
-	"last_Constant":                    true,
-	"last_FieldPath":                   true,
-	"last_Subdocument":                 true,
-	"max_Constant":                     true,
-	"max_FieldPath":                    true,
-	"max_Subdocument":                  true,
-	"mergeObjects_MergeableExpression": true,
-	"mergeObjects_Subdocument":         true,
-	"min_Constant":                     true,
-	"min_FieldPath":                    true,
-	"min_Subdocument":                  true,
-	"push_Constant":                    true,
-	"push_MergeableExpression":         true,
-	"stdDevPop_Constant":               true,
-	"stdDevPop_FieldPath":              true,
-	"stdDevPop_Root":                   true,
-	"stdDevPop_Subdocument":            true,
-	"stdDevSamp_Constant":              true,
-	"stdDevSamp_FieldPath":             true,
-	"stdDevSamp_Root":                  true,
-	"stdDevSamp_Subdocument":           true,
-	"sum_Add":                          true,
-	"sum_ArrayExpression":              true,
-	"sum_CondNull":                     true,
-	"sum_Constant":                     true,
-	"sum_DateFromParts":                true,
-	"sum_DocumentLiteral":              true,
-	"sum_DocumentLiteralMissing":       true,
-	"sum_DocumentLiteralWithArray":     true,
-	"sum_FieldPath":                    true,
-	"sum_IfNullDefault":                true,
-	"sum_Literal":                      true,
-	"sum_MergeableExpression":          true,
-	"sum_Root":                         true,
-	"sum_Subdocument":                  true,
-	"sum_ToString":                     true}
+// accumulatorExprKnownDivergences are expressions that hit DumboDB gaps
+// outside the accumulators. Those marked numericOnly diverge only where the
+// accumulator returns the value itself, since $sum, $avg and the standard
+// deviations ignore non-numeric input.
+var accumulatorExprKnownDivergences = map[string]struct {
+	numericOnly bool
+	reason      string
+}{
+	"Nested":          {false, "$multiply over a nested missing value (workspace-bqk)"},
+	"ArrayExpression": {true, "$concatArrays does not evaluate array literals (workspace-r5f)"},
+	"Root":            {true, "stored field order is not preserved (field_order_test.go)"},
+}
 
 func TestAccumulatorOperatorExpressions(t *testing.T) {
 	expressions := []struct {
@@ -133,9 +98,12 @@ func TestAccumulatorOperatorExpressions(t *testing.T) {
 			pipeline = append(pipeline, bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}})
 
 			name := acc[1:] + "_" + e.name
-			support := harness.DumboDBXFail
-			if accumulatorExprAlreadyMatching[name] {
-				support = harness.DumboDBFull
+			support := harness.DumboDBFull
+			if d, ok := accumulatorExprKnownDivergences[e.name]; ok {
+				numeric := acc == "$sum" || acc == "$avg" || acc == "$stdDevPop" || acc == "$stdDevSamp"
+				if !d.numericOnly || !numeric {
+					support = harness.DumboDBXFail
+				}
 			}
 			t.Run(name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
