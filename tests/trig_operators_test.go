@@ -339,3 +339,30 @@ func TestTrig_InverseHyperbolic(t *testing.T) {
 		})
 	}
 }
+
+func TestTrig_AngleConversion(t *testing.T) {
+	for _, op := range []string{"$degreesToRadians", "$radiansToDegrees"} {
+		un := func(arg interface{}) bson.D { return bson.D{{Key: op, Value: arg}} }
+		t.Run(op[1:], func(t *testing.T) {
+			runUnaryMathOperator(t, op, harness.DumboDBXFail,
+				mathCase{"Int180", un(int32(180))},
+				mathCase{"IntNeg90", un(int32(-90))},
+				mathCase{"Long360", un(int64(360))},
+				mathCase{"DoubleNeg45", un(-45.0)},
+				mathCase{"DoublePi", un(math.Pi)},
+				mathCase{"DoubleHalfPi", un(math.Pi / 2)},
+				mathCase{"DoubleMax", un(math.MaxFloat64)},
+				mathCase{"DoubleNegMax", un(-math.MaxFloat64)},
+				mathCase{"DoubleSmallest", un(math.SmallestNonzeroFloat64)},
+				mathCase{"IntMax", un(int32(math.MaxInt32))},
+				mathCase{"LongMax", un(int64(math.MaxInt64))},
+				mathCase{"Decimal180", un(mustDecimal("180"))},
+				mathCase{"Decimal180TrailingZeros", un(mustDecimal("180.000"))},
+				mathCase{"DecimalPi", un(mustDecimal("3.141592653589793238462643383279503"))},
+				mathCase{"DecimalMax", un(mustDecimal("9.999999999999999999999999999999999E+6144"))},
+				mathCase{"DecimalMin", un(mustDecimal("1E-6176"))},
+				mathCase{"DecimalThird", un(mustDecimal("0.3333333333333333333333333333333333"))},
+			)
+		})
+	}
+}
