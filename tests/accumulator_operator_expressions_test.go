@@ -48,9 +48,7 @@ var accumulatorExprKnownDivergences = map[string]struct {
 	numericOnly bool
 	reason      string
 }{
-	"Nested":          {false, "$multiply over a nested missing value (workspace-bqk)"},
-	"ArrayExpression": {true, "$concatArrays does not evaluate array literals (workspace-r5f)"},
-	"Root":            {true, "stored field order is not preserved (field_order_test.go)"},
+	"Root": {true, "stored field order is not preserved (field_order_test.go)"},
 }
 
 func TestAccumulatorOperatorExpressions(t *testing.T) {

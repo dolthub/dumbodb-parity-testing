@@ -46,31 +46,6 @@ func insertMultiplyDocs(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
-// multiplyArrayLiteralAlreadyMatching are the cases DumboDB matched before
-// $multiply and array literals were fixed (workspace-bqk, workspace-r5f).
-var multiplyArrayLiteralAlreadyMatching = map[string]bool{
-	"ConcatEmpty":                  true,
-	"ConcatFields":                 true,
-	"ConcatMissingArgument":        true,
-	"ConcatNullArgument":           true,
-	"ConcatNullBeforeNonArray":     true,
-	"ConcatSingleField":            true,
-	"LiteralInProject":             true,
-	"LiteralSize":                  true,
-	"MultiplyDecimal":              true,
-	"MultiplyDouble":               true,
-	"MultiplyEmpty":                true,
-	"MultiplyInfinity":             true,
-	"MultiplyIntOverflowToLong":    true,
-	"MultiplyInts":                 true,
-	"MultiplyLongOverflowToDouble": true,
-	"MultiplyLongs":                true,
-	"MultiplyNaN":                  true,
-	"MultiplyNegativeZero":         true,
-	"MultiplyNestedMultiply":       true,
-	"MultiplyNestedValue":          true,
-	"MultiplySingleNonArray":       true}
-
 func TestMultiplyAndArrayLiterals(t *testing.T) {
 	mul := func(args ...interface{}) bson.D { return bson.D{{Key: "$multiply", Value: bson.A(args)}} }
 	add := func(args ...interface{}) bson.D { return bson.D{{Key: "$add", Value: bson.A(args)}} }
@@ -127,14 +102,10 @@ func TestMultiplyAndArrayLiterals(t *testing.T) {
 		{"LiteralInsideLiteralOperator", bson.D{{Key: "$literal", Value: bson.A{"$i"}}}},
 	}
 	for _, tc := range cases {
-		support := harness.DumboDBXFail
-		if multiplyArrayLiteralAlreadyMatching[tc.name] {
-			support = harness.DumboDBFull
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "MultiplyArrayLiteral_" + tc.name,
-				Support: support,
+				Support: harness.DumboDBFull,
 				Setup:   insertMultiplyDocs,
 				Run:     projectTyped(tc.expr),
 			})
