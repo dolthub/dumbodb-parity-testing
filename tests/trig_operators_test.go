@@ -271,3 +271,31 @@ func TestTrig_Atan2(t *testing.T) {
 	}
 	runMathCases(t, "Trig_atan2", harness.DumboDBFull, cases)
 }
+
+func TestTrig_Hyperbolic(t *testing.T) {
+	for _, op := range []string{"$sinh", "$cosh", "$tanh"} {
+		un := func(arg interface{}) bson.D { return bson.D{{Key: op, Value: arg}} }
+		t.Run(op[1:], func(t *testing.T) {
+			runUnaryMathOperator(t, op, harness.DumboDBXFail,
+				mathCase{"IntTwenty", un(int32(20))},
+				mathCase{"IntNegTwenty", un(int32(-20))},
+				mathCase{"DoubleSmall", un(1e-9)},
+				mathCase{"DoubleNearOverflow", un(710.0)},
+				mathCase{"DoubleOverflow", un(711.0)},
+				mathCase{"DoubleNegOverflow", un(-711.0)},
+				mathCase{"LongMax", un(int64(math.MaxInt64))},
+				mathCase{"DoubleThirtyThree", un(33.0)},
+				mathCase{"DecimalTwenty", un(mustDecimal("20"))},
+				mathCase{"DecimalNegForty", un(mustDecimal("-40"))},
+				mathCase{"DecimalNearOverflow", un(mustDecimal("14000"))},
+				mathCase{"DecimalOverflow", un(mustDecimal("15000"))},
+				mathCase{"DecimalNegOverflow", un(mustDecimal("-15000"))},
+				mathCase{"DecimalBinaryOverflow", un(mustDecimal("11400"))},
+				mathCase{"DecimalThirtyEightPointFive", un(mustDecimal("38.5"))},
+				mathCase{"DecimalSmall", un(mustDecimal("1E-20"))},
+				mathCase{"DecimalOneTrailingZeros", un(mustDecimal("1.0000"))},
+				mathCase{"DecimalNegNaN", un(mustDecimal("-NaN"))},
+			)
+		})
+	}
+}
