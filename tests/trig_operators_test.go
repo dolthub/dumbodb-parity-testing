@@ -299,3 +299,32 @@ func TestTrig_Hyperbolic(t *testing.T) {
 		})
 	}
 }
+
+func TestTrig_InverseHyperbolic(t *testing.T) {
+	for _, op := range []string{"$asinh", "$acosh", "$atanh"} {
+		un := func(arg interface{}) bson.D { return bson.D{{Key: op, Value: arg}} }
+		t.Run(op[1:], func(t *testing.T) {
+			runUnaryMathOperator(t, op, harness.DumboDBXFail,
+				mathCase{"DoubleOne", un(1.0)},
+				mathCase{"DoubleNegOne", un(-1.0)},
+				mathCase{"DoubleJustBelowOne", un(math.Nextafter(1, 0))},
+				mathCase{"DoubleJustAboveOne", un(math.Nextafter(1, 2))},
+				mathCase{"DoubleJustAboveNegOne", un(math.Nextafter(-1, 0))},
+				mathCase{"IntTwo", un(int32(2))},
+				mathCase{"LongNegTwo", un(int64(-2))},
+				mathCase{"DoubleOnePointFive", un(1.5)},
+				mathCase{"DoubleHuge", un(1e22)},
+				mathCase{"DoubleMax", un(math.MaxFloat64)},
+				mathCase{"DoubleNineTenths", un(0.9)},
+				mathCase{"DecimalNinesBelowOne", un(mustDecimal("0.9999999999999999999999999999999999"))},
+				mathCase{"DecimalJustAboveOne", un(mustDecimal("1.000000000000000000000000000000001"))},
+				mathCase{"DecimalNegOne", un(mustDecimal("-1"))},
+				mathCase{"DecimalOneTrailingZeros", un(mustDecimal("1.000"))},
+				mathCase{"DecimalTwo", un(mustDecimal("2"))},
+				mathCase{"DecimalHuge", un(mustDecimal("1E+6000"))},
+				mathCase{"DecimalNineTenths", un(mustDecimal("0.9"))},
+				mathCase{"DecimalThird", un(mustDecimal("0.3333333333333333333333333333333333"))},
+			)
+		})
+	}
+}
