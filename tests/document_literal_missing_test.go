@@ -38,72 +38,6 @@ func insertDocLiteralDocs(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
-// docLiteralMissingAlreadyMatching are the cases DumboDB matched before
-// document literals omitted missing fields (workspace-3xn).
-var docLiteralMissingAlreadyMatching = map[string]bool{
-	"GroupID_IfNullMissingLast":        true,
-	"GroupID_SwitchMissingDefault":     true,
-	"AddFields_ArrayWithMissing":       true,
-	"AddFields_Literal":                true,
-	"AddFields_MissingField":           true,
-	"AddFields_MissingSubpath":         true,
-	"AddFields_Nested":                 true,
-	"AddFields_NestedAllMissing":       true,
-	"AddFields_NullField":              true,
-	"AddFields_NullLiteral":            true,
-	"AddFields_OnlyMissing":            true,
-	"AddFields_OperatorOfMissing":      true,
-	"AddFields_Remove":                 true,
-	"ArrayElemAt_ArrayWithMissing":     true,
-	"ArrayElemAt_Literal":              true,
-	"ArrayElemAt_NullLiteral":          true,
-	"ArrayElemAt_OperatorOfMissing":    true,
-	"Cond_ArrayWithMissing":            true,
-	"Cond_Literal":                     true,
-	"Cond_NullLiteral":                 true,
-	"Cond_OperatorOfMissing":           true,
-	"FindProjection_ArrayWithMissing":  true,
-	"FindProjection_Literal":           true,
-	"FindProjection_NullLiteral":       true,
-	"FindProjection_OperatorOfMissing": true,
-	"GroupIDMultipleKeys":              true,
-	"GroupID_Literal":                  true,
-	"GroupID_MissingSubpath":           true,
-	"GroupID_Nested":                   true,
-	"GroupID_NestedAllMissing":         true,
-	"GroupID_NullField":                true,
-	"GroupID_NullLiteral":              true,
-	"GroupID_OnlyMissing":              true,
-	"GroupID_OperatorOfMissing":        true,
-	"GroupID_Remove":                   true,
-	"IfNull_ArrayWithMissing":          true,
-	"IfNull_Literal":                   true,
-	"IfNull_NullLiteral":               true,
-	"IfNull_OperatorOfMissing":         true,
-	"Let_ArrayWithMissing":             true,
-	"Let_Literal":                      true,
-	"Let_NullLiteral":                  true,
-	"Let_OperatorOfMissing":            true,
-	"MergeObjects_ArrayWithMissing":    true,
-	"MergeObjects_Literal":             true,
-	"MergeObjects_NullLiteral":         true,
-	"MergeObjects_OperatorOfMissing":   true,
-	"ProjectTopLevelMissing":           true,
-	"Project_ArrayWithMissing":         true,
-	"Project_Literal":                  true,
-	"Project_MissingField":             true,
-	"Project_MissingSubpath":           true,
-	"Project_Nested":                   true,
-	"Project_NestedAllMissing":         true,
-	"Project_NullField":                true,
-	"Project_NullLiteral":              true,
-	"Project_OnlyMissing":              true,
-	"Project_OperatorOfMissing":        true,
-	"Project_Remove":                   true,
-	"ReplaceRoot_Literal":              true,
-	"ReplaceRoot_NullLiteral":          true,
-	"ReplaceRoot_OperatorOfMissing":    true}
-
 func TestDocumentLiteralMissingFields(t *testing.T) {
 	removeIf := func(cond interface{}) bson.D {
 		return bson.D{{Key: "$cond", Value: bson.A{cond, "$i", "$$REMOVE"}}}
@@ -197,18 +131,11 @@ func TestDocumentLiteralMissingFields(t *testing.T) {
 		}},
 	)
 
-	support := func(name string) harness.DumboDBSupport {
-		if docLiteralMissingAlreadyMatching[name] {
-			return harness.DumboDBFull
-		}
-		return harness.DumboDBXFail
-	}
-
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "DocLiteralMissing_" + tc.name,
-				Support: support(tc.name),
+				Support: harness.DumboDBFull,
 				Setup:   insertDocLiteralDocs,
 				Run:     pipelineRunExtJSON(tc.pipeline),
 			})
@@ -219,7 +146,7 @@ func TestDocumentLiteralMissingFields(t *testing.T) {
 		t.Run("FindProjection_"+l.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "DocLiteralMissing_FindProjection_" + l.name,
-				Support: support("FindProjection_" + l.name),
+				Support: harness.DumboDBFull,
 				Setup:   insertDocLiteralDocs,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					opts := options.Find().SetProjection(bson.D{{Key: "r", Value: bson.D{{Key: "$ifNull", Value: bson.A{nil, l.doc}}}}}).SetSort(bson.D{{Key: "_id", Value: 1}})
