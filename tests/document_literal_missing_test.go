@@ -41,6 +41,8 @@ func insertDocLiteralDocs(ctx context.Context, col *mongo.Collection) error {
 // docLiteralMissingAlreadyMatching are the cases DumboDB matched before
 // document literals omitted missing fields (workspace-3xn).
 var docLiteralMissingAlreadyMatching = map[string]bool{
+	"GroupID_IfNullMissingLast":        true,
+	"GroupID_SwitchMissingDefault":     true,
 	"AddFields_ArrayWithMissing":       true,
 	"AddFields_Literal":                true,
 	"AddFields_MissingField":           true,
@@ -122,6 +124,14 @@ func TestDocumentLiteralMissingFields(t *testing.T) {
 		{"ArrayWithMissing", bson.D{{Key: "x", Value: bson.A{"$missing", "$i"}}}},
 		{"MissingSubpath", bson.D{{Key: "x", Value: "$o.q"}, {Key: "y", Value: "$o.p"}}},
 		{"Literal", bson.D{{Key: "x", Value: bson.D{{Key: "$literal", Value: "$missing"}}}}},
+		{"CondMissingBranch", bson.D{{Key: "x", Value: bson.D{{Key: "$cond", Value: bson.A{true, "$missing", int32(1)}}}}, {Key: "y", Value: "$i"}}},
+		{"SwitchMissingDefault", bson.D{{Key: "x", Value: bson.D{{Key: "$switch", Value: bson.D{
+			{Key: "branches", Value: bson.A{bson.D{{Key: "case", Value: false}, {Key: "then", Value: int32(1)}}}},
+			{Key: "default", Value: "$missing"},
+		}}}}}},
+		{"IfNullMissingLast", bson.D{{Key: "x", Value: bson.D{{Key: "$ifNull", Value: bson.A{nil, "$missing"}}}}}},
+		{"LetMissing", bson.D{{Key: "x", Value: bson.D{{Key: "$let", Value: bson.D{{Key: "vars", Value: bson.D{}}, {Key: "in", Value: "$missing"}}}}}}},
+		{"ArrayElemAtOutOfRange", bson.D{{Key: "x", Value: bson.D{{Key: "$arrayElemAt", Value: bson.A{bson.A{int32(1)}, int32(5)}}}}, {Key: "y", Value: int32(2)}}},
 	}
 	expressions := []struct {
 		name string
