@@ -27,7 +27,7 @@ import (
 
 // Date part operators. Each case is its own pair test, compared by BSON type
 // and exact value. The harness masks dates inside documents, so pipelines
-// compare them as milliseconds.
+// compare their results as extended JSON.
 
 func insertDatePartsDocs(ctx context.Context, col *mongo.Collection) error {
 	_, err := col.InsertMany(ctx, []interface{}{
@@ -191,7 +191,7 @@ func TestDateFromParts(t *testing.T) {
 	}{
 		{"AddFieldsAllDocs", bson.A{
 			bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
-			bson.D{{Key: "$addFields", Value: bson.D{{Key: "r", Value: bson.D{{Key: "$toLong", Value: dateFromParts(part("year", "$y"), part("month", "$m"), part("timezone", "$tz"))}}}}}},
+			bson.D{{Key: "$addFields", Value: bson.D{{Key: "r", Value: dateFromParts(part("year", "$y"), part("month", "$m"), part("timezone", "$tz"))}}}},
 			bson.D{{Key: "$project", Value: bson.D{{Key: "r", Value: 1}}}},
 		}},
 		{"MatchExpr", bson.A{
@@ -199,11 +199,12 @@ func TestDateFromParts(t *testing.T) {
 				dateFromParts(part("year", "$y"), part("month", "$m")),
 				dateFromParts(part("year", int32(2000)), part("month", int32(1))),
 			}}}}}}},
+			bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
 			bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: 1}}}},
 		}},
-		{"GroupMax", bson.A{
-			bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "r", Value: bson.D{{Key: "$max", Value: dateFromParts(part("year", "$y"), part("month", "$m"))}}}}}},
-			bson.D{{Key: "$project", Value: bson.D{{Key: "r", Value: bson.D{{Key: "$toLong", Value: "$r"}}}}}},
+		{"GroupKey", bson.A{
+			bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: dateFromParts(part("year", "$y"), part("month", "$m"))}, {Key: "n", Value: bson.D{{Key: "$sum", Value: 1}}}}}},
+			bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
 		}},
 	}
 	for _, p := range pipelines {
@@ -212,8 +213,28 @@ func TestDateFromParts(t *testing.T) {
 				Name:    "DateFromParts_" + p.name,
 				Support: harness.DumboDBXFail,
 				Setup:   insertDatePartsDocs,
-				Run:     pipelineRun(p.pipeline),
+				Run:     pipelineRunExtJSON(p.pipeline),
 			})
 		})
+	}
+}
+
+// pipelineRunExtJSON returns each result document as extended JSON, so dates
+// are compared by value rather than masked.
+func pipelineRunExtJSON(pipeline bson.A) func(context.Context, *mongo.Collection) (interface{}, error) {
+	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		cursor, err := col.Aggregate(ctx, pipeline)
+		if err != nil {
+			return errOutcome(err), nil
+		}
+		var docs []bson.Raw
+		if err = cursor.All(ctx, &docs); err != nil {
+			return errOutcome(err), nil
+		}
+		out := make([]string, len(docs))
+		for i, doc := range docs {
+			out[i] = doc.String()
+		}
+		return out, nil
 	}
 }
