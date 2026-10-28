@@ -180,3 +180,28 @@ func TestIndexPlanner_PartialImplication(t *testing.T) {
 		{"exists_not_implied", harness.DumboDBFull, bson.D{m}, nil},
 	})
 }
+
+// TestIndexPlanner_WideRange: a range matching most of the collection
+// (dolthub/dumbodb#139). A hint or a limit uses the index as mongod does;
+// without either DumboDB scans the collection instead, a deliberate cost
+// decision this test does not cover.
+func TestIndexPlanner_WideRange(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 0, 10000)
+		for i := 0; i < 10000; i++ {
+			docs = append(docs, bson.D{{Key: "_id", Value: int32(i)}, {Key: "g", Value: int32(i % 10)}})
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "g", Value: 1}}})
+		return err
+	}
+	wide := bson.D{{Key: "g", Value: bson.D{{Key: "$gte", Value: int32(1)}}}}
+	runPlannerCases(t, "IndexPlanner_WideRange", setup, []plannerCase{
+		{"narrow", harness.DumboDBFull, bson.D{{Key: "g", Value: int32(3)}}, nil},
+		{"hinted", harness.DumboDBXFail, wide, options.Find().SetHint(bson.D{{Key: "g", Value: 1}})},
+		{"limit", harness.DumboDBFull, wide, options.Find().SetLimit(5)},
+		{"in_limit", harness.DumboDBXFail, bson.D{{Key: "g", Value: bson.D{{Key: "$in", Value: bson.A{int32(2), int32(4), int32(6), int32(8)}}}}}, options.Find().SetLimit(5)},
+	})
+}
