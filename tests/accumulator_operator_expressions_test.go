@@ -48,7 +48,7 @@ var accumulatorExprKnownDivergences = map[string]struct {
 	numericOnly bool
 	reason      string
 }{
-	"Root": {true, "stored field order is not preserved (field_order_test.go)"},
+	"Root": {true, "stored field order is not preserved (workspace-7ob)"},
 }
 
 func TestAccumulatorOperatorExpressions(t *testing.T) {
