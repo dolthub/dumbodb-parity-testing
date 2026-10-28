@@ -16,6 +16,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -58,19 +59,19 @@ func storedFieldNames(ctx context.Context, col *mongo.Collection, filter interfa
 }
 
 func TestFieldOrder_StoredOrderIsObservable(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "field_order_stored_order_is_observable",
-		Support: harness.DumboDBXFail,
-		Setup: func(ctx context.Context, col *mongo.Collection) error {
+	fieldOrderDeviation(t, "field_order_stored_order_is_observable",
+		func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: 1}, {Key: "addr", Value: orderedPair()}})
 			return err
 		},
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return storedFieldNames(ctx, col, bson.D{{Key: "_id", Value: 1}})
 		},
-	})
+		"[b a]", "[a b]")
 }
 
+// DumboDB finds nothing here because the query document is compared in its
+// written order against the sorted stored one (workspace-2r6).
 func TestFieldOrder_WholeDocumentEqualityMatch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "field_order_whole_document_equality_match",
@@ -94,24 +95,22 @@ func TestFieldOrder_WholeDocumentEqualityMatch(t *testing.T) {
 }
 
 func TestFieldOrder_SortOnEmbeddedDocument(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "field_order_sort_on_embedded_document",
-		Support: harness.DumboDBXFail,
-		Setup: func(ctx context.Context, col *mongo.Collection) error {
+	fieldOrderDeviation(t, "field_order_sort_on_embedded_document",
+		func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: 1}, {Key: "addr", Value: bson.D{{Key: "b", Value: 1}, {Key: "a", Value: 9}}}},
 				bson.D{{Key: "_id", Value: 2}, {Key: "addr", Value: bson.D{{Key: "a", Value: 9}, {Key: "b", Value: 2}}}},
 			})
 			return err
 		},
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "addr", Value: 1}}))
 			if err != nil {
 				return nil, err
 			}
 			return collectIDs(ctx, cursor)
 		},
-	})
+		"[2 1]", "[1 2]")
 }
 
 func TestFieldOrder_IDsDifferingOnlyInOrderStayDistinct(t *testing.T) {
@@ -137,17 +136,15 @@ func TestFieldOrder_IDsDifferingOnlyInOrderStayDistinct(t *testing.T) {
 }
 
 func TestFieldOrder_GroupKeyIsEmbeddedDocument(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "field_order_group_key_is_embedded_document",
-		Support: harness.DumboDBXFail,
-		Setup: func(ctx context.Context, col *mongo.Collection) error {
+	fieldOrderDeviation(t, "field_order_group_key_is_embedded_document",
+		func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: 1}, {Key: "addr", Value: orderedPair()}},
 				bson.D{{Key: "_id", Value: 2}, {Key: "addr", Value: reversedPair()}},
 			})
 			return err
 		},
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, mongo.Pipeline{
 				bson.D{{Key: "$group", Value: bson.D{
 					{Key: "_id", Value: "$addr"},
@@ -170,42 +167,38 @@ func TestFieldOrder_GroupKeyIsEmbeddedDocument(t *testing.T) {
 			}
 			return []interface{}{results[0]["groups"]}, nil
 		},
-	})
+		"[2]", "[1]")
 }
 
 func TestFieldOrder_DistinctOverEmbeddedDocuments(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "field_order_distinct_over_embedded_documents",
-		Support: harness.DumboDBXFail,
-		Setup: func(ctx context.Context, col *mongo.Collection) error {
+	fieldOrderDeviation(t, "field_order_distinct_over_embedded_documents",
+		func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: 1}, {Key: "addr", Value: orderedPair()}},
 				bson.D{{Key: "_id", Value: 2}, {Key: "addr", Value: reversedPair()}},
 			})
 			return err
 		},
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			values, err := col.Distinct(ctx, "addr", bson.D{})
 			if err != nil {
 				return nil, err
 			}
 			return []interface{}{len(values)}, nil
 		},
-	})
+		"[2]", "[1]")
 }
 
 func TestFieldOrder_MinMaxOverEmbeddedDocuments(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "field_order_min_max_over_embedded_documents",
-		Support: harness.DumboDBXFail,
-		Setup: func(ctx context.Context, col *mongo.Collection) error {
+	fieldOrderDeviation(t, "field_order_min_max_over_embedded_documents",
+		func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: 1}, {Key: "addr", Value: bson.D{{Key: "b", Value: 1}, {Key: "a", Value: 9}}}},
 				bson.D{{Key: "_id", Value: 2}, {Key: "addr", Value: bson.D{{Key: "a", Value: 2}, {Key: "b", Value: 8}}}},
 			})
 			return err
 		},
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, mongo.Pipeline{
 				bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
 				bson.D{{Key: "$group", Value: bson.D{
@@ -246,14 +239,12 @@ func TestFieldOrder_MinMaxOverEmbeddedDocuments(t *testing.T) {
 			}
 			return out, nil
 		},
-	})
+		"[[a b] [b a]]", "[[a b] [a b]]")
 }
 
 func TestFieldOrder_IndexedSortOnEmbeddedDocument(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "field_order_indexed_sort_on_embedded_document",
-		Support: harness.DumboDBXFail,
-		Setup: func(ctx context.Context, col *mongo.Collection) error {
+	fieldOrderDeviation(t, "field_order_indexed_sort_on_embedded_document",
+		func(ctx context.Context, col *mongo.Collection) error {
 			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys: bson.D{{Key: "addr", Value: 1}},
 			}); err != nil {
@@ -265,7 +256,7 @@ func TestFieldOrder_IndexedSortOnEmbeddedDocument(t *testing.T) {
 			})
 			return err
 		},
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(ctx, bson.D{}, options.Find().
 				SetSort(bson.D{{Key: "addr", Value: 1}}).
 				SetHint(bson.D{{Key: "addr", Value: 1}}))
@@ -274,9 +265,10 @@ func TestFieldOrder_IndexedSortOnEmbeddedDocument(t *testing.T) {
 			}
 			return collectIDs(ctx, cursor)
 		},
-	})
+		"[2 1]", "[1 2]")
 }
 
+// DumboDB finds nothing here, as in WholeDocumentEqualityMatch (workspace-2r6).
 func TestFieldOrder_ArrayOfEmbeddedDocuments(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "field_order_array_of_embedded_documents",
@@ -296,6 +288,39 @@ func TestFieldOrder_ArrayOfEmbeddedDocuments(t *testing.T) {
 			}
 			return collectIDs(ctx, cursor)
 		},
+	})
+}
+
+// fieldOrderDeviation runs a case where DumboDB deliberately differs: it
+// stores documents with their keys sorted, which the history independence of
+// its prolly tree requires (workspace-7ob). Each server's result is checked
+// against its own expectation.
+func fieldOrderDeviation(t *testing.T, name string,
+	setup func(context.Context, *mongo.Collection) error,
+	run func(context.Context, *mongo.Collection) (interface{}, error),
+	mongoWant, dumboWant interface{},
+) {
+	expect := func(server string, want interface{}) func(*testing.T, interface{}, error) {
+		return func(t *testing.T, res interface{}, err error) {
+			if err != nil || fmt.Sprint(res) != fmt.Sprint(want) {
+				t.Errorf("%s: want %v, got %v (err %v)", server, want, res, err)
+			}
+		}
+	}
+	harness.AuthPairTest(t, harness.AuthCase{
+		Name:    name,
+		Support: harness.DumboDBDeviates,
+		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+			db := tgt.Admin.Database(tgt.NS)
+			defer func() { _ = db.Drop(ctx) }()
+			col := db.Collection("c")
+			if setup != nil {
+				tgt.Setup(setup(ctx, col))
+			}
+			return run(ctx, col)
+		},
+		MongoExpect: expect("mongo", mongoWant),
+		DumboExpect: expect("dumbodb", dumboWant),
 	})
 }
 

@@ -40,17 +40,6 @@ func insertAccumulatorExprDocs(ctx context.Context, col *mongo.Collection) error
 	return err
 }
 
-// accumulatorExprKnownDivergences are expressions that hit DumboDB gaps
-// outside the accumulators. Those marked numericOnly diverge only where the
-// accumulator returns the value itself, since $sum, $avg and the standard
-// deviations ignore non-numeric input.
-var accumulatorExprKnownDivergences = map[string]struct {
-	numericOnly bool
-	reason      string
-}{
-	"Root": {true, "stored field order is not preserved (workspace-7ob)"},
-}
-
 func TestAccumulatorOperatorExpressions(t *testing.T) {
 	expressions := []struct {
 		name string
@@ -96,19 +85,18 @@ func TestAccumulatorOperatorExpressions(t *testing.T) {
 			pipeline = append(pipeline, bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}})
 
 			name := acc[1:] + "_" + e.name
-			support := harness.DumboDBFull
-			if d, ok := accumulatorExprKnownDivergences[e.name]; ok {
-				numeric := acc == "$sum" || acc == "$avg" || acc == "$stdDevPop" || acc == "$stdDevSamp"
-				if !d.numericOnly || !numeric {
-					support = harness.DumboDBXFail
-				}
+			// $$ROOT is not about field order, which DumboDB deliberately does
+			// not keep (workspace-7ob), so it is compared with keys sorted.
+			run := pipelineRunExtJSON(pipeline)
+			if e.name == "Root" {
+				run = pipelineRunSortedKeys(pipeline)
 			}
 			t.Run(name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "AccumulatorExpr_" + name,
-					Support: support,
+					Support: harness.DumboDBFull,
 					Setup:   insertAccumulatorExprDocs,
-					Run:     pipelineRunExtJSON(pipeline),
+					Run:     run,
 				})
 			})
 		}
