@@ -81,6 +81,10 @@ func unaryMathInputs(op string) []mathCase {
 		{"DecimalNegZero", un(mustDecimal("-0"))},
 		{"DecimalPrecise", un(mustDecimal("0.1234567890123456789012345678901234"))},
 		{"DecimalLarge", un(mustDecimal("1E+30"))},
+		{"DecimalTiny", un(mustDecimal("1E-40"))},
+		{"DecimalNegTiny", un(mustDecimal("-7E-60"))},
+		{"DecimalSmall", un(mustDecimal("1.234E-37"))},
+		{"DecimalZeroSmallExponent", un(mustDecimal("0E-50"))},
 		{"DecimalNaN", un(mustDecimal("NaN"))},
 		{"DecimalPosInf", un(mustDecimal("Infinity"))},
 		{"DecimalNegInf", un(mustDecimal("-Infinity"))},
@@ -180,4 +184,90 @@ func TestTrig_SinCosTan(t *testing.T) {
 			)
 		})
 	}
+}
+
+func TestTrig_InverseSinCosTan(t *testing.T) {
+	for _, op := range []string{"$asin", "$acos", "$atan"} {
+		un := func(arg interface{}) bson.D { return bson.D{{Key: op, Value: arg}} }
+		t.Run(op[1:], func(t *testing.T) {
+			runUnaryMathOperator(t, op, harness.DumboDBXFail,
+				mathCase{"DoubleOne", un(1.0)},
+				mathCase{"DoubleNegOne", un(-1.0)},
+				mathCase{"DoubleJustBelowOne", un(math.Nextafter(1, 0))},
+				mathCase{"DoubleJustAboveOne", un(math.Nextafter(1, 2))},
+				mathCase{"DoubleJustBelowNegOne", un(math.Nextafter(-1, -2))},
+				mathCase{"IntTwo", un(int32(2))},
+				mathCase{"LongNegTwo", un(int64(-2))},
+				mathCase{"DoubleSqrtHalf", un(math.Sqrt2 / 2)},
+				mathCase{"DecimalNinesBelowOne", un(mustDecimal("0.9999999999999999999999999999999999"))},
+				mathCase{"DecimalJustAboveOne", un(mustDecimal("1.000000000000000000000000000000001"))},
+				mathCase{"DecimalNegOne", un(mustDecimal("-1"))},
+				mathCase{"DecimalOneTrailingZeros", un(mustDecimal("1.000"))},
+				mathCase{"DecimalThird", un(mustDecimal("0.3333333333333333333333333333333333"))},
+				mathCase{"DecimalTwo", un(mustDecimal("2"))},
+				mathCase{"DoubleHuge", un(1e22)},
+			)
+		})
+	}
+}
+
+func TestTrig_Atan2(t *testing.T) {
+	atan2 := func(y, x interface{}) bson.D { return bson.D{{Key: "$atan2", Value: bson.A{y, x}}} }
+	negZero := math.Copysign(0, -1)
+	cases := []mathCase{
+		{"IntInt", atan2(int32(1), int32(1))},
+		{"IntLong", atan2(int32(-1), int64(2))},
+		{"LongLong", atan2(int64(3), int64(-4))},
+		{"DoubleQuadrant1", atan2(0.5, 2.0)},
+		{"DoubleQuadrant2", atan2(0.5, -2.0)},
+		{"DoubleQuadrant3", atan2(-0.5, -2.0)},
+		{"DoubleQuadrant4", atan2(-0.5, 2.0)},
+		{"PosZeroPosZero", atan2(0.0, 0.0)},
+		{"PosZeroNegZero", atan2(0.0, negZero)},
+		{"NegZeroPosZero", atan2(negZero, 0.0)},
+		{"NegZeroNegZero", atan2(negZero, negZero)},
+		{"ZeroNegative", atan2(0.0, -1.0)},
+		{"PositiveZero", atan2(1.0, 0.0)},
+		{"NegativeZero", atan2(-1.0, 0.0)},
+		{"IntZeroIntZero", atan2(int32(0), int32(0))},
+		{"PosInfPosInf", atan2(math.Inf(1), math.Inf(1))},
+		{"PosInfNegInf", atan2(math.Inf(1), math.Inf(-1))},
+		{"NegInfFinite", atan2(math.Inf(-1), 1.0)},
+		{"FinitePosInf", atan2(1.0, math.Inf(1))},
+		{"FiniteNegInf", atan2(-1.0, math.Inf(-1))},
+		{"NaNY", atan2(math.NaN(), 1.0)},
+		{"NaNX", atan2(1.0, math.NaN())},
+		{"Tiny", atan2(1e-300, 1e300)},
+		{"DecimalDecimal", atan2(mustDecimal("1"), mustDecimal("3"))},
+		{"DecimalDouble", atan2(mustDecimal("0.5"), 2.0)},
+		{"DoubleDecimal", atan2(0.5, mustDecimal("-2"))},
+		{"DecimalInt", atan2(mustDecimal("-1"), int32(-1))},
+		{"DecimalZeros", atan2(mustDecimal("0"), mustDecimal("-0"))},
+		{"DecimalNegZeros", atan2(mustDecimal("-0"), mustDecimal("-0"))},
+		{"DecimalZeroOne", atan2(mustDecimal("0E-10"), mustDecimal("1"))},
+		{"DecimalInf", atan2(mustDecimal("Infinity"), mustDecimal("-Infinity"))},
+		{"DecimalNaN", atan2(mustDecimal("NaN"), mustDecimal("1"))},
+		{"DecimalTiny", atan2(mustDecimal("1E-40"), mustDecimal("1"))},
+		{"DecimalPrecise", atan2(mustDecimal("0.1234567890123456789012345678901234"), mustDecimal("0.9876543210987654321098765432109876"))},
+		{"DecimalHuge", atan2(mustDecimal("1E+6000"), mustDecimal("1E-6000"))},
+		{"Fields", atan2("$d", "$i")},
+		{"FieldDecimal", atan2("$dec", "$l")},
+		{"NullY", atan2(nil, 1.0)},
+		{"NullX", atan2(1.0, nil)},
+		{"MissingY", atan2("$missing", 1.0)},
+		{"MissingX", atan2(1.0, "$missing")},
+		{"NullBoth", atan2("$n", "$missing")},
+		{"StringY", atan2("x", 1.0)},
+		{"StringX", atan2(1.0, "x")},
+		{"StringBoth", atan2("$s", "$s")},
+		{"NullYStringX", atan2(nil, "x")},
+		{"StringYNullX", atan2("x", nil)},
+		{"BoolX", atan2(1.0, true)},
+		{"ArrayY", atan2(bson.A{1.0}, 1.0)},
+		{"NestedExpression", atan2(bson.D{{Key: "$add", Value: bson.A{int32(1), int32(2)}}}, bson.D{{Key: "$sqrt", Value: int32(2)}})},
+		{"OneArg", bson.D{{Key: "$atan2", Value: bson.A{1.0}}}},
+		{"ThreeArgs", bson.D{{Key: "$atan2", Value: bson.A{1.0, 1.0, 1.0}}}},
+		{"NonArrayArg", bson.D{{Key: "$atan2", Value: 1.0}}},
+	}
+	runMathCases(t, "Trig_atan2", harness.DumboDBXFail, cases)
 }
