@@ -764,7 +764,7 @@ func BenchmarkIndexUse_CollatedRange_10K(b *testing.B) {
 		return bson.D{{Key: "s", Value: bson.D{
 			{Key: "$gte", Value: fmt.Sprintf("s%05d", i)}, {Key: "$lt", Value: fmt.Sprintf("s%05d", i+50)},
 		}}}
-	}, nil, 0, mustUseIndex, "workspace-kl5: operator filters on a collated index field panic")
+	}, nil, 0, mustUseIndex, "")
 }
 
 func BenchmarkIndexUse_CollatedSortLimit_10K(b *testing.B) {
