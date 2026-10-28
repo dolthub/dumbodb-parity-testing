@@ -326,7 +326,7 @@ func TestDateFromString(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "DateFromString_" + tc.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   insertDateStringDocs,
 				Run:     projectTyped(tc.expr),
 			})
@@ -360,7 +360,7 @@ func TestDateFromString(t *testing.T) {
 		t.Run(p.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "DateFromString_" + p.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   insertDateStringDocs,
 				Run:     pipelineRunExtJSON(p.pipeline),
 			})
