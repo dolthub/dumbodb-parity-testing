@@ -140,7 +140,7 @@ func TestDateSubtract(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "DateSubtract_" + tc.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   setup,
 				Run:     projectTyped(tc.expr),
 			})
@@ -172,7 +172,7 @@ func TestDateSubtract(t *testing.T) {
 		t.Run(p.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "DateSubtract_" + p.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   setup,
 				Run:     pipelineRunExtJSON(p.pipeline),
 			})
