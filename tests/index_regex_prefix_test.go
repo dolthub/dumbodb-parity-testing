@@ -39,6 +39,7 @@ func regexPrefixSetup(ctx context.Context, col *mongo.Collection) error {
 		primitive.Regex{Pattern: "^s05"},
 		primitive.Regex{Pattern: "^s05", Options: "i"},
 		bson.A{"x", "s050x"},
+		bson.A{primitive.Regex{Pattern: "^s05"}},
 		"s05\x00z",
 		"S050",
 		"s05.",
