@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
@@ -90,6 +91,54 @@ func TestExpr_Accumulators(t *testing.T) {
 					}
 					pipeline = append(pipeline, bson.D{{Key: "$project", Value: bson.D{{Key: "v", Value: tc.expr}}}})
 					cursor, err := col.Aggregate(ctx, pipeline)
+					if err != nil {
+						return nil, err
+					}
+					var results []bson.D
+					return results, cursor.All(ctx, &results)
+				},
+			})
+		})
+	}
+}
+
+func TestExpr_AccumulatorsDecimalAndEmpty(t *testing.T) {
+	four, _ := primitive.ParseDecimal128("4")
+	one, _ := primitive.ParseDecimal128("1")
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		_, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: bson.A{four, int32(2)}}, {Key: "s", Value: bson.A{"x", bson.A{"y"}}}, {Key: "n", Value: nil}},
+			bson.D{{Key: "_id", Value: int32(2)}, {Key: "a", Value: bson.A{"x"}}, {Key: "s", Value: bson.A{}}},
+		})
+		return err
+	}
+	for _, tc := range []struct {
+		name string
+		expr interface{}
+	}{
+		{"StdDevPopDecimal", bson.D{{Key: "$stdDevPop", Value: "$a"}}},
+		{"MedianDecimal", bson.D{{Key: "$median", Value: bson.D{{Key: "input", Value: "$a"}, {Key: "method", Value: "approximate"}}}}},
+		{"MaxDecimal", bson.D{{Key: "$max", Value: "$a"}}},
+		{"MaxNDecimalN", bson.D{{Key: "$maxN", Value: bson.D{{Key: "n", Value: one}, {Key: "input", Value: "$a"}}}}},
+		{"PercentileNoNumericInput", bson.D{{Key: "$percentile", Value: bson.D{{Key: "input", Value: "$s"}, {Key: "p", Value: bson.A{0.5, 0.1}}, {Key: "method", Value: "approximate"}}}}},
+		{"MedianNoNumericInput", bson.D{{Key: "$median", Value: bson.D{{Key: "input", Value: "$s"}, {Key: "method", Value: "approximate"}}}}},
+		{"EqMissingNull", bson.D{{Key: "$eq", Value: bson.A{"$missing", nil}}}},
+		{"LtMissingNull", bson.D{{Key: "$lt", Value: bson.A{"$missing", nil}}}},
+		{"CmpMissingNull", bson.D{{Key: "$cmp", Value: bson.A{"$missing", nil}}}},
+		{"EqNullFieldNull", bson.D{{Key: "$eq", Value: bson.A{"$n", nil}}}},
+		{"LtMissingMinKey", bson.D{{Key: "$lt", Value: bson.A{"$missing", primitive.MinKey{}}}}},
+		{"EqMissingMissing", bson.D{{Key: "$eq", Value: bson.A{"$missing", "$other"}}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Expr_AccumulatorsDecimalAndEmpty_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					cursor, err := col.Aggregate(ctx, bson.A{
+						bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+						bson.D{{Key: "$project", Value: bson.D{{Key: "v", Value: tc.expr}}}},
+					})
 					if err != nil {
 						return nil, err
 					}

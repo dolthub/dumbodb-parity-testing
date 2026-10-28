@@ -64,6 +64,10 @@ func TestProject_ObjectLiteral(t *testing.T) {
 		{"AddFieldsNestedDeep", "$addFields", bson.D{{Key: "v", Value: bson.D{{Key: "n", Value: bson.D{{Key: "m", Value: "$_id"}}}}}}},
 		{"AddFieldsNestedLiteralNumber", "$addFields", bson.D{{Key: "v", Value: bson.D{{Key: "one", Value: int32(1)}, {Key: "no", Value: false}}}}},
 		{"AddFieldsNestedMissing", "$addFields", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: "$nope"}}}}},
+		{"PathCollisionPrefixFirst", "$project", bson.D{{Key: "v", Value: int32(1)}, {Key: "v.a", Value: int32(1)}}},
+		{"PathCollisionPrefixLast", "$project", bson.D{{Key: "v.a", Value: int32(1)}, {Key: "v", Value: int32(1)}}},
+		{"PathCollisionNestedAndDotted", "$project", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: int32(1)}}}, {Key: "v.a", Value: int32(1)}}},
+		{"PathCollisionComputed", "$project", bson.D{{Key: "v", Value: "$f"}, {Key: "v.a", Value: int32(1)}}},
 		{"Empty", "$project", bson.D{{Key: "v", Value: bson.D{}}}},
 		{"AddFields", "$addFields", bson.D{{Key: "v", Value: bson.D{{Key: "b", Value: "$f"}}}}},
 		{"Set", "$set", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$add", Value: bson.A{int32(1), int32(1)}}}}}}}},
@@ -99,6 +103,7 @@ func TestFind_ProjectionObjectLiteral(t *testing.T) {
 		{"NestedInclusion", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: int32(1)}}}}},
 		{"NestedInclusionAndComputed", bson.D{{Key: "v", Value: bson.D{{Key: "a", Value: true}, {Key: "c", Value: "$f"}}}}},
 		{"NestedExclusion", bson.D{{Key: "v", Value: bson.D{{Key: "z", Value: int32(0)}}}}},
+		{"PathCollision", bson.D{{Key: "v", Value: int32(1)}, {Key: "v.a", Value: int32(1)}}},
 		{"WithSlice", bson.D{{Key: "v", Value: bson.D{{Key: "$slice", Value: int32(1)}}}, {Key: "f", Value: int32(1)}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

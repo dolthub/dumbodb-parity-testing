@@ -60,6 +60,16 @@ func TestFilter_RegexMatchesStoredRegex(t *testing.T) {
 		{"Not", bson.D{{Key: "s", Value: bson.D{{Key: "$not", Value: re}}}}},
 		{"All", bson.D{{Key: "s", Value: bson.D{{Key: "$all", Value: bson.A{re}}}}}},
 		{"Dotted", bson.D{{Key: "d.s", Value: re}}},
+		{"ElemMatchInRegex", bson.D{{Key: "s", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$in", Value: bson.A{primitive.Regex{Pattern: "ab"}}}}}}}}},
+		{"ElemMatchNotRegex", bson.D{{Key: "s", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$not", Value: primitive.Regex{Pattern: "ab"}}}}}}}},
+		{"ElemMatchEqArray", bson.D{{Key: "s", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$eq", Value: bson.A{"abc"}}}}}}}},
+		{"ElemMatchInPlain", bson.D{{Key: "s", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$in", Value: bson.A{"abc"}}}}}}}},
+		{"ElemMatchNin", bson.D{{Key: "s", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$nin", Value: bson.A{"abc", "x"}}}}}}}},
+		{"ElemMatchAll", bson.D{{Key: "s", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$all", Value: bson.A{"abc"}}}}}}}},
+		{"ElemMatchNotIn", bson.D{{Key: "s", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$in", Value: bson.A{"abc"}}}}}}}}}},
+		{"ElemMatchSize", bson.D{{Key: "s", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$size", Value: int32(1)}}}}}}},
+		{"ElemMatchTypeArray", bson.D{{Key: "s", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$type", Value: "array"}}}}}}},
+		{"ElemMatchGteArray", bson.D{{Key: "s", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$gte", Value: bson.A{"a"}}}}}}}},
 		{"ElemMatch", bson.D{{Key: "s", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$regex", Value: "^ab"}}}}}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

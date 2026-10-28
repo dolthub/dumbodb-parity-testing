@@ -94,6 +94,13 @@ func TestFilter_Validation(t *testing.T) {
 			}
 			return bson.D{{Key: "deleted", Value: res.DeletedCount}}, nil
 		}},
+		{"BulkWriteUpdate", func(ctx context.Context, col *mongo.Collection, filter bson.D) (interface{}, error) {
+			return runBulkWriteOp(ctx, col, bson.D{{Key: "update", Value: int32(0)}, {Key: "filter", Value: filter},
+				{Key: "updateMods", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "u", Value: int32(1)}}}}}, {Key: "multi", Value: true}})
+		}},
+		{"BulkWriteDelete", func(ctx context.Context, col *mongo.Collection, filter bson.D) (interface{}, error) {
+			return runBulkWriteOp(ctx, col, bson.D{{Key: "delete", Value: int32(0)}, {Key: "filter", Value: filter}, {Key: "multi", Value: true}})
+		}},
 		{"FindAndModify", func(ctx context.Context, col *mongo.Collection, filter bson.D) (interface{}, error) {
 			var doc bson.D
 			err := col.FindOneAndUpdate(ctx, filter, bson.D{{Key: "$set", Value: bson.D{{Key: "u", Value: int32(1)}}}}).Decode(&doc)
@@ -127,4 +134,28 @@ func TestFilter_Validation(t *testing.T) {
 			}
 		}
 	}
+}
+
+// runBulkWriteOp runs one bulkWrite operation against col and returns the
+// counts and each result's status.
+func runBulkWriteOp(ctx context.Context, col *mongo.Collection, op bson.D) (interface{}, error) {
+	var res bson.M
+	err := col.Database().Client().Database("admin").RunCommand(ctx, bson.D{
+		{Key: "bulkWrite", Value: int32(1)},
+		{Key: "ops", Value: bson.A{op}},
+		{Key: "nsInfo", Value: bson.A{bson.D{{Key: "ns", Value: col.Database().Name() + "." + col.Name()}}}},
+	}).Decode(&res)
+	if err != nil {
+		return nil, err
+	}
+	var results bson.A
+	if cursor, ok := res["cursor"].(bson.M); ok {
+		if batch, ok := cursor["firstBatch"].(bson.A); ok {
+			for _, r := range batch {
+				m, _ := r.(bson.M)
+				results = append(results, bson.D{{Key: "ok", Value: m["ok"]}, {Key: "code", Value: m["code"]}, {Key: "n", Value: m["n"]}})
+			}
+		}
+	}
+	return bson.D{{Key: "nErrors", Value: res["nErrors"]}, {Key: "results", Value: results}}, nil
 }
