@@ -98,7 +98,7 @@ func TestDateToParts(t *testing.T) {
 		{"ArrayArgument", bson.D{{Key: "$dateToParts", Value: bson.A{bson.D{{Key: "date", Value: sample}}}}}},
 		{"NullArgument", bson.D{{Key: "$dateToParts", Value: nil}}},
 	}
-	runDateCases(t, "DateToParts", harness.DumboDBXFail, cases)
+	runDateCases(t, "DateToParts", harness.DumboDBFull, cases)
 
 	pipelines := []struct {
 		name     string
@@ -124,7 +124,7 @@ func TestDateToParts(t *testing.T) {
 		t.Run(p.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "DateToParts_" + p.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   insertDatePartsDocs,
 				Run:     pipelineRunExtJSON(p.pipeline),
 			})
