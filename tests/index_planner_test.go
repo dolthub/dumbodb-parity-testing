@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -103,5 +104,42 @@ func TestIndexPlanner_CompoundIn(t *testing.T) {
 		{"find_sort", harness.DumboDBFull, in, options.Find().SetSort(sortK)},
 		{"find_limit", harness.DumboDBXFail, in, options.Find().SetLimit(5)},
 		{"find_sort_limit", harness.DumboDBFull, in, options.Find().SetSort(sortK).SetLimit(5)},
+	})
+}
+
+// TestIndexPlanner_BoundShapes: null equality (dolthub/dumbodb#133), $exists
+// on a sparse index (#134) and an anchored regex prefix (#135) can each use an
+// index. Null on a sparse index cannot: the index omits documents missing the
+// field, which {field: null} matches.
+func TestIndexPlanner_BoundShapes(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 0, 10000)
+		for i := 0; i < 10000; i++ {
+			doc := bson.D{{Key: "_id", Value: int32(i)}, {Key: "s", Value: fmt.Sprintf("s%04d", i)}}
+			if i%10 == 0 {
+				doc = append(doc, bson.E{Key: "n", Value: nil}, bson.E{Key: "sp", Value: int32(i)})
+			} else {
+				doc = append(doc, bson.E{Key: "n", Value: int32(i)})
+			}
+			docs = append(docs, doc)
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateMany(ctx, []mongo.IndexModel{
+			{Keys: bson.D{{Key: "n", Value: 1}}},
+			{Keys: bson.D{{Key: "sp", Value: 1}}, Options: options.Index().SetSparse(true)},
+			{Keys: bson.D{{Key: "s", Value: 1}}},
+		})
+		return err
+	}
+	regex := bson.D{{Key: "s", Value: primitive.Regex{Pattern: "^s050"}}}
+	runPlannerCases(t, "IndexPlanner_BoundShapes", setup, []plannerCase{
+		{"null_eq", harness.DumboDBFull, bson.D{{Key: "n", Value: nil}}, nil},
+		{"null_eq_operator", harness.DumboDBFull, bson.D{{Key: "n", Value: bson.D{{Key: "$eq", Value: nil}}}}, nil},
+		{"null_on_sparse_index", harness.DumboDBFull, bson.D{{Key: "sp", Value: nil}}, nil},
+		{"exists_on_sparse_index", harness.DumboDBFull, bson.D{{Key: "sp", Value: bson.D{{Key: "$exists", Value: true}}}}, nil},
+		{"regex_prefix", harness.DumboDBFull, regex, nil},
+		{"regex_prefix_operator", harness.DumboDBFull, bson.D{{Key: "s", Value: bson.D{{Key: "$regex", Value: "^s050"}}}}, nil},
 	})
 }
