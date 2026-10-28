@@ -165,7 +165,7 @@ func TestTrig_SinCosTan(t *testing.T) {
 	for _, op := range []string{"$sin", "$cos", "$tan"} {
 		un := func(arg interface{}) bson.D { return bson.D{{Key: op, Value: arg}} }
 		t.Run(op[1:], func(t *testing.T) {
-			runUnaryMathOperator(t, op, harness.DumboDBXFail,
+			runUnaryMathOperator(t, op, harness.DumboDBFull,
 				mathCase{"Pi", un(math.Pi)},
 				mathCase{"HalfPi", un(math.Pi / 2)},
 				mathCase{"TwoPi", un(2 * math.Pi)},
