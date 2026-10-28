@@ -125,6 +125,12 @@ func runMathCases(t *testing.T, prefix string, support harness.DumboDBSupport, c
 
 // runMathContexts checks op over every document in $addFields, inside a
 // $match $expr, and under a $group accumulator.
+// sbeGroupDivergences are cases where MongoDB evaluates $group in its SBE
+// engine, whose out-of-bounds error code differs (workspace-tfj.16).
+var sbeGroupDivergences = map[string]bool{
+	"Trig_acosh_GroupSum": true,
+}
+
 func runMathContexts(t *testing.T, prefix, op string, support harness.DumboDBSupport) {
 	expr := bson.D{{Key: op, Value: "$d"}}
 	pipelines := []struct {
@@ -148,10 +154,15 @@ func runMathContexts(t *testing.T, prefix, op string, support harness.DumboDBSup
 		}},
 	}
 	for _, p := range pipelines {
+		name := prefix + "_" + p.name
+		caseSupport := support
+		if sbeGroupDivergences[name] {
+			caseSupport = harness.DumboDBXFail
+		}
 		t.Run(p.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
-				Name:    prefix + "_" + p.name,
-				Support: support,
+				Name:    name,
+				Support: caseSupport,
 				Setup:   insertTrigDocs,
 				Run:     pipelineRun(p.pipeline),
 			})
@@ -304,7 +315,7 @@ func TestTrig_InverseHyperbolic(t *testing.T) {
 	for _, op := range []string{"$asinh", "$acosh", "$atanh"} {
 		un := func(arg interface{}) bson.D { return bson.D{{Key: op, Value: arg}} }
 		t.Run(op[1:], func(t *testing.T) {
-			runUnaryMathOperator(t, op, harness.DumboDBXFail,
+			runUnaryMathOperator(t, op, harness.DumboDBFull,
 				mathCase{"DoubleOne", un(1.0)},
 				mathCase{"DoubleNegOne", un(-1.0)},
 				mathCase{"DoubleJustBelowOne", un(math.Nextafter(1, 0))},
