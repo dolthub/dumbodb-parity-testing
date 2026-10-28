@@ -276,7 +276,7 @@ func TestTrig_Hyperbolic(t *testing.T) {
 	for _, op := range []string{"$sinh", "$cosh", "$tanh"} {
 		un := func(arg interface{}) bson.D { return bson.D{{Key: op, Value: arg}} }
 		t.Run(op[1:], func(t *testing.T) {
-			runUnaryMathOperator(t, op, harness.DumboDBXFail,
+			runUnaryMathOperator(t, op, harness.DumboDBFull,
 				mathCase{"IntTwenty", un(int32(20))},
 				mathCase{"IntNegTwenty", un(int32(-20))},
 				mathCase{"DoubleSmall", un(1e-9)},
