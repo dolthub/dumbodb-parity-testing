@@ -344,7 +344,7 @@ func TestTrig_AngleConversion(t *testing.T) {
 	for _, op := range []string{"$degreesToRadians", "$radiansToDegrees"} {
 		un := func(arg interface{}) bson.D { return bson.D{{Key: op, Value: arg}} }
 		t.Run(op[1:], func(t *testing.T) {
-			runUnaryMathOperator(t, op, harness.DumboDBXFail,
+			runUnaryMathOperator(t, op, harness.DumboDBFull,
 				mathCase{"Int180", un(int32(180))},
 				mathCase{"IntNeg90", un(int32(-90))},
 				mathCase{"Long360", un(int64(360))},
