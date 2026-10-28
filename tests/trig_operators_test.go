@@ -190,7 +190,7 @@ func TestTrig_InverseSinCosTan(t *testing.T) {
 	for _, op := range []string{"$asin", "$acos", "$atan"} {
 		un := func(arg interface{}) bson.D { return bson.D{{Key: op, Value: arg}} }
 		t.Run(op[1:], func(t *testing.T) {
-			runUnaryMathOperator(t, op, harness.DumboDBXFail,
+			runUnaryMathOperator(t, op, harness.DumboDBFull,
 				mathCase{"DoubleOne", un(1.0)},
 				mathCase{"DoubleNegOne", un(-1.0)},
 				mathCase{"DoubleJustBelowOne", un(math.Nextafter(1, 0))},
@@ -269,5 +269,5 @@ func TestTrig_Atan2(t *testing.T) {
 		{"ThreeArgs", bson.D{{Key: "$atan2", Value: bson.A{1.0, 1.0, 1.0}}}},
 		{"NonArrayArg", bson.D{{Key: "$atan2", Value: 1.0}}},
 	}
-	runMathCases(t, "Trig_atan2", harness.DumboDBXFail, cases)
+	runMathCases(t, "Trig_atan2", harness.DumboDBFull, cases)
 }
