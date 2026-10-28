@@ -160,6 +160,7 @@ func TestDateSubtract(t *testing.T) {
 				subtract("$date", "year", int32(20)),
 				utc(2005, 1, 1, 0, 0, 0, 0),
 			}}}}}}},
+			bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
 			bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: 1}}}},
 		}},
 		{"GroupKey", bson.A{
