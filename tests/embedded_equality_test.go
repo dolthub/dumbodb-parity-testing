@@ -25,7 +25,8 @@ import (
 
 // Equality on embedded documents. MongoDB matches a document only in the
 // field order it was written; DumboDB stores keys sorted (workspace-7ob), so
-// it matches any order of the same fields.
+// it matches any order of the same fields. Array element equality is
+// workspace-9ew.
 
 func insertEmbeddedEqualityDocs(ctx context.Context, col *mongo.Collection) error {
 	ba := bson.D{{Key: "b", Value: int32(1)}, {Key: "a", Value: int32(2)}}
@@ -68,6 +69,8 @@ func TestEmbeddedDocumentEquality(t *testing.T) {
 		{"In", nil, embeddedEqualityIDs(bson.D{{Key: "addr", Value: op("$in", bson.A{ba, "y"})}}), "[1]", "[]"},
 		{"Nin", nil, embeddedEqualityIDs(bson.D{{Key: "addr", Value: op("$nin", bson.A{ba})}}), "[2 3 4]", "[1 2 3 4]"},
 		{"ArrayElement", nil, embeddedEqualityIDs(bson.D{{Key: "items", Value: ba}}), "[1]", "[]"},
+		{"EqArrayElement", nil, embeddedEqualityIDs(bson.D{{Key: "items", Value: op("$eq", ba)}}), "[1]", "[]"},
+		{"NeArrayElement", nil, embeddedEqualityIDs(bson.D{{Key: "items", Value: op("$ne", ba)}}), "[2 3 4]", "[1 2 3 4]"},
 		{"All", nil, embeddedEqualityIDs(bson.D{{Key: "items", Value: op("$all", bson.A{ba})}}), "[1]", "[]"},
 		{"ElemMatchEq", nil, embeddedEqualityIDs(bson.D{{Key: "items", Value: op("$elemMatch", op("$eq", ba))}}), "[1]", "[]"},
 		{"NestedPath", nil, embeddedEqualityIDs(bson.D{{Key: "o.p", Value: ba}}), "[1]", "[]"},
