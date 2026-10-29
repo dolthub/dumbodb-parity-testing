@@ -31,23 +31,6 @@ func insertTypeOperandDocs(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
-// typeOperandAlreadyMatching are the cases DumboDB matched before $type used
-// the shared operand evaluator (workspace-9nx).
-var typeOperandAlreadyMatching = map[string]bool{
-	"ArrayLiteralOfExpressions":   true,
-	"Current":                     true,
-	"DocumentLiteral":             true,
-	"FieldValueLooksLikePath":     true,
-	"Missing":                     true,
-	"NestedType":                  true,
-	"Null":                        true,
-	"OperatorResultLooksLikePath": true,
-	"Remove":                      true,
-	"Root":                        true,
-	"RootField":                   true,
-	"UnknownNestedOperator":       true,
-}
-
 // TestTypeOperand covers how $type evaluates its operand: variables, nested
 // expressions whose results look like field paths, array and document
 // literals, and the missing value.
@@ -78,14 +61,10 @@ func TestTypeOperand(t *testing.T) {
 		{"UnknownNestedOperator", typeOf(bson.D{{Key: "$nope", Value: int32(1)}})},
 	}
 	for _, tc := range cases {
-		support := harness.DumboDBXFail
-		if typeOperandAlreadyMatching[tc.name] {
-			support = harness.DumboDBFull
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "TypeOperand_" + tc.name,
-				Support: support,
+				Support: harness.DumboDBFull,
 				Setup:   insertTypeOperandDocs,
 				Run:     projectTyped(tc.expr),
 			})

@@ -91,7 +91,7 @@ func TestRand(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "Rand_" + tc.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   insertRandomDocs,
 				Run:     projectTyped(tc.expr),
 			})
@@ -134,42 +134,54 @@ func TestRand(t *testing.T) {
 		t.Run(p.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "Rand_" + p.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   insertRandomDocs,
 				Run:     pipelineRunExtJSON(p.pipeline),
 			})
 		})
 	}
 
-	t.Run("FindProjection", func(t *testing.T) {
-		harness.PairTest(t, harness.TestCase{
-			Name:    "Rand_FindProjection",
-			Support: harness.DumboDBXFail,
-			Setup:   insertRandomDocs,
-			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-				cursor, err := col.Find(ctx, bson.D{}, options.Find().SetProjection(bson.D{{Key: "ok", Value: inUnitInterval}}))
-				if err != nil {
-					return errOutcome(err), nil
-				}
-				var docs []bson.M
-				if err = cursor.All(ctx, &docs); err != nil {
-					return errOutcome(err), nil
-				}
-				ok := 0
-				for _, d := range docs {
-					if d["ok"] == true {
-						ok++
+	findProjections := []struct {
+		name       string
+		projection interface{}
+		want       interface{}
+		support    harness.DumboDBSupport
+	}{
+		// Find projections accept only a few operators in DumboDB (workspace-bcq).
+		{"FindProjection", inUnitInterval, true, harness.DumboDBXFail},
+		{"FindProjectionType", bson.D{{Key: "$type", Value: rand}}, "double", harness.DumboDBFull},
+	}
+	for _, fp := range findProjections {
+		t.Run(fp.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Rand_" + fp.name,
+				Support: fp.support,
+				Setup:   insertRandomDocs,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					cursor, err := col.Find(ctx, bson.D{}, options.Find().SetProjection(bson.D{{Key: "r", Value: fp.projection}}))
+					if err != nil {
+						return errOutcome(err), nil
 					}
-				}
-				return ok, nil
-			},
+					var docs []bson.M
+					if err = cursor.All(ctx, &docs); err != nil {
+						return errOutcome(err), nil
+					}
+					n := 0
+					for _, d := range docs {
+						if d["r"] == fp.want {
+							n++
+						}
+					}
+					return n, nil
+				},
+			})
 		})
-	})
+	}
 
 	t.Run("CollectionValidator", func(t *testing.T) {
 		harness.PairTest(t, harness.TestCase{
 			Name:    "Rand_CollectionValidator",
-			Support: harness.DumboDBXFail,
+			Support: harness.DumboDBFull,
 			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 				err := col.Database().CreateCollection(ctx, col.Name()+"_validated", options.CreateCollection().SetValidator(
 					bson.D{{Key: "$expr", Value: bson.D{{Key: "$lt", Value: bson.A{rand, int32(1)}}}}},
@@ -181,24 +193,6 @@ func TestRand(t *testing.T) {
 			},
 		})
 	})
-}
-
-// sampleRateAlreadyMatching are the cases DumboDB matched before $sampleRate
-// was implemented (workspace-x6i.14): its BadValue for an unknown operator
-// has the same code as MongoDB's validation errors.
-var sampleRateAlreadyMatching = map[string]bool{
-	"AggregateMatchInvalid": true,
-	"Bool":                  true,
-	"Document":              true,
-	"FieldLevel":            true,
-	"GreaterThanOne":        true,
-	"Infinity":              true,
-	"InsideElemMatch":       true,
-	"InsideNot":             true,
-	"NaN":                   true,
-	"Negative":              true,
-	"Null":                  true,
-	"String":                true,
 }
 
 func TestSampleRate(t *testing.T) {
@@ -266,14 +260,10 @@ func TestSampleRate(t *testing.T) {
 		}},
 	}
 	for _, tc := range cases {
-		support := harness.DumboDBXFail
-		if sampleRateAlreadyMatching[tc.name] {
-			support = harness.DumboDBFull
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "SampleRate_" + tc.name,
-				Support: support,
+				Support: harness.DumboDBFull,
 				Setup:   insertRandomDocs,
 				Run:     tc.run,
 			})
