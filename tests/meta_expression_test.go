@@ -53,12 +53,22 @@ var metaNames = []string{
 	"timeseriesBucketMinTime", "timeseriesBucketMaxTime", "vectorSearchScore",
 }
 
-// metaAlreadyMatching are the cases DumboDB matched before $meta was an
-// aggregation expression (workspace-x6i.17).
-var metaAlreadyMatching = map[string]bool{
-	"FindIndexKey":           true,
-	"FindSortKeyWithoutSort": true,
-	"FindTextScore":          true,
+// metaPending need document metadata DumboDB does not carry (workspace-gns).
+var metaPending = map[string]bool{
+	"Unavailable_indexKey":      true,
+	"UnavailableValue_indexKey": true,
+	"Unavailable_sortKey":       true,
+	"UnavailableValue_sortKey":  true,
+	"TextScoreAfterText":        true,
+	"TextScorePositive":         true,
+	"SortKeyAfterSort":          true,
+	"SortKeyCompound":           true,
+	"SortKeyAfterProject":       true,
+	"RandValAfterSample":        true,
+	"GeoNearDistance":           true,
+	"GeoNearPoint":              true,
+	"FindSortKey":               true,
+	"FindRecordId":              true,
 }
 
 func TestMetaExpression(t *testing.T) {
@@ -145,10 +155,14 @@ func TestMetaExpression(t *testing.T) {
 	)
 
 	for _, tc := range cases {
+		support := harness.DumboDBFull
+		if metaPending[tc.name] {
+			support = harness.DumboDBXFail
+		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "Meta_" + tc.name,
-				Support: harness.DumboDBXFail,
+				Support: support,
 				Setup:   insertMetaDocs,
 				Run:     pipelineRunExtJSON(tc.pipeline),
 			})
@@ -172,9 +186,9 @@ func TestMetaExpression(t *testing.T) {
 		{"FindSearchScore", bson.D{}, nil, bson.D{{Key: "r", Value: meta("searchScore")}}},
 	}
 	for _, fc := range findCases {
-		support := harness.DumboDBXFail
-		if metaAlreadyMatching[fc.name] {
-			support = harness.DumboDBFull
+		support := harness.DumboDBFull
+		if metaPending[fc.name] {
+			support = harness.DumboDBXFail
 		}
 		t.Run(fc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
