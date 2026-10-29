@@ -29,34 +29,6 @@ func addOf(args ...interface{}) bson.D {
 	return bson.D{{Key: "$add", Value: bson.A(args)}}
 }
 
-// addAlreadyMatching are the cases DumboDB matched before $add followed
-// MongoDB's AddState (workspace-bb0).
-var addAlreadyMatching = map[string]bool{
-	"DateNull":              true,
-	"DecimalPrecision":      true,
-	"DoubleInt":             true,
-	"Empty":                 true,
-	"Infinity":              true,
-	"IntDouble":             true,
-	"IntInt":                true,
-	"IntLong":               true,
-	"IntOverflowToLong":     true,
-	"LongDecimal":           true,
-	"LongDouble":            true,
-	"LongOverflowToDouble":  true,
-	"LongUnderflowToDouble": true,
-	"Missing":               true,
-	"NaN":                   true,
-	"NegativeZero":          true,
-	"Nested":                true,
-	"NullBeforeString":      true,
-	"NullField":             true,
-	"NullFirst":             true,
-	"NullLast":              true,
-	"SingleInt":             true,
-	"SingleNonArray":        true,
-}
-
 func TestAddOperator(t *testing.T) {
 	date := time.Date(2021, 7, 15, 13, 45, 30, 123e6, time.UTC)
 	preEpoch := primitive.DateTime(-1500)
@@ -136,14 +108,10 @@ func TestAddOperator(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		support := harness.DumboDBXFail
-		if addAlreadyMatching[tc.name] {
-			support = harness.DumboDBFull
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "Add_" + tc.name,
-				Support: support,
+				Support: harness.DumboDBFull,
 				Setup:   insertDatePartsDocs,
 				Run:     projectTyped(tc.expr),
 			})
@@ -171,14 +139,10 @@ func TestAddOperator(t *testing.T) {
 		}},
 	}
 	for _, p := range pipelines {
-		support := harness.DumboDBXFail
-		if addAlreadyMatching[p.name] {
-			support = harness.DumboDBFull
-		}
 		t.Run(p.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "Add_" + p.name,
-				Support: support,
+				Support: harness.DumboDBFull,
 				Setup:   insertDatePartsDocs,
 				Run:     pipelineRunExtJSON(p.pipeline),
 			})
