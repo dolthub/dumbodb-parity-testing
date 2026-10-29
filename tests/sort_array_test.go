@@ -166,7 +166,7 @@ func TestSortArray(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "SortArray_" + tc.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   insertSortArrayDocs,
 				Run:     projectTyped(tc.expr),
 			})
@@ -201,7 +201,7 @@ func TestSortArray(t *testing.T) {
 		t.Run(p.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "SortArray_" + p.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   insertSortArrayDocs,
 				Run:     pipelineRunExtJSON(p.pipeline),
 			})
