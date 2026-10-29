@@ -33,50 +33,6 @@ func add(start interface{}, unit string, amount interface{}, extra ...bson.E) bs
 	return dateAdd(append([]bson.E{part("startDate", start), part("unit", unit), part("amount", amount)}, extra...)...)
 }
 
-// dateAddAlreadyMatching are the cases DumboDB matched before $dateAdd used
-// MongoDB's dateAdd (workspace-0ym.13).
-var dateAddAlreadyMatching = map[string]bool{
-	"AddFieldsAllDocs":         true,
-	"AddThenSubtract":          true,
-	"AmountDouble":             true,
-	"AmountLong":               true,
-	"AmountNegativeDouble":     true,
-	"Day":                      true,
-	"Day28PlusMonth":           true,
-	"GroupKey":                 true,
-	"Hour":                     true,
-	"LargeDays":                true,
-	"LeapDayPlusFourYears":     true,
-	"MatchExpr":                true,
-	"Millisecond":              true,
-	"Minute":                   true,
-	"NegativeAmount":           true,
-	"ResultFarFuture":          true,
-	"ResultFarPast":            true,
-	"Second":                   true,
-	"StartField":               true,
-	"StartMissing":             true,
-	"StartNull":                true,
-	"StartPreEpochMillisMs":    true,
-	"StartYearOne":             true,
-	"TzDay":                    true,
-	"TzDayAcrossDSTEnd":        true,
-	"TzDayAcrossDSTStart":      true,
-	"TzDayIntoDSTGap":          true,
-	"TzField":                  true,
-	"TzHourAcrossDSTEnd":       true,
-	"TzMillisecondDST":         true,
-	"TzMinuteAcrossDSTStart":   true,
-	"TzMonthEndLocal":          true,
-	"TzNegativeOffsetMonthEnd": true,
-	"TzOffsetHour":             true,
-	"TzYearLocalLeapDay":       true,
-	"UnitInvalidStartNull":     true,
-	"Week":                     true,
-	"Year":                     true,
-	"ZeroAmount":               true,
-}
-
 func TestDateAdd(t *testing.T) {
 	utc := func(y int, m time.Month, d, h, mi, s, ms int) time.Time {
 		return time.Date(y, m, d, h, mi, s, ms*1e6, time.UTC)
@@ -193,14 +149,10 @@ func TestDateAdd(t *testing.T) {
 
 	setup := insertDatePartsDocs
 	for _, tc := range cases {
-		support := harness.DumboDBXFail
-		if dateAddAlreadyMatching[tc.name] {
-			support = harness.DumboDBFull
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "DateAdd_" + tc.name,
-				Support: support,
+				Support: harness.DumboDBFull,
 				Setup:   setup,
 				Run:     projectTyped(tc.expr),
 			})
@@ -233,14 +185,10 @@ func TestDateAdd(t *testing.T) {
 		}},
 	}
 	for _, p := range pipelines {
-		support := harness.DumboDBXFail
-		if dateAddAlreadyMatching[p.name] {
-			support = harness.DumboDBFull
-		}
 		t.Run(p.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "DateAdd_" + p.name,
-				Support: support,
+				Support: harness.DumboDBFull,
 				Setup:   setup,
 				Run:     pipelineRunExtJSON(p.pipeline),
 			})
