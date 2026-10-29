@@ -90,7 +90,7 @@ func TestMetaExpression(t *testing.T) {
 		pipelineCase{"WrongCase", bson.A{project(meta("TextScore"))}},
 		pipelineCase{"Score", bson.A{project(meta("score"))}},
 		pipelineCase{"ScoreDetails", bson.A{project(meta("scoreDetails"))}},
-		pipelineCase{"Nested", bson.A{project(bson.D{{Key: "$ifNull", Value: bson.A{meta("searchScore"), "none"}}})}},
+		pipelineCase{"Nested", bson.A{sorted, project(bson.D{{Key: "$ifNull", Value: bson.A{meta("searchScore"), "none"}}})}},
 		pipelineCase{"InAddFields", bson.A{sorted, bson.D{{Key: "$addFields", Value: bson.D{{Key: "r", Value: typeOf(meta("searchScore"))}}}}, project("$r")}},
 		pipelineCase{"InGroup", bson.A{bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "r", Value: bson.D{{Key: "$push", Value: typeOf(meta("searchScore"))}}}}}}}},
 		pipelineCase{"InMatchExpr", bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{typeOf(meta("searchScore")), "missing"}}}}}}}, bson.D{{Key: "$count", Value: "n"}}}},
