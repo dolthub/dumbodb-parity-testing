@@ -70,20 +70,16 @@ func TestFieldOrder_StoredOrderIsObservable(t *testing.T) {
 		"[b a]", "[a b]")
 }
 
-// DumboDB finds nothing here because the query document is compared in its
-// written order against the sorted stored one (workspace-2r6).
 func TestFieldOrder_WholeDocumentEqualityMatch(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "field_order_whole_document_equality_match",
-		Support: harness.DumboDBXFail,
-		Setup: func(ctx context.Context, col *mongo.Collection) error {
+	fieldOrderDeviation(t, "field_order_whole_document_equality_match",
+		func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: 1}, {Key: "addr", Value: orderedPair()}},
 				bson.D{{Key: "_id", Value: 2}, {Key: "addr", Value: reversedPair()}},
 			})
 			return err
 		},
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(ctx, bson.D{{Key: "addr", Value: orderedPair()}},
 				options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
 			if err != nil {
@@ -91,7 +87,7 @@ func TestFieldOrder_WholeDocumentEqualityMatch(t *testing.T) {
 			}
 			return collectIDs(ctx, cursor)
 		},
-	})
+		"[1]", "[1 2]")
 }
 
 func TestFieldOrder_SortOnEmbeddedDocument(t *testing.T) {
@@ -268,19 +264,16 @@ func TestFieldOrder_IndexedSortOnEmbeddedDocument(t *testing.T) {
 		"[2 1]", "[1 2]")
 }
 
-// DumboDB finds nothing here, as in WholeDocumentEqualityMatch (workspace-2r6).
 func TestFieldOrder_ArrayOfEmbeddedDocuments(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "field_order_array_of_embedded_documents",
-		Support: harness.DumboDBXFail,
-		Setup: func(ctx context.Context, col *mongo.Collection) error {
+	fieldOrderDeviation(t, "field_order_array_of_embedded_documents",
+		func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: 1}, {Key: "items", Value: bson.A{orderedPair()}}},
 				bson.D{{Key: "_id", Value: 2}, {Key: "items", Value: bson.A{reversedPair()}}},
 			})
 			return err
 		},
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Find(ctx, bson.D{{Key: "items", Value: orderedPair()}},
 				options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
 			if err != nil {
@@ -288,7 +281,7 @@ func TestFieldOrder_ArrayOfEmbeddedDocuments(t *testing.T) {
 			}
 			return collectIDs(ctx, cursor)
 		},
-	})
+		"[1]", "[1 2]")
 }
 
 // fieldOrderDeviation runs a case where DumboDB deliberately differs: it

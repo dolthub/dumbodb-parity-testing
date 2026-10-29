@@ -25,8 +25,7 @@ import (
 
 // Equality on embedded documents. MongoDB matches a document only in the
 // field order it was written; DumboDB stores keys sorted (workspace-7ob), so
-// it matches any order of the same fields. Array element equality is
-// workspace-9ew.
+// it matches any order of the same fields.
 
 func insertEmbeddedEqualityDocs(ctx context.Context, col *mongo.Collection) error {
 	ba := bson.D{{Key: "b", Value: int32(1)}, {Key: "a", Value: int32(2)}}
@@ -62,25 +61,25 @@ func TestEmbeddedDocumentEquality(t *testing.T) {
 		mongoWant string
 		dumboWant string
 	}{
-		{"Implicit", nil, embeddedEqualityIDs(bson.D{{Key: "addr", Value: ba}}), "[1]", "[]"},
+		{"Implicit", nil, embeddedEqualityIDs(bson.D{{Key: "addr", Value: ba}}), "[1]", "[1 2]"},
 		{"ImplicitSortedOrder", nil, embeddedEqualityIDs(bson.D{{Key: "addr", Value: ab}}), "[2]", "[1 2]"},
-		{"Eq", nil, embeddedEqualityIDs(bson.D{{Key: "addr", Value: op("$eq", ba)}}), "[1]", "[]"},
-		{"Ne", nil, embeddedEqualityIDs(bson.D{{Key: "addr", Value: op("$ne", ba)}}), "[2 3 4]", "[1 2 3 4]"},
-		{"In", nil, embeddedEqualityIDs(bson.D{{Key: "addr", Value: op("$in", bson.A{ba, "y"})}}), "[1]", "[]"},
-		{"Nin", nil, embeddedEqualityIDs(bson.D{{Key: "addr", Value: op("$nin", bson.A{ba})}}), "[2 3 4]", "[1 2 3 4]"},
-		{"ArrayElement", nil, embeddedEqualityIDs(bson.D{{Key: "items", Value: ba}}), "[1]", "[]"},
-		{"EqArrayElement", nil, embeddedEqualityIDs(bson.D{{Key: "items", Value: op("$eq", ba)}}), "[1]", "[]"},
-		{"NeArrayElement", nil, embeddedEqualityIDs(bson.D{{Key: "items", Value: op("$ne", ba)}}), "[2 3 4]", "[1 2 3 4]"},
-		{"All", nil, embeddedEqualityIDs(bson.D{{Key: "items", Value: op("$all", bson.A{ba})}}), "[1]", "[]"},
-		{"ElemMatchEq", nil, embeddedEqualityIDs(bson.D{{Key: "items", Value: op("$elemMatch", op("$eq", ba))}}), "[1]", "[]"},
-		{"NestedPath", nil, embeddedEqualityIDs(bson.D{{Key: "o.p", Value: ba}}), "[1]", "[]"},
-		{"NestedLiteral", nil, embeddedEqualityIDs(bson.D{{Key: "o", Value: bson.D{{Key: "p", Value: ba}}}}), "[1]", "[]"},
-		{"Or", nil, embeddedEqualityIDs(bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "addr", Value: ba}}, bson.D{{Key: "_id", Value: int32(4)}}}}}), "[1 4]", "[4]"},
+		{"Eq", nil, embeddedEqualityIDs(bson.D{{Key: "addr", Value: op("$eq", ba)}}), "[1]", "[1 2]"},
+		{"Ne", nil, embeddedEqualityIDs(bson.D{{Key: "addr", Value: op("$ne", ba)}}), "[2 3 4]", "[3 4]"},
+		{"In", nil, embeddedEqualityIDs(bson.D{{Key: "addr", Value: op("$in", bson.A{ba, "y"})}}), "[1]", "[1 2]"},
+		{"Nin", nil, embeddedEqualityIDs(bson.D{{Key: "addr", Value: op("$nin", bson.A{ba})}}), "[2 3 4]", "[3 4]"},
+		{"ArrayElement", nil, embeddedEqualityIDs(bson.D{{Key: "items", Value: ba}}), "[1]", "[1 2]"},
+		{"EqArrayElement", nil, embeddedEqualityIDs(bson.D{{Key: "items", Value: op("$eq", ba)}}), "[1]", "[1 2]"},
+		{"NeArrayElement", nil, embeddedEqualityIDs(bson.D{{Key: "items", Value: op("$ne", ba)}}), "[2 3 4]", "[3 4]"},
+		{"All", nil, embeddedEqualityIDs(bson.D{{Key: "items", Value: op("$all", bson.A{ba})}}), "[1]", "[1 2]"},
+		{"ElemMatchEq", nil, embeddedEqualityIDs(bson.D{{Key: "items", Value: op("$elemMatch", op("$eq", ba))}}), "[1]", "[1 2]"},
+		{"NestedPath", nil, embeddedEqualityIDs(bson.D{{Key: "o.p", Value: ba}}), "[1]", "[1 2]"},
+		{"NestedLiteral", nil, embeddedEqualityIDs(bson.D{{Key: "o", Value: bson.D{{Key: "p", Value: ba}}}}), "[1]", "[1 2]"},
+		{"Or", nil, embeddedEqualityIDs(bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "addr", Value: ba}}, bson.D{{Key: "_id", Value: int32(4)}}}}}), "[1 4]", "[1 2 4]"},
 		{"Indexed", func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "addr", Value: 1}}})
 			return err
-		}, embeddedEqualityIDs(bson.D{{Key: "addr", Value: ba}}), "[1]", "[]"},
-		{"Expr", nil, embeddedEqualityIDs(bson.D{{Key: "$expr", Value: op("$eq", bson.A{"$addr", op("$literal", ba)})}}), "[1]", "[]"},
+		}, embeddedEqualityIDs(bson.D{{Key: "addr", Value: ba}}), "[1]", "[1 2]"},
+		{"Expr", nil, embeddedEqualityIDs(bson.D{{Key: "$expr", Value: op("$eq", bson.A{"$addr", op("$literal", ba)})}}), "[1]", "[1 2]"},
 		{"Aggregate", nil, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{
 				bson.D{{Key: "$match", Value: bson.D{{Key: "addr", Value: ba}}}},
@@ -90,27 +89,27 @@ func TestEmbeddedDocumentEquality(t *testing.T) {
 				return nil, err
 			}
 			return collectIDs(ctx, cursor)
-		}, "[1]", "[]"},
+		}, "[1]", "[1 2]"},
 		{"Count", nil, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return col.CountDocuments(ctx, bson.D{{Key: "addr", Value: ba}})
-		}, "1", "0"},
+		}, "1", "2"},
 		{"DistinctFilter", nil, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return col.Distinct(ctx, "_id", bson.D{{Key: "addr", Value: ba}})
-		}, "[1]", "[]"},
+		}, "[1]", "[1 2]"},
 		{"Update", nil, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.UpdateMany(ctx, bson.D{{Key: "addr", Value: ba}}, bson.D{{Key: "$set", Value: bson.D{{Key: "hit", Value: true}}}})
 			if err != nil {
 				return nil, err
 			}
 			return res.MatchedCount, nil
-		}, "1", "0"},
+		}, "1", "2"},
 		{"Delete", nil, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			res, err := col.DeleteMany(ctx, bson.D{{Key: "addr", Value: ba}})
 			if err != nil {
 				return nil, err
 			}
 			return res.DeletedCount, nil
-		}, "1", "0"},
+		}, "1", "2"},
 		{"IDStaysExact", func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: ba}})
 			return err
