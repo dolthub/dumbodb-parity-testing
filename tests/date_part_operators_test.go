@@ -244,7 +244,10 @@ func TestDatePartOperators(t *testing.T) {
 		{"FieldPath", "$date"},
 		{"SingleElementArray", bson.A{sample}},
 		{"ObjectForm", bson.D{{Key: "date", Value: sample}}},
-		{"Expression", bson.D{{Key: "$add", Value: bson.A{sample, int64(86400000)}}}},
+		// Not $add, which does not yet accept dates (workspace-bb0).
+		{"Expression", bson.D{{Key: "$dateSubtract", Value: bson.D{
+			{Key: "startDate", Value: sample}, {Key: "unit", Value: "day"}, {Key: "amount", Value: int32(-1)},
+		}}}},
 		{"TimezoneOlson", withTZ(sample, "America/New_York")},
 		{"TimezoneOffset", withTZ(sample, "+05:30")},
 		{"TimezoneNegativeOffset", withTZ(sample, "-0230")},
