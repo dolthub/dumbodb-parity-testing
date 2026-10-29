@@ -83,8 +83,7 @@ func runPlannerCases(t *testing.T, prefix string, setup func(context.Context, *m
 }
 
 // TestIndexPlanner_CompoundIn: $in on the leading field of a compound index
-// (dolthub/dumbodb#131). A limit without a sort still fetches every match
-// until index ranges stream (#139, #140).
+// (dolthub/dumbodb#131).
 func TestIndexPlanner_CompoundIn(t *testing.T) {
 	setup := func(ctx context.Context, col *mongo.Collection) error {
 		docs := make([]interface{}, 0, 10000)
@@ -102,7 +101,7 @@ func TestIndexPlanner_CompoundIn(t *testing.T) {
 	runPlannerCases(t, "IndexPlanner_CompoundIn", setup, []plannerCase{
 		{"find", harness.DumboDBFull, in, nil},
 		{"find_sort", harness.DumboDBFull, in, options.Find().SetSort(sortK)},
-		{"find_limit", harness.DumboDBXFail, in, options.Find().SetLimit(5)},
+		{"find_limit", harness.DumboDBFull, in, options.Find().SetLimit(5)},
 		{"find_sort_limit", harness.DumboDBFull, in, options.Find().SetSort(sortK).SetLimit(5)},
 	})
 }
@@ -200,8 +199,8 @@ func TestIndexPlanner_WideRange(t *testing.T) {
 	wide := bson.D{{Key: "g", Value: bson.D{{Key: "$gte", Value: int32(1)}}}}
 	runPlannerCases(t, "IndexPlanner_WideRange", setup, []plannerCase{
 		{"narrow", harness.DumboDBFull, bson.D{{Key: "g", Value: int32(3)}}, nil},
-		{"hinted", harness.DumboDBXFail, wide, options.Find().SetHint(bson.D{{Key: "g", Value: 1}})},
+		{"hinted", harness.DumboDBFull, wide, options.Find().SetHint(bson.D{{Key: "g", Value: 1}})},
 		{"limit", harness.DumboDBFull, wide, options.Find().SetLimit(5)},
-		{"in_limit", harness.DumboDBXFail, bson.D{{Key: "g", Value: bson.D{{Key: "$in", Value: bson.A{int32(2), int32(4), int32(6), int32(8)}}}}}, options.Find().SetLimit(5)},
+		{"in_limit", harness.DumboDBFull, bson.D{{Key: "g", Value: bson.D{{Key: "$in", Value: bson.A{int32(2), int32(4), int32(6), int32(8)}}}}}, options.Find().SetLimit(5)},
 	})
 }
