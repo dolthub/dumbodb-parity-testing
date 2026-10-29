@@ -124,7 +124,7 @@ func TestReplaceOperators(t *testing.T) {
 			t.Run(name+"_"+tc.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "Replace_" + name + "_" + tc.name,
-					Support: harness.DumboDBXFail,
+					Support: harness.DumboDBFull,
 					Setup:   insertReplaceDocs,
 					Run:     projectTyped(tc.expr),
 				})
@@ -165,7 +165,7 @@ func TestReplaceOperators(t *testing.T) {
 			t.Run(name+"_"+p.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "Replace_" + name + "_" + p.name,
-					Support: harness.DumboDBXFail,
+					Support: harness.DumboDBFull,
 					Setup:   insertReplaceDocs,
 					Run:     pipelineRunExtJSON(p.pipeline),
 				})
