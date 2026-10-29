@@ -71,18 +71,31 @@ func TestBinarySize(t *testing.T) {
 		{"ArrayOfStrings", binarySize(bson.A{bson.A{"a"}})},
 		{"ObjectID", binarySize(primitive.NewObjectID())},
 		{"Regex", binarySize(primitive.Regex{Pattern: "a"})},
-		{"Symbol", binarySize(primitive.Symbol("abc"))},
-		{"JavaScript", binarySize(primitive.JavaScript("x"))},
 		{"Date", binarySize(primitive.DateTime(0))},
 
 		{"TooManyArguments", binarySize(bson.A{"a", "b"})},
 		{"NoArguments", binarySize(bson.A{})},
 	}
-	for _, tc := range cases {
+	// DumboDB rejects Symbol and JavaScript values as InvalidBSON (workspace-6fd).
+	for _, tc := range []mathCase{
+		{"Symbol", binarySize(primitive.Symbol("abc"))},
+		{"JavaScript", binarySize(primitive.JavaScript("x"))},
+	} {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "BinarySize_" + tc.name,
 				Support: harness.DumboDBXFail,
+				Setup:   insertBinarySizeDocs,
+				Run:     projectTyped(tc.expr),
+			})
+		})
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "BinarySize_" + tc.name,
+				Support: harness.DumboDBFull,
 				Setup:   insertBinarySizeDocs,
 				Run:     projectTyped(tc.expr),
 			})
@@ -116,7 +129,7 @@ func TestBinarySize(t *testing.T) {
 		t.Run(p.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "BinarySize_" + p.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   insertBinarySizeDocs,
 				Run:     pipelineRunExtJSON(p.pipeline),
 			})

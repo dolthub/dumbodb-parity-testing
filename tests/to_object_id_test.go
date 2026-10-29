@@ -37,17 +37,9 @@ func insertToObjectIDDocs(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
-// toObjectIDAlreadyMatching are the cases DumboDB matched before $toObjectId
-// and $convert to objectId were implemented (workspace-x6i.8).
-var toObjectIDAlreadyMatching = map[string]bool{
-	"ConvertBadStringOnError":     true,
-	"ConvertFromObjectIDToBool":   true,
-	"ConvertFromObjectIDToDate":   true,
-	"ConvertFromObjectIDToString": true,
-	"ConvertMissingOnNull":        true,
-	"ConvertNull":                 true,
-	"ConvertNullOnNull":           true,
-	"ConvertNumberOnError":        true,
+// toObjectIDPending diverge for reasons outside $toObjectId.
+var toObjectIDPending = map[string]bool{
+	"ConvertFromObjectIDToInt": true, // unsupported $convert conversions are not 241 (workspace-4w3)
 }
 
 func TestToObjectID(t *testing.T) {
@@ -111,9 +103,9 @@ func TestToObjectID(t *testing.T) {
 		{"ConvertFromObjectIDToInt", convert(oid, "int")},
 	}
 	for _, tc := range cases {
-		support := harness.DumboDBXFail
-		if toObjectIDAlreadyMatching[tc.name] {
-			support = harness.DumboDBFull
+		support := harness.DumboDBFull
+		if toObjectIDPending[tc.name] {
+			support = harness.DumboDBXFail
 		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
@@ -155,14 +147,10 @@ func TestToObjectID(t *testing.T) {
 		}},
 	}
 	for _, p := range pipelines {
-		support := harness.DumboDBXFail
-		if toObjectIDAlreadyMatching[p.name] {
-			support = harness.DumboDBFull
-		}
 		t.Run(p.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "ToObjectId_" + p.name,
-				Support: support,
+				Support: harness.DumboDBFull,
 				Setup:   insertToObjectIDDocs,
 				Run:     pipelineRunExtJSON(p.pipeline),
 			})
