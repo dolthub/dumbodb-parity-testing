@@ -46,115 +46,6 @@ func insertRegexDocs(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
-// regexAlreadyMatching are the cases DumboDB matched before the regex
-// expressions followed ExpressionRegex (workspace-0bf.7, workspace-ndp).
-var regexAlreadyMatching = map[string]bool{
-	"regexFind_AbsoluteEnd":             true,
-	"regexFind_AllDocsConstantRegex":    true,
-	"regexFind_AllOptions":              true,
-	"regexFind_Alternation":             true,
-	"regexFind_AnchorEnd":               true,
-	"regexFind_AnchorEndMultiline":      true,
-	"regexFind_AnchorStart":             true,
-	"regexFind_AnchorStartMultiline":    true,
-	"regexFind_Basic":                   true,
-	"regexFind_CaptureAfterUnicode":     true,
-	"regexFind_Captures":                true,
-	"regexFind_CaseInsensitive":         true,
-	"regexFind_CaseInsensitiveUnicode":  true,
-	"regexFind_DigitASCII":              true,
-	"regexFind_DotNewlineDotall":        true,
-	"regexFind_DotUnicode":              true,
-	"regexFind_EmbeddedNullInput":       true,
-	"regexFind_EmojiIdx":                true,
-	"regexFind_EmptyInput":              true,
-	"regexFind_EmptyPattern":            true,
-	"regexFind_EmptyPatternEmptyInput":  true,
-	"regexFind_EmptyPatternUnicode":     true,
-	"regexFind_ExtendedEscapedSpace":    true,
-	"regexFind_Fields":                  true,
-	"regexFind_HexEscape":               true,
-	"regexFind_InlineOption":            true,
-	"regexFind_InputExpression":         true,
-	"regexFind_InputMissing":            true,
-	"regexFind_InputNull":               true,
-	"regexFind_InputNullField":          true,
-	"regexFind_Lazy":                    true,
-	"regexFind_MatchExpr":               true,
-	"regexFind_NamedCapture":            true,
-	"regexFind_NestedCaptures":          true,
-	"regexFind_NoMatch":                 true,
-	"regexFind_NonCapturing":            true,
-	"regexFind_OptionU":                 true,
-	"regexFind_OptionsEmpty":            true,
-	"regexFind_OptionsMissing":          true,
-	"regexFind_OptionsNull":             true,
-	"regexFind_Overlapping":             true,
-	"regexFind_POSIXClass":              true,
-	"regexFind_QuantifierRange":         true,
-	"regexFind_RegexFromField":          true,
-	"regexFind_StarPattern":             true,
-	"regexFind_UnicodeIdx":              true,
-	"regexFind_UnicodeProperty":         true,
-	"regexFind_UnmatchedCapture":        true,
-	"regexFind_UnwindMatches":           true,
-	"regexFind_WordASCII":               true,
-	"regexFind_WordBoundary":            true,
-	"regexFind_WordBoundaryAfterMatch":  true,
-	"regexMatch_AbsoluteEnd":            true,
-	"regexMatch_AllDocsConstantRegex":   true,
-	"regexMatch_AllOptions":             true,
-	"regexMatch_Alternation":            true,
-	"regexMatch_AnchorEnd":              true,
-	"regexMatch_AnchorEndMultiline":     true,
-	"regexMatch_AnchorStart":            true,
-	"regexMatch_AnchorStartMultiline":   true,
-	"regexMatch_Basic":                  true,
-	"regexMatch_CaptureAfterUnicode":    true,
-	"regexMatch_Captures":               true,
-	"regexMatch_CaseInsensitive":        true,
-	"regexMatch_CaseInsensitiveUnicode": true,
-	"regexMatch_DigitASCII":             true,
-	"regexMatch_DotNewlineDotall":       true,
-	"regexMatch_DotUnicode":             true,
-	"regexMatch_EmbeddedNullInput":      true,
-	"regexMatch_EmojiIdx":               true,
-	"regexMatch_EmptyInput":             true,
-	"regexMatch_EmptyPattern":           true,
-	"regexMatch_EmptyPatternEmptyInput": true,
-	"regexMatch_EmptyPatternUnicode":    true,
-	"regexMatch_ExtendedEscapedSpace":   true,
-	"regexMatch_Fields":                 true,
-	"regexMatch_HexEscape":              true,
-	"regexMatch_InlineOption":           true,
-	"regexMatch_InputExpression":        true,
-	"regexMatch_InputMissing":           true,
-	"regexMatch_InputNull":              true,
-	"regexMatch_InputNullField":         true,
-	"regexMatch_Lazy":                   true,
-	"regexMatch_MatchExpr":              true,
-	"regexMatch_NamedCapture":           true,
-	"regexMatch_NestedCaptures":         true,
-	"regexMatch_NoMatch":                true,
-	"regexMatch_NonCapturing":           true,
-	"regexMatch_OptionU":                true,
-	"regexMatch_OptionsEmpty":           true,
-	"regexMatch_OptionsMissing":         true,
-	"regexMatch_OptionsNull":            true,
-	"regexMatch_Overlapping":            true,
-	"regexMatch_POSIXClass":             true,
-	"regexMatch_QuantifierRange":        true,
-	"regexMatch_RegexFromField":         true,
-	"regexMatch_StarPattern":            true,
-	"regexMatch_UnicodeIdx":             true,
-	"regexMatch_UnicodeProperty":        true,
-	"regexMatch_UnmatchedCapture":       true,
-	"regexMatch_UnwindMatches":          true,
-	"regexMatch_WordASCII":              true,
-	"regexMatch_WordBoundary":           true,
-	"regexMatch_WordBoundaryAfterMatch": true,
-}
-
 func TestRegexOperators(t *testing.T) {
 	for _, op := range []string{"$regexFindAll", "$regexFind", "$regexMatch"} {
 		rx := func(input, regex interface{}, options ...interface{}) bson.D {
@@ -273,14 +164,10 @@ func TestRegexOperators(t *testing.T) {
 
 		name := op[1:]
 		for _, tc := range cases {
-			support := harness.DumboDBXFail
-			if regexAlreadyMatching[name+"_"+tc.name] {
-				support = harness.DumboDBFull
-			}
 			t.Run(name+"_"+tc.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "Regex_" + name + "_" + tc.name,
-					Support: support,
+					Support: harness.DumboDBFull,
 					Setup:   insertRegexDocs,
 					Run:     projectTyped(tc.expr),
 				})
@@ -312,14 +199,10 @@ func TestRegexOperators(t *testing.T) {
 			}},
 		}
 		for _, p := range pipelines {
-			support := harness.DumboDBXFail
-			if regexAlreadyMatching[name+"_"+p.name] {
-				support = harness.DumboDBFull
-			}
 			t.Run(name+"_"+p.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "Regex_" + name + "_" + p.name,
-					Support: support,
+					Support: harness.DumboDBFull,
 					Setup:   insertRegexDocs,
 					Run:     pipelineRunExtJSON(p.pipeline),
 				})
