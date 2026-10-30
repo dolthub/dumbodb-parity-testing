@@ -60,7 +60,7 @@ func TestValidatorParse(t *testing.T) {
 			t.Run(cmd+"_"+name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    n,
-					Support: harness.DumboDBXFail,
+					Support: harness.DumboDBFull,
 					Setup: func(ctx context.Context, col *mongo.Collection) error {
 						if c == "CollMod" {
 							return col.Database().CreateCollection(ctx, col.Name())

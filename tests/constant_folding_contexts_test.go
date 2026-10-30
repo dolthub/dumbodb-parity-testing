@@ -58,7 +58,7 @@ func TestConstantFoldingContexts(t *testing.T) {
 			t.Run(n, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    n,
-					Support: map[bool]harness.DumboDBSupport{true: harness.DumboDBXFail, false: harness.DumboDBFull}[name == "MatchExprMissingOnly"],
+					Support: harness.DumboDBFull,
 					Setup:   constantFoldingSetup(isEmpty),
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 						cur, err := col.Aggregate(ctx, p)
