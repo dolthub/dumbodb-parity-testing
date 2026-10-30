@@ -90,7 +90,7 @@ func TestQueryRegexPCRE(t *testing.T) {
 				t.Run(name, func(t *testing.T) {
 					harness.PairTest(t, harness.TestCase{
 						Name:    name,
-						Support: harness.DumboDBXFail,
+						Support: harness.DumboDBFull,
 						Setup:   insertQueryRegexDocs,
 						Run:     regexFindIDs(f),
 					})
@@ -114,7 +114,7 @@ func TestQueryRegexPCRELimits(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    n,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   insertQueryRegexDocs,
 				Run:     regexFindIDs(f),
 			})
