@@ -75,15 +75,5 @@ func TestDecimalOperands(t *testing.T) {
 		{"Cond", op("$cond", d("0"), "t", "f")},
 		{"Not", one("$not", d("0.0"))},
 	}
-	pending := map[string]bool{"ArrayElemAtFraction": true} // index validation: workspace-ycs
-	var full, xfail []mathCase
-	for _, tc := range cases {
-		if pending[tc.name] {
-			xfail = append(xfail, tc)
-		} else {
-			full = append(full, tc)
-		}
-	}
-	runMathCases(t, "DecimalOperands", harness.DumboDBFull, full)
-	runMathCases(t, "DecimalOperands", harness.DumboDBXFail, xfail)
+	runMathCases(t, "DecimalOperands", harness.DumboDBFull, cases)
 }

@@ -55,5 +55,5 @@ func TestIndexOperands(t *testing.T) {
 			cases = append(cases, mathCase{form + "_" + name, build(v)})
 		}
 	}
-	runMathCases(t, "IndexOperands", harness.DumboDBXFail, cases)
+	runMathCases(t, "IndexOperands", harness.DumboDBFull, cases)
 }
