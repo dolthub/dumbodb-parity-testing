@@ -44,7 +44,7 @@ func TestDocumentsStageContexts(t *testing.T) {
 	for name, p := range pipelines {
 		pipeline := p
 		n := "DocumentsStageContexts_" + name
-		support := harness.DumboDBXFail
+		support := harness.DumboDBFull
 		if pending[name] {
 			support = harness.DumboDBXFail
 		}
