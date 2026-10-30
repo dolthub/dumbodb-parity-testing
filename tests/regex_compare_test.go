@@ -68,7 +68,7 @@ func TestRegexCompare(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "RegexCompare_" + tc.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   insertRegexCompareDocs,
 				Run:     projectTyped(tc.expr),
 			})
@@ -102,7 +102,7 @@ func TestRegexCompare(t *testing.T) {
 		t.Run(p.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "RegexCompare_" + p.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   insertRegexCompareDocs,
 				Run:     pipelineRunExtJSON(p.pipeline),
 			})
