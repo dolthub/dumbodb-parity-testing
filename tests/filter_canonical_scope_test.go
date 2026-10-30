@@ -70,22 +70,6 @@ func canonicalAggregateIDs(pipeline bson.A) func(context.Context, *mongo.Collect
 	}
 }
 
-// canonicalScopeAlreadyMatching are the cases DumboDB matched before the
-// fixes for workspace-m8c.1, m8c.2, m8c.3 and m8c.12.
-var canonicalScopeAlreadyMatching = map[string]bool{
-	"AggregateExprObjectToArrayOrder": true,
-	"ArrayElement":                    true,
-	"ArrayElementNe":                  true,
-	"ArrayFieldPath":                  true,
-	"ExprLiteralsSameOrder":           true,
-	"MatchAfterSortSeesStored":        true,
-	"PositionalSecond":                true,
-	"PositionalThenField":             true,
-	"PositionalWholeNested":           true,
-	"ProjectThenMatchExpr":            true,
-	"ProjectThenMatchSortedOrder":     true,
-}
-
 func TestFilterCanonicalizationScope(t *testing.T) {
 	d := func(kv ...interface{}) bson.D {
 		out := bson.D{}
@@ -168,14 +152,10 @@ func TestFilterCanonicalizationScope(t *testing.T) {
 		{"ArrayFieldPath", insertPositionalArrayDocs, canonicalFindIDs(d("arr.o", ab))},
 	}
 	for _, tc := range cases {
-		support := harness.DumboDBXFail
-		if canonicalScopeAlreadyMatching[tc.name] {
-			support = harness.DumboDBFull
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "CanonicalScope_" + tc.name,
-				Support: support,
+				Support: harness.DumboDBFull,
 				Setup:   tc.setup,
 				Run:     tc.run,
 			})
