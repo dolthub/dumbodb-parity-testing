@@ -37,7 +37,7 @@ func TestRegexInlineExtendedScope(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    name,
-					Support: harness.DumboDBXFail,
+					Support: harness.DumboDBFull,
 					Setup:   insertOneDoc,
 					Run:     projectTyped(expr),
 				})
