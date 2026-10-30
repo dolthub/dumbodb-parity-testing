@@ -54,7 +54,7 @@ func TestConstantFoldingContexts(t *testing.T) {
 			t.Run(n, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    n,
-					Support: harness.DumboDBXFail,
+					Support: harness.DumboDBFull,
 					Setup:   constantFoldingSetup(isEmpty),
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 						cur, err := col.Aggregate(ctx, p)
@@ -107,7 +107,7 @@ func TestConstantFoldingContexts(t *testing.T) {
 				n += "_Empty"
 			}
 			r, isEmpty := run, empty
-			support := harness.DumboDBXFail
+			support := harness.DumboDBFull
 			if name == "FindAndModifyPipeline" {
 				support = harness.DumboDBXFail
 			}
