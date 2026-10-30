@@ -115,3 +115,53 @@ func TestDateFromString_LengthLimit_OverLimit(t *testing.T) {
 		})
 	}
 }
+
+// $toDate parses with the same date parser, so the same limit applies.
+func TestToDate_LengthLimit(t *testing.T) {
+	toDate := func(s string) func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "s", Value: s}}); err != nil {
+				return nil, err
+			}
+			cur, err := col.Aggregate(ctx, mongo.Pipeline{
+				{{Key: "$project", Value: bson.D{{Key: "_id", Value: int32(0)}, {Key: "d", Value: bson.D{{Key: "$toLong", Value: bson.D{{Key: "$toDate", Value: "$s"}}}}}}}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			var out []bson.D
+			if err := cur.All(ctx, &out); err != nil {
+				return nil, err
+			}
+			return out[0].Map()["d"], nil
+		}
+	}
+
+	harness.PairTest(t, harness.TestCase{
+		Name:    "ToDate_LengthLimit_AtLimit",
+		Support: harness.DumboDBFull,
+		Run:     toDate(paddedDateString(maxDateStringLength)),
+	})
+
+	run := toDate(paddedDateString(maxDateStringLength + 1))
+	harness.AuthPairTest(t, harness.AuthCase{
+		Name:    "ToDate_LengthLimit_OverLimit",
+		Support: harness.DumboDBDeviates,
+		Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+			db := tgt.Admin.Database(tgt.NS)
+			defer func() { _ = db.Drop(ctx) }()
+			return run(ctx, db.Collection("c"))
+		},
+		MongoExpect: func(t *testing.T, res interface{}, err error) {
+			if err != nil || res != int64(1614816000000) {
+				t.Errorf("mongo: want 1614816000000, got %v (err %v)", res, err)
+			}
+		},
+		DumboExpect: func(t *testing.T, res interface{}, err error) {
+			var cmdErr mongo.CommandError
+			if !errors.As(err, &cmdErr) || cmdErr.Code != 241 {
+				t.Errorf("dumbodb: want ConversionFailure, got %v (err %v)", res, err)
+			}
+		},
+	})
+}

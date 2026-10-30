@@ -37,11 +37,6 @@ func insertToObjectIDDocs(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
-// toObjectIDPending diverge for reasons outside $toObjectId.
-var toObjectIDPending = map[string]bool{
-	"ConvertFromObjectIDToInt": true, // unsupported $convert conversions are not 241 (workspace-4w3)
-}
-
 func TestToObjectID(t *testing.T) {
 	toObjectID := func(arg interface{}) bson.D { return bson.D{{Key: "$toObjectId", Value: arg}} }
 	convert := func(input, to interface{}, extra ...bson.E) bson.D {
@@ -103,14 +98,10 @@ func TestToObjectID(t *testing.T) {
 		{"ConvertFromObjectIDToInt", convert(oid, "int")},
 	}
 	for _, tc := range cases {
-		support := harness.DumboDBFull
-		if toObjectIDPending[tc.name] {
-			support = harness.DumboDBXFail
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "ToObjectId_" + tc.name,
-				Support: support,
+				Support: harness.DumboDBFull,
 				Setup:   insertToObjectIDDocs,
 				Run:     projectTyped(tc.expr),
 			})

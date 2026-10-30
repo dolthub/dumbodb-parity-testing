@@ -47,11 +47,11 @@ func insertFindExprDocs(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
-func findExprCase(t *testing.T, name string, support harness.DumboDBSupport, filter, projection bson.D) {
+func findExprCase(t *testing.T, name string, filter, projection bson.D) {
 	t.Helper()
 	harness.PairTest(t, harness.TestCase{
 		Name:    "FindProjExpr_" + name,
-		Support: support,
+		Support: harness.DumboDBFull,
 		Setup:   insertFindExprDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			if filter == nil {
@@ -128,12 +128,8 @@ func TestFindProjExpr(t *testing.T) {
 		{"ToLongOfDate", bson.D{{Key: "_id", Value: int32(1)}}, m(op("$toLong", "$dt"))},
 		{"Now", nil, m(op("$lte", bson.A{"$$NOW", op("$dateAdd", bson.D{{Key: "startDate", Value: "$$NOW"}, {Key: "unit", Value: "day"}, {Key: "amount", Value: int32(1)}})}))},
 	} {
-		support := harness.DumboDBFull
-		if tc.name == "ToLongOfDate" {
-			support = harness.DumboDBXFail // workspace-wpy: $toLong does not convert dates.
-		}
 		t.Run(tc.name, func(t *testing.T) {
-			findExprCase(t, tc.name, support, tc.filter, tc.projection)
+			findExprCase(t, tc.name, tc.filter, tc.projection)
 		})
 	}
 }
