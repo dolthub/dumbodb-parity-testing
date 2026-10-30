@@ -74,7 +74,7 @@ func TestTransactionStatementError(t *testing.T) {
 		t.Run(st.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:     name,
-				Support:  harness.DumboDBXFail,
+				Support:  harness.DumboDBFull,
 				Topology: harness.TopologyReplicaSet,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					_, err := col.InsertMany(ctx, []interface{}{
