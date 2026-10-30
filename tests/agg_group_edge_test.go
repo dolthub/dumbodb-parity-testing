@@ -39,7 +39,7 @@ func insertGroupMixedNumKeySeed(ctx context.Context, col *mongo.Collection) erro
 func TestAggGroupEdge_MixedNumericKey(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggGroupEdge_MixedNumericKey",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail, // workspace-77m: _id takes the wrong numeric type.
 		Setup:   insertGroupMixedNumKeySeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{

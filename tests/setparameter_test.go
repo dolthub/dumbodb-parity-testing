@@ -39,7 +39,7 @@ func resetLockTimeout(ctx context.Context, client *mongo.Client) func() {
 func TestSetParameter_RoundTrip(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "SetParameter_RoundTrip",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail, // workspace-3g8: was is int64; mongod returns int32.
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			client := col.Database().Client()
 			admin := client.Database("admin")

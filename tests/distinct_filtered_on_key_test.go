@@ -47,23 +47,29 @@ func distinctOnKeySetup(arrays bool) func(context.Context, *mongo.Collection) er
 func TestDistinct_FilteredOnKey(t *testing.T) {
 	for _, arrays := range []bool{false, true} {
 		for _, tc := range []struct {
-			name   string
-			filter bson.D
+			name    string
+			filter  bson.D
+			numeric bool
 		}{
-			{"Lt", bson.D{{Key: "v", Value: bson.D{{Key: "$lt", Value: int32(100)}}}}},
-			{"Range", bson.D{{Key: "v", Value: bson.D{{Key: "$gte", Value: int32(1)}, {Key: "$lte", Value: int32(2)}}}}},
-			{"Eq", bson.D{{Key: "v", Value: int32(1)}}},
-			{"StringRange", bson.D{{Key: "v", Value: bson.D{{Key: "$gt", Value: ""}}}}},
-			{"Empty", bson.D{{Key: "v", Value: bson.D{{Key: "$gt", Value: int32(1000)}}}}},
+			{"Lt", bson.D{{Key: "v", Value: bson.D{{Key: "$lt", Value: int32(100)}}}}, true},
+			{"Range", bson.D{{Key: "v", Value: bson.D{{Key: "$gte", Value: int32(1)}, {Key: "$lte", Value: int32(2)}}}}, true},
+			{"Eq", bson.D{{Key: "v", Value: int32(1)}}, true},
+			{"StringRange", bson.D{{Key: "v", Value: bson.D{{Key: "$gt", Value: ""}}}}, false},
+			{"Empty", bson.D{{Key: "v", Value: bson.D{{Key: "$gt", Value: int32(1000)}}}}, false},
 		} {
 			name := tc.name
+			support := harness.DumboDBFull
 			if arrays {
 				name += "_Multikey"
+				// XFail workspace-3so: keeps double 1.0 where mongod returns int32 1.
+				if tc.numeric {
+					support = harness.DumboDBXFail
+				}
 			}
 			t.Run(name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "Distinct_FilteredOnKey_" + name,
-					Support: harness.DumboDBFull,
+					Support: support,
 					Setup:   distinctOnKeySetup(arrays),
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 						var res bson.D

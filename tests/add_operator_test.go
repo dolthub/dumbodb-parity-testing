@@ -26,7 +26,8 @@ import (
 )
 
 func addOf(args ...interface{}) bson.D {
-	return bson.D{{Key: "$add", Value: bson.A(args)}}
+	// bson.A(nil) would encode as null, not an empty array.
+	return bson.D{{Key: "$add", Value: append(bson.A{}, args...)}}
 }
 
 func TestAddOperator(t *testing.T) {

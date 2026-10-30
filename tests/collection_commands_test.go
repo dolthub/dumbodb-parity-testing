@@ -106,7 +106,7 @@ func TestCollMod_InvalidOption(t *testing.T) {
 func TestCompact_BasicCollection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Compact_BasicCollection",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail, // workspace-agf: bytesFreed is a double; mongod returns int32.
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// compact rewrites and defragments data; returns {ok: 1} on success.
@@ -120,7 +120,7 @@ func TestCompact_BasicCollection(t *testing.T) {
 func TestCompact_WithForceOption(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Compact_WithForceOption",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail, // workspace-agf: bytesFreed is a double; mongod returns int32.
 		Setup:   insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// compact with force:true runs even on a primary.

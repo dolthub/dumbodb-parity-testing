@@ -16,10 +16,12 @@ package harness
 
 import (
 	"errors"
+	"math"
 	"strings"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -228,5 +230,30 @@ func TestCompareResponses_NestedMillis(t *testing.T) {
 	got := CompareResponses(mongo, nil, dumbo, nil)
 	if got.Result != Match {
 		t.Errorf("nested millis within tolerance should match, got %v (diff: %s)", got.Result, got.Diff)
+	}
+}
+
+func TestCompareResponses_ExactNumericTypesAndDates(t *testing.T) {
+	tenth, fifth := 0.1, 0.2
+	cases := []struct {
+		name         string
+		mongo, dumbo interface{}
+		want         CompareResult
+	}{
+		{"int32_vs_int64", bson.D{{Key: "n", Value: int32(1)}}, bson.D{{Key: "n", Value: int64(1)}}, Diverge},
+		{"int32_vs_double", bson.D{{Key: "n", Value: int32(1)}}, bson.D{{Key: "n", Value: float64(1)}}, Diverge},
+		{"double_rounding", bson.D{{Key: "n", Value: 0.3}}, bson.D{{Key: "n", Value: tenth + fifth}}, Diverge},
+		{"negative_zero", bson.D{{Key: "n", Value: math.Copysign(0, -1)}}, bson.D{{Key: "n", Value: float64(0)}}, Diverge},
+		{"date_value", bson.D{{Key: "d", Value: primitive.DateTime(1000)}}, bson.D{{Key: "d", Value: primitive.DateTime(1001)}}, Diverge},
+		{"same_int32", bson.D{{Key: "n", Value: int32(7)}}, bson.D{{Key: "n", Value: int32(7)}}, Match},
+		{"same_date", bson.D{{Key: "d", Value: primitive.DateTime(1000)}}, bson.D{{Key: "d", Value: primitive.DateTime(1000)}}, Match},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := CompareResponses(tc.mongo, nil, tc.dumbo, nil)
+			if got.Result != tc.want {
+				t.Errorf("got %v, want %v (diff: %s)", got.Result, tc.want, got.Diff)
+			}
+		})
 	}
 }

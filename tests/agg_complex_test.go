@@ -611,7 +611,7 @@ func TestAggComplex_graphLookup_maxDepth(t *testing.T) {
 func TestAggComplex_graphLookup_depthField(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggComplex_graphLookup_depthField",
-		Support: harness.DumboDBFull,
+		Support: harness.DumboDBXFail, // workspace-udm: depthField is int32; mongod returns int64.
 		Setup:   insertGraphNodes,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
