@@ -34,40 +34,6 @@ func insertMissingResultDocs(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
-// missingResultsPending diverged before workspace-m8c.5 was fixed.
-var missingResultsPending = map[string]bool{
-	"LetMissingVar_Project":                true,
-	"LetMissingVar_Type":                   true,
-	"LetMissingVar_InDocument":             true,
-	"LetNestedMissing_Project":             true,
-	"LetNestedMissing_Type":                true,
-	"LetNestedMissing_InDocument":          true,
-	"FirstOfEmpty_Project":                 true,
-	"FirstOfEmpty_Type":                    true,
-	"FirstOfEmpty_InDocument":              true,
-	"LastOfEmpty_Project":                  true,
-	"LastOfEmpty_Type":                     true,
-	"LastOfEmpty_InDocument":               true,
-	"FirstOfEmptyField_Project":            true,
-	"FirstOfEmptyField_Type":               true,
-	"FirstOfEmptyField_InDocument":         true,
-	"ReduceEmptyMissingInitial_Project":    true,
-	"ReduceEmptyMissingInitial_Type":       true,
-	"ReduceEmptyMissingInitial_InDocument": true,
-	"ReduceToMissing_Project":              true,
-	"ReduceToMissing_Type":                 true,
-	"ReduceToMissing_InDocument":           true,
-	"AddFieldsLetMissing":                  true,
-	"GroupKeyLetMissing":                   true,
-}
-
-func missingResultsSupport(name string) harness.DumboDBSupport {
-	if missingResultsPending[name] {
-		return harness.DumboDBXFail
-	}
-	return harness.DumboDBFull
-}
-
 func TestMissingResults(t *testing.T) {
 	d := func(kv ...interface{}) bson.D {
 		out := bson.D{}
@@ -118,7 +84,7 @@ func TestMissingResults(t *testing.T) {
 			t.Run(e.name+"_"+form.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "MissingResult_" + e.name + "_" + form.name,
-					Support: missingResultsSupport(e.name + "_" + form.name),
+					Support: harness.DumboDBFull,
 					Setup:   insertMissingResultDocs,
 					Run:     pipelineRunExtJSON(pipeline),
 				})
@@ -129,7 +95,7 @@ func TestMissingResults(t *testing.T) {
 	t.Run("AddFieldsLetMissing", func(t *testing.T) {
 		harness.PairTest(t, harness.TestCase{
 			Name:    "MissingResult_AddFieldsLetMissing",
-			Support: missingResultsSupport("AddFieldsLetMissing"),
+			Support: harness.DumboDBFull,
 			Setup:   insertMissingResultDocs,
 			Run:     pipelineRunExtJSON(bson.A{d("$addFields", d("l", let("$nope", "$$v"))), d("$project", d("_id", int32(0), "l", int32(1)))}),
 		})
@@ -137,7 +103,7 @@ func TestMissingResults(t *testing.T) {
 	t.Run("GroupKeyLetMissing", func(t *testing.T) {
 		harness.PairTest(t, harness.TestCase{
 			Name:    "MissingResult_GroupKeyLetMissing",
-			Support: missingResultsSupport("GroupKeyLetMissing"),
+			Support: harness.DumboDBFull,
 			Setup:   insertMissingResultDocs,
 			Run:     pipelineRunExtJSON(bson.A{d("$group", d("_id", d("k", let("$nope", "$$v"))))}),
 		})
