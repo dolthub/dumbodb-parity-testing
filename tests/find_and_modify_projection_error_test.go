@@ -25,11 +25,18 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// findAndModifyProjectionPending: mongod commits the write and then fails
-// the projection; DumboDB discards the write (decision: workspace-cn8).
-var findAndModifyProjectionPending = map[string]bool{
-	"UpdateBadConvert": true,
-	"UpdateBadPath":    true,
+// findAndModifyCommittedOnError lists the cases where mongod commits the
+// update and then fails the projection, reporting an error for a durable
+// write. DumboDB deliberately discards the write (workspace-cn8; reported to
+// MongoDB in workspace-2m3). Each maps the error code and the field whose
+// value shows whether the update was kept.
+var findAndModifyCommittedOnError = map[string]struct {
+	code               int32
+	field              string
+	before, mongoAfter interface{}
+}{
+	"UpdateBadConvert": {code: 241, field: "s", before: "x", mongoAfter: "y"},
+	"UpdateBadPath":    {code: 14, field: "n", before: int32(1), mongoAfter: int32(2)},
 }
 
 // DumboDB wrote the document and then failed applying 'fields', so the
@@ -58,40 +65,73 @@ func TestFindAndModifyProjectionError(t *testing.T) {
 	}
 	for _, tc := range cases {
 		cmd := tc.cmd
+		name := "FindAndModifyProjectionError_" + tc.name
 		t.Run(tc.name, func(t *testing.T) {
-			support := harness.DumboDBFull
-			if findAndModifyProjectionPending[tc.name] {
-				support = harness.DumboDBXFail
+			if dev, ok := findAndModifyCommittedOnError[tc.name]; ok {
+				expect := func(server string, want interface{}) func(*testing.T, interface{}, error) {
+					return func(t *testing.T, res interface{}, err error) {
+						out, _ := res.(bson.M)
+						docs, _ := out["after"].([]bson.M)
+						outcome, _ := out["outcome"].(bson.M)
+						if err != nil || outcome["code"] != dev.code || len(docs) != 1 || docs[0][dev.field] != want {
+							t.Errorf("%s: want code %d and %s=%v, got %v (err %v)", server, dev.code, dev.field, want, res, err)
+						}
+					}
+				}
+				harness.AuthPairTest(t, harness.AuthCase{
+					Name:    name,
+					Support: harness.DumboDBDeviates,
+					Run: func(ctx context.Context, tgt harness.AuthTarget) (interface{}, error) {
+						db := tgt.Admin.Database(tgt.NS)
+						defer func() { _ = db.Drop(ctx) }()
+						col := db.Collection("c")
+						if err := insertFindAndModifyDoc(ctx, col); err != nil {
+							return nil, err
+						}
+						return findAndModifyOutcome(ctx, col, cmd)
+					},
+					MongoExpect: expect("mongo", dev.mongoAfter),
+					DumboExpect: expect("dumbodb", dev.before),
+				})
+				return
 			}
 			harness.PairTest(t, harness.TestCase{
-				Name:    "FindAndModifyProjectionError_" + tc.name,
-				Support: support,
-				Setup: func(ctx context.Context, col *mongo.Collection) error {
-					_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "n", Value: int32(1)}, {Key: "s", Value: "x"}})
-					return err
-				},
+				Name:    name,
+				Support: harness.DumboDBFull,
+				Setup:   insertFindAndModifyDoc,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-					full := append(bson.D{{Key: "findAndModify", Value: col.Name()}}, cmd...)
-					var reply bson.M
-					err := col.Database().RunCommand(ctx, full).Decode(&reply)
-					outcome := errOutcome(err)
-					if err == nil {
-						outcome["value"] = reply["value"]
-						outcome["lastErrorObject"] = reply["lastErrorObject"]
-					}
-					cur, err := col.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
-					if err != nil {
-						return nil, err
-					}
-					var docs []bson.M
-					if err := cur.All(ctx, &docs); err != nil {
-						return nil, err
-					}
-					return bson.M{"outcome": outcome, "after": docs}, nil
+					return findAndModifyOutcome(ctx, col, cmd)
 				},
 			})
 		})
 	}
+}
+
+func insertFindAndModifyDoc(ctx context.Context, col *mongo.Collection) error {
+	_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "n", Value: int32(1)}, {Key: "s", Value: "x"}})
+	return err
+}
+
+// findAndModifyOutcome runs findAndModify with cmd and reports the outcome
+// and the collection afterwards.
+func findAndModifyOutcome(ctx context.Context, col *mongo.Collection, cmd bson.D) (interface{}, error) {
+	full := append(bson.D{{Key: "findAndModify", Value: col.Name()}}, cmd...)
+	var reply bson.M
+	err := col.Database().RunCommand(ctx, full).Decode(&reply)
+	outcome := errOutcome(err)
+	if err == nil {
+		outcome["value"] = reply["value"]
+		outcome["lastErrorObject"] = reply["lastErrorObject"]
+	}
+	cur, err := col.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+	if err != nil {
+		return nil, err
+	}
+	var docs []bson.M
+	if err := cur.All(ctx, &docs); err != nil {
+		return nil, err
+	}
+	return bson.M{"outcome": outcome, "after": docs}, nil
 }
 
 // mongod folds constant subexpressions while parsing, so a constant that
