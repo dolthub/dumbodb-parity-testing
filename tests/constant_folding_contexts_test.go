@@ -43,6 +43,10 @@ func TestConstantFoldingContexts(t *testing.T) {
 		"FacetProject":   {bson.D{{Key: "$facet", Value: bson.D{{Key: "f", Value: bson.A{bson.D{{Key: "$project", Value: bson.D{{Key: "r", Value: untaken}}}}}}}}}},
 		"SetWindowField": {bson.D{{Key: "$setWindowFields", Value: bson.D{{Key: "sortBy", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "output", Value: bson.D{{Key: "w", Value: bson.D{{Key: "$sum", Value: untaken}}}}}}}}},
 		"UnwindAfterSet": {bson.D{{Key: "$set", Value: bson.D{{Key: "r", Value: untaken}}}}, bson.D{{Key: "$unwind", Value: "$r"}}},
+		// Fails only where a is missing, which no document is (workspace-ot0).
+		"MatchExprMissingOnly": {bson.D{{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$gt", Value: bson.A{
+			bson.D{{Key: "$divide", Value: bson.A{int32(1), bson.D{{Key: "$ifNull", Value: bson.A{"$a", int32(0)}}}}}}, int32(0),
+		}}}}}}}},
 	}
 	for _, empty := range []bool{true, false} {
 		for name, pipeline := range pipelines {
@@ -54,7 +58,7 @@ func TestConstantFoldingContexts(t *testing.T) {
 			t.Run(n, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    n,
-					Support: harness.DumboDBFull,
+					Support: map[bool]harness.DumboDBSupport{true: harness.DumboDBXFail, false: harness.DumboDBFull}[name == "MatchExprMissingOnly"],
 					Setup:   constantFoldingSetup(isEmpty),
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 						cur, err := col.Aggregate(ctx, p)
