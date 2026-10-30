@@ -29,27 +29,6 @@ import (
 // and onError that evaluate to missing, and constant onError/onNull
 // expressions, which mongod evaluates when it parses them.
 
-// dateEdgesReviewPending diverged before workspace-m8c.9 was fixed.
-var dateEdgesReviewPending = map[string]bool{
-	"YearMaxPositiveOffset":          true,
-	"HourMaxPositiveOffset":          true,
-	"YearMaxNamedZone":               true,
-	"DayOfYearMaxNamedZone":          true,
-	"YearMinNegativeOffset":          true,
-	"MinuteMinNegativeOffset":        true,
-	"YearMinNamedZone":               true,
-	"DateToPartsMaxOffset":           true,
-	"IsoWeekYearMaxOffset":           true,
-	"FromStringOnNullMissing":        true,
-	"FromStringOnErrorMissing":       true,
-	"FromStringOnNullMissingTop":     true,
-	"ToStringOnNullMissing":          true,
-	"ToStringOnNullMissingTop":       true,
-	"FromStringConstantOnErrorFails": true,
-	"FromStringConstantOnNullFails":  true,
-	"ToStringConstantOnNullFails":    true,
-}
-
 func TestDateEdgesReview(t *testing.T) {
 	d := func(kv ...interface{}) bson.D {
 		out := bson.D{}
@@ -90,14 +69,10 @@ func TestDateEdgesReview(t *testing.T) {
 		{"ToStringFieldOnNullFails", d("$dateToString", d("date", primitive.DateTime(0), "onNull", d("$add", bson.A{int32(1), "$s"})))},
 	}
 	for _, tc := range cases {
-		support := harness.DumboDBFull
-		if dateEdgesReviewPending[tc.name] {
-			support = harness.DumboDBXFail
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "DateEdgesReview_" + tc.name,
-				Support: support,
+				Support: harness.DumboDBFull,
 				Setup:   insertDatePartsDocs,
 				Run:     projectTyped(tc.expr),
 			})
