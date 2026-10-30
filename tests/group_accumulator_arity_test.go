@@ -58,7 +58,7 @@ func TestGroupAccumulatorArity(t *testing.T) {
 			t.Run(acc[1:]+"_"+o.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    name,
-					Support: harness.DumboDBXFail,
+					Support: harness.DumboDBFull,
 					Setup:   setup,
 					Run:     pipelineRunExtJSON(pipeline),
 				})

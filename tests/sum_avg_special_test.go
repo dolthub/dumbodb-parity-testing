@@ -60,7 +60,7 @@ func TestSumAvgSpecialValues(t *testing.T) {
 			t.Run(op[1:]+"_Expression_"+in.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    name + "_Expression",
-					Support: harness.DumboDBXFail,
+					Support: harness.DumboDBFull,
 					Setup:   insertOneDoc,
 					Run:     projectTyped(bson.D{{Key: op, Value: bson.D{{Key: "$literal", Value: values}}}}),
 				})
@@ -69,7 +69,7 @@ func TestSumAvgSpecialValues(t *testing.T) {
 			t.Run(op[1:]+"_Group_"+in.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    name + "_Group",
-					Support: harness.DumboDBXFail,
+					Support: harness.DumboDBFull,
 					Setup: func(ctx context.Context, col *mongo.Collection) error {
 						docs := make([]interface{}, len(values))
 						for i, v := range values {
@@ -122,7 +122,7 @@ func TestSumAvgExpressionOperands(t *testing.T) {
 			t.Run(op[1:]+"_"+tc.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    name,
-					Support: harness.DumboDBXFail,
+					Support: harness.DumboDBFull,
 					Setup:   insertOneDoc,
 					Run:     projectTyped(expr),
 				})
