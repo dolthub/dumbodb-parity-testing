@@ -68,7 +68,7 @@ func TestReduce_DeepNesting(t *testing.T) {
 				t.Run(name, func(t *testing.T) {
 					harness.PairTest(t, harness.TestCase{
 						Name:    name,
-						Support: harness.DumboDBXFail,
+						Support: harness.DumboDBFull,
 						Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 							return projectOne(ctx, col, expr)
 						},
@@ -88,7 +88,7 @@ func TestReduce_MemoryLimit(t *testing.T) {
 	}}}}}
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Reduce_MemoryLimit",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return projectOne(ctx, col, expr)
 		},
