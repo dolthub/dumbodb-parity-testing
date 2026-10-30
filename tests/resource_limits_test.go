@@ -26,23 +26,6 @@ import (
 // Limits mongod applies to expressions that a client can make arbitrarily
 // expensive (security review of #184: workspace-8tj).
 
-// resourceLimitsPending diverged before workspace-8tj was fixed.
-var resourceLimitsPending = map[string]bool{
-	"RegexNesting251":              true,
-	"RegexNesting2000":             true,
-	"RegexNonCapturingNesting300":  true,
-	"RegexLongFlat20k":             true,
-	"RegexLongLiteral100k":         true,
-	"RegexPatternOverLimit":        true,
-	"RegexInvalidUTF8Pattern":      true,
-	"RegexInvalidUTF8Input":        true,
-	"RegexInvalidUTF8InputNoMatch": true,
-	"FindAllInvalidUTF8Input":      true,
-	"ReplaceAllOver16MB":           true,
-	"ReplaceAllManyMatches":        true,
-	"ReplaceAllOver512MB":          true,
-}
-
 func TestResourceLimits(t *testing.T) {
 	op := func(name string, v interface{}) bson.D { return bson.D{{Key: name, Value: v}} }
 	regexMatch := func(input, regex string) bson.D {
@@ -96,14 +79,10 @@ func TestResourceLimits(t *testing.T) {
 		{"DateFromStringLongWords", fromString(strings.Repeat("monday ", 3000))},
 	}
 	for _, tc := range cases {
-		support := harness.DumboDBFull
-		if resourceLimitsPending[tc.name] {
-			support = harness.DumboDBXFail
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "ResourceLimits_" + tc.name,
-				Support: support,
+				Support: harness.DumboDBFull,
 				Setup:   insertDatePartsDocs,
 				Run:     projectTyped(tc.expr),
 			})
