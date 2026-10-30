@@ -158,7 +158,7 @@ func TestDateTrunc(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "DateTrunc_" + tc.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   insertDatePartsDocs,
 				Run:     projectTyped(tc.expr),
 			})
@@ -180,7 +180,7 @@ func TestDateTrunc(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "DateTrunc_" + name,
-					Support: harness.DumboDBXFail,
+					Support: harness.DumboDBFull,
 					Setup:   insertDatePartsDocs,
 					Run:     pipelineRunExtJSON(pipeline),
 				})

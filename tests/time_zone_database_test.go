@@ -28,9 +28,7 @@ import (
 // that database and applies its rules. (review of #184: workspace-m8c.6)
 
 // timeZoneDatabasePending diverge for reasons outside the database.
-var timeZoneDatabasePending = map[string]bool{
-	"DateTruncAsuncion": true, // $dateTrunc ignores timezone (workspace-0dd)
-}
+var timeZoneDatabasePending = map[string]bool{}
 
 func TestTimeZoneDatabase(t *testing.T) {
 	d := func(kv ...interface{}) bson.D {
