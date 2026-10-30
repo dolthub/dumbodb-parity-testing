@@ -46,20 +46,6 @@ func projectWithMessage(expr interface{}) func(context.Context, *mongo.Collectio
 	}
 }
 
-// mathEdgesReviewPending diverged before workspace-m8c.10 was fixed.
-var mathEdgesReviewPending = map[string]bool{
-	"asinh_1E-4970":        true,
-	"asinh_-1E-4970":       true,
-	"asinh_1E-4966":        true,
-	"asinh_1E-4950":        true,
-	"asinh_3E-4935":        true,
-	"asinh_1.234567E-4940": true,
-	"AcosMessage":          true,
-	"AcosMessageLarge":     true,
-	"AcosMessageTiny":      true,
-	"AcoshMessage":         true,
-}
-
 func TestMathEdgesReview(t *testing.T) {
 	op := func(name string, v interface{}) bson.D { return bson.D{{Key: name, Value: v}} }
 
@@ -96,14 +82,10 @@ func TestMathEdgesReview(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		support := harness.DumboDBFull
-		if mathEdgesReviewPending[tc.name] {
-			support = harness.DumboDBXFail
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "MathEdgesReview_" + tc.name,
-				Support: support,
+				Support: harness.DumboDBFull,
 				Setup:   insertDatePartsDocs,
 				Run:     tc.run,
 			})
