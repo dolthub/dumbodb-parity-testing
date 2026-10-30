@@ -28,7 +28,7 @@ func insertWindowSeed(ctx context.Context, col *mongo.Collection) error {
 func TestWindow_rank_overall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_rank_overall",
-		Support: harness.DumboDBXFail, // workspace-h35: rank-style outputs are int64; mongod returns int32.
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -49,7 +49,7 @@ func TestWindow_rank_overall(t *testing.T) {
 func TestWindow_rank_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_rank_partitioned",
-		Support: harness.DumboDBXFail, // workspace-h35: rank-style outputs are int64; mongod returns int32.
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -71,7 +71,7 @@ func TestWindow_rank_partitioned(t *testing.T) {
 func TestWindow_denseRank_overall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_denseRank_overall",
-		Support: harness.DumboDBXFail, // workspace-h35: rank-style outputs are int64; mongod returns int32.
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -92,7 +92,7 @@ func TestWindow_denseRank_overall(t *testing.T) {
 func TestWindow_denseRank_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_denseRank_partitioned",
-		Support: harness.DumboDBXFail, // workspace-h35: rank-style outputs are int64; mongod returns int32.
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -114,7 +114,7 @@ func TestWindow_denseRank_partitioned(t *testing.T) {
 func TestWindow_rowNumber_overall(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_rowNumber_overall",
-		Support: harness.DumboDBXFail, // workspace-h35: rank-style outputs are int64; mongod returns int32.
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -135,7 +135,7 @@ func TestWindow_rowNumber_overall(t *testing.T) {
 func TestWindow_rowNumber_partitioned(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_rowNumber_partitioned",
-		Support: harness.DumboDBXFail, // workspace-h35: rank-style outputs are int64; mongod returns int32.
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -393,7 +393,7 @@ func TestWindow_last_overall(t *testing.T) {
 func TestWindow_partitionSortMultiOutput(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_partitionSortMultiOutput",
-		Support: harness.DumboDBXFail, // workspace-h35: rank-style outputs are int64; mongod returns int32.
+		Support: harness.DumboDBFull,
 		Setup:   insertWindowSeed,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
@@ -805,7 +805,7 @@ func TestWindow_forwardOffsetWindow(t *testing.T) {
 func TestWindow_partitionByMultipleFields(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_partitionByMultipleFields",
-		Support: harness.DumboDBXFail, // workspace-h35: rank-style outputs are int64; mongod returns int32.
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "region", Value: "west"}, {Key: "score", Value: int32(1)}},
@@ -872,7 +872,7 @@ func TestWindow_floatValues(t *testing.T) {
 func TestWindow_singleDocument(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_singleDocument",
-		Support: harness.DumboDBXFail, // workspace-h35: rank-style outputs are int64; mongod returns int32.
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "only"}, {Key: "v", Value: int32(42)}})
 			return err
@@ -900,7 +900,7 @@ func TestWindow_singleDocument(t *testing.T) {
 func TestWindow_count(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Window_count",
-		Support: harness.DumboDBXFail, // workspace-h35: rank-style outputs are int64; mongod returns int32.
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.InsertMany(ctx, []interface{}{
 				bson.D{{Key: "_id", Value: "a"}, {Key: "v", Value: int32(1)}},
