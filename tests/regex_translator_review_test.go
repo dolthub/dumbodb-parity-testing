@@ -25,20 +25,17 @@ import (
 // PCRE2 constructs from the review of #184 (workspace-m8c.7), each checked
 // with $regexFindAll so every match and capture is compared.
 
-// regexReviewAlreadyMatching are the cases DumboDB matched before
-// workspace-m8c.7 was fixed.
-var regexReviewAlreadyMatching = map[string]bool{
-	"ExtendedCommentParenNamedRef": true,
-	"ClassParenNamedRef":           true,
-	"ExtendedSpaceBeforeLazy":      true,
-	"ExtendedGroupScoped":          true,
-	"ExtendedInlineInGroup":        true,
-	"ExtendedTurnedOff":            true,
-	"ExtendedOption":               true,
-	"MultilineCaretInternal":       true,
-	"CaretNotMultiline":            true,
-	"BackslashU":                   true,
-	"QuantifiedDollar":             true,
+// regexReviewPending need constructs regexp2 cannot express (workspace-jsa).
+var regexReviewPending = map[string]bool{
+	"MatchReset":          true,
+	"Recursion":           true,
+	"BranchReset":         true,
+	"Ungreedy":            true,
+	"CatastrophicNoMatch": true,
+	"CaseFoldLongS":       true,
+	"CaseFoldFinalSigma":  true,
+	"CaseFoldMicro":       true,
+	"CaseFoldDottedI":     true,
 }
 
 func TestRegexTranslatorReview(t *testing.T) {
@@ -113,9 +110,9 @@ func TestRegexTranslatorReview(t *testing.T) {
 		{"CaseFoldDottedI", findAll("\u0130", "i", "i")},
 	}
 	for _, tc := range cases {
-		support := harness.DumboDBXFail
-		if regexReviewAlreadyMatching[tc.name] {
-			support = harness.DumboDBFull
+		support := harness.DumboDBFull
+		if regexReviewPending[tc.name] {
+			support = harness.DumboDBXFail
 		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
