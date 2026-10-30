@@ -84,6 +84,6 @@ func TestDecimalOperands(t *testing.T) {
 			full = append(full, tc)
 		}
 	}
-	runMathCases(t, "DecimalOperands", harness.DumboDBXFail, full)
+	runMathCases(t, "DecimalOperands", harness.DumboDBFull, full)
 	runMathCases(t, "DecimalOperands", harness.DumboDBXFail, xfail)
 }

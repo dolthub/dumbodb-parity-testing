@@ -44,6 +44,6 @@ func TestTruthiness(t *testing.T) {
 			{"AllElementsTrue_" + name, bson.D{{Key: "$allElementsTrue", Value: bson.A{bson.A{lit}}}}},
 			{"AnyElementTrue_" + name, bson.D{{Key: "$anyElementTrue", Value: bson.A{bson.A{lit}}}}},
 		}
-		runMathCases(t, "Truthiness", harness.DumboDBXFail, cases)
+		runMathCases(t, "Truthiness", harness.DumboDBFull, cases)
 	}
 }
