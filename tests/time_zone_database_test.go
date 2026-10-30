@@ -27,21 +27,9 @@ import (
 // 2024.1 in 8.0.28), not the host's tzdata: it accepts exactly the names in
 // that database and applies its rules. (review of #184: workspace-m8c.6)
 
-// timeZoneDatabasePending diverge before DumboDB uses timelib's database.
+// timeZoneDatabasePending diverge for reasons outside the database.
 var timeZoneDatabasePending = map[string]bool{
-	"Posixrules":                true,
-	"Localtime":                 true,
-	"RightUTC":                  true,
-	"PosixLondon":               true,
-	"DoubleSlash":               true,
-	"AsuncionMarch2025":         true,
-	"AsuncionJuly2025":          true,
-	"YearInvalidZone":           true,
-	"HourAsuncion":              true,
-	"DateFromPartsAsuncion":     true,
-	"DateFromStringZoneName":    true,
-	"DateFromStringInvalidZone": true,
-	"DateTruncAsuncion":         true,
+	"DateTruncAsuncion": true, // $dateTrunc ignores timezone (workspace-0dd)
 }
 
 func TestTimeZoneDatabase(t *testing.T) {
