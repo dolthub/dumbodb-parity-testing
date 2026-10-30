@@ -74,7 +74,8 @@ func TestResourceLimits(t *testing.T) {
 
 		{"DateFromStringDashes", fromString(strings.Repeat("-", 20000))},
 		{"DateFromStringPluses", fromString(strings.Repeat("+", 20000))},
-		{"DateFromStringLongValidPrefix", fromString("2021-01-01" + strings.Repeat(" ", 20000))},
+		// A valid string over 4096 bytes is a deliberate deviation; see
+		// date_string_length_test.go.
 		{"DateFromStringLongDigits", fromString(strings.Repeat("1", 20000))},
 		{"DateFromStringLongWords", fromString(strings.Repeat("monday ", 3000))},
 	}

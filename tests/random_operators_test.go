@@ -147,8 +147,7 @@ func TestRand(t *testing.T) {
 		want       interface{}
 		support    harness.DumboDBSupport
 	}{
-		// Find projections accept only a few operators in DumboDB (workspace-bcq).
-		{"FindProjection", inUnitInterval, true, harness.DumboDBXFail},
+		{"FindProjection", inUnitInterval, true, harness.DumboDBFull},
 		{"FindProjectionType", bson.D{{Key: "$type", Value: rand}}, "double", harness.DumboDBFull},
 	}
 	for _, fp := range findProjections {

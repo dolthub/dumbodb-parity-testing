@@ -73,7 +73,7 @@ func TestMaxTimeMS_SlowExpressionStages(t *testing.T) {
 func TestMaxTimeMS_SlowFindProjection(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "MaxTimeMS_SlowFindProjection",
-		Support: harness.DumboDBXFail, // workspace-mkf: find projection rejects $regexFindAll.
+		Support: harness.DumboDBFull,
 		Setup:   insertSlowRegexDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			projection := bson.D{{Key: "n", Value: bson.D{{Key: "$size", Value: bson.D{{Key: "$regexFindAll", Value: bson.D{
