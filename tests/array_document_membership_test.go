@@ -42,15 +42,6 @@ func insertArrayMembershipDocs(ctx context.Context, col *mongo.Collection) error
 	return err
 }
 
-// arrayMembershipAlreadyMatching are the cases DumboDB matched before
-// workspace-m8c.11 was fixed.
-var arrayMembershipAlreadyMatching = map[string]bool{
-	"EqNestedArray": true,
-	"InPositional":  true,
-	"NinPositional": true,
-	"ElemMatchIn":   true,
-}
-
 func TestArrayDocumentMembership(t *testing.T) {
 	ab := bson.D{{Key: "a", Value: int32(1)}, {Key: "b", Value: int32(2)}}
 	op := func(name string, v interface{}) bson.D { return bson.D{{Key: name, Value: v}} }
@@ -83,14 +74,10 @@ func TestArrayDocumentMembership(t *testing.T) {
 		{"ElemMatchIn", bson.D{{Key: "arr", Value: op("$elemMatch", op("$in", bson.A{ab}))}}},
 	}
 	for _, tc := range cases {
-		support := harness.DumboDBXFail
-		if arrayMembershipAlreadyMatching[tc.name] {
-			support = harness.DumboDBFull
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "ArrayMembership_" + tc.name,
-				Support: support,
+				Support: harness.DumboDBFull,
 				Setup:   insertArrayMembershipDocs,
 				Run:     ids(tc.filter),
 			})
