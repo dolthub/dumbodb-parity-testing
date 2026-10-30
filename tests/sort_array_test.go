@@ -88,7 +88,7 @@ func TestSortArray(t *testing.T) {
 		{"SortByLong", sortArray(bson.A{int32(3), int32(1)}, int64(-1))},
 		{"SortByDecimal", sortArray(bson.A{int32(3), int32(1)}, mustDecimal("-1"))},
 		{"Strings", sortArray(bson.A{"b", "B", "a", "", "aa"}, int32(1))},
-		{"UnicodeStrings", sortArray(bson.A{"é", "e", "f", "E"}, int32(1))},
+		{"UnicodeStrings", sortArray(bson.A{"\u00E9", "e", "f", "E"}, int32(1))},
 		{"MixedNumbers", sortArray(bson.A{int32(2), 1.5, int64(1), mustDecimal("1.25"), math.NaN(), math.Inf(-1)}, int32(1))},
 		{"EqualNumbersOfDifferentTypes", sortArray(bson.A{int64(1), 1.0, int32(1), mustDecimal("1.0")}, int32(1))},
 		{"EqualNumbersDescending", sortArray(bson.A{int64(1), 1.0, int32(1), mustDecimal("1.0")}, int32(-1))},

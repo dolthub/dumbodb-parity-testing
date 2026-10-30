@@ -28,7 +28,7 @@ import (
 
 func insertBinarySizeDocs(ctx context.Context, col *mongo.Collection) error {
 	_, err := col.InsertMany(ctx, []interface{}{
-		bson.D{{Key: "_id", Value: int32(0)}, {Key: "v", Value: "café"}},
+		bson.D{{Key: "_id", Value: int32(0)}, {Key: "v", Value: "caf\u00E9"}},
 		bson.D{{Key: "_id", Value: int32(1)}, {Key: "v", Value: primitive.Binary{Subtype: 0, Data: []byte{1, 2, 3}}}},
 		bson.D{{Key: "_id", Value: int32(2)}, {Key: "v", Value: nil}},
 		bson.D{{Key: "_id", Value: int32(3)}},
@@ -44,8 +44,8 @@ func TestBinarySize(t *testing.T) {
 	cases := []mathCase{
 		{"ASCII", binarySize("abc")},
 		{"Empty", binarySize("")},
-		{"TwoByteUTF8", binarySize("café")},
-		{"ThreeByteUTF8", binarySize("€")},
+		{"TwoByteUTF8", binarySize("caf\u00E9")},
+		{"ThreeByteUTF8", binarySize("\u20AC")},
 		{"FourByteUTF8", binarySize("\U0001F600")},
 		{"EmbeddedNull", binarySize("a\x00b")},
 		{"Long", binarySize(strings.Repeat("x", 100000))},
@@ -60,7 +60,7 @@ func TestBinarySize(t *testing.T) {
 		{"BinaryLarge", binarySize(primitive.Binary{Data: make([]byte, 70000)})},
 		{"ArrayForm", binarySize(bson.A{"abc"})},
 		{"Field", binarySize("$v")},
-		{"Expression", binarySize(bson.D{{Key: "$concat", Value: bson.A{"ab", "é"}}})},
+		{"Expression", binarySize(bson.D{{Key: "$concat", Value: bson.A{"ab", "\u00E9"}}})},
 
 		{"Null", binarySize(nil)},
 		{"Missing", binarySize("$missing")},

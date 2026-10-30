@@ -69,7 +69,7 @@ func TestToObjectID(t *testing.T) {
 		{"NonHex", toObjectID("zz1d7f6e9c8b4a3d2e1f0a9b")},
 		{"Spaces", toObjectID(" 5f1d7f6e9c8b4a3d2e1f0a9")},
 		{"Prefix", toObjectID("0x1d7f6e9c8b4a3d2e1f0a9b")},
-		{"Unicode", toObjectID("5f1d7f6e9c8b4a3d2e1f0aé")},
+		{"Unicode", toObjectID("5f1d7f6e9c8b4a3d2e1f0a\u00E9")},
 		{"Int", toObjectID(int32(1))},
 		{"Long", toObjectID(int64(1))},
 		{"Double", toObjectID(1.5)},
