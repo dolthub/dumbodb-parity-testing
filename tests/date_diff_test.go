@@ -125,7 +125,7 @@ func TestDateDiff(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "DateDiff_" + tc.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   insertDatePartsDocs,
 				Run:     projectTyped(tc.expr),
 			})
@@ -147,7 +147,7 @@ func TestDateDiff(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "DateDiff_" + name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   insertDatePartsDocs,
 				Run:     pipelineRunExtJSON(pipeline),
 			})
