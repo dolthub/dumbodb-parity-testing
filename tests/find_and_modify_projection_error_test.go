@@ -25,6 +25,13 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
+// findAndModifyProjectionPending: mongod commits the write and then fails
+// the projection; DumboDB discards the write (decision: workspace-cn8).
+var findAndModifyProjectionPending = map[string]bool{
+	"UpdateBadConvert": true,
+	"UpdateBadPath":    true,
+}
+
 // DumboDB wrote the document and then failed applying 'fields', so the
 // client saw an error for a committed write (workspace-8tj.18). Each case
 // reports the command outcome and the collection afterwards.
@@ -52,9 +59,13 @@ func TestFindAndModifyProjectionError(t *testing.T) {
 	for _, tc := range cases {
 		cmd := tc.cmd
 		t.Run(tc.name, func(t *testing.T) {
+			support := harness.DumboDBFull
+			if findAndModifyProjectionPending[tc.name] {
+				support = harness.DumboDBXFail
+			}
 			harness.PairTest(t, harness.TestCase{
 				Name:    "FindAndModifyProjectionError_" + tc.name,
-				Support: harness.DumboDBXFail,
+				Support: support,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "n", Value: int32(1)}, {Key: "s", Value: "x"}})
 					return err
@@ -114,9 +125,13 @@ func TestConstantSubexpressionErrors(t *testing.T) {
 				}
 				expr, isEmpty, st := e.expr, empty, stage
 				t.Run(name, func(t *testing.T) {
+					support := harness.DumboDBFull
+					if name == "ConstantSubexpression_elds_NestedConstant_Empty" {
+						support = harness.DumboDBXFail // workspace-2vz
+					}
 					harness.PairTest(t, harness.TestCase{
 						Name:    name,
-						Support: harness.DumboDBXFail,
+						Support: support,
 						Setup: func(ctx context.Context, col *mongo.Collection) error {
 							if isEmpty {
 								return col.Database().CreateCollection(ctx, col.Name())
