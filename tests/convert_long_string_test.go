@@ -70,7 +70,7 @@ func TestConvertLongNumericStrings(t *testing.T) {
 			t.Run(to+"_"+in.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    name,
-					Support: harness.DumboDBXFail,
+					Support: harness.DumboDBFull,
 					Setup:   insertOneDoc,
 					Run:     projectTyped(expr),
 				})
