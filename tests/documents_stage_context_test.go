@@ -122,17 +122,12 @@ func TestDocumentsDatabaseForeignStages(t *testing.T) {
 			}}}}}
 		},
 	}
-	pending := map[string]bool{"GraphLookup": true}
 	for name, stage := range stages {
 		build := stage
-		support := harness.DumboDBFull
-		if pending[name] {
-			support = harness.DumboDBXFail
-		}
 		t.Run(name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "DocumentsDatabaseForeignStages_" + name,
-				Support: support,
+				Support: harness.DumboDBFull,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					_, err := col.InsertMany(ctx, []interface{}{
 						bson.D{{Key: "_id", Value: int32(1)}, {Key: "next", Value: int32(2)}},
