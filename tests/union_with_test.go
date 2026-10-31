@@ -49,10 +49,14 @@ func TestUnionWith(t *testing.T) {
 	}
 	for name, p := range pipelines {
 		pipeline := p
+		support := harness.DumboDBFull
+		if name == "InFacet" {
+			support = harness.DumboDBXFail // workspace-rse
+		}
 		t.Run(name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "UnionWith_" + name,
-				Support: harness.DumboDBXFail,
+				Support: support,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					if _, err := col.InsertMany(ctx, []interface{}{bson.D{{Key: "_id", Value: int32(1)}, {Key: "c", Value: "x"}}, bson.D{{Key: "_id", Value: int32(2)}}}); err != nil {
 						return err

@@ -62,8 +62,7 @@ func TestDocumentsStageContexts(t *testing.T) {
 			{Key: "as", Value: "j"},
 		}}}},
 	}
-	// $unionWith is not implemented yet (workspace-ed9).
-	pending := map[string]bool{"InUnionWithNoColl": true}
+	pending := map[string]bool{}
 	for name, p := range pipelines {
 		pipeline := p
 		n := "DocumentsStageContexts_" + name
