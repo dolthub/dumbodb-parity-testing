@@ -142,30 +142,61 @@ func TestReviewRound6PipelinePaths(t *testing.T) {
 		"UnsetTrailing": {bson.D{{Key: "$unset", Value: "a."}}},
 		"EmptyStage":    {bson.D{}},
 		"TwoKeyStage":   {bson.D{{Key: "$set", Value: bson.D{{Key: "x", Value: int32(1)}}}, {Key: "$unset", Value: "s"}}},
+		"SetFieldPath":  {bson.D{{Key: "$set", Value: bson.D{{Key: "x", Value: "$b"}}}}},
+		"SetObjectExpr": {bson.D{{Key: "$set", Value: bson.D{{Key: "o", Value: bson.D{{Key: "x", Value: "$b"}, {Key: "y", Value: bson.D{{Key: "$toUpper", Value: "$s"}}}}}}}}},
+		"SetDotted":     {bson.D{{Key: "$set", Value: bson.D{{Key: "o.p", Value: "$s"}}}}},
+		"MatchStage":    {bson.D{{Key: "$match", Value: bson.D{}}}},
+		"UnknownStage":  {bson.D{{Key: "$bogus", Value: bson.D{}}}},
+		"SetNotObject":  {bson.D{{Key: "$set", Value: int32(1)}}},
+		"UnsetNumber":   {bson.D{{Key: "$unset", Value: bson.A{int32(1)}}}},
+		"UnsetDollar":   {bson.D{{Key: "$unset", Value: "$s"}}},
+		"SetDollarKey":  {bson.D{{Key: "$set", Value: bson.D{{Key: "$x", Value: int32(1)}}}}},
+		"SetDollarPart": {bson.D{{Key: "$set", Value: bson.D{{Key: "a.$x", Value: int32(1)}}}}},
+		"NotObject":     {int32(1)},
 	}
 	for name, p := range pipelines {
 		pipeline := p
-		for _, via := range []string{"Update", "FindAndModify", "BulkWrite"} {
+		for _, via := range []string{"Update", "FindAndModify", "BulkWrite", "Aggregate"} {
 			v := via
 			n := "ReviewRound6_PipelinePath_" + v + "_" + name
 			t.Run(v+"_"+name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    n,
-					Support: harness.DumboDBXFail,
+					Support: harness.DumboDBFull,
 					Setup:   round6Setup,
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 						var err error
+						var opCodes []int32
 						switch v {
 						case "Update":
 							_, err = col.UpdateOne(ctx, bson.D{{Key: "_id", Value: int32(1)}}, pipeline)
 						case "FindAndModify":
 							err = col.Database().RunCommand(ctx, bson.D{{Key: "findAndModify", Value: col.Name()}, {Key: "query", Value: bson.D{{Key: "_id", Value: int32(1)}}}, {Key: "update", Value: pipeline}}).Err()
+						case "Aggregate":
+							var cur *mongo.Cursor
+							if cur, err = col.Aggregate(ctx, pipeline); err == nil {
+								err = cur.All(ctx, &[]bson.M{})
+							}
 						case "BulkWrite":
+							var reply struct {
+								Cursor struct {
+									FirstBatch []struct {
+										Code int32 `bson:"code"`
+									} `bson:"firstBatch"`
+								} `bson:"cursor"`
+							}
 							err = col.Database().Client().Database("admin").RunCommand(ctx, bson.D{
 								{Key: "bulkWrite", Value: int32(1)},
 								{Key: "ops", Value: bson.A{bson.D{{Key: "update", Value: int32(0)}, {Key: "filter", Value: bson.D{{Key: "_id", Value: int32(1)}}}, {Key: "updateMods", Value: pipeline}}}},
 								{Key: "nsInfo", Value: bson.A{bson.D{{Key: "ns", Value: col.Database().Name() + "." + col.Name()}}}},
-							}).Err()
+							}).Decode(&reply)
+							if err == nil {
+								codes := []int32{}
+								for _, r := range reply.Cursor.FirstBatch {
+									codes = append(codes, r.Code)
+								}
+								opCodes = codes
+							}
 						}
 						var docs []bson.M
 						cur, ferr := col.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
@@ -175,7 +206,7 @@ func TestReviewRound6PipelinePaths(t *testing.T) {
 						if ferr = cur.All(ctx, &docs); ferr != nil {
 							return nil, ferr
 						}
-						return bson.M{"outcome": errOutcome(err), "after": docs}, nil
+						return bson.M{"outcome": errOutcome(err), "opCodes": opCodes, "after": docs}, nil
 					},
 				})
 			})
