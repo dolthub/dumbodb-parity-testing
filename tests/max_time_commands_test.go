@@ -62,7 +62,7 @@ func TestMaxTimeMSCommands(t *testing.T) {
 			t.Run(cmdName+"_"+valName, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    name,
-					Support: harness.DumboDBXFail,
+					Support: harness.DumboDBFull,
 					Setup: func(ctx context.Context, col *mongo.Collection) error {
 						_, err := col.InsertMany(ctx, []interface{}{
 							bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: "x1"}},
