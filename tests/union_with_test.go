@@ -28,29 +28,35 @@ import (
 // $unionWith was not implemented (workspace-ed9).
 func TestUnionWith(t *testing.T) {
 	other := "other"
+	// facet runs stage in a $facet sub-pipeline, sorted for a stable order.
+	facet := func(stage bson.D) bson.D {
+		return bson.D{{Key: "$facet", Value: bson.D{{Key: "f", Value: bson.A{stage, bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}}}}}}}
+	}
 	docs := bson.D{{Key: "$documents", Value: bson.A{bson.D{{Key: "d", Value: int32(1)}}}}}
 	pipelines := map[string]bson.A{
-		"CollName":       {bson.D{{Key: "$unionWith", Value: other}}},
-		"CollSpec":       {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: other}}}}},
-		"CollPipeline":   {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: other}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "o", Value: bson.D{{Key: "$gt", Value: int32(1)}}}}}}}}}}}},
-		"Missing":        {bson.D{{Key: "$unionWith", Value: "nope"}}},
-		"Self":           {bson.D{{Key: "$unionWith", Value: "col"}}},
-		"Documents":      {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "pipeline", Value: bson.A{docs}}}}}},
-		"ThenSort":       {bson.D{{Key: "$unionWith", Value: other}}, bson.D{{Key: "$sort", Value: bson.D{{Key: "o", Value: -1}, {Key: "_id", Value: 1}}}}, bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "order", Value: bson.D{{Key: "$push", Value: "$_id"}}}}}}},
-		"AfterMatch":     {bson.D{{Key: "$match", Value: bson.D{{Key: "_id", Value: int32(1)}}}}, bson.D{{Key: "$unionWith", Value: other}}},
-		"Nested":         {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: other}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$unionWith", Value: "col"}}}}}}}},
-		"InFacet":        {bson.D{{Key: "$facet", Value: bson.D{{Key: "f", Value: bson.A{bson.D{{Key: "$unionWith", Value: other}}}}}}}},
-		"NotString":      {bson.D{{Key: "$unionWith", Value: int32(1)}}},
-		"UnknownField":   {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: other}, {Key: "x", Value: int32(1)}}}}},
-		"NoCollNoDocs":   {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "pipeline", Value: bson.A{}}}}}},
-		"PipelineNotArr": {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: other}, {Key: "pipeline", Value: int32(1)}}}}},
-		"PipelineOut":    {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: other}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$out", Value: "x"}}}}}}}},
-		"CollNotString":  {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: int32(1)}}}}},
+		"CollName":           {bson.D{{Key: "$unionWith", Value: other}}},
+		"CollSpec":           {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: other}}}}},
+		"CollPipeline":       {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: other}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "o", Value: bson.D{{Key: "$gt", Value: int32(1)}}}}}}}}}}}},
+		"Missing":            {bson.D{{Key: "$unionWith", Value: "nope"}}},
+		"Self":               {bson.D{{Key: "$unionWith", Value: "col"}}},
+		"Documents":          {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "pipeline", Value: bson.A{docs}}}}}},
+		"ThenSort":           {bson.D{{Key: "$unionWith", Value: other}}, bson.D{{Key: "$sort", Value: bson.D{{Key: "o", Value: -1}, {Key: "_id", Value: 1}}}}, bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "order", Value: bson.D{{Key: "$push", Value: "$_id"}}}}}}},
+		"AfterMatch":         {bson.D{{Key: "$match", Value: bson.D{{Key: "_id", Value: int32(1)}}}}, bson.D{{Key: "$unionWith", Value: other}}},
+		"Nested":             {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: other}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$unionWith", Value: "col"}}}}}}}},
+		"InFacet":            {facet(bson.D{{Key: "$unionWith", Value: other}})},
+		"InFacetLookup":      {facet(bson.D{{Key: "$lookup", Value: bson.D{{Key: "from", Value: other}, {Key: "localField", Value: "_id"}, {Key: "foreignField", Value: "o"}, {Key: "as", Value: "j"}}}})},
+		"InFacetGraphLookup": {facet(bson.D{{Key: "$graphLookup", Value: bson.D{{Key: "from", Value: other}, {Key: "startWith", Value: "$_id"}, {Key: "connectFromField", Value: "o"}, {Key: "connectToField", Value: "o"}, {Key: "as", Value: "j"}}}})},
+		"NotString":          {bson.D{{Key: "$unionWith", Value: int32(1)}}},
+		"UnknownField":       {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: other}, {Key: "x", Value: int32(1)}}}}},
+		"NoCollNoDocs":       {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "pipeline", Value: bson.A{}}}}}},
+		"PipelineNotArr":     {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: other}, {Key: "pipeline", Value: int32(1)}}}}},
+		"PipelineOut":        {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: other}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$out", Value: "x"}}}}}}}},
+		"CollNotString":      {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: int32(1)}}}}},
 	}
 	for name, p := range pipelines {
 		pipeline := p
 		support := harness.DumboDBFull
-		if name == "InFacet" {
+		if name == "InFacet" || name == "InFacetLookup" || name == "InFacetGraphLookup" {
 			support = harness.DumboDBXFail // workspace-rse
 		}
 		t.Run(name, func(t *testing.T) {
