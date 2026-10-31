@@ -16,6 +16,8 @@ package tests
 
 import (
 	"context"
+	"fmt"
+	"sort"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -91,6 +93,79 @@ func TestDocumentsStageContexts(t *testing.T) {
 						delete(d, "_id")
 					}
 					return out, nil
+				},
+			})
+		})
+	}
+}
+
+// Stages that read other collections run after a leading $documents in a
+// database-level aggregate; $graphLookup was rejected as unrecognized
+// (workspace-hvo).
+func TestDocumentsDatabaseForeignStages(t *testing.T) {
+	stages := map[string]func(coll string) bson.D{
+		"Lookup": func(coll string) bson.D {
+			return bson.D{{Key: "$lookup", Value: bson.D{{Key: "from", Value: coll}, {Key: "localField", Value: "x"}, {Key: "foreignField", Value: "_id"}, {Key: "as", Value: "j"}}}}
+		},
+		"GraphLookup": func(coll string) bson.D {
+			return bson.D{{Key: "$graphLookup", Value: bson.D{
+				{Key: "from", Value: coll}, {Key: "startWith", Value: "$x"},
+				{Key: "connectFromField", Value: "next"}, {Key: "connectToField", Value: "_id"}, {Key: "as", Value: "j"},
+			}}}
+		},
+		"UnionWith": func(coll string) bson.D {
+			return bson.D{{Key: "$unionWith", Value: coll}}
+		},
+		"Facet": func(coll string) bson.D {
+			return bson.D{{Key: "$facet", Value: bson.D{{Key: "f", Value: bson.A{
+				bson.D{{Key: "$lookup", Value: bson.D{{Key: "from", Value: coll}, {Key: "localField", Value: "x"}, {Key: "foreignField", Value: "_id"}, {Key: "as", Value: "j"}}}},
+			}}}}}
+		},
+	}
+	pending := map[string]bool{"GraphLookup": true}
+	for name, stage := range stages {
+		build := stage
+		support := harness.DumboDBFull
+		if pending[name] {
+			support = harness.DumboDBXFail
+		}
+		t.Run(name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "DocumentsDatabaseForeignStages_" + name,
+				Support: support,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					_, err := col.InsertMany(ctx, []interface{}{
+						bson.D{{Key: "_id", Value: int32(1)}, {Key: "next", Value: int32(2)}},
+						bson.D{{Key: "_id", Value: int32(2)}},
+					})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					cur, err := col.Database().Aggregate(ctx, mongo.Pipeline{
+						{{Key: "$documents", Value: bson.A{bson.D{{Key: "x", Value: int32(1)}}}}},
+						build(col.Name()),
+					})
+					if err != nil {
+						return errOutcome(err), nil
+					}
+					var out []bson.M
+					if err := cur.All(ctx, &out); err != nil {
+						return errOutcome(err), nil
+					}
+					strs := make([]string, len(out))
+					for i, d := range out {
+						if j, ok := d["j"].(bson.A); ok {
+							elems := make([]string, len(j))
+							for k, e := range j {
+								elems[k] = fmt.Sprint(e)
+							}
+							sort.Strings(elems)
+							d["j"] = elems
+						}
+						strs[i] = fmt.Sprint(d)
+					}
+					sort.Strings(strs)
+					return strs, nil
 				},
 			})
 		})
