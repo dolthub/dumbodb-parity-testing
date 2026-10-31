@@ -16,6 +16,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"testing"
 
@@ -37,7 +38,11 @@ func round6Setup(ctx context.Context, col *mongo.Collection) error {
 	}); err != nil {
 		return err
 	}
-	_, err := col.Database().Collection("secret").InsertOne(ctx, bson.D{{Key: "_id", Value: int32(9)}})
+	_, err := col.Database().Collection("secret").InsertMany(ctx, []interface{}{
+		bson.D{{Key: "_id", Value: int32(9)}},
+		bson.D{{Key: "_id", Value: int32(10)}, {Key: "v", Value: "$$v"}},
+		bson.D{{Key: "_id", Value: int32(11)}, {Key: "v", Value: "$b"}},
+	})
 	return err
 }
 
@@ -47,13 +52,25 @@ func round6Aggregate(pipeline bson.A) func(context.Context, *mongo.Collection) (
 		if err != nil {
 			return errOutcome(err), nil
 		}
-		var out []bson.Raw
+		// Maps print with sorted keys; foreign natural order differs, so the
+		// joined arrays are compared as multisets too.
+		var out []bson.M
 		if err := cur.All(ctx, &out); err != nil {
 			return errOutcome(err), nil
 		}
 		strs := make([]string, len(out))
 		for i, d := range out {
-			strs[i] = d.String()
+			for k, v := range d {
+				if arr, ok := v.(bson.A); ok {
+					elems := make([]string, len(arr))
+					for j, e := range arr {
+						elems[j] = fmt.Sprint(e)
+					}
+					sort.Strings(elems)
+					d[k] = elems
+				}
+			}
+			strs[i] = fmt.Sprint(d)
 		}
 		sort.Strings(strs)
 		return strs, nil
@@ -83,6 +100,21 @@ func TestReviewRound6Aggregations(t *testing.T) {
 			{Key: "pipeline", Value: bson.A{bson.D{{Key: "$project", Value: bson.D{{Key: "v", Value: "$$v"}}}}}},
 			{Key: "as", Value: "j"},
 		}}}},
+		"LookupLetPlainMatch": {bson.D{{Key: "$lookup", Value: bson.D{
+			{Key: "from", Value: "secret"},
+			{Key: "let", Value: bson.D{{Key: "v", Value: "$s"}}},
+			{Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "v", Value: "$$v"}}}}}},
+			{Key: "as", Value: "j"},
+		}}}},
+		"LookupLetMatchOrExpr": {bson.D{{Key: "$lookup", Value: bson.D{
+			{Key: "from", Value: "secret"},
+			{Key: "let", Value: bson.D{{Key: "v", Value: "$s"}}},
+			{Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "$or", Value: bson.A{
+				bson.D{{Key: "v", Value: "$$v"}},
+				bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{"$v", "$$v"}}}}},
+			}}}}}}},
+			{Key: "as", Value: "j"},
+		}}}},
 		// O16
 		"UnionWithCollAndDocuments":   {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: "secret"}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$documents", Value: bson.A{}}}}}}}}},
 		"LookupFromAndDocuments":      {bson.D{{Key: "$lookup", Value: bson.D{{Key: "from", Value: "secret"}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$documents", Value: bson.A{}}}}}, {Key: "as", Value: "x"}}}}},
@@ -93,7 +125,7 @@ func TestReviewRound6Aggregations(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "ReviewRound6_" + name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   round6Setup,
 				Run:     round6Aggregate(pipeline),
 			})
