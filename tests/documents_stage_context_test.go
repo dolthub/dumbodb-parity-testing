@@ -63,7 +63,7 @@ func TestDocumentsStageContexts(t *testing.T) {
 		}}}},
 	}
 	// $unionWith is not implemented yet (workspace-ed9).
-	pending := map[string]bool{"InLookupNoFrom": true, "InUnionWithNoColl": true, "LookupNoFromLet": true, "LookupNoFromExprDocs": true, "LookupNoFromNotFirst": true, "LookupNoFromNoDocs": true, "LookupNoFromNoPipeline": true, "LookupNoFromDocsNotArray": true, "LookupNoFromLetExpression": true}
+	pending := map[string]bool{"InUnionWithNoColl": true}
 	for name, p := range pipelines {
 		pipeline := p
 		n := "DocumentsStageContexts_" + name
