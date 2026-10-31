@@ -79,7 +79,7 @@ func TestTransactionStatementError(t *testing.T) {
 				}},
 				{Key: "nsInfo", Value: bson.A{bson.D{{Key: "ns", Value: col.Database().Name() + "." + col.Name()}}}},
 			}).Err()
-		}, harness.DumboDBXFail},
+		}, harness.DumboDBFull},
 	}
 	for _, st := range statements {
 		run := st.run
