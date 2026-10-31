@@ -49,27 +49,39 @@ func TestDistinct_FilteredOnKey(t *testing.T) {
 		for _, tc := range []struct {
 			name   string
 			filter bson.D
+			// multikeyWant is mongod's result with arrays present, when it
+			// holds a value stored as several equal numeric types.
+			multikeyWant bson.A
 		}{
-			{"Lt", bson.D{{Key: "v", Value: bson.D{{Key: "$lt", Value: int32(100)}}}}},
-			{"Range", bson.D{{Key: "v", Value: bson.D{{Key: "$gte", Value: int32(1)}, {Key: "$lte", Value: int32(2)}}}}},
-			{"Eq", bson.D{{Key: "v", Value: int32(1)}}},
-			{"StringRange", bson.D{{Key: "v", Value: bson.D{{Key: "$gt", Value: ""}}}}},
-			{"Empty", bson.D{{Key: "v", Value: bson.D{{Key: "$gt", Value: int32(1000)}}}}},
+			{"Lt", bson.D{{Key: "v", Value: bson.D{{Key: "$lt", Value: int32(100)}}}},
+				bson.A{int32(-3), int32(1), int32(2), 2.5, int32(5), int32(500)}},
+			{"Range", bson.D{{Key: "v", Value: bson.D{{Key: "$gte", Value: int32(1)}, {Key: "$lte", Value: int32(2)}}}},
+				bson.A{int32(1), int32(2)}},
+			{"Eq", bson.D{{Key: "v", Value: int32(1)}}, bson.A{int32(1)}},
+			{"StringRange", bson.D{{Key: "v", Value: bson.D{{Key: "$gt", Value: ""}}}}, nil},
+			{"Empty", bson.D{{Key: "v", Value: bson.D{{Key: "$gt", Value: int32(1000)}}}}, nil},
 		} {
 			name := tc.name
 			if arrays {
 				name += "_Multikey"
 			}
+			run := func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				var res bson.D
+				err := col.Database().RunCommand(ctx, bson.D{{Key: "distinct", Value: col.Name()}, {Key: "key", Value: "v"}, {Key: "query", Value: tc.filter}}).Decode(&res)
+				return res.Map()["values"], err
+			}
 			t.Run(name, func(t *testing.T) {
+				// The value kept for 1 is whichever equal type the scan meets
+				// first; see numericRepresentativeTest.
+				if arrays && tc.multikeyWant != nil {
+					numericRepresentativeTest(t, "Distinct_FilteredOnKey_"+name, distinctOnKeySetup(arrays), run, tc.multikeyWant)
+					return
+				}
 				harness.PairTest(t, harness.TestCase{
 					Name:    "Distinct_FilteredOnKey_" + name,
 					Support: harness.DumboDBFull,
 					Setup:   distinctOnKeySetup(arrays),
-					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-						var res bson.D
-						err := col.Database().RunCommand(ctx, bson.D{{Key: "distinct", Value: col.Name()}, {Key: "key", Value: "v"}, {Key: "query", Value: tc.filter}}).Decode(&res)
-						return res.Map()["values"], err
-					},
+					Run:     run,
 				})
 			})
 		}

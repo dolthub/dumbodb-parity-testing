@@ -16,6 +16,7 @@ package tests
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
@@ -111,4 +112,71 @@ func TestSetParameter_NonAdminDB(t *testing.T) {
 			return nil, err
 		},
 	})
+}
+
+// TestSetParameter_ValueTypes sets parameters with values of other BSON
+// types and reads back what the server stored (workspace-3g8).
+func TestSetParameter_ValueTypes(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		param string
+		value interface{}
+	}{
+		{"Int_FromInt64", "maxTransactionLockRequestTimeoutMillis", int64(7)},
+		{"Int_FromWholeDouble", "maxTransactionLockRequestTimeoutMillis", float64(7)},
+		{"Int_FromFractionalDouble", "maxTransactionLockRequestTimeoutMillis", 7.5},
+		{"Int_FromDecimal", "maxTransactionLockRequestTimeoutMillis", mustDecimal("7")},
+		{"Int_FromString", "maxTransactionLockRequestTimeoutMillis", "7"},
+		{"Int_FromBool", "maxTransactionLockRequestTimeoutMillis", true},
+		{"Int_FromOutOfRangeInt64", "maxTransactionLockRequestTimeoutMillis", int64(1) << 40},
+		{"Bool_FromInt", "quiet", int32(1)},
+		{"Bool_FromZeroDouble", "quiet", float64(0)},
+		{"Bool_FromString", "quiet", "true"},
+		{"Bool_FromFalseString", "quiet", "false"},
+		{"Bool_FromEmptyString", "quiet", ""},
+		{"Bool_FromNull", "quiet", nil},
+		{"Int_FromNegativeFraction", "maxTransactionLockRequestTimeoutMillis", -7.9},
+		{"Int_FromNaN", "maxTransactionLockRequestTimeoutMillis", math.NaN()},
+		{"Int_FromHugeDouble", "maxTransactionLockRequestTimeoutMillis", 1e300},
+		{"Int_FromNull", "maxTransactionLockRequestTimeoutMillis", nil},
+		{"Int_FromObject", "maxTransactionLockRequestTimeoutMillis", bson.D{{Key: "a", Value: int32(1)}}},
+		{"Int_FromFractionalDecimal", "maxTransactionLockRequestTimeoutMillis", mustDecimal("7.9")},
+		{"AuthSchemaVersion_FromInt64", "authSchemaVersion", int64(5)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "SetParameter_ValueTypes_" + tc.name,
+				Support: harness.DumboDBFull,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					client := col.Database().Client()
+					admin := client.Database("admin")
+					defer resetLockTimeout(ctx, client)()
+					defer func() {
+						_ = admin.RunCommand(ctx, bson.D{{Key: "setParameter", Value: 1}, {Key: "quiet", Value: false}}).Err()
+					}()
+
+					var setDoc bson.M
+					if err := admin.RunCommand(ctx, bson.D{
+						{Key: "setParameter", Value: 1},
+						{Key: tc.param, Value: tc.value},
+					}).Decode(&setDoc); err != nil {
+						return nil, err
+					}
+
+					var getDoc bson.M
+					if err := admin.RunCommand(ctx, bson.D{
+						{Key: "getParameter", Value: 1},
+						{Key: tc.param, Value: 1},
+					}).Decode(&getDoc); err != nil {
+						return nil, err
+					}
+
+					return bson.D{
+						{Key: "was", Value: setDoc["was"]},
+						{Key: "value", Value: getDoc[tc.param]},
+					}, nil
+				},
+			})
+		})
+	}
 }

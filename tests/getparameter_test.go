@@ -90,3 +90,38 @@ func TestGetParameter_NonAdminRejected(t *testing.T) {
 		},
 	})
 }
+
+// TestGetParameter_KnownParameters reads each parameter DumboDB knows, plain
+// and with showDetails, so value types and settability flags are compared.
+func TestGetParameter_KnownParameters(t *testing.T) {
+	for _, param := range []string{
+		"authSchemaVersion",
+		"authenticationMechanisms",
+		"featureCompatibilityVersion",
+		"maxTransactionLockRequestTimeoutMillis",
+		"quiet",
+	} {
+		for _, details := range []bool{false, true} {
+			name := param
+			var selector interface{} = int32(1)
+			if details {
+				name += "_Details"
+				selector = bson.D{{Key: "showDetails", Value: true}}
+			}
+			t.Run(name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "GetParameter_Known_" + name,
+					Support: harness.DumboDBFull,
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						var doc bson.M
+						err := col.Database().Client().Database("admin").RunCommand(ctx, bson.D{
+							{Key: "getParameter", Value: selector},
+							{Key: param, Value: int32(1)},
+						}).Decode(&doc)
+						return doc[param], err
+					},
+				})
+			})
+		}
+	}
+}

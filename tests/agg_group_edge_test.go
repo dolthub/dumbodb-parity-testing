@@ -36,12 +36,11 @@ func insertGroupMixedNumKeySeed(ctx context.Context, col *mongo.Collection) erro
 	return err
 }
 
+// The group _id is whichever equal key the scan meets first; see
+// numericRepresentativeTest.
 func TestAggGroupEdge_MixedNumericKey(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "AggGroupEdge_MixedNumericKey",
-		Support: harness.DumboDBFull,
-		Setup:   insertGroupMixedNumKeySeed,
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+	numericRepresentativeTest(t, "AggGroupEdge_MixedNumericKey", insertGroupMixedNumKeySeed,
+		func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			results, err := runPipeline(ctx, col, []bson.D{
 				{{Key: "$group", Value: bson.D{
 					{Key: "_id", Value: "$k"},
@@ -53,7 +52,10 @@ func TestAggGroupEdge_MixedNumericKey(t *testing.T) {
 
 			return docsToSlice(results), err
 		},
-	})
+		[]interface{}{
+			bson.D{{Key: "_id", Value: int32(1)}, {Key: "n", Value: int32(3)}, {Key: "total", Value: int32(60)}},
+			bson.D{{Key: "_id", Value: int32(2)}, {Key: "n", Value: int32(2)}, {Key: "total", Value: int32(45)}},
+		})
 }
 
 func insertGroupMissingFieldSeed(ctx context.Context, col *mongo.Collection) error {
