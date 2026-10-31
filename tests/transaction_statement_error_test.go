@@ -30,8 +30,9 @@ import (
 // failed statement's partial write (workspace-8tj.19).
 func TestTransactionStatementError(t *testing.T) {
 	statements := []struct {
-		name string
-		run  func(sc context.Context, col *mongo.Collection) error
+		name    string
+		run     func(sc context.Context, col *mongo.Collection) error
+		support harness.DumboDBSupport
 	}{
 		{"FindAndModifyProjectionError", func(sc context.Context, col *mongo.Collection) error {
 			return col.Database().RunCommand(sc, bson.D{
@@ -40,41 +41,54 @@ func TestTransactionStatementError(t *testing.T) {
 				{Key: "update", Value: bson.D{{Key: "$inc", Value: bson.D{{Key: "n", Value: int32(1)}}}}},
 				{Key: "fields", Value: bson.D{{Key: "x", Value: bson.D{{Key: "$add", Value: bson.A{"$s", int32(1)}}}}}},
 			}).Err()
-		}},
+		}, harness.DumboDBFull},
 		{"DuplicateKeyInsert", func(sc context.Context, col *mongo.Collection) error {
 			_, err := col.InsertOne(sc, bson.D{{Key: "_id", Value: "a"}})
 			return err
-		}},
+		}, harness.DumboDBFull},
 		{"UpdateTypeError", func(sc context.Context, col *mongo.Collection) error {
 			_, err := col.UpdateOne(sc, bson.D{{Key: "_id", Value: "a"}}, bson.D{{Key: "$inc", Value: bson.D{{Key: "s", Value: int32(1)}}}})
 			return err
-		}},
+		}, harness.DumboDBFull},
 		{"UpdateManyPartial", func(sc context.Context, col *mongo.Collection) error {
 			_, err := col.UpdateMany(sc, bson.D{}, bson.D{{Key: "$inc", Value: bson.D{{Key: "n", Value: int32(1)}}}})
 			return err
-		}},
+		}, harness.DumboDBFull},
 		{"AggregateRuntimeError", func(sc context.Context, col *mongo.Collection) error {
 			cur, err := col.Aggregate(sc, mongo.Pipeline{{{Key: "$project", Value: bson.D{{Key: "x", Value: bson.D{{Key: "$add", Value: bson.A{"$s", int32(1)}}}}}}}})
 			if err == nil {
 				err = cur.All(sc, &[]bson.M{})
 			}
 			return err
-		}},
+		}, harness.DumboDBFull},
 		{"FindBadFilter", func(sc context.Context, col *mongo.Collection) error {
 			cur, err := col.Find(sc, bson.D{{Key: "n", Value: bson.D{{Key: "$bogus", Value: int32(1)}}}})
 			if err == nil {
 				err = cur.All(sc, &[]bson.M{})
 			}
 			return err
-		}},
+		}, harness.DumboDBFull},
+		// bulkWrite reports a failed op in its cursor and nErrors, not
+		// writeErrors (workspace-8tj.26).
+		{"BulkWriteOpError", func(sc context.Context, col *mongo.Collection) error {
+			return col.Database().Client().Database("admin").RunCommand(sc, bson.D{
+				{Key: "bulkWrite", Value: int32(1)},
+				{Key: "ops", Value: bson.A{
+					bson.D{{Key: "insert", Value: int32(0)}, {Key: "document", Value: bson.D{{Key: "_id", Value: "c"}}}},
+					bson.D{{Key: "update", Value: int32(0)}, {Key: "filter", Value: bson.D{{Key: "_id", Value: "a"}}}, {Key: "updateMods", Value: bson.D{{Key: "$inc", Value: bson.D{{Key: "s", Value: int32(1)}}}}}},
+				}},
+				{Key: "nsInfo", Value: bson.A{bson.D{{Key: "ns", Value: col.Database().Name() + "." + col.Name()}}}},
+			}).Err()
+		}, harness.DumboDBXFail},
 	}
 	for _, st := range statements {
 		run := st.run
+		support := st.support
 		name := "TransactionStatementError_" + st.name
 		t.Run(st.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:     name,
-				Support:  harness.DumboDBFull,
+				Support:  support,
 				Topology: harness.TopologyReplicaSet,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					_, err := col.InsertMany(ctx, []interface{}{
