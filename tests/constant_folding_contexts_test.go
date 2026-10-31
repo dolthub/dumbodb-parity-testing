@@ -27,7 +27,6 @@ import (
 
 // mongod folds constant subexpressions wherever it parses an expression, so a
 // failing constant in a branch never taken is still an error (workspace-7aj).
-// findAndModify takes no pipeline update yet (workspace-d40).
 func TestConstantFoldingContexts(t *testing.T) {
 	untaken := bson.D{{Key: "$cond", Value: bson.A{"$a", int32(1), bson.D{{Key: "$divide", Value: bson.A{int32(1), int32(0)}}}}}}
 	pipelines := map[string]bson.A{
@@ -112,9 +111,6 @@ func TestConstantFoldingContexts(t *testing.T) {
 			}
 			r, isEmpty := run, empty
 			support := harness.DumboDBFull
-			if name == "FindAndModifyPipeline" {
-				support = harness.DumboDBXFail
-			}
 			t.Run(n, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    n,

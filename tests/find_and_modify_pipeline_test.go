@@ -59,7 +59,7 @@ func TestFindAndModifyPipeline(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "FindAndModifyPipeline_" + tc.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   insertFindAndModifyDoc,
 				Run:     findAndModifyRun(cmd),
 			})
@@ -81,7 +81,7 @@ func TestUpdatePipelineKeepsID(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "UpdatePipelineKeepsID_" + name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   insertFindAndModifyDoc,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					_, err := col.UpdateOne(ctx, bson.D{{Key: "_id", Value: int32(1)}}, pipeline)
