@@ -51,5 +51,5 @@ func TestCoerceToString(t *testing.T) {
 		)
 	}
 	cases = append(cases, mathCase{"Substr_Missing", bson.D{{Key: "$substr", Value: bson.A{"$missing", int32(0), int32(1)}}}})
-	runMathCases(t, "CoerceToString", harness.DumboDBXFail, cases)
+	runMathCases(t, "CoerceToString", harness.DumboDBFull, cases)
 }
