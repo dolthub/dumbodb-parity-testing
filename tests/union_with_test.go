@@ -56,9 +56,6 @@ func TestUnionWith(t *testing.T) {
 	for name, p := range pipelines {
 		pipeline := p
 		support := harness.DumboDBFull
-		if name == "InFacet" || name == "InFacetLookup" || name == "InFacetGraphLookup" {
-			support = harness.DumboDBXFail // workspace-rse
-		}
 		t.Run(name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "UnionWith_" + name,

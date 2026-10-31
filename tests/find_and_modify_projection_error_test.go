@@ -172,9 +172,6 @@ func TestConstantSubexpressionErrors(t *testing.T) {
 				expr, isEmpty, st := e.expr, empty, stage
 				t.Run(name, func(t *testing.T) {
 					support := harness.DumboDBFull
-					if name == "ConstantSubexpression_elds_NestedConstant_Empty" {
-						support = harness.DumboDBXFail // workspace-2vz
-					}
 					harness.PairTest(t, harness.TestCase{
 						Name:    name,
 						Support: support,
