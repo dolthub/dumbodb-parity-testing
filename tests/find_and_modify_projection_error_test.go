@@ -112,6 +112,12 @@ func insertFindAndModifyDoc(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
+func findAndModifyRun(cmd bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
+	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		return findAndModifyOutcome(ctx, col, cmd)
+	}
+}
+
 // findAndModifyOutcome runs findAndModify with cmd and reports the outcome
 // and the collection afterwards.
 func findAndModifyOutcome(ctx context.Context, col *mongo.Collection, cmd bson.D) (interface{}, error) {
