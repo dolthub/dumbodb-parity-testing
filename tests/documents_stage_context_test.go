@@ -38,9 +38,32 @@ func TestDocumentsStageContexts(t *testing.T) {
 		"InLookupWithFrom":  {bson.D{{Key: "$lookup", Value: bson.D{{Key: "from", Value: "other"}, {Key: "pipeline", Value: bson.A{docs}}, {Key: "as", Value: "j"}}}}},
 		"InUnionWithNoColl": {bson.D{{Key: "$unionWith", Value: bson.D{{Key: "pipeline", Value: bson.A{docs}}}}}},
 		"NotArray":          {bson.D{{Key: "$documents", Value: int32(1)}}},
+		"LookupNoFromLet": {bson.D{{Key: "$lookup", Value: bson.D{
+			{Key: "let", Value: bson.D{{Key: "v", Value: "$_id"}}},
+			{Key: "pipeline", Value: bson.A{
+				bson.D{{Key: "$documents", Value: bson.A{bson.D{{Key: "y", Value: "$$v"}}, bson.D{{Key: "y", Value: int32(5)}}}}},
+				bson.D{{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{"$y", "$$v"}}}}}}},
+			}},
+			{Key: "as", Value: "j"},
+		}}}},
+		"LookupNoFromExprDocs": {bson.D{{Key: "$lookup", Value: bson.D{
+			{Key: "pipeline", Value: bson.A{bson.D{{Key: "$documents", Value: bson.D{{Key: "$map", Value: bson.D{
+				{Key: "input", Value: bson.A{int32(1), int32(2)}}, {Key: "in", Value: bson.D{{Key: "k", Value: "$$this"}}},
+			}}}}}}},
+			{Key: "as", Value: "j"},
+		}}}},
+		"LookupNoFromNotFirst":     {bson.D{{Key: "$lookup", Value: bson.D{{Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{}}}, docs}}, {Key: "as", Value: "j"}}}}},
+		"LookupNoFromNoDocs":       {bson.D{{Key: "$lookup", Value: bson.D{{Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{}}}}}, {Key: "as", Value: "j"}}}}},
+		"LookupNoFromNoPipeline":   {bson.D{{Key: "$lookup", Value: bson.D{{Key: "localField", Value: "a"}, {Key: "foreignField", Value: "b"}, {Key: "as", Value: "j"}}}}},
+		"LookupNoFromDocsNotArray": {bson.D{{Key: "$lookup", Value: bson.D{{Key: "pipeline", Value: bson.A{bson.D{{Key: "$documents", Value: int32(1)}}}}, {Key: "as", Value: "j"}}}}},
+		"LookupNoFromLetExpression": {bson.D{{Key: "$lookup", Value: bson.D{
+			{Key: "let", Value: bson.D{{Key: "v", Value: bson.D{{Key: "$add", Value: bson.A{"$_id", int32(10)}}}}}},
+			{Key: "pipeline", Value: bson.A{bson.D{{Key: "$documents", Value: bson.A{bson.D{{Key: "y", Value: "$$v"}}}}}}},
+			{Key: "as", Value: "j"},
+		}}}},
 	}
-	// Collectionless sub-pipelines are not supported yet (workspace-yuv).
-	pending := map[string]bool{"InLookupNoFrom": true, "InUnionWithNoColl": true}
+	// $unionWith is not implemented yet (workspace-ed9).
+	pending := map[string]bool{"InLookupNoFrom": true, "InUnionWithNoColl": true, "LookupNoFromLet": true, "LookupNoFromExprDocs": true, "LookupNoFromNotFirst": true, "LookupNoFromNoDocs": true, "LookupNoFromNoPipeline": true, "LookupNoFromDocsNotArray": true, "LookupNoFromLetExpression": true}
 	for name, p := range pipelines {
 		pipeline := p
 		n := "DocumentsStageContexts_" + name
