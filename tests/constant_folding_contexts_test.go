@@ -16,6 +16,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -101,6 +102,36 @@ func TestConstantFoldingContexts(t *testing.T) {
 		},
 		"FindAndModifyPipeline": func(ctx context.Context, col *mongo.Collection) error {
 			return col.FindOneAndUpdate(ctx, bson.D{}, mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "r", Value: untaken}}}}}, options.FindOneAndUpdate()).Err()
+		},
+		"UpdatePipelineAddFields": func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.UpdateMany(ctx, bson.D{}, mongo.Pipeline{{{Key: "$addFields", Value: bson.D{{Key: "r", Value: untaken}}}}})
+			return err
+		},
+		"UpdatePipelineProject": func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.UpdateMany(ctx, bson.D{}, mongo.Pipeline{{{Key: "$project", Value: bson.D{{Key: "a", Value: 1}, {Key: "r", Value: untaken}}}}})
+			return err
+		},
+		"UpdatePipelineReplaceWith": func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.UpdateMany(ctx, bson.D{}, mongo.Pipeline{{{Key: "$replaceWith", Value: bson.D{{Key: "a", Value: "$a"}, {Key: "r", Value: untaken}}}}})
+			return err
+		},
+		"UpdatePipelineReplaceRoot": func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.UpdateMany(ctx, bson.D{}, mongo.Pipeline{{{Key: "$replaceRoot", Value: bson.D{{Key: "newRoot", Value: bson.D{{Key: "a", Value: "$a"}, {Key: "r", Value: untaken}}}}}}})
+			return err
+		},
+		"BulkWritePipeline": func(ctx context.Context, col *mongo.Collection) error {
+			var reply struct {
+				NErrors int32 `bson:"nErrors"`
+			}
+			err := col.Database().Client().Database("admin").RunCommand(ctx, bson.D{
+				{Key: "bulkWrite", Value: int32(1)},
+				{Key: "ops", Value: bson.A{bson.D{{Key: "update", Value: int32(0)}, {Key: "filter", Value: bson.D{}}, {Key: "multi", Value: true}, {Key: "updateMods", Value: bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "r", Value: untaken}}}}}}}}},
+				{Key: "nsInfo", Value: bson.A{bson.D{{Key: "ns", Value: col.Database().Name() + "." + col.Name()}}}},
+			}).Decode(&reply)
+			if err == nil && reply.NErrors > 0 {
+				err = fmt.Errorf("nErrors %d", reply.NErrors)
+			}
+			return err
 		},
 	}
 	for _, empty := range []bool{true, false} {
