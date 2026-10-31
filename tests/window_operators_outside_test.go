@@ -68,13 +68,7 @@ func windowRunPipeline(pipeline bson.A) func(context.Context, *mongo.Collection)
 
 // windowOutsidePendingContexts still diverge from MongoDB, for reasons not
 // specific to window functions.
-var windowOutsidePendingContexts = map[string]bool{
-	"AddFields":      true, // error raised at execution with other messages (workspace-2tf)
-	"Set":            true, // workspace-2tf
-	"FindFilterExpr": true, // workspace-2tf
-	"UpdatePipeline": true, // workspace-2tf
-	"FindProjection": true, // find projections accept few operators (workspace-bcq)
-}
+var windowOutsidePendingContexts = map[string]bool{}
 
 func TestWindowOperatorsOutsideSetWindowFields(t *testing.T) {
 	windowOps := []struct {
