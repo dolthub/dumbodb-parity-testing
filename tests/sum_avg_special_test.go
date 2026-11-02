@@ -25,8 +25,8 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// A NaN or infinite double summed alongside a Decimal128 panicked DumboDB
-// (workspace-8tj.9). mongod carries the special value into the decimal total.
+// A NaN or infinite double summed alongside a Decimal128 panicked DumboDB.
+// mongod carries the special value into the decimal total.
 
 var sumAvgSpecialInputs = []struct {
 	name   string
@@ -94,7 +94,7 @@ func insertOneDoc(ctx context.Context, col *mongo.Collection) error {
 }
 
 // The $sum and $avg expressions dropped literal and Decimal128 operands and
-// swallowed errors (workspace-ec6).
+// swallowed errors.
 func TestSumAvgExpressionOperands(t *testing.T) {
 	lit := func(v interface{}) bson.D { return bson.D{{Key: "$literal", Value: v}} }
 	cases := []struct {

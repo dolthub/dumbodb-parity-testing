@@ -22,10 +22,10 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// PCRE2 constructs from the review of #184 (workspace-m8c.7), each checked
+// PCRE2 constructs from the review of #184, each checked
 // with $regexFindAll so every match and capture is compared.
 
-// regexReviewPending need constructs regexp2 cannot express (workspace-jsa).
+// regexReviewPending need constructs regexp2 cannot express.
 var regexReviewPending = map[string]bool{
 	"MatchReset":          true,
 	"Recursion":           true,

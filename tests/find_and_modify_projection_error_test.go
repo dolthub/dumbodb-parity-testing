@@ -27,8 +27,8 @@ import (
 
 // findAndModifyCommittedOnError lists the cases where mongod commits the
 // update and then fails the projection, reporting an error for a durable
-// write. DumboDB deliberately discards the write (workspace-cn8; reported to
-// MongoDB in workspace-2m3). Each maps the error code and the field whose
+// write. DumboDB deliberately discards the write (to be reported to
+// MongoDB as a server bug). Each maps the error code and the field whose
 // value shows whether the update was kept.
 var findAndModifyCommittedOnError = map[string]struct {
 	code               int32
@@ -40,7 +40,7 @@ var findAndModifyCommittedOnError = map[string]struct {
 }
 
 // DumboDB wrote the document and then failed applying 'fields', so the
-// client saw an error for a committed write (workspace-8tj.18). Each case
+// client saw an error for a committed write. Each case
 // reports the command outcome and the collection afterwards.
 func TestFindAndModifyProjectionError(t *testing.T) {
 	divideByZero := bson.D{{Key: "x", Value: bson.D{{Key: "$divide", Value: bson.A{int32(1), int32(0)}}}}}

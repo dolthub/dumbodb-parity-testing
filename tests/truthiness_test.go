@@ -24,7 +24,7 @@ import (
 )
 
 // Boolean contexts coerce with Value::coerceToBool, where numeric zeros are
-// false; DumboDB treated every number as true (workspace-ptx).
+// false; DumboDB treated every number as true.
 func TestTruthiness(t *testing.T) {
 	values := map[string]interface{}{
 		"IntZero": int32(0), "LongZero": int64(0), "DoubleZero": 0.0, "NegZero": math.Copysign(0, -1),

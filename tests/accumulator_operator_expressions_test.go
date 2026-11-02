@@ -86,7 +86,7 @@ func TestAccumulatorOperatorExpressions(t *testing.T) {
 
 			name := acc[1:] + "_" + e.name
 			// $$ROOT is not about field order, which DumboDB deliberately does
-			// not keep (workspace-7ob), so it is compared with keys sorted.
+			// not keep, so it is compared with keys sorted.
 			run := pipelineRunExtJSON(pipeline)
 			if e.name == "Root" {
 				run = pipelineRunSortedKeys(pipeline)

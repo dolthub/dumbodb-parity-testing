@@ -286,7 +286,7 @@ func TestFieldOrder_ArrayOfEmbeddedDocuments(t *testing.T) {
 
 // fieldOrderDeviation runs a case where DumboDB deliberately differs: it
 // stores documents with their keys sorted, which the history independence of
-// its prolly tree requires (workspace-7ob). Each server's result is checked
+// its prolly tree requires. Each server's result is checked
 // against its own expectation.
 func fieldOrderDeviation(t *testing.T, name string,
 	setup func(context.Context, *mongo.Collection) error,

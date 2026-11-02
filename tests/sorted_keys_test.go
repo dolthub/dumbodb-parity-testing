@@ -23,7 +23,7 @@ import (
 )
 
 // sortKeys returns v with the keys of every embedded document in byte order.
-// DumboDB stores documents with sorted keys (workspace-7ob), so cases that are
+// DumboDB stores documents with sorted keys, so cases that are
 // not about field order compare this form.
 func sortKeys(v interface{}) interface{} {
 	switch x := v.(type) {

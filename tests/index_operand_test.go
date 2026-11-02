@@ -24,8 +24,7 @@ import (
 )
 
 // Index and length operands must be numeric and, for most operators,
-// representable as 32-bit integers; DumboDB converted any value
-// (workspace-ycs).
+// representable as 32-bit integers; DumboDB converted any value.
 func TestIndexOperands(t *testing.T) {
 	values := map[string]interface{}{
 		"DoubleFraction": 1.5, "DecimalFraction": mustDecimal("1.5"), "DecimalWhole": mustDecimal("2"),

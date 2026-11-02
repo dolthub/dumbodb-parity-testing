@@ -29,8 +29,7 @@ import (
 )
 
 // Query filters compiled regexes separately from the expression operators,
-// so PCRE2 behavior fixed for $regexMatch still differed in find
-// (workspace-6u7). The Expr form runs each pattern through $regexMatch.
+// so PCRE2 behavior fixed for $regexMatch still differed in find. The Expr form runs each pattern through $regexMatch.
 
 var queryRegexInputs = []string{
 	"a b", "aab", "(aa", "a\n", "\nb", "AB", "a\nb", "foo bar", "é", "aaa", "ab", "",

@@ -27,7 +27,7 @@ import (
 )
 
 // mongod folds constant subexpressions wherever it parses an expression, so a
-// failing constant in a branch never taken is still an error (workspace-7aj).
+// failing constant in a branch never taken is still an error.
 func TestConstantFoldingContexts(t *testing.T) {
 	untaken := bson.D{{Key: "$cond", Value: bson.A{"$a", int32(1), bson.D{{Key: "$divide", Value: bson.A{int32(1), int32(0)}}}}}}
 	pipelines := map[string]bson.A{
@@ -43,7 +43,7 @@ func TestConstantFoldingContexts(t *testing.T) {
 		"FacetProject":   {bson.D{{Key: "$facet", Value: bson.D{{Key: "f", Value: bson.A{bson.D{{Key: "$project", Value: bson.D{{Key: "r", Value: untaken}}}}}}}}}},
 		"SetWindowField": {bson.D{{Key: "$setWindowFields", Value: bson.D{{Key: "sortBy", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "output", Value: bson.D{{Key: "w", Value: bson.D{{Key: "$sum", Value: untaken}}}}}}}}},
 		"UnwindAfterSet": {bson.D{{Key: "$set", Value: bson.D{{Key: "r", Value: untaken}}}}, bson.D{{Key: "$unwind", Value: "$r"}}},
-		// Fails only where a is missing, which no document is (workspace-ot0).
+		// Fails only where a is missing, which no document is.
 		"MatchExprMissingOnly": {bson.D{{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$gt", Value: bson.A{
 			bson.D{{Key: "$divide", Value: bson.A{int32(1), bson.D{{Key: "$ifNull", Value: bson.A{"$a", int32(0)}}}}}}, int32(0),
 		}}}}}}}},

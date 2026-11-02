@@ -25,8 +25,8 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// Membership and equality of documents in arrays, from the review of #184
-// (workspace-m8c.11): $in and $nin with document members against arrays
+// Membership and equality of documents in arrays, from the review of #184:
+// $in and $nin with document members against arrays
 // holding them, and an array filter value against nested arrays.
 
 func insertArrayMembershipDocs(ctx context.Context, col *mongo.Collection) error {

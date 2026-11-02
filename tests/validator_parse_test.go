@@ -25,7 +25,7 @@ import (
 )
 
 // mongod parses a validator as a query when create or collMod sets it, so
-// invalid or disallowed validators are rejected up front (workspace-1cb).
+// invalid or disallowed validators are rejected up front.
 func TestValidatorParse(t *testing.T) {
 	div0 := bson.D{{Key: "$divide", Value: bson.A{int32(1), int32(0)}}}
 	cond := func(c, a, b interface{}) bson.D { return bson.D{{Key: "$cond", Value: bson.A{c, a, b}}} }

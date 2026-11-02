@@ -25,8 +25,8 @@ import (
 )
 
 // $rank, $denseRank and range windows read a dotted sortBy path; every
-// document read as missing and tied at rank 1 (workspace-utt). Range bounds
-// need an ascending sortBy (workspace-nak).
+// document read as missing and tied at rank 1. Range bounds
+// need an ascending sortBy.
 func TestWindowDottedSortBy(t *testing.T) {
 	setup := func(ctx context.Context, col *mongo.Collection) error {
 		_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "items", Value: bson.A{

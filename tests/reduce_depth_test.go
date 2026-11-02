@@ -28,7 +28,7 @@ import (
 // $reduce can build values nested far deeper than BSON input allows.
 // mongod checks the accumulated depth periodically (cap 400) and its size
 // (100MB), and refuses to return values nested 200 levels or more.
-// Unbounded nesting crashed DumboDB with a stack overflow (workspace-8tj.6).
+// Unbounded nesting crashed DumboDB with a stack overflow.
 
 // deepReduce nests $$value n times inside an array or a document.
 func deepReduce(n int, asDocument bool) bson.D {

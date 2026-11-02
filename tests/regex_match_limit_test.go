@@ -31,7 +31,7 @@ import (
 // A filter regex that hits mongod's PCRE2 match limit counts as no match,
 // so $not, $nin and $nor match the document even though the pattern really
 // matches it. DumboDB bounds matches with a wall-clock timeout instead, so the
-// same answer would depend on load; it fails the operation (workspace-8tj.21).
+// same answer would depend on load; it fails the operation.
 
 const catastrophicPattern = `(a+)+b|c`
 

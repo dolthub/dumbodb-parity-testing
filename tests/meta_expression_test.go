@@ -53,7 +53,7 @@ var metaNames = []string{
 	"timeseriesBucketMinTime", "timeseriesBucketMaxTime", "vectorSearchScore",
 }
 
-// metaPending need document metadata DumboDB does not carry (workspace-gns).
+// metaPending need document metadata DumboDB does not carry.
 var metaPending = map[string]bool{
 	"Unavailable_indexKey":      true,
 	"UnavailableValue_indexKey": true,

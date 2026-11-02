@@ -28,7 +28,7 @@ import (
 )
 
 // DumboDB rejects a $dateFromString dateString longer than 4096 bytes as a
-// parse failure (workspace-8tj.11). mongod has no limit; longer valid
+// parse failure. mongod has no limit; longer valid
 // strings only repeat tokens or pad, and parsing them costs CPU per byte.
 
 const maxDateStringLength = 4096

@@ -26,10 +26,10 @@ import (
 )
 
 // DumboDB stores keys sorted, so it sorts the document values a filter
-// compares against stored documents (workspace-2r6). Documents built by a
+// compares against stored documents. Documents built by a
 // pipeline keep the order they were built in, and order-sensitive
 // expression arguments are not stored values; neither may be sorted.
-// (review of #184: workspace-m8c.1, workspace-m8c.2, workspace-m8c.3)
+// (review of #184)
 
 func insertCanonicalScopeDocs(ctx context.Context, col *mongo.Collection) error {
 	_, err := col.InsertMany(ctx, []interface{}{

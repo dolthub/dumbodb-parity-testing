@@ -25,7 +25,7 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// $unionWith was not implemented (workspace-ed9).
+// $unionWith was not implemented.
 func TestUnionWith(t *testing.T) {
 	other := "other"
 	// facet runs stage in a $facet sub-pipeline, sorted for a stable order.

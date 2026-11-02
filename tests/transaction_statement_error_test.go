@@ -27,7 +27,7 @@ import (
 
 // mongod aborts a transaction when one of its statements fails, so nothing
 // it wrote is committed. DumboDB kept the transaction open and committed a
-// failed statement's partial write (workspace-8tj.19).
+// failed statement's partial write.
 func TestTransactionStatementError(t *testing.T) {
 	statements := []struct {
 		name    string
@@ -69,7 +69,7 @@ func TestTransactionStatementError(t *testing.T) {
 			return err
 		}, harness.DumboDBFull},
 		// bulkWrite reports a failed op in its cursor and nErrors, not
-		// writeErrors (workspace-8tj.26).
+		// writeErrors.
 		{"BulkWriteOpError", func(sc context.Context, col *mongo.Collection) error {
 			return col.Database().Client().Database("admin").RunCommand(sc, bson.D{
 				{Key: "bulkWrite", Value: int32(1)},

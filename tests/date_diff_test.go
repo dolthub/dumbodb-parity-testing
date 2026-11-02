@@ -34,8 +34,7 @@ func diff(start, end, unit interface{}, extra ...bson.E) bson.D {
 	return dateDiff(append([]bson.E{part("startDate", start), part("endDate", end), part("unit", unit)}, extra...)...)
 }
 
-// $dateDiff ignored timezone and startOfWeek and validated loosely
-// (workspace-0dd).
+// $dateDiff ignored timezone and startOfWeek and validated loosely.
 func TestDateDiff(t *testing.T) {
 	utc := func(y int, m time.Month, d, h, mi, s, ms int) time.Time {
 		return time.Date(y, m, d, h, mi, s, ms*1e6, time.UTC)

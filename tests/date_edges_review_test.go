@@ -24,7 +24,7 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// Date edge cases from the review of #184 (workspace-m8c.9): extreme dates
+// Date edge cases from the review of #184: extreme dates
 // with zones that move them past the int64 range of milliseconds, onNull
 // and onError that evaluate to missing, and constant onError/onNull
 // expressions, which mongod evaluates when it parses them.

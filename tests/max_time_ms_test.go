@@ -28,7 +28,7 @@ import (
 )
 
 // maxTimeMS must stop a pipeline whose stages are slow per document, not
-// only one that is slow to read (workspace-8tj.12). mongod 8.0.28 does not
+// only one that is slow to read. mongod 8.0.28 does not
 // reliably interrupt $addFields or $group mid-stream, so only stages it
 // does interrupt are compared.
 

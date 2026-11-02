@@ -25,7 +25,7 @@ import (
 
 // mongod resolves time zone names with timelib's built-in database (version
 // 2024.1 in 8.0.28), not the host's tzdata: it accepts exactly the names in
-// that database and applies its rules. (review of #184: workspace-m8c.6)
+// that database and applies its rules. (review of #184)
 
 // timeZoneDatabasePending diverge for reasons outside the database.
 var timeZoneDatabasePending = map[string]bool{}

@@ -28,7 +28,7 @@ import (
 
 // $documents runs only in a database-level aggregate or a sub-pipeline with
 // no collection; on a collection mongod fails with InvalidNamespace where
-// DumboDB reported NotImplemented (workspace-9m6).
+// DumboDB reported NotImplemented.
 func TestDocumentsStageContexts(t *testing.T) {
 	docs := bson.D{{Key: "$documents", Value: bson.A{bson.D{{Key: "x", Value: int32(1)}}, bson.D{{Key: "x", Value: int32(2)}}}}}
 	pipelines := map[string]bson.A{
@@ -100,8 +100,7 @@ func TestDocumentsStageContexts(t *testing.T) {
 }
 
 // Stages that read other collections run after a leading $documents in a
-// database-level aggregate; $graphLookup was rejected as unrecognized
-// (workspace-hvo).
+// database-level aggregate; $graphLookup was rejected as unrecognized.
 func TestDocumentsDatabaseForeignStages(t *testing.T) {
 	stages := map[string]func(coll string) bson.D{
 		"Lookup": func(coll string) bson.D {

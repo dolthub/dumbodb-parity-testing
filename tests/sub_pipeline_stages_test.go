@@ -26,7 +26,7 @@ import (
 
 // Every stage that reads another collection, inside every stage that runs a
 // sub-pipeline. $lookup built its sub-pipeline stages separately from $facet
-// and left out $graphLookup (workspace-7v6).
+// and left out $graphLookup.
 
 func subPipelineSetup(ctx context.Context, col *mongo.Collection) error {
 	if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "name", Value: "c"}}); err != nil {
@@ -88,7 +88,7 @@ func TestSubPipelineForeignStages(t *testing.T) {
 	}
 }
 
-// Stages mongod refuses inside $facet (workspace-vc6).
+// Stages mongod refuses inside $facet.
 func TestFacetDisallowedStages(t *testing.T) {
 	stages := map[string]bson.D{
 		"Facet":      {{Key: "$facet", Value: bson.D{{Key: "f", Value: bson.A{}}}}},

@@ -25,7 +25,7 @@ import (
 )
 
 // count, distinct and delete ignored maxTimeMS, or rejected it as an unknown
-// field (workspace-8tj.22).
+// field.
 func TestMaxTimeMSCommands(t *testing.T) {
 	commands := map[string]func(coll string) bson.D{
 		"Count": func(coll string) bson.D {

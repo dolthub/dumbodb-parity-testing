@@ -23,7 +23,7 @@ import (
 )
 
 // operators.toFloat64 read a Decimal128 as 0, so operators that convert
-// operands with it could compute with 0 (workspace-ptx).
+// operands with it could compute with 0.
 func TestDecimalOperands(t *testing.T) {
 	d := mustDecimal
 	op := func(name string, args ...interface{}) bson.D { return bson.D{{Key: name, Value: bson.A(args)}} }

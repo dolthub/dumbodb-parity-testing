@@ -23,7 +23,7 @@ import (
 )
 
 // Inline x mode ends with its group; the space after the group still
-// matches literally (workspace-qc4).
+// matches literally.
 func TestRegexInlineExtendedScope(t *testing.T) {
 	patterns := []string{
 		"(?x: a ) b", "(?x:a) b", "(?:(?x) a ) b", "((?x) a ) b", "(?x) a (?-x) b",

@@ -27,7 +27,7 @@ import (
 )
 
 // A find projection accepts any aggregation expression as a field value, with
-// the same meaning as in $project (workspace-mkf).
+// the same meaning as in $project.
 
 func insertFindExprDocs(ctx context.Context, col *mongo.Collection) error {
 	_, err := col.InsertMany(ctx, []interface{}{

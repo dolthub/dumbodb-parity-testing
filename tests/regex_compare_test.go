@@ -27,7 +27,7 @@ import (
 
 // mongod orders regex values by their raw bytes, pattern then options, and
 // never compiles them. DumboDB compiled both sides and panicked on a pattern
-// that does not compile (workspace-8tj.8).
+// that does not compile.
 
 func re(pattern, options string) primitive.Regex {
 	return primitive.Regex{Pattern: pattern, Options: options}

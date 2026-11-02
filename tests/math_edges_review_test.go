@@ -25,7 +25,7 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// Math edge cases from the review of #184 (workspace-m8c.10): Decimal128
+// Math edge cases from the review of #184: Decimal128
 // arguments in binary128's subnormal and underflow range, and the value
 // shown in out-of-domain error messages.
 
@@ -60,7 +60,7 @@ func TestMathEdgesReview(t *testing.T) {
 		}
 	}
 	// A field-dependent argument fails at execution in both servers; a
-	// constant one fails while mongod optimizes the pipeline (workspace-7aj).
+	// constant one fails while mongod optimizes the pipeline.
 	runtime := func(v interface{}) bson.D {
 		return bson.D{{Key: "$add", Value: bson.A{v, bson.D{{Key: "$ifNull", Value: bson.A{"$nope", int32(0)}}}}}}
 	}

@@ -24,7 +24,7 @@ import (
 )
 
 // Limits mongod applies to expressions that a client can make arbitrarily
-// expensive (security review of #184: workspace-8tj).
+// expensive (security review of #184).
 
 func TestResourceLimits(t *testing.T) {
 	op := func(name string, v interface{}) bson.D { return bson.D{{Key: name, Value: v}} }

@@ -115,7 +115,7 @@ func TestSetParameter_NonAdminDB(t *testing.T) {
 }
 
 // TestSetParameter_ValueTypes sets parameters with values of other BSON
-// types and reads back what the server stored (workspace-3g8).
+// types and reads back what the server stored.
 func TestSetParameter_ValueTypes(t *testing.T) {
 	for _, tc := range []struct {
 		name  string

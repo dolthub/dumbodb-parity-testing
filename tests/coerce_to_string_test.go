@@ -26,7 +26,7 @@ import (
 )
 
 // String operators coerce their input with Value::coerceToString; the substr
-// operators returned "" or a generic error instead (workspace-d1q).
+// operators returned "" or a generic error instead.
 func TestCoerceToString(t *testing.T) {
 	values := map[string]interface{}{
 		"Int": int32(-42), "Long": int64(1) << 40, "Double": 1.5, "DoubleBig": 3e9, "DoubleTenth": 0.1,

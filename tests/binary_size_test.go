@@ -76,7 +76,7 @@ func TestBinarySize(t *testing.T) {
 		{"TooManyArguments", binarySize(bson.A{"a", "b"})},
 		{"NoArguments", binarySize(bson.A{})},
 	}
-	// DumboDB rejects Symbol and JavaScript values as InvalidBSON (workspace-6fd).
+	// DumboDB rejects Symbol and JavaScript values as InvalidBSON.
 	for _, tc := range []mathCase{
 		{"Symbol", binarySize(primitive.Symbol("abc"))},
 		{"JavaScript", binarySize(primitive.JavaScript("x"))},

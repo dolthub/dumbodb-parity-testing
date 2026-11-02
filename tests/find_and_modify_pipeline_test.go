@@ -25,7 +25,7 @@ import (
 )
 
 // findAndModify accepts a pipeline-style update; DumboDB returned
-// NotImplemented (workspace-d40, dolthub/dumbodb#120).
+// NotImplemented (dolthub/dumbodb#120).
 func TestFindAndModifyPipeline(t *testing.T) {
 	set := func(fields bson.D) bson.D { return bson.D{{Key: "$set", Value: fields}} }
 	byID := func(id int32) bson.E { return bson.E{Key: "query", Value: bson.D{{Key: "_id", Value: id}}} }
@@ -68,7 +68,7 @@ func TestFindAndModifyPipeline(t *testing.T) {
 }
 
 // The update command shares the pipeline code; _id is kept when a stage
-// drops it (workspace-2ph).
+// drops it.
 func TestUpdatePipelineKeepsID(t *testing.T) {
 	stages := map[string]bson.A{
 		"ReplaceWith":      {bson.D{{Key: "$replaceWith", Value: bson.D{{Key: "only", Value: "$s"}}}}},

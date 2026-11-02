@@ -126,7 +126,7 @@ func runMathCases(t *testing.T, prefix string, support harness.DumboDBSupport, c
 // runMathContexts checks op over every document in $addFields, inside a
 // $match $expr, and under a $group accumulator.
 // sbeGroupDivergences are cases where MongoDB evaluates $group in its SBE
-// engine, whose out-of-bounds error code differs (workspace-tfj.16).
+// engine, whose out-of-bounds error code differs.
 var sbeGroupDivergences = map[string]bool{
 	"Trig_acosh_GroupSum": true,
 }

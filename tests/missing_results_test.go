@@ -25,7 +25,7 @@ import (
 )
 
 // Expressions whose result is the missing value: a projected field is
-// omitted and $type reports "missing". (review of #184: workspace-m8c.5)
+// omitted and $type reports "missing". (review of #184)
 
 func insertMissingResultDocs(ctx context.Context, col *mongo.Collection) error {
 	_, err := col.InsertMany(ctx, []interface{}{

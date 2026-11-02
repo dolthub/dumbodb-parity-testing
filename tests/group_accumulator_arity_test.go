@@ -26,7 +26,7 @@ import (
 
 // $group accumulators are unary: mongod rejects any array operand with
 // 40237. $mergeObjects with zero or 2+ operands dereferenced a nil
-// accumulator in DumboDB (workspace-8tj.10).
+// accumulator in DumboDB.
 func TestGroupAccumulatorArity(t *testing.T) {
 	accumulators := []string{
 		"$mergeObjects", "$sum", "$avg", "$min", "$max", "$push", "$addToSet",

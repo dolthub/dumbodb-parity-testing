@@ -23,10 +23,9 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// Parsing a long numeric string took quadratic CPU in $toInt/$toLong
-// (workspace-8tj.16) and $toDecimal (workspace-8tj.17). Long decimal and
-// double strings also failed where mongod parses them (workspace-fvo), and
-// decimal strings rounded half-even where mongod truncates (workspace-76c).
+// Parsing a long numeric string took quadratic CPU in $toInt/$toLong and
+// $toDecimal. Long decimal and double strings also failed where mongod
+// parses them, and decimal strings rounded half-even where mongod truncates.
 func TestConvertLongNumericStrings(t *testing.T) {
 	const n = 200_000
 	zeros := strings.Repeat("0", n)

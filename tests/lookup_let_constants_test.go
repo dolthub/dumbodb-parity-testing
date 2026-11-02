@@ -62,7 +62,7 @@ func TestLookupLetNotFolded(t *testing.T) {
 }
 
 // A let value substituted into $project must stay a value: a bare 0 or true
-// there is an exclusion or inclusion flag (workspace-3xy, review O17).
+// there is an exclusion or inclusion flag (review O17).
 func TestLookupLetProjectFlags(t *testing.T) {
 	for name, v := range map[string]interface{}{"Zero": int32(0), "One": int32(1), "Seven": int32(7), "True": true, "False": false} {
 		for stageName, stage := range map[string]bson.D{

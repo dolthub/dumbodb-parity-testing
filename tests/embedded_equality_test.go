@@ -24,7 +24,7 @@ import (
 )
 
 // Equality on embedded documents. MongoDB matches a document only in the
-// field order it was written; DumboDB stores keys sorted (workspace-7ob), so
+// field order it was written; DumboDB stores keys sorted, so
 // it matches any order of the same fields.
 
 func insertEmbeddedEqualityDocs(ctx context.Context, col *mongo.Collection) error {

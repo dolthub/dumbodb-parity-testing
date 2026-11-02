@@ -28,7 +28,7 @@ import (
 )
 
 // $convert and its $to* shorthands follow mongod's conversion table for every
-// input type and target type (workspace-wpy).
+// input type and target type.
 
 type convertInput struct {
 	name  string

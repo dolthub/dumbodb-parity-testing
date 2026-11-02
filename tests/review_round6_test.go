@@ -27,8 +27,7 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// Findings O12-O16 of the #184 security review (workspace-8tj.24 to
-// workspace-8tj.28). O11's truncated UTF-8 for $substrCP crashes mongod
+// Findings O12-O16 of the #184 security review. O11's truncated UTF-8 for $substrCP crashes mongod
 // 8.0.28, so it is covered by DumboDB unit tests instead.
 
 func round6Setup(ctx context.Context, col *mongo.Collection) error {

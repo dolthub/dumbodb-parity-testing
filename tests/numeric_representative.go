@@ -31,7 +31,7 @@ import (
 // documentation calls an internal implementation feature not to rely on;
 // DumboDB scans in _id-hash order to stay history independent. So mongod
 // must return mongoWant exactly, and DumboDB the same values with any
-// numeric types (workspace-77m, workspace-3so).
+// numeric types.
 func numericRepresentativeTest(
 	t *testing.T,
 	name string,

@@ -34,8 +34,7 @@ func trunc(date interface{}, unit interface{}, extra ...bson.E) bson.D {
 	return dateTrunc(append([]bson.E{part("date", date), part("unit", unit)}, extra...)...)
 }
 
-// $dateTrunc with binSize 0 divided by zero and crashed DumboDB
-// (workspace-8tj.7); it also ignored timezone and startOfWeek (workspace-0dd).
+// $dateTrunc with binSize 0 divided by zero and crashed DumboDB; it also ignored timezone and startOfWeek.
 func TestDateTrunc(t *testing.T) {
 	utc := func(y int, m time.Month, d, h, mi, s, ms int) time.Time {
 		return time.Date(y, m, d, h, mi, s, ms*1e6, time.UTC)
