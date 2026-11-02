@@ -517,7 +517,7 @@ func TestDB_RunCommand_Hello(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return omitFields(doc.(bson.D), "connectionId", "topologyVersion"), nil
+			return maskServerNow(omitFields(doc.(bson.D), "connectionId", "topologyVersion"), "localTime"), nil
 		},
 	})
 }
@@ -536,7 +536,7 @@ func TestDB_RunCommand_IsMaster(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return omitFields(doc.(bson.D), "connectionId", "topologyVersion"), nil
+			return maskServerNow(omitFields(doc.(bson.D), "connectionId", "topologyVersion"), "localTime"), nil
 		},
 	})
 }

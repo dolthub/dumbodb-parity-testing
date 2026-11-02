@@ -6,6 +6,7 @@ import (
 	"math"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -236,8 +237,8 @@ func errorLabels(err error) []string {
 }
 
 // normalize converts any value to a stable, comparable representation.
-// It strips non-deterministic fields (ObjectIds, timestamps, insertedId)
-// and normalizes numeric types so 1 == 1.0.
+// It masks non-deterministic fields (timestamps, insertedId) and keeps
+// numeric types and dates exact.
 func normalize(v interface{}) interface{} {
 	if v == nil {
 		return nil
@@ -296,13 +297,11 @@ func normalize(v interface{}) interface{} {
 		}
 		return val
 	case primitive.DateTime:
-		return "<DateTime>"
+		return val
 	case primitive.Timestamp:
 		return "<Timestamp>"
-	case int32:
-		return float64(val)
-	case int64:
-		return float64(val)
+	case int32, int64:
+		return val
 	case float32:
 		f := float64(val)
 		if math.IsNaN(f) {
@@ -312,6 +311,9 @@ func normalize(v interface{}) interface{} {
 	case float64:
 		if math.IsNaN(val) {
 			return "<NaN>"
+		}
+		if val == 0 && math.Signbit(val) {
+			return negativeZero{}
 		}
 		return val
 	case bool, string:
@@ -373,17 +375,17 @@ func normalizeSlice(s []interface{}) []interface{} {
 	return out
 }
 
+// negativeZero keeps -0.0 distinct from 0.0, which reflect.DeepEqual treats
+// as equal.
+type negativeZero struct{}
+
+func (negativeZero) String() string { return "-0.0" }
+
+// compareValues is exact: numeric type (int32, int64, double) and date
+// values are part of the result a driver sees, so 1 != 1.0 != NumberLong(1).
 func compareValues(a, b interface{}) Comparison {
 	if reflect.DeepEqual(a, b) {
 		return Comparison{Result: Match}
-	}
-	// Numeric tolerance: 1 == 1.0.
-	if fa, ok := toFloat64(a); ok {
-		if fb, ok := toFloat64(b); ok {
-			if math.Abs(fa-fb) < 1e-9 {
-				return Comparison{Result: Match}
-			}
-		}
 	}
 	return Comparison{
 		Result: Diverge,
@@ -445,6 +447,14 @@ func formatValue(v interface{}) string {
 		return sb.String()
 	case string:
 		return fmt.Sprintf("%q", val)
+	case int32:
+		return fmt.Sprintf("NumberInt(%d)", val)
+	case int64:
+		return fmt.Sprintf("NumberLong(%d)", val)
+	case float64:
+		return fmt.Sprintf("double(%s)", strconv.FormatFloat(val, 'g', -1, 64))
+	case primitive.DateTime:
+		return fmt.Sprintf("ISODate(%s)", val.Time().UTC().Format("2006-01-02T15:04:05.000Z"))
 	case nil:
 		return "null"
 	default:

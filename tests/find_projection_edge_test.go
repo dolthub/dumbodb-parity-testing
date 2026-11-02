@@ -106,8 +106,22 @@ func TestFindProjEdge_B2_CurrentDotField(t *testing.T) {
 }
 
 func TestFindProjEdge_B3_NowUnresolved(t *testing.T) {
-	runEdgeCase(t, edgeCase{"FindProjEdge_B3_NowUnresolved", harness.DumboDBFull,
-		bson.D{{Key: "m", Value: "$$NOW"}, {Key: "_id", Value: int32(0)}}})
+	harness.PairTest(t, harness.TestCase{
+		Name:    "FindProjEdge_B3_NowUnresolved",
+		Support: harness.DumboDBFull,
+		Setup:   findEdgeSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			docs, err := runEdgeProj(ctx, col, bson.D{{Key: "m", Value: "$$NOW"}, {Key: "_id", Value: int32(0)}})
+			if err != nil {
+				return nil, err
+			}
+			masked := make([]bson.D, 0, len(docs.([]bson.D)))
+			for _, doc := range docs.([]bson.D) {
+				masked = append(masked, maskServerNow(doc, "m"))
+			}
+			return masked, nil
+		},
+	})
 }
 
 func TestFindProjEdge_B4_RemoveUnresolved(t *testing.T) {
