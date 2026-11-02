@@ -64,8 +64,6 @@ func TestSubPipelineForeignStages(t *testing.T) {
 			bson.D{{Key: "$facet", Value: bson.D{{Key: "f", Value: bson.A{bson.D{{Key: "$count", Value: "n"}}}}}}},
 		},
 	}
-	failsOnDumbo := map[string]bool{"Lookup/GraphLookup": true, "UnionWith/GraphLookup": true, "Facet/Facet": true}
-
 	matchC := bson.D{{Key: "$match", Value: bson.D{{Key: "name", Value: "c"}}}}
 	for innerName, stages := range inner {
 		sub := append(bson.A{matchC}, stages...)
@@ -80,14 +78,9 @@ func TestSubPipelineForeignStages(t *testing.T) {
 			},
 		}
 		for outerName, pipeline := range outer {
-			name := outerName + "/" + innerName
-			support := harness.DumboDBFull
-			if failsOnDumbo[name] {
-				support = harness.DumboDBXFail
-			}
 			harness.PairTest(t, harness.TestCase{
 				Name:    "SubPipelineForeignStages_" + outerName + "_" + innerName,
-				Support: support,
+				Support: harness.DumboDBFull,
 				Setup:   subPipelineSetup,
 				Run:     round6Aggregate(pipeline),
 			})
@@ -107,13 +100,9 @@ func TestFacetDisallowedStages(t *testing.T) {
 		"Documents":  {{Key: "$documents", Value: bson.A{}}},
 	}
 	for name, stage := range stages {
-		support := harness.DumboDBXFail
-		if name == "Documents" {
-			support = harness.DumboDBFull
-		}
 		harness.PairTest(t, harness.TestCase{
 			Name:    "FacetDisallowedStages_" + name,
-			Support: support,
+			Support: harness.DumboDBFull,
 			Setup:   subPipelineSetup,
 			Run:     round6Aggregate(bson.A{bson.D{{Key: "$facet", Value: bson.D{{Key: "f", Value: bson.A{stage}}}}}}),
 		})
