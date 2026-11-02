@@ -267,9 +267,9 @@ func TestTextPatterns_Aggregation_SortByScore(t *testing.T) {
 	// Expected: documents in descending relevance order; subject "coffee" ranks highest.
 	harness.PairTest(t, harness.TestCase{
 		Name: "TextPatterns_Aggregation_SortByScore",
-		// Only the count is compared: DumboDB has no text-relevance scoring, so
-		// neither the order nor the scores match MongoDB.
-		Support: harness.DumboDBFull,
+		// DumboDB has no text-relevance scoring, so it refuses textScore in
+		// aggregation rather than sort in an arbitrary order.
+		Support: harness.DumboDBXFail,
 		Setup:   textPatternsCreateArticlesIndex,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			pipeline := bson.A{
