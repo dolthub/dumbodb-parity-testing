@@ -60,3 +60,32 @@ func TestLookupLetNotFolded(t *testing.T) {
 		})
 	}
 }
+
+// A let value substituted into $project must stay a value: a bare 0 or true
+// there is an exclusion or inclusion flag (workspace-3xy, review O17).
+func TestLookupLetProjectFlags(t *testing.T) {
+	for name, v := range map[string]interface{}{"Zero": int32(0), "One": int32(1), "Seven": int32(7), "True": true, "False": false} {
+		for stageName, stage := range map[string]bson.D{
+			"Project":   {{Key: "$project", Value: bson.D{{Key: "y", Value: "$$v"}}}},
+			"AddFields": {{Key: "$addFields", Value: bson.D{{Key: "y", Value: "$$v"}}}},
+		} {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "LookupLetProjectFlags_" + stageName + "_" + name,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "v", Value: v}}); err != nil {
+						return err
+					}
+					_, err := col.Database().Collection("emp").InsertOne(ctx, bson.D{{Key: "_id", Value: int32(9)}, {Key: "y", Value: "FOREIGN-Y"}, {Key: "secret", Value: "S"}})
+					return err
+				},
+				Run: round6Aggregate(bson.A{bson.D{{Key: "$lookup", Value: bson.D{
+					{Key: "from", Value: "emp"},
+					{Key: "let", Value: bson.D{{Key: "v", Value: "$v"}}},
+					{Key: "pipeline", Value: bson.A{stage}},
+					{Key: "as", Value: "j"},
+				}}}}),
+			})
+		}
+	}
+}
