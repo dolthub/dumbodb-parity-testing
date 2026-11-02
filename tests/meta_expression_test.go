@@ -118,6 +118,11 @@ func TestMetaExpression(t *testing.T) {
 			bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: "$_id"}}}},
 			sorted, project(typeOf(meta("textScore"))),
 		}},
+		pipelineCase{"TextScoreAfterFacet", bson.A{
+			bson.D{{Key: "$match", Value: bson.D{{Key: "$text", Value: bson.D{{Key: "$search", Value: "fish"}}}}}},
+			bson.D{{Key: "$facet", Value: bson.D{{Key: "f", Value: bson.A{bson.D{{Key: "$count", Value: "n"}}}}}}},
+			project(typeOf(meta("textScore"))),
+		}},
 		pipelineCase{"SortKeyAfterSort", bson.A{
 			bson.D{{Key: "$sort", Value: bson.D{{Key: "x", Value: 1}}}},
 			project(meta("sortKey")),
