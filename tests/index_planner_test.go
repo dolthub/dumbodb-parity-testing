@@ -17,6 +17,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"sort"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -27,22 +28,33 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// Index-planner parity: whether a query reads its index at runtime, and how
-// many documents it fetches, measured with serverStatus counters (scannedBy).
-// Exact key counts are not compared: mongod examines one extra key per range
-// it scans, which DumboDB does not count.
+// Index-planner parity: which documents a query returns, whether it reads
+// its index at runtime, how many documents it fetches, and whether it reads
+// index keys well beyond them, measured with serverStatus counters
+// (scannedBy). Exact key counts are not compared: mongod examines one extra
+// key per range it scans, which DumboDB does not count.
 
 type plannerCase struct {
 	name    string
 	support harness.DumboDBSupport
 	filter  bson.D
 	opts    *options.FindOptions
+	// mongoExpect and dumboExpect assert each server's own plannerWork result
+	// for a DumboDBDeviates case.
+	mongoExpect, dumboExpect func(t *testing.T, work bson.D)
 }
 
-// plannerWork runs the query once for its result size and again under
-// scannedBy for the work it did.
-func plannerWork(ctx context.Context, col *mongo.Collection, filter bson.D, opts *options.FindOptions) (interface{}, error) {
-	var returned int
+// excessKeySlack is how many more index keys than documents examined a query
+// may read before plannerWork reports excessKeys: mongod's extra key per range
+// for the few ranges these cases scan.
+const excessKeySlack = 16
+
+// plannerWork runs the query under scannedBy and reports its result and work.
+// Which documents an unsorted limit returns depends on the order of equal
+// index keys, by record id in mongod and by a hash of _id in DumboDB, so for
+// those queries only the number returned is compared.
+func plannerWork(ctx context.Context, col *mongo.Collection, filter bson.D, opts *options.FindOptions) (bson.D, error) {
+	var ids []string
 	op := func() error {
 		cur, err := col.Find(ctx, filter, opts)
 		if err != nil {
@@ -52,7 +64,10 @@ func plannerWork(ctx context.Context, col *mongo.Collection, filter bson.D, opts
 		if err := cur.All(ctx, &docs); err != nil {
 			return err
 		}
-		returned = len(docs)
+		ids = ids[:0]
+		for _, d := range docs {
+			ids = append(ids, fmt.Sprint(d["_id"]))
+		}
 		return nil
 	}
 	scanned, err := scannedBy(ctx, col, op, true)
@@ -60,16 +75,34 @@ func plannerWork(ctx context.Context, col *mongo.Collection, filter bson.D, opts
 		return nil, err
 	}
 	keys, _ := scanned[0].Value.(int64)
+	docs, _ := scanned[1].Value.(int64)
+	var returned interface{} = len(ids)
+	if opts == nil || opts.Limit == nil || opts.Sort != nil {
+		sort.Strings(ids)
+		returned = ids
+	}
 	return bson.D{
 		{Key: "returned", Value: returned},
-		{Key: "docsExamined", Value: scanned[1].Value},
+		{Key: "docsExamined", Value: docs},
 		{Key: "readsIndex", Value: keys > 0},
+		{Key: "excessKeys", Value: keys > docs+excessKeySlack},
 	}, nil
 }
 
 func runPlannerCases(t *testing.T, prefix string, setup func(context.Context, *mongo.Collection) error, cases []plannerCase) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			expect := func(check func(*testing.T, bson.D)) func(*testing.T, interface{}, error) {
+				if check == nil {
+					return nil
+				}
+				return func(t *testing.T, res interface{}, err error) {
+					if err != nil {
+						t.Fatalf("%s: %v", tc.name, err)
+					}
+					check(t, res.(bson.D))
+				}
+			}
 			harness.PairTest(t, harness.TestCase{
 				Name:    fmt.Sprintf("%s_%s", prefix, tc.name),
 				Support: tc.support,
@@ -77,8 +110,24 @@ func runPlannerCases(t *testing.T, prefix string, setup func(context.Context, *m
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return plannerWork(ctx, col, tc.filter, tc.opts)
 				},
+				MongoExpect: expect(tc.mongoExpect),
+				DumboExpect: expect(tc.dumboExpect),
 			})
 		})
+	}
+}
+
+// expectWork returns a check that plannerWork reported want for each key in
+// want.
+func expectWork(want bson.D) func(*testing.T, bson.D) {
+	return func(t *testing.T, work bson.D) {
+		t.Helper()
+		got := work.Map()
+		for _, e := range want {
+			if fmt.Sprint(got[e.Key]) != fmt.Sprint(e.Value) {
+				t.Errorf("%s = %v, want %v (work %v)", e.Key, got[e.Key], e.Value, work)
+			}
+		}
 	}
 }
 
@@ -99,10 +148,12 @@ func TestIndexPlanner_CompoundIn(t *testing.T) {
 	in := bson.D{{Key: "bucket", Value: bson.D{{Key: "$in", Value: bson.A{int32(1), int32(3)}}}}}
 	sortK := bson.D{{Key: "k", Value: 1}}
 	runPlannerCases(t, "IndexPlanner_CompoundIn", setup, []plannerCase{
-		{"find", harness.DumboDBFull, in, nil},
-		{"find_sort", harness.DumboDBFull, in, options.Find().SetSort(sortK)},
-		{"find_limit", harness.DumboDBFull, in, options.Find().SetLimit(5)},
-		{"find_sort_limit", harness.DumboDBFull, in, options.Find().SetSort(sortK).SetLimit(5)},
+		{name: "find", support: harness.DumboDBFull, filter: in},
+		{name: "find_sort", support: harness.DumboDBFull, filter: in, opts: options.Find().SetSort(sortK)},
+		{name: "find_limit", support: harness.DumboDBFull, filter: in, opts: options.Find().SetLimit(5)},
+		// mongod merges the two ranges in k order and reads about 5 keys;
+		// DumboDB reads both ranges whole to sort them (dolthub/dumbodb#146).
+		{name: "find_sort_limit", support: harness.DumboDBXFail, filter: in, opts: options.Find().SetSort(sortK).SetLimit(5)},
 	})
 }
 
@@ -134,12 +185,12 @@ func TestIndexPlanner_BoundShapes(t *testing.T) {
 	}
 	regex := bson.D{{Key: "s", Value: primitive.Regex{Pattern: "^s050"}}}
 	runPlannerCases(t, "IndexPlanner_BoundShapes", setup, []plannerCase{
-		{"null_eq", harness.DumboDBFull, bson.D{{Key: "n", Value: nil}}, nil},
-		{"null_eq_operator", harness.DumboDBFull, bson.D{{Key: "n", Value: bson.D{{Key: "$eq", Value: nil}}}}, nil},
-		{"null_on_sparse_index", harness.DumboDBFull, bson.D{{Key: "sp", Value: nil}}, nil},
-		{"exists_on_sparse_index", harness.DumboDBFull, bson.D{{Key: "sp", Value: bson.D{{Key: "$exists", Value: true}}}}, nil},
-		{"regex_prefix", harness.DumboDBFull, regex, nil},
-		{"regex_prefix_operator", harness.DumboDBFull, bson.D{{Key: "s", Value: bson.D{{Key: "$regex", Value: "^s050"}}}}, nil},
+		{name: "null_eq", support: harness.DumboDBFull, filter: bson.D{{Key: "n", Value: nil}}},
+		{name: "null_eq_operator", support: harness.DumboDBFull, filter: bson.D{{Key: "n", Value: bson.D{{Key: "$eq", Value: nil}}}}},
+		{name: "null_on_sparse_index", support: harness.DumboDBFull, filter: bson.D{{Key: "sp", Value: nil}}},
+		{name: "exists_on_sparse_index", support: harness.DumboDBFull, filter: bson.D{{Key: "sp", Value: bson.D{{Key: "$exists", Value: true}}}}},
+		{name: "regex_prefix", support: harness.DumboDBFull, filter: regex},
+		{name: "regex_prefix_operator", support: harness.DumboDBFull, filter: bson.D{{Key: "s", Value: bson.D{{Key: "$regex", Value: "^s050"}}}}},
 	})
 }
 
@@ -170,13 +221,13 @@ func TestIndexPlanner_PartialImplication(t *testing.T) {
 	k := bson.E{Key: "k", Value: int32(5055)}
 	m := bson.E{Key: "m", Value: int32(5050)}
 	runPlannerCases(t, "IndexPlanner_PartialImplication", setup, []plannerCase{
-		{"range_repeated", harness.DumboDBFull, bson.D{k, {Key: "grp", Value: bson.D{{Key: "$lt", Value: int32(100)}}}}, nil},
-		{"range_tightened", harness.DumboDBFull, bson.D{k, {Key: "grp", Value: bson.D{{Key: "$gte", Value: int32(10)}, {Key: "$lt", Value: int32(60)}}}}, nil},
-		{"range_by_equality", harness.DumboDBFull, bson.D{k, {Key: "grp", Value: int32(55)}}, nil},
-		{"range_not_implied", harness.DumboDBFull, bson.D{k, {Key: "grp", Value: bson.D{{Key: "$lt", Value: int32(200)}}}}, nil},
-		{"exists_repeated", harness.DumboDBFull, bson.D{m, {Key: "opt", Value: bson.D{{Key: "$exists", Value: true}}}}, nil},
-		{"exists_by_equality", harness.DumboDBFull, bson.D{m, {Key: "opt", Value: int32(5050)}}, nil},
-		{"exists_not_implied", harness.DumboDBFull, bson.D{m}, nil},
+		{name: "range_repeated", support: harness.DumboDBFull, filter: bson.D{k, {Key: "grp", Value: bson.D{{Key: "$lt", Value: int32(100)}}}}},
+		{name: "range_tightened", support: harness.DumboDBFull, filter: bson.D{k, {Key: "grp", Value: bson.D{{Key: "$gte", Value: int32(10)}, {Key: "$lt", Value: int32(60)}}}}},
+		{name: "range_by_equality", support: harness.DumboDBFull, filter: bson.D{k, {Key: "grp", Value: int32(55)}}},
+		{name: "range_not_implied", support: harness.DumboDBFull, filter: bson.D{k, {Key: "grp", Value: bson.D{{Key: "$lt", Value: int32(200)}}}}},
+		{name: "exists_repeated", support: harness.DumboDBFull, filter: bson.D{m, {Key: "opt", Value: bson.D{{Key: "$exists", Value: true}}}}},
+		{name: "exists_by_equality", support: harness.DumboDBFull, filter: bson.D{m, {Key: "opt", Value: int32(5050)}}},
+		{name: "exists_not_implied", support: harness.DumboDBFull, filter: bson.D{m}},
 	})
 }
 
@@ -198,9 +249,9 @@ func TestIndexPlanner_WideRange(t *testing.T) {
 	}
 	wide := bson.D{{Key: "g", Value: bson.D{{Key: "$gte", Value: int32(1)}}}}
 	runPlannerCases(t, "IndexPlanner_WideRange", setup, []plannerCase{
-		{"narrow", harness.DumboDBFull, bson.D{{Key: "g", Value: int32(3)}}, nil},
-		{"hinted", harness.DumboDBFull, wide, options.Find().SetHint(bson.D{{Key: "g", Value: 1}})},
-		{"limit", harness.DumboDBFull, wide, options.Find().SetLimit(5)},
-		{"in_limit", harness.DumboDBFull, bson.D{{Key: "g", Value: bson.D{{Key: "$in", Value: bson.A{int32(2), int32(4), int32(6), int32(8)}}}}}, options.Find().SetLimit(5)},
+		{name: "narrow", support: harness.DumboDBFull, filter: bson.D{{Key: "g", Value: int32(3)}}},
+		{name: "hinted", support: harness.DumboDBFull, filter: wide, opts: options.Find().SetHint(bson.D{{Key: "g", Value: 1}})},
+		{name: "limit", support: harness.DumboDBFull, filter: wide, opts: options.Find().SetLimit(5)},
+		{name: "in_limit", support: harness.DumboDBFull, filter: bson.D{{Key: "g", Value: bson.D{{Key: "$in", Value: bson.A{int32(2), int32(4), int32(6), int32(8)}}}}}, opts: options.Find().SetLimit(5)},
 	})
 }
