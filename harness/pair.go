@@ -40,7 +40,8 @@ func withServerURI(ctx context.Context, uri string) context.Context {
 type TestCase struct {
 	// Name identifies the test in reports and generates the isolated DB name.
 	Name string
-	// Support controls how DumboDB is exercised (Full, MongoOnly, XFail).
+	// Support controls how DumboDB is exercised (Full, MongoOnly, XFail,
+	// Deviates).
 	Support DumboDBSupport
 	// Topology selects which Mongo deployment shape the test compares
 	// against. Zero value is TopologyStandalone (the default). Tests
@@ -52,6 +53,11 @@ type TestCase struct {
 	Setup func(ctx context.Context, col *mongo.Collection) error
 	// Run performs the operation under test and returns the result to compare.
 	Run func(ctx context.Context, col *mongo.Collection) (interface{}, error)
+
+	// MongoExpect and DumboExpect assert each server's own outcome for a
+	// DumboDBDeviates case; both are required there and unused otherwise.
+	MongoExpect func(t *testing.T, res interface{}, err error)
+	DumboExpect func(t *testing.T, res interface{}, err error)
 }
 
 // PairTest runs tc against MongoDB and (depending on Support level) DumboDB,
@@ -83,6 +89,8 @@ func PairTest(t *testing.T, tc TestCase) TestResult {
 		return runFull(t, ctx, tc, mongoCol, dumboDBCol, mongoURIForTest)
 	case DumboDBXFail:
 		return runXFail(t, ctx, tc, mongoCol, dumboDBCol, mongoURIForTest)
+	case DumboDBDeviates:
+		return runDeviates(t, ctx, tc, mongoCol, dumboDBCol, mongoURIForTest)
 	default:
 		t.Fatalf("PairTest %s: unknown DumboDBSupport level %d", tc.Name, tc.Support)
 		return TestResult{Name: tc.Name, Status: StatusFail}
@@ -158,4 +166,24 @@ func setup(t *testing.T, ctx context.Context, tc TestCase, mongoCol, dumboDBCol 
 		return false
 	}
 	return true
+}
+
+func runDeviates(t *testing.T, ctx context.Context, tc TestCase, mongoCol, dumboDBCol *mongo.Collection, mongoURIForTest string) TestResult {
+	t.Helper()
+	if tc.MongoExpect == nil || tc.DumboExpect == nil {
+		t.Fatalf("DEVIATE %s: a deviating case must set both MongoExpect and DumboExpect, else it asserts nothing", tc.Name)
+		return TestResult{Name: tc.Name, Status: StatusFail}
+	}
+	if !setup(t, ctx, tc, mongoCol, dumboDBCol) {
+		return TestResult{Name: tc.Name, Status: StatusFail, Diff: "setup failed"}
+	}
+	mongoResult, mongoErr := tc.Run(withServerURI(ctx, mongoURIForTest), mongoCol)
+	tc.MongoExpect(t, mongoResult, mongoErr)
+	dumboDBResult, dumboDBErr := tc.Run(withServerURI(ctx, dumboDBURI()), dumboDBCol)
+	tc.DumboExpect(t, dumboDBResult, dumboDBErr)
+	if t.Failed() {
+		return TestResult{Name: tc.Name, Status: StatusFail}
+	}
+	t.Logf("DEVIATE %s: MongoDB and DumboDB behave as intended", tc.Name)
+	return TestResult{Name: tc.Name, Status: StatusDeviate}
 }
