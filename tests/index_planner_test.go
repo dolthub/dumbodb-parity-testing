@@ -125,7 +125,7 @@ func expectWork(want bson.D) func(*testing.T, bson.D) {
 		got := work.Map()
 		for _, e := range want {
 			if fmt.Sprint(got[e.Key]) != fmt.Sprint(e.Value) {
-				t.Errorf("%s = %v, want %v (work %v)", e.Key, got[e.Key], e.Value, work)
+				t.Errorf("%s = %v, want %v", e.Key, got[e.Key], e.Value)
 			}
 		}
 	}
@@ -220,6 +220,7 @@ func TestIndexPlanner_PartialImplication(t *testing.T) {
 	}
 	k := bson.E{Key: "k", Value: int32(5055)}
 	m := bson.E{Key: "m", Value: int32(5050)}
+	noOpt := bson.E{Key: "m", Value: int32(5051)}
 	runPlannerCases(t, "IndexPlanner_PartialImplication", setup, []plannerCase{
 		{name: "range_repeated", support: harness.DumboDBFull, filter: bson.D{k, {Key: "grp", Value: bson.D{{Key: "$lt", Value: int32(100)}}}}},
 		{name: "range_tightened", support: harness.DumboDBFull, filter: bson.D{k, {Key: "grp", Value: bson.D{{Key: "$gte", Value: int32(10)}, {Key: "$lt", Value: int32(60)}}}}},
@@ -228,13 +229,20 @@ func TestIndexPlanner_PartialImplication(t *testing.T) {
 		{name: "exists_repeated", support: harness.DumboDBFull, filter: bson.D{m, {Key: "opt", Value: bson.D{{Key: "$exists", Value: true}}}}},
 		{name: "exists_by_equality", support: harness.DumboDBFull, filter: bson.D{m, {Key: "opt", Value: int32(5050)}}},
 		{name: "exists_not_implied", support: harness.DumboDBFull, filter: bson.D{m}},
+		// Each condition on opt below also matches a document missing opt, as
+		// the one with m 5051 is, so the partial index on m must not serve it.
+		{name: "exists_null_matches_missing", support: harness.DumboDBFull, filter: bson.D{noOpt, {Key: "opt", Value: nil}}},
+		{name: "exists_in_null_matches_missing", support: harness.DumboDBFull, filter: bson.D{noOpt, {Key: "opt", Value: bson.D{{Key: "$in", Value: bson.A{nil, int32(3)}}}}}},
+		{name: "exists_ne_matches_missing", support: harness.DumboDBFull, filter: bson.D{noOpt, {Key: "opt", Value: bson.D{{Key: "$ne", Value: int32(3)}}}}},
+		{name: "exists_false_matches_missing", support: harness.DumboDBFull, filter: bson.D{noOpt, {Key: "opt", Value: bson.D{{Key: "$exists", Value: false}}}}},
 	})
 }
 
 // TestIndexPlanner_WideRange: a range matching most of the collection
-// (dolthub/dumbodb#139). A hint or a limit uses the index as mongod does;
-// without either DumboDB scans the collection instead, a deliberate cost
-// decision this test does not cover.
+// (dolthub/dumbodb#139). A hint or a limit uses the index as mongod does.
+// Without either, DumboDB deliberately scans the collection where mongod
+// reads the index: past half the collection, one point lookup per match
+// costs more than a sequential scan.
 func TestIndexPlanner_WideRange(t *testing.T) {
 	setup := func(ctx context.Context, col *mongo.Collection) error {
 		docs := make([]interface{}, 0, 10000)
@@ -253,5 +261,12 @@ func TestIndexPlanner_WideRange(t *testing.T) {
 		{name: "hinted", support: harness.DumboDBFull, filter: wide, opts: options.Find().SetHint(bson.D{{Key: "g", Value: 1}})},
 		{name: "limit", support: harness.DumboDBFull, filter: wide, opts: options.Find().SetLimit(5)},
 		{name: "in_limit", support: harness.DumboDBFull, filter: bson.D{{Key: "g", Value: bson.D{{Key: "$in", Value: bson.A{int32(2), int32(4), int32(6), int32(8)}}}}}, opts: options.Find().SetLimit(5)},
+		{name: "nested_or", support: harness.DumboDBFull, filter: bson.D{{Key: "$or", Value: bson.A{
+			bson.D{{Key: "g", Value: int32(1)}},
+			bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "g", Value: int32(2)}}}}},
+		}}}},
+		{name: "unhinted", support: harness.DumboDBDeviates, filter: wide,
+			mongoExpect: expectWork(bson.D{{Key: "readsIndex", Value: true}, {Key: "docsExamined", Value: 9000}}),
+			dumboExpect: expectWork(bson.D{{Key: "readsIndex", Value: false}, {Key: "docsExamined", Value: 10000}})},
 	})
 }
