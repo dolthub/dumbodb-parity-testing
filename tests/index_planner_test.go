@@ -247,7 +247,7 @@ func TestIndexPlanner_WideRange(t *testing.T) {
 	setup := func(ctx context.Context, col *mongo.Collection) error {
 		docs := make([]interface{}, 0, 10000)
 		for i := 0; i < 10000; i++ {
-			docs = append(docs, bson.D{{Key: "_id", Value: int32(i)}, {Key: "g", Value: int32(i % 10)}})
+			docs = append(docs, bson.D{{Key: "_id", Value: int32(i)}, {Key: "g", Value: int32(i % 10)}, {Key: "b", Value: int32(i % 7)}})
 		}
 		if _, err := col.InsertMany(ctx, docs); err != nil {
 			return err
@@ -265,6 +265,11 @@ func TestIndexPlanner_WideRange(t *testing.T) {
 			bson.D{{Key: "g", Value: int32(1)}},
 			bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "g", Value: int32(2)}}}}},
 		}}}},
+		// An $or beside an indexed field leaves the field's index usable.
+		{name: "or_beside_indexed_field", support: harness.DumboDBFull, filter: bson.D{
+			{Key: "g", Value: int32(3)},
+			{Key: "$or", Value: bson.A{bson.D{{Key: "b", Value: int32(1)}}, bson.D{{Key: "b", Value: int32(5)}}}},
+		}},
 		{name: "unhinted", support: harness.DumboDBDeviates, filter: wide,
 			mongoExpect: expectWork(bson.D{{Key: "readsIndex", Value: true}, {Key: "docsExamined", Value: 9000}}),
 			dumboExpect: expectWork(bson.D{{Key: "readsIndex", Value: false}, {Key: "docsExamined", Value: 10000}})},
