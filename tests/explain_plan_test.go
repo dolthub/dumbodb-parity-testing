@@ -284,23 +284,25 @@ func TestExplainPlan_InSortLimit(t *testing.T) {
 	})
 }
 
-// lookupForeignIndex returns the index explain reports for a $lookup's
-// foreign side: an EQ_LOOKUP stage's indexName when the pipeline runs in SBE,
-// or the $lookup stage's indexesUsed in the classic engine.
-func lookupForeignIndex(doc bson.D) []interface{} {
-	var out []interface{}
+// lookupJoins returns what explain reports for a pipeline's $lookup joins:
+// each EQ_LOOKUP stage's strategy and index when the join runs in the query
+// plan (SBE), and each classic $lookup stage's indexesUsed.
+func lookupJoins(doc bson.D) bson.D {
+	var strategies, indexes []interface{}
 	var walk func(v interface{})
 	walk = func(v interface{}) {
 		switch t := v.(type) {
 		case bson.D:
 			if st, _ := lookup(t, "stage"); st == "EQ_LOOKUP" {
+				strategy, _ := lookup(t, "strategy")
+				strategies = append(strategies, strategy)
 				if ix, ok := lookup(t, "indexName"); ok {
-					out = append(out, ix)
+					indexes = append(indexes, ix)
 				}
 			}
 			if used, ok := lookup(t, "indexesUsed"); ok {
 				if arr, ok := used.(bson.A); ok {
-					out = append(out, arr...)
+					indexes = append(indexes, arr...)
 				}
 			}
 			for _, e := range t {
@@ -313,52 +315,75 @@ func lookupForeignIndex(doc bson.D) []interface{} {
 		}
 	}
 	walk(doc)
-	return out
+	return bson.D{{Key: "strategies", Value: strategies}, {Key: "foreignIndexes", Value: indexes}}
 }
 
-// TestExplainPlan_LookupForeignIndex: a $lookup on an indexed foreignField
-// reads the foreign side through its index, and explain says so. DumboDB
-// uses the index but explains only the local collection scan
-// (dolthub/dumbodb#144).
+// TestExplainPlan_LookupForeignIndex: a $lookup reads its foreign collection
+// through an index on the joined field, and explain says so: an equality join
+// as an EQ_LOOKUP stage of the query plan, a join with a sub-pipeline in its
+// $lookup stage's indexesUsed (dolthub/dumbodb#144).
 func TestExplainPlan_LookupForeignIndex(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "ExplainPlan_LookupForeignIndex",
-		Support: harness.DumboDBXFail,
-		Setup: func(ctx context.Context, col *mongo.Collection) error {
-			local := make([]interface{}, 0, 100)
-			for i := 0; i < 100; i++ {
-				local = append(local, bson.D{{Key: "_id", Value: int32(i)}, {Key: "fk", Value: int32(i)}})
-			}
-			if _, err := col.InsertMany(ctx, local); err != nil {
-				return err
-			}
-			foreign := col.Database().Collection(col.Name() + "_f")
-			docs := make([]interface{}, 0, 1000)
-			for i := 0; i < 1000; i++ {
-				docs = append(docs, bson.D{{Key: "_id", Value: int32(i)}, {Key: "ref", Value: int32(i % 100)}})
-			}
-			if _, err := foreign.InsertMany(ctx, docs); err != nil {
-				return err
-			}
-			return createIndex(ctx, foreign, bson.D{{Key: "ref", Value: 1}})
-		},
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			doc, err := explainRunExplain(ctx, col, bson.D{
-				{Key: "aggregate", Value: col.Name()},
-				{Key: "pipeline", Value: bson.A{bson.D{{Key: "$lookup", Value: bson.D{
-					{Key: "from", Value: col.Name() + "_f"},
-					{Key: "localField", Value: "fk"},
-					{Key: "foreignField", Value: "ref"},
-					{Key: "as", Value: "j"},
-				}}}}},
-				{Key: "cursor", Value: bson.D{}},
-			}, "queryPlanner")
-			if err != nil {
-				return nil, err
-			}
-			return bson.D{{Key: "foreignIndex", Value: lookupForeignIndex(doc)}}, nil
-		},
-	})
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		local := make([]interface{}, 0, 100)
+		for i := 0; i < 100; i++ {
+			local = append(local, bson.D{{Key: "_id", Value: int32(i)}, {Key: "fk", Value: int32(i)}})
+		}
+		if _, err := col.InsertMany(ctx, local); err != nil {
+			return err
+		}
+		foreign := col.Database().Collection(col.Name() + "_f")
+		docs := make([]interface{}, 0, 1000)
+		for i := 0; i < 1000; i++ {
+			docs = append(docs, bson.D{{Key: "_id", Value: int32(i)}, {Key: "ref", Value: int32(i % 100)}, {Key: "grp", Value: int32(i % 10)}})
+		}
+		if _, err := foreign.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		return createIndex(ctx, foreign, bson.D{{Key: "ref", Value: 1}})
+	}
+	equality := func(from, local, foreign string, extra ...bson.E) bson.D {
+		spec := append(bson.D{{Key: "from", Value: from}, {Key: "localField", Value: local}, {Key: "foreignField", Value: foreign}}, extra...)
+		return bson.D{{Key: "$lookup", Value: append(spec, bson.E{Key: "as", Value: "j"})}}
+	}
+	cases := []struct {
+		name      string
+		verbosity string
+		pipeline  func(from string) bson.A
+	}{
+		{"equality", "queryPlanner", func(from string) bson.A { return bson.A{equality(from, "fk", "ref")} }},
+		{"equality_unindexed", "queryPlanner", func(from string) bson.A { return bson.A{equality(from, "fk", "grp")} }},
+		{"let_pipeline", "executionStats", func(from string) bson.A {
+			return bson.A{bson.D{{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: from},
+				{Key: "let", Value: bson.D{{Key: "r", Value: "$fk"}}},
+				{Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{"$ref", "$$r"}}}}}}}}},
+				{Key: "as", Value: "j"},
+			}}}}
+		}},
+		{"nested", "executionStats", func(from string) bson.A {
+			return bson.A{equality(from, "fk", "ref", bson.E{Key: "pipeline", Value: bson.A{equality(from, "grp", "ref")}})}
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "ExplainPlan_LookupForeignIndex_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					doc, err := explainRunExplain(ctx, col, bson.D{
+						{Key: "aggregate", Value: col.Name()},
+						{Key: "pipeline", Value: tc.pipeline(col.Name() + "_f")},
+						{Key: "cursor", Value: bson.D{}},
+					}, tc.verbosity)
+					if err != nil {
+						return nil, err
+					}
+					return lookupJoins(doc), nil
+				},
+			})
+		})
+	}
 }
 
 // explainAgreement explains inner, then runs it with run under scannedBy, and
