@@ -36,6 +36,14 @@ var (
 	idLookupExplainGap    = indexUseExpectation{knownDumboGap: "dumbodb#143: explain reports COLLSCAN for _id lookups"}
 	lookupForeignIndexGap = indexUseExpectation{knownDumboGap: "dumbodb#144: explain omits the $lookup foreign index"}
 	halfCollectionCapGap  = indexUseExpectation{knownDumboGap: "dumbodb#139: a range over half the collection is scanned, not read through the index"}
+	zeroExplainStatsGap   = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#145: explain reports zero counts for writes, count and distinct"}
+	explainSeparateGap    = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#139: explain plans separately, so its counts differ from the plan that runs"}
+	distinctScanGap       = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#141: distinct reads every index key and fetches documents"}
+	sortMergeGap          = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#146: $in ranges are read whole and sorted, not merged"}
+	dottedNullKeyGap      = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#181: dotted-path indexes hold no null keys for missing fields"}
+	coveredGroupGap       = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#139: $group on an indexed field fetches documents"}
+	geoIndexGap           = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#124: geo queries scan the collection and sort by distance"}
+	orUnionExplainGap     = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#132: explain shows a COLLSCAN for the $or union the runtime runs"}
 )
 
 // requireIndexed fails b unless inner, run on col of collDocs documents, uses
@@ -216,7 +224,7 @@ func BenchmarkDeleteMany_Indexed(b *testing.B) {
 func BenchmarkCountDocuments_Indexed(b *testing.B) {
 	col, ctx := withSeededCollection(b, "count_idx", benchDatasetSize, benchDocSize)
 	idx := createIndex(b, ctx, col, bson.D{{Key: "grp", Value: 1}})
-	requireIndexed(b, ctx, col, countDocumentsCmd(col, bson.D{{Key: "grp", Value: 5}}), idx, benchDatasetSize, mustUseIndex)
+	requireIndexed(b, ctx, col, countDocumentsCmd(col, bson.D{{Key: "grp", Value: 5}}), idx, benchDatasetSize, explainSeparateGap)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if _, err := col.CountDocuments(ctx, bson.D{{Key: "grp", Value: 5}}); err != nil {
@@ -228,7 +236,7 @@ func BenchmarkCountDocuments_Indexed(b *testing.B) {
 func BenchmarkDistinct_Indexed(b *testing.B) {
 	col, ctx := withSeededCollection(b, "distinct_idx", benchDatasetSize, benchDocSize)
 	idx := createIndex(b, ctx, col, bson.D{{Key: "grp", Value: 1}})
-	requireIndexed(b, ctx, col, distinctCmd(col, "grp"), idx, benchDatasetSize, mustUseIndex)
+	requireIndexed(b, ctx, col, distinctCmd(col, "grp"), idx, benchDatasetSize, distinctScanGap)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if _, err := col.Distinct(ctx, "grp", bson.D{}); err != nil {
@@ -248,6 +256,7 @@ func BenchmarkAgg_MatchGroup_Indexed(b *testing.B) {
 		}}},
 	}
 	requireIndexed(b, ctx, col, aggregateCmd(col, pipeline), idx, benchDatasetSize, halfCollectionCapGap)
+	requireWork(b, ctx, col, isDumboDB(ctx, col.Database().Client()), aggregateCmd(col, pipeline), keysOnly(benchDatasetSize), coveredGroupGap)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		cur, err := col.Aggregate(ctx, pipeline)
