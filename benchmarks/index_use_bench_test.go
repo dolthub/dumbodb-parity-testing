@@ -1065,7 +1065,7 @@ func BenchmarkIndexUse_CompoundInSortLimit_10K(b *testing.B) {
 	}
 	sort := bson.D{{Key: "k", Value: 1}}
 	cmd := findCmd(col, filter(1), sort, 5)
-	requireIndexUse(b, ctx, col, dumbo, cmd, sortMergeGap)
+	requireIndexUse(b, ctx, col, dumbo, cmd, mustUseIndex)
 	requireWork(b, ctx, col, dumbo, cmd, workBound{maxKeys: 7, maxDocs: 5}, sortMergeGap)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1165,7 +1165,7 @@ func BenchmarkIndexUse_UpdateOneByIndex_10K(b *testing.B) {
 	col, ctx, dumbo := withIndexUseCollection(b, "iu_update_one", flatKey)
 	requireIndexedWrite(b, ctx, col, dumbo, bson.D{{Key: "update", Value: col.Name()}, {Key: "updates", Value: bson.A{
 		bson.D{{Key: "q", Value: eqOn("k")(indexUseDocs / 2)}, {Key: "u", Value: setTouched(0)}},
-	}}}, zeroExplainStatsGap)
+	}}}, mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if _, err := col.UpdateOne(ctx, eqOn("k")(i%indexUseDocs), setTouched(i)); err != nil {
@@ -1178,7 +1178,7 @@ func BenchmarkIndexUse_DeleteOneByIndex_10K(b *testing.B) {
 	col, ctx, dumbo := withIndexUseCollection(b, "iu_delete_one", flatKey)
 	requireIndexedWrite(b, ctx, col, dumbo, bson.D{{Key: "delete", Value: col.Name()}, {Key: "deletes", Value: bson.A{
 		bson.D{{Key: "q", Value: eqOn("k")(indexUseDocs / 2)}, {Key: "limit", Value: 1}},
-	}}}, zeroExplainStatsGap)
+	}}}, mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		reseedEvery(b, ctx, col, i)
@@ -1192,7 +1192,7 @@ func BenchmarkIndexUse_UpdateManyByIndex_10K(b *testing.B) {
 	col, ctx, dumbo := withIndexUseCollection(b, "iu_update_many", bson.D{{Key: "grp", Value: 1}})
 	requireIndexedWrite(b, ctx, col, dumbo, bson.D{{Key: "update", Value: col.Name()}, {Key: "updates", Value: bson.A{
 		bson.D{{Key: "q", Value: eqOn("grp")(500)}, {Key: "u", Value: setTouched(0)}, {Key: "multi", Value: true}},
-	}}}, zeroExplainStatsGap)
+	}}}, mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if _, err := col.UpdateMany(ctx, eqOn("grp")(i%1000), setTouched(i)); err != nil {
@@ -1205,7 +1205,7 @@ func BenchmarkIndexUse_DeleteManyByIndex_10K(b *testing.B) {
 	col, ctx, dumbo := withIndexUseCollection(b, "iu_delete_many", bson.D{{Key: "grp", Value: 1}})
 	requireIndexedWrite(b, ctx, col, dumbo, bson.D{{Key: "delete", Value: col.Name()}, {Key: "deletes", Value: bson.A{
 		bson.D{{Key: "q", Value: eqOn("grp")(500)}, {Key: "limit", Value: 0}},
-	}}}, zeroExplainStatsGap)
+	}}}, mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Every grp has been deleted once each thousand iterations.
@@ -1226,7 +1226,7 @@ func BenchmarkIndexUse_FindAndModifyByIndex_10K(b *testing.B) {
 	col, ctx, dumbo := withIndexUseCollection(b, "iu_find_and_modify", flatKey)
 	requireIndexedWrite(b, ctx, col, dumbo, bson.D{
 		{Key: "findAndModify", Value: col.Name()}, {Key: "query", Value: eqOn("k")(indexUseDocs / 2)}, {Key: "update", Value: setTouched(0)},
-	}, zeroExplainStatsGap)
+	}, mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if err := col.FindOneAndUpdate(ctx, eqOn("k")(i%indexUseDocs), setTouched(i)).Err(); err != nil {
@@ -1306,7 +1306,7 @@ func BenchmarkIndexUse_RangePrefixSortLimit_10K(b *testing.B) {
 	docOf := func(i int) bson.D { return append(indexUseDoc(i), bson.E{Key: "bucket", Value: int32(i % 5)}) }
 	benchmarkIndexedFindOf(b, "iu_range_prefix_sort", bson.D{{Key: "bucket", Value: 1}, {Key: "k", Value: 1}}, docOf,
 		func(int) bson.D { return bson.D{{Key: "bucket", Value: bson.D{{Key: "$gte", Value: int32(3)}}}} },
-		bson.D{{Key: "k", Value: 1}}, 10, explainSeparateGap)
+		bson.D{{Key: "k", Value: 1}}, 10, mustUseIndex)
 }
 
 func benchmarkIndexedCount(b *testing.B, label string, keys bson.D, filter func(i int) bson.D) {
@@ -1314,7 +1314,7 @@ func benchmarkIndexedCount(b *testing.B, label string, keys bson.D, filter func(
 	cmd := func(i int) bson.D {
 		return bson.D{{Key: "count", Value: col.Name()}, {Key: "query", Value: filter(i)}}
 	}
-	requireIndexUse(b, ctx, col, dumbo, cmd(indexUseDocs/2), zeroExplainStatsGap)
+	requireIndexUse(b, ctx, col, dumbo, cmd(indexUseDocs/2), mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if err := col.Database().RunCommand(ctx, cmd(i%indexUseDocs)).Err(); err != nil {
@@ -1337,7 +1337,7 @@ func BenchmarkIndexUse_DottedCount_10K(b *testing.B) {
 func benchmarkIndexedDistinct(b *testing.B, label string, keys bson.D, field string, values int64) {
 	col, ctx, dumbo := withIndexUseCollection(b, label, keys)
 	cmd := bson.D{{Key: "distinct", Value: col.Name()}, {Key: "key", Value: field}, {Key: "query", Value: bson.D{}}}
-	requireIndexUse(b, ctx, col, dumbo, cmd, distinctScanGap)
+	requireIndexUse(b, ctx, col, dumbo, cmd, mustUseIndex)
 	requireWork(b, ctx, col, dumbo, cmd, keysOnly(values+1), distinctScanGap)
 	timeDistinct(b, ctx, col, field, bson.D{})
 }
@@ -1371,14 +1371,14 @@ func BenchmarkIndexUse_DistinctFilteredOnKey_10K(b *testing.B) {
 	col, ctx, dumbo := withIndexUseCollection(b, "iu_distinct_on_key", bson.D{{Key: "grp", Value: 1}})
 	filter := bson.D{{Key: "grp", Value: bson.D{{Key: "$lt", Value: int32(100)}}}}
 	cmd := bson.D{{Key: "distinct", Value: col.Name()}, {Key: "key", Value: "grp"}, {Key: "query", Value: filter}}
-	requireIndexUse(b, ctx, col, dumbo, cmd, distinctScanGap)
+	requireIndexUse(b, ctx, col, dumbo, cmd, mustUseIndex)
 	requireWork(b, ctx, col, dumbo, cmd, keysOnly(101), distinctScanGap)
 	timeDistinct(b, ctx, col, "grp", filter)
 }
 
 // Distinct values of another field, filtered through the index.
 func BenchmarkIndexUse_DistinctFilteredOnOther_10K(b *testing.B) {
-	benchmarkIndexedDistinctWhere(b, "iu_distinct_on_other", flatKey, "grp", rangeOn("k", 50)(5000), zeroExplainStatsGap)
+	benchmarkIndexedDistinctWhere(b, "iu_distinct_on_other", flatKey, "grp", rangeOn("k", 50)(5000), mustUseIndex)
 }
 
 func BenchmarkIndexUse_FlatDistinct_10K(b *testing.B) {

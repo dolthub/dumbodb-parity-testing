@@ -36,7 +36,6 @@ var (
 	idLookupExplainGap    = indexUseExpectation{knownDumboGap: "dumbodb#143: explain reports COLLSCAN for _id lookups"}
 	lookupForeignIndexGap = indexUseExpectation{knownDumboGap: "dumbodb#144: explain omits the $lookup foreign index"}
 	halfCollectionCapGap  = indexUseExpectation{knownDumboGap: "dumbodb#139: a range over half the collection is scanned, not read through the index"}
-	zeroExplainStatsGap   = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#145: explain reports zero counts for writes, count and distinct"}
 	explainSeparateGap    = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#139: explain plans separately, so its counts differ from the plan that runs"}
 	distinctScanGap       = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#141: distinct reads every index key and fetches documents"}
 	sortMergeGap          = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#146: $in ranges are read whole and sorted, not merged"}
@@ -236,7 +235,8 @@ func BenchmarkCountDocuments_Indexed(b *testing.B) {
 func BenchmarkDistinct_Indexed(b *testing.B) {
 	col, ctx := withSeededCollection(b, "distinct_idx", benchDatasetSize, benchDocSize)
 	idx := createIndex(b, ctx, col, bson.D{{Key: "grp", Value: 1}})
-	requireIndexed(b, ctx, col, distinctCmd(col, "grp"), idx, benchDatasetSize, distinctScanGap)
+	requireIndexed(b, ctx, col, distinctCmd(col, "grp"), idx, benchDatasetSize, mustUseIndex)
+	requireWork(b, ctx, col, isDumboDB(ctx, col.Database().Client()), distinctCmd(col, "grp"), keysOnly(11), distinctScanGap)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if _, err := col.Distinct(ctx, "grp", bson.D{}); err != nil {
