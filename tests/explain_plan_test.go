@@ -256,13 +256,12 @@ func TestExplainPlan_OverHalf(t *testing.T) {
 }
 
 // TestExplainPlan_InSortLimit: $in on the leading field of a compound index,
-// sorted on the next field with a limit. mongod merges one sorted scan per
-// $in value (SORT_MERGE) and stops at the limit; DumboDB reads both ranges
-// whole and sorts them (dolthub/dumbodb#146).
+// sorted on the next field with a limit, merges one sorted scan per $in value
+// (SORT_MERGE) and stops at the limit (dolthub/dumbodb#146).
 func TestExplainPlan_InSortLimit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ExplainPlan_InSortLimit",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			docs := make([]interface{}, 0, 10000)
 			for i := 0; i < 10000; i++ {

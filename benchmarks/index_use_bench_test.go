@@ -1066,7 +1066,7 @@ func BenchmarkIndexUse_CompoundInSortLimit_10K(b *testing.B) {
 	sort := bson.D{{Key: "k", Value: 1}}
 	cmd := findCmd(col, filter(1), sort, 5)
 	requireIndexUse(b, ctx, col, dumbo, cmd, mustUseIndex)
-	requireWork(b, ctx, col, dumbo, cmd, workBound{maxKeys: 7, maxDocs: 5}, sortMergeGap)
+	requireWork(b, ctx, col, dumbo, cmd, workBound{maxKeys: 7, maxDocs: 5}, mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		runFind(b, ctx, col, filter(i), sort, 5)
