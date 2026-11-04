@@ -429,9 +429,8 @@ func TestIndexPlanner_Covered(t *testing.T) {
 	}
 	runPlannerCases(t, "IndexPlanner_Covered", setup, []plannerCase{
 		{name: "projection", support: harness.DumboDBFull, work: coveredFindWork(rangeK, nil, "k")},
-		// mongod serves grp with grp_1_k_1, which covers k; DumboDB prefers
-		// the single-field grp_1 and fetches each document.
-		{name: "compound", support: harness.DumboDBXFail, work: coveredFindWork(bson.D{{Key: "grp", Value: int32(7)}}, nil, "grp", "k")},
+		// grp_1_k_1 covers k, so it serves grp rather than grp_1.
+		{name: "compound", support: harness.DumboDBFull, work: coveredFindWork(bson.D{{Key: "grp", Value: int32(7)}}, nil, "grp", "k")},
 		{name: "sort_limit", support: harness.DumboDBFull, work: coveredFindWork(rangeK, options.Find().SetSort(bson.D{{Key: "k", Value: -1}}).SetLimit(5), "k")},
 		{name: "match_group", support: harness.DumboDBFull, work: groupWork(groupGrp)},
 	})
