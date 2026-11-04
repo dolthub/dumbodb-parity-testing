@@ -142,8 +142,8 @@ func TestExplainPlan_IdEquality(t *testing.T) {
 }
 
 // TestExplainPlan_WriteExecutionStats: a multi update or delete through an
-// index reports the keys and documents its scan examined. DumboDB reports
-// zeros (dolthub/dumbodb#145), and names a batched delete DELETE.
+// index reports the keys and documents its scan examined, stage by stage
+// (dolthub/dumbodb#145).
 func TestExplainPlan_WriteExecutionStats(t *testing.T) {
 	grp := bson.D{{Key: "grp", Value: int32(3)}}
 	cases := []struct {
@@ -157,7 +157,7 @@ func TestExplainPlan_WriteExecutionStats(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "ExplainPlan_WriteExecutionStats_" + tc.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   setupGrp10,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return explainWorkOf(tc.inner(col))(ctx, col)
@@ -313,9 +313,8 @@ func explainAgreement(inner bson.D, run func(context.Context, *mongo.Collection)
 }
 
 // TestExplainPlan_AgreesWithExecution: explain's executionStats totals equal
-// the serverStatus counters the same command moves when run. DumboDB's explain
-// plans separately from execution, so the two disagree whenever the plans
-// differ (dolthub/dumbodb#139, #141, #143, #145).
+// the serverStatus counters the same command moves when run
+// (dolthub/dumbodb#145).
 func TestExplainPlan_AgreesWithExecution(t *testing.T) {
 	read := func(cmd func(*mongo.Collection) bson.D) func(context.Context, *mongo.Collection) error {
 		return func(ctx context.Context, col *mongo.Collection) error {
@@ -350,6 +349,9 @@ func TestExplainPlan_AgreesWithExecution(t *testing.T) {
 		return bson.D{{Key: "distinct", Value: col.Name()}, {Key: "key", Value: "grp"},
 			{Key: "query", Value: bson.D{{Key: "grp", Value: bson.D{{Key: "$lt", Value: int32(100)}}}}}}
 	}
+	count := func(col *mongo.Collection) bson.D {
+		return bson.D{{Key: "count", Value: col.Name()}, {Key: "query", Value: rangeK}}
+	}
 	update := func(col *mongo.Collection) bson.D { return updateGrpCmd(col, bson.D{{Key: "grp", Value: int32(3)}}, true) }
 	cases := []struct {
 		name       string
@@ -362,11 +364,12 @@ func TestExplainPlan_AgreesWithExecution(t *testing.T) {
 		{"find_or_union", harness.DumboDBFull, find(or), read(find(or)), true},
 		{"find_covered", harness.DumboDBFull, find(rangeK, bson.E{Key: "projection", Value: bson.D{{Key: "k", Value: 1}, {Key: "_id", Value: 0}}}),
 			read(find(rangeK, bson.E{Key: "projection", Value: bson.D{{Key: "k", Value: 1}, {Key: "_id", Value: 0}}})), true},
-		{"find_id", harness.DumboDBXFail, find(bson.D{{Key: "_id", Value: int32(7)}}), read(find(bson.D{{Key: "_id", Value: int32(7)}})), true},
-		{"find_over_half", harness.DumboDBXFail, find(wideK), read(find(wideK)), true},
-		{"aggregate_match_group", harness.DumboDBXFail, matchGroup, read(matchGroup), true},
-		{"distinct_filtered", harness.DumboDBXFail, distinct, command(distinct), true},
-		{"update_multi", harness.DumboDBXFail, update, command(update), false},
+		{"find_id", harness.DumboDBFull, find(bson.D{{Key: "_id", Value: int32(7)}}), read(find(bson.D{{Key: "_id", Value: int32(7)}})), true},
+		{"find_over_half", harness.DumboDBFull, find(wideK), read(find(wideK)), true},
+		{"aggregate_match_group", harness.DumboDBFull, matchGroup, read(matchGroup), true},
+		{"distinct_filtered", harness.DumboDBFull, distinct, command(distinct), true},
+		{"count_range", harness.DumboDBFull, count, command(count), true},
+		{"update_multi", harness.DumboDBFull, update, command(update), false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
