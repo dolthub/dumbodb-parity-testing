@@ -39,6 +39,8 @@ type plannerCase struct {
 	support harness.DumboDBSupport
 	filter  bson.D
 	opts    *options.FindOptions
+	// work, when set, measures a read other than a find of filter.
+	work func(ctx context.Context, col *mongo.Collection) (bson.D, error)
 	// mongoExpect and dumboExpect assert each server's own plannerWork result
 	// for a DumboDBDeviates case.
 	mongoExpect, dumboExpect func(t *testing.T, work bson.D)
@@ -54,31 +56,14 @@ const excessKeySlack = 16
 // index keys, by record id in mongod and by a hash of _id in DumboDB, so for
 // those queries only the number returned is compared.
 func plannerWork(ctx context.Context, col *mongo.Collection, filter bson.D, opts *options.FindOptions) (bson.D, error) {
-	var ids []string
-	op := func() error {
-		cur, err := col.Find(ctx, filter, opts)
-		if err != nil {
-			return err
-		}
-		var docs []bson.M
-		if err := cur.All(ctx, &docs); err != nil {
-			return err
-		}
-		ids = ids[:0]
-		for _, d := range docs {
-			ids = append(ids, fmt.Sprint(d["_id"]))
-		}
-		return nil
-	}
-	scanned, err := scannedBy(ctx, col, op, true)
+	ids, keys, docs, err := readWork(ctx, col, func() ([]string, error) {
+		return findValues(ctx, col, filter, opts, "_id")
+	})
 	if err != nil {
 		return nil, err
 	}
-	keys, _ := scanned[0].Value.(int64)
-	docs, _ := scanned[1].Value.(int64)
 	var returned interface{} = len(ids)
 	if opts == nil || opts.Limit == nil || opts.Sort != nil {
-		sort.Strings(ids)
 		returned = ids
 	}
 	return bson.D{
@@ -87,6 +72,40 @@ func plannerWork(ctx context.Context, col *mongo.Collection, filter bson.D, opts
 		{Key: "readsIndex", Value: keys > 0},
 		{Key: "excessKeys", Value: keys > docs+excessKeySlack},
 	}, nil
+}
+
+// readWork runs read under scannedBy and returns what it returned, sorted,
+// with the index keys and documents it examined.
+func readWork(ctx context.Context, col *mongo.Collection, read func() ([]string, error)) (returned []string, keys, docs int64, err error) {
+	op := func() error {
+		returned, err = read()
+		return err
+	}
+	scanned, err := scannedBy(ctx, col, op, true)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	keys, _ = scanned[0].Value.(int64)
+	docs, _ = scanned[1].Value.(int64)
+	sort.Strings(returned)
+	return returned, keys, docs, nil
+}
+
+// findValues runs a find and returns field of each document it returns.
+func findValues(ctx context.Context, col *mongo.Collection, filter bson.D, opts *options.FindOptions, field string) ([]string, error) {
+	cur, err := col.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, err
+	}
+	var docs []bson.M
+	if err := cur.All(ctx, &docs); err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(docs))
+	for _, d := range docs {
+		out = append(out, fmt.Sprint(d[field]))
+	}
+	return out, nil
 }
 
 func runPlannerCases(t *testing.T, prefix string, setup func(context.Context, *mongo.Collection) error, cases []plannerCase) {
@@ -108,6 +127,9 @@ func runPlannerCases(t *testing.T, prefix string, setup func(context.Context, *m
 				Support: tc.support,
 				Setup:   setup,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					if tc.work != nil {
+						return tc.work(ctx, col)
+					}
 					return plannerWork(ctx, col, tc.filter, tc.opts)
 				},
 				MongoExpect: expect(tc.mongoExpect),
@@ -273,5 +295,144 @@ func TestIndexPlanner_WideRange(t *testing.T) {
 		{name: "unhinted", support: harness.DumboDBDeviates, filter: wide,
 			mongoExpect: expectWork(bson.D{{Key: "readsIndex", Value: true}, {Key: "docsExamined", Value: 9000}}),
 			dumboExpect: expectWork(bson.D{{Key: "readsIndex", Value: false}, {Key: "docsExamined", Value: 10000}})},
+	})
+}
+
+// distinctWork measures a distinct of field under filter: the values, the
+// documents examined, and whether it read about one index key per value, as a
+// DISTINCT_SCAN does, rather than every key.
+func distinctWork(field string, filter bson.D) func(context.Context, *mongo.Collection) (bson.D, error) {
+	return func(ctx context.Context, col *mongo.Collection) (bson.D, error) {
+		values, keys, docs, err := readWork(ctx, col, func() ([]string, error) {
+			vals, err := col.Distinct(ctx, field, filter)
+			out := make([]string, 0, len(vals))
+			for _, v := range vals {
+				out = append(out, fmt.Sprint(v))
+			}
+			return out, err
+		})
+		if err != nil {
+			return nil, err
+		}
+		return bson.D{
+			{Key: "returned", Value: values},
+			{Key: "docsExamined", Value: docs},
+			{Key: "keysPerValue", Value: keys <= int64(len(values))+excessKeySlack},
+		}, nil
+	}
+}
+
+// coveredFindWork measures a find projected to field alone.
+func coveredFindWork(filter bson.D, field string) func(context.Context, *mongo.Collection) (bson.D, error) {
+	return func(ctx context.Context, col *mongo.Collection) (bson.D, error) {
+		opts := options.Find().SetProjection(bson.D{{Key: field, Value: 1}, {Key: "_id", Value: 0}})
+		values, keys, docs, err := readWork(ctx, col, func() ([]string, error) {
+			return findValues(ctx, col, filter, opts, field)
+		})
+		if err != nil {
+			return nil, err
+		}
+		return bson.D{{Key: "returned", Value: values}, {Key: "docsExamined", Value: docs}, {Key: "readsIndex", Value: keys > 0}}, nil
+	}
+}
+
+// groupWork measures an aggregate that returns one document per group, keyed
+// by _id.
+func groupWork(pipeline bson.A) func(context.Context, *mongo.Collection) (bson.D, error) {
+	return func(ctx context.Context, col *mongo.Collection) (bson.D, error) {
+		groups, keys, docs, err := readWork(ctx, col, func() ([]string, error) {
+			cur, err := col.Aggregate(ctx, pipeline)
+			if err != nil {
+				return nil, err
+			}
+			var out []bson.M
+			if err := cur.All(ctx, &out); err != nil {
+				return nil, err
+			}
+			ids := make([]string, 0, len(out))
+			for _, d := range out {
+				ids = append(ids, fmt.Sprint(d["_id"]))
+			}
+			return ids, nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		return bson.D{{Key: "returned", Value: groups}, {Key: "docsExamined", Value: docs}, {Key: "readsIndex", Value: keys > 0}}, nil
+	}
+}
+
+func setupGrpK(ctx context.Context, col *mongo.Collection) error {
+	docs := make([]interface{}, 0, 10000)
+	for i := 0; i < 10000; i++ {
+		docs = append(docs, bson.D{{Key: "_id", Value: int32(i)}, {Key: "k", Value: int32(i)}, {Key: "grp", Value: int32(i % 1000)}})
+	}
+	if _, err := col.InsertMany(ctx, docs); err != nil {
+		return err
+	}
+	_, err := col.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{Keys: bson.D{{Key: "k", Value: 1}}},
+		{Keys: bson.D{{Key: "grp", Value: 1}}},
+	})
+	return err
+}
+
+// TestIndexPlanner_Distinct: mongod answers distinct on an indexed field with a
+// DISTINCT_SCAN, one key per value and no documents. DumboDB reads every key
+// and fetches a document per value (dolthub/dumbodb#141).
+func TestIndexPlanner_Distinct(t *testing.T) {
+	runPlannerCases(t, "IndexPlanner_Distinct", setupGrpK, []plannerCase{
+		{name: "all", support: harness.DumboDBXFail, work: distinctWork("grp", bson.D{})},
+		{name: "filtered_on_key", support: harness.DumboDBXFail,
+			work: distinctWork("grp", bson.D{{Key: "grp", Value: bson.D{{Key: "$lt", Value: int32(100)}}}})},
+	})
+}
+
+// TestIndexPlanner_Covered: a read that needs only indexed fields is answered
+// from the index keys without fetching documents. DumboDB fetches every
+// document: it cannot decode values from index keys (dolthub/dumbodb#142), nor
+// group from them (#139).
+func TestIndexPlanner_Covered(t *testing.T) {
+	rangeK := bson.D{{Key: "k", Value: bson.D{{Key: "$gte", Value: int32(5000)}, {Key: "$lt", Value: int32(5050)}}}}
+	groupGrp := bson.A{
+		bson.D{{Key: "$match", Value: bson.D{{Key: "grp", Value: bson.D{{Key: "$gte", Value: int32(0)}}}}}},
+		bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: "$grp"}}}},
+	}
+	runPlannerCases(t, "IndexPlanner_Covered", setupGrpK, []plannerCase{
+		{name: "projection", support: harness.DumboDBXFail, work: coveredFindWork(rangeK, "k")},
+		{name: "match_group", support: harness.DumboDBXFail, work: groupWork(groupGrp)},
+	})
+}
+
+// TestIndexPlanner_DottedNull: {"a.b": null} on an index of a dotted path.
+// mongod indexes a null key for a missing field, including for each array
+// element that lacks it, so the index serves the query. DumboDB stores no
+// such keys and scans the collection (dolthub/dumbodb#181).
+func TestIndexPlanner_DottedNull(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 0, 10000)
+		for i := 0; i < 10000; i++ {
+			arr := bson.A{bson.D{{Key: "b", Value: int32(i)}}}
+			if i%10 == 0 {
+				arr = append(arr, bson.D{{Key: "c", Value: int32(i)}})
+			}
+			doc := bson.D{{Key: "_id", Value: int32(i)}, {Key: "a", Value: arr}}
+			if i%10 != 3 {
+				doc = append(doc, bson.E{Key: "s", Value: bson.D{{Key: "b", Value: int32(i)}}})
+			}
+			docs = append(docs, doc)
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateMany(ctx, []mongo.IndexModel{
+			{Keys: bson.D{{Key: "a.b", Value: 1}}},
+			{Keys: bson.D{{Key: "s.b", Value: 1}}},
+		})
+		return err
+	}
+	runPlannerCases(t, "IndexPlanner_DottedNull", setup, []plannerCase{
+		{name: "array_element_missing_field", support: harness.DumboDBXFail, filter: bson.D{{Key: "a.b", Value: nil}}},
+		{name: "subdocument_missing_field", support: harness.DumboDBXFail, filter: bson.D{{Key: "s.b", Value: nil}}},
 	})
 }
