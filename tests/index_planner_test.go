@@ -405,9 +405,8 @@ func TestIndexPlanner_Covered(t *testing.T) {
 }
 
 // TestIndexPlanner_DottedNull: {"a.b": null} on an index of a dotted path.
-// mongod indexes a null key for a missing field, including for each array
-// element that lacks it, so the index serves the query. DumboDB stores no
-// such keys and scans the collection (dolthub/dumbodb#181).
+// A null key is indexed for a missing field, including for each array element
+// that lacks it, so the index serves the query (dolthub/dumbodb#181).
 func TestIndexPlanner_DottedNull(t *testing.T) {
 	setup := func(ctx context.Context, col *mongo.Collection) error {
 		docs := make([]interface{}, 0, 10000)
@@ -420,6 +419,14 @@ func TestIndexPlanner_DottedNull(t *testing.T) {
 			if i%10 != 3 {
 				doc = append(doc, bson.E{Key: "s", Value: bson.D{{Key: "b", Value: int32(i)}}})
 			}
+			// e holds the shapes a null equality through an array reaches:
+			// an empty array, a non-document element, an explicit null.
+			if i%100 < 4 {
+				e := []interface{}{bson.A{}, bson.A{int32(3), bson.D{{Key: "b", Value: int32(i)}}}, bson.D{{Key: "b", Value: nil}}, bson.A{bson.D{{Key: "b", Value: int32(i)}}}}[i%100]
+				doc = append(doc, bson.E{Key: "e", Value: e})
+			} else {
+				doc = append(doc, bson.E{Key: "e", Value: bson.D{{Key: "b", Value: int32(i)}}})
+			}
 			docs = append(docs, doc)
 		}
 		if _, err := col.InsertMany(ctx, docs); err != nil {
@@ -428,11 +435,14 @@ func TestIndexPlanner_DottedNull(t *testing.T) {
 		_, err := col.Indexes().CreateMany(ctx, []mongo.IndexModel{
 			{Keys: bson.D{{Key: "a.b", Value: 1}}},
 			{Keys: bson.D{{Key: "s.b", Value: 1}}},
+			{Keys: bson.D{{Key: "e.b", Value: 1}}},
 		})
 		return err
 	}
 	runPlannerCases(t, "IndexPlanner_DottedNull", setup, []plannerCase{
-		{name: "array_element_missing_field", support: harness.DumboDBXFail, filter: bson.D{{Key: "a.b", Value: nil}}},
-		{name: "subdocument_missing_field", support: harness.DumboDBXFail, filter: bson.D{{Key: "s.b", Value: nil}}},
+		{name: "array_element_missing_field", support: harness.DumboDBFull, filter: bson.D{{Key: "a.b", Value: nil}}},
+		{name: "subdocument_missing_field", support: harness.DumboDBFull, filter: bson.D{{Key: "s.b", Value: nil}}},
+		{name: "array_shapes", support: harness.DumboDBFull, filter: bson.D{{Key: "e.b", Value: nil}}},
+		{name: "array_shapes_eq_operator", support: harness.DumboDBFull, filter: bson.D{{Key: "e.b", Value: bson.D{{Key: "$eq", Value: nil}}}}},
 	})
 }
