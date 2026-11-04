@@ -991,7 +991,7 @@ func BenchmarkIndexUse_DottedNullEq_10K(b *testing.B) {
 		}
 		return doc
 	}
-	benchmarkIndexedFindOf(b, "iu_dotted_null", dottedKey, docOf, func(int) bson.D { return bson.D{{Key: "a.b", Value: nil}} }, nil, 0, dottedNullKeyGap)
+	benchmarkIndexedFindOf(b, "iu_dotted_null", dottedKey, docOf, func(int) bson.D { return bson.D{{Key: "a.b", Value: nil}} }, nil, 0, mustUseIndex)
 }
 
 // Null through an array matches documents with an element missing the field:
@@ -1007,7 +1007,7 @@ func BenchmarkIndexUse_ThroughArrayNullEq_10K(b *testing.B) {
 		}
 		return doc
 	}
-	benchmarkIndexedFindOf(b, "iu_through_array_null", skuKey, docOf, func(int) bson.D { return bson.D{{Key: "items.sku", Value: nil}} }, nil, 0, dottedNullKeyGap)
+	benchmarkIndexedFindOf(b, "iu_through_array_null", skuKey, docOf, func(int) bson.D { return bson.D{{Key: "items.sku", Value: nil}} }, nil, 0, mustUseIndex)
 }
 
 // $exists: true on a sparse index reads only its members.
