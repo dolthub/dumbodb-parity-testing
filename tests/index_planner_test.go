@@ -402,13 +402,12 @@ func setupGrpK(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
-// TestIndexPlanner_Distinct: mongod answers distinct on an indexed field with a
-// DISTINCT_SCAN, one key per value and no documents. DumboDB reads every key
-// and fetches a document per value (dolthub/dumbodb#141).
+// TestIndexPlanner_Distinct: distinct on an indexed field is a DISTINCT_SCAN,
+// one key per value and no documents (dolthub/dumbodb#141).
 func TestIndexPlanner_Distinct(t *testing.T) {
 	runPlannerCases(t, "IndexPlanner_Distinct", setupGrpK, []plannerCase{
-		{name: "all", support: harness.DumboDBXFail, work: distinctWork("grp", bson.D{})},
-		{name: "filtered_on_key", support: harness.DumboDBXFail,
+		{name: "all", support: harness.DumboDBFull, work: distinctWork("grp", bson.D{})},
+		{name: "filtered_on_key", support: harness.DumboDBFull,
 			work: distinctWork("grp", bson.D{{Key: "grp", Value: bson.D{{Key: "$lt", Value: int32(100)}}}})},
 	})
 }

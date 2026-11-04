@@ -1337,7 +1337,7 @@ func benchmarkIndexedDistinct(b *testing.B, label string, keys bson.D, field str
 	col, ctx, dumbo := withIndexUseCollection(b, label, keys)
 	cmd := bson.D{{Key: "distinct", Value: col.Name()}, {Key: "key", Value: field}, {Key: "query", Value: bson.D{}}}
 	requireIndexUse(b, ctx, col, dumbo, cmd, mustUseIndex)
-	requireWork(b, ctx, col, dumbo, cmd, keysOnly(values+1), distinctScanGap)
+	requireWork(b, ctx, col, dumbo, cmd, keysOnly(values+1), mustUseIndex)
 	timeDistinct(b, ctx, col, field, bson.D{})
 }
 
@@ -1371,7 +1371,7 @@ func BenchmarkIndexUse_DistinctFilteredOnKey_10K(b *testing.B) {
 	filter := bson.D{{Key: "grp", Value: bson.D{{Key: "$lt", Value: int32(100)}}}}
 	cmd := bson.D{{Key: "distinct", Value: col.Name()}, {Key: "key", Value: "grp"}, {Key: "query", Value: filter}}
 	requireIndexUse(b, ctx, col, dumbo, cmd, mustUseIndex)
-	requireWork(b, ctx, col, dumbo, cmd, keysOnly(101), distinctScanGap)
+	requireWork(b, ctx, col, dumbo, cmd, keysOnly(101), mustUseIndex)
 	timeDistinct(b, ctx, col, "grp", filter)
 }
 
