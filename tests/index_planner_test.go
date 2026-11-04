@@ -173,9 +173,9 @@ func TestIndexPlanner_CompoundIn(t *testing.T) {
 		{name: "find", support: harness.DumboDBFull, filter: in},
 		{name: "find_sort", support: harness.DumboDBFull, filter: in, opts: options.Find().SetSort(sortK)},
 		{name: "find_limit", support: harness.DumboDBFull, filter: in, opts: options.Find().SetLimit(5)},
-		// mongod merges the two ranges in k order and reads about 5 keys;
-		// DumboDB reads both ranges whole to sort them (dolthub/dumbodb#146).
-		{name: "find_sort_limit", support: harness.DumboDBXFail, filter: in, opts: options.Find().SetSort(sortK).SetLimit(5)},
+		// The two ranges merge in k order, reading about the limit's keys
+		// (dolthub/dumbodb#146).
+		{name: "find_sort_limit", support: harness.DumboDBFull, filter: in, opts: options.Find().SetSort(sortK).SetLimit(5)},
 	})
 }
 

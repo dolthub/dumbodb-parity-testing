@@ -36,7 +36,6 @@ var (
 	halfCollectionCapGap = indexUseExpectation{knownDumboGap: "dumbodb#139: a range over half the collection is scanned, not read through the index"}
 	explainSeparateGap   = indexUseExpectation{knownDumboGap: "workspace-2bq.15: the CountDocuments aggregate explains its $match as a find, not the index count it runs"}
 	distinctScanGap      = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#141: distinct reads every index key and fetches documents"}
-	sortMergeGap         = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#146: $in ranges are read whole and sorted, not merged"}
 	dottedNullKeyGap     = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#181: dotted-path indexes hold no null keys for missing fields"}
 	coveredGroupGap      = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#139: $group on an indexed field fetches documents"}
 	geoIndexGap          = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#124: geo queries scan the collection and sort by distance"}
