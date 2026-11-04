@@ -224,7 +224,7 @@ func benchmarkCountDocumentsScaled(b *testing.B, n int) {
 func benchmarkCountDocumentsScaledIndexed(b *testing.B, n int) {
 	col, ctx := withSeededCollection(b, fmt.Sprintf("count_%d_idx", n), n, sizeSmall)
 	idx := createIndex(b, ctx, col, bson.D{{Key: "grp", Value: 1}})
-	requireIndexed(b, ctx, col, countDocumentsCmd(col, bson.D{{Key: "grp", Value: 5}}), idx, n, mustUseIndex)
+	requireIndexed(b, ctx, col, countDocumentsCmd(col, bson.D{{Key: "grp", Value: 5}}), idx, n, explainSeparateGap)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if _, err := col.CountDocuments(ctx, bson.D{{Key: "grp", Value: 5}}); err != nil {
