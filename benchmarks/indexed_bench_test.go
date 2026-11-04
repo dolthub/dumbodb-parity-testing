@@ -34,8 +34,6 @@ const idIndex = "_id_"
 
 var (
 	halfCollectionCapGap = indexUseExpectation{knownDumboGap: "dumbodb#139: a range over half the collection is scanned, not read through the index"}
-	explainSeparateGap   = indexUseExpectation{knownDumboGap: "workspace-2bq.15: the CountDocuments aggregate explains its $match as a find, not the index count it runs"}
-	coveredGroupGap      = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#139: $group on an indexed field fetches documents"}
 	geoIndexGap          = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#124: geo queries scan the collection and sort by distance"}
 )
 
@@ -217,7 +215,7 @@ func BenchmarkDeleteMany_Indexed(b *testing.B) {
 func BenchmarkCountDocuments_Indexed(b *testing.B) {
 	col, ctx := withSeededCollection(b, "count_idx", benchDatasetSize, benchDocSize)
 	idx := createIndex(b, ctx, col, bson.D{{Key: "grp", Value: 1}})
-	requireIndexed(b, ctx, col, countDocumentsCmd(col, bson.D{{Key: "grp", Value: 5}}), idx, benchDatasetSize, explainSeparateGap)
+	requireIndexed(b, ctx, col, countDocumentsCmd(col, bson.D{{Key: "grp", Value: 5}}), idx, benchDatasetSize, mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if _, err := col.CountDocuments(ctx, bson.D{{Key: "grp", Value: 5}}); err != nil {
@@ -249,8 +247,8 @@ func BenchmarkAgg_MatchGroup_Indexed(b *testing.B) {
 			{Key: "n", Value: bson.D{{Key: "$sum", Value: 1}}},
 		}}},
 	}
-	requireIndexed(b, ctx, col, aggregateCmd(col, pipeline), idx, benchDatasetSize, halfCollectionCapGap)
-	requireWork(b, ctx, col, isDumboDB(ctx, col.Database().Client()), aggregateCmd(col, pipeline), keysOnly(benchDatasetSize), coveredGroupGap)
+	requireIndexed(b, ctx, col, aggregateCmd(col, pipeline), idx, benchDatasetSize, mustUseIndex)
+	requireWork(b, ctx, col, isDumboDB(ctx, col.Database().Client()), aggregateCmd(col, pipeline), keysOnly(benchDatasetSize), mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		cur, err := col.Aggregate(ctx, pipeline)
