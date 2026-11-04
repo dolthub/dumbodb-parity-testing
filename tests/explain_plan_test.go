@@ -183,18 +183,47 @@ func TestExplainPlan_WriteExecutionStats(t *testing.T) {
 }
 
 // TestExplainPlan_OrUnion: an $or with an indexed field in every branch is a
-// union of index scans. DumboDB runs the union and reports its totals, but
-// every stage below the root reports zero (dolthub/dumbodb#132).
+// union of index scans, each reporting its own counts (dolthub/dumbodb#132).
 func TestExplainPlan_OrUnion(t *testing.T) {
-	harness.PairTest(t, harness.TestCase{
-		Name:    "ExplainPlan_OrUnion",
-		Support: harness.DumboDBXFail,
-		Setup:   setupGrpK,
-		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			or := bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "k", Value: int32(5000)}}, bson.D{{Key: "grp", Value: int32(1)}}}}}
-			return explainWorkOf(bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: or}})(ctx, col)
-		},
-	})
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if err := setupGrpK(ctx, col); err != nil {
+			return err
+		}
+		return createIndex(ctx, col, bson.D{{Key: "grp", Value: 1}, {Key: "k", Value: 1}})
+	}
+	or := func(branches ...bson.D) bson.D {
+		arr := bson.A{}
+		for _, b := range branches {
+			arr = append(arr, b)
+		}
+		return bson.D{{Key: "$or", Value: arr}}
+	}
+	k := bson.D{{Key: "k", Value: int32(5000)}}
+	cases := []struct {
+		name    string
+		support harness.DumboDBSupport
+		filter  bson.D
+	}{
+		{"single_field_branches", harness.DumboDBFull, or(k, bson.D{{Key: "grp", Value: int32(1)}})},
+		// mongod serves the branch with the compound index bounding both of
+		// its fields; DumboDB prefers the single-field index on grp.
+		{"compound_branch", harness.DumboDBXFail, or(k, bson.D{{Key: "grp", Value: int32(1)}, {Key: "k", Value: bson.D{{Key: "$gte", Value: int32(0)}}}})},
+		// mongod merges the branches on k_1 into one scan of two intervals;
+		// DumboDB scans each branch.
+		{"nested_or", harness.DumboDBXFail, or(k, or(bson.D{{Key: "grp", Value: int32(1)}}, bson.D{{Key: "k", Value: int32(7)}}))},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "ExplainPlan_OrUnion_" + tc.name,
+				Support: tc.support,
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return explainWorkOf(bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: tc.filter}})(ctx, col)
+				},
+			})
+		})
+	}
 }
 
 // TestExplainPlan_OverHalf: a range over most of the collection. mongod reads
