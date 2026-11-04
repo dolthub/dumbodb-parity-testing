@@ -872,6 +872,28 @@ func BenchmarkIndexUse_OrUnion_Nested_10K(b *testing.B) {
 	}
 }
 
+// An $or branch with a field its index does not bound fetches and filters its
+// documents before the union.
+func BenchmarkIndexUse_OrUnion_Residual_10K(b *testing.B) {
+	col, ctx, dumbo := withIndexUseCollection(b, "iu_or_union_residual", flatKey)
+	if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "grp", Value: 1}}, Options: options.Index().SetName("grpidx")}); err != nil {
+		b.Fatalf("create grp index: %v", err)
+	}
+	filter := func(i int) bson.D {
+		return bson.D{{Key: "$or", Value: bson.A{
+			bson.D{{Key: "k", Value: int32(i)}},
+			bson.D{{Key: "grp", Value: int32((i + 1) % 1000)}, {Key: "pad", Value: bson.D{{Key: "$exists", Value: true}}}},
+		}}}
+	}
+	// The residual branch's documents are read twice, so more documents than
+	// keys are read without a collection scan; requireWork bounds both.
+	requireWork(b, ctx, col, dumbo, findCmd(col, filter(indexUseDocs/2), nil, 0), workBound{maxKeys: 11, maxDocs: 22}, mustUseIndex)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		runFind(b, ctx, col, filter(i%indexUseDocs), nil, 0)
+	}
+}
+
 // A projection of only indexed fields is answered from index keys, reading no
 // documents.
 func BenchmarkIndexUse_CoveredProjection_10K(b *testing.B) {

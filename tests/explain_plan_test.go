@@ -199,18 +199,24 @@ func TestExplainPlan_OrUnion(t *testing.T) {
 		return bson.D{{Key: "$or", Value: arr}}
 	}
 	k := bson.D{{Key: "k", Value: int32(5000)}}
+	grpK := bson.D{{Key: "grp", Value: int32(1)}, {Key: "k", Value: bson.D{{Key: "$gte", Value: int32(0)}}}}
 	cases := []struct {
 		name    string
 		support harness.DumboDBSupport
 		filter  bson.D
 	}{
 		{"single_field_branches", harness.DumboDBFull, or(k, bson.D{{Key: "grp", Value: int32(1)}})},
-		// mongod serves the branch with the compound index bounding both of
-		// its fields; DumboDB prefers the single-field index on grp.
-		{"compound_branch", harness.DumboDBXFail, or(k, bson.D{{Key: "grp", Value: int32(1)}, {Key: "k", Value: bson.D{{Key: "$gte", Value: int32(0)}}}})},
-		// mongod merges the branches on k_1 into one scan of two intervals;
-		// DumboDB scans each branch.
-		{"nested_or", harness.DumboDBXFail, or(k, or(bson.D{{Key: "grp", Value: int32(1)}}, bson.D{{Key: "k", Value: int32(7)}}))},
+		// The branch is served by the compound index bounding both its fields.
+		{"compound_branch", harness.DumboDBFull, or(k, grpK)},
+		// Branches of one predicate on k_1 are one scan of their intervals.
+		{"nested_or", harness.DumboDBFull, or(k, or(bson.D{{Key: "grp", Value: int32(1)}}, bson.D{{Key: "k", Value: int32(7)}}))},
+		// Equalities on one field are planned as an $in, without SUBPLAN.
+		{"equalities_on_one_field", harness.DumboDBFull, or(bson.D{{Key: "k", Value: int32(1)}}, bson.D{{Key: "k", Value: int32(2)}})},
+		// Branches scan in index order, a branch of several predicates as
+		// soon as it is reached, one of a single predicate once a branch on
+		// another index follows.
+		{"branch_order", harness.DumboDBFull, or(bson.D{{Key: "grp", Value: int32(3)}}, k, grpK, bson.D{{Key: "k", Value: int32(5)}, {Key: "_id", Value: bson.D{{Key: "$gte", Value: int32(0)}}}})},
+		{"overlapping_intervals", harness.DumboDBFull, or(bson.D{{Key: "k", Value: bson.D{{Key: "$gt", Value: int32(9995)}}}}, bson.D{{Key: "k", Value: int32(9997)}}, bson.D{{Key: "k", Value: int32(7)}})},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -218,6 +224,39 @@ func TestExplainPlan_OrUnion(t *testing.T) {
 				Name:    "ExplainPlan_OrUnion_" + tc.name,
 				Support: tc.support,
 				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return explainWorkOf(bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: tc.filter}})(ctx, col)
+				},
+			})
+		})
+	}
+}
+
+// TestExplainPlan_InIntervals: an $in is one IXSCAN of an interval per value,
+// examining the key past each interval it lands on outside them.
+func TestExplainPlan_InIntervals(t *testing.T) {
+	in := func(vs ...int32) bson.D {
+		arr := bson.A{}
+		for _, v := range vs {
+			arr = append(arr, v)
+		}
+		return bson.D{{Key: "k", Value: bson.D{{Key: "$in", Value: arr}}}}
+	}
+	cases := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"apart", in(7, 5000)},
+		{"adjacent", in(7, 8, 5000)},
+		{"past_the_last_key", in(7, 9999)},
+		{"missing_value", in(-5, 7, 20000)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "ExplainPlan_InIntervals_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup:   setupGrpK,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return explainWorkOf(bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: tc.filter}})(ctx, col)
 				},
@@ -383,6 +422,88 @@ func TestExplainPlan_LookupForeignIndex(t *testing.T) {
 			})
 		})
 	}
+}
+
+// TestExplainPlan_CountingGroup: a pipeline that only counts the documents its
+// $match selects runs in the query plan, as a GROUP over a scan that reads no
+// document when the index bounds the whole filter.
+func TestExplainPlan_CountingGroup(t *testing.T) {
+	count := bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: int32(1)}, {Key: "n", Value: bson.D{{Key: "$sum", Value: int32(1)}}}}}}
+	match := func(filter bson.D) bson.D { return bson.D{{Key: "$match", Value: filter}} }
+	grp := func(v interface{}) bson.D { return bson.D{{Key: "grp", Value: v}} }
+	cases := []struct {
+		name     string
+		pipeline bson.A
+	}{
+		{"count_scan", bson.A{match(grp(bson.D{{Key: "$gte", Value: int32(500)}})), count}},
+		{"compound_count_scan", bson.A{match(bson.D{{Key: "grp", Value: int32(5)}, {Key: "k", Value: bson.D{{Key: "$gte", Value: int32(0)}}}}), count}},
+		{"in_intervals", bson.A{match(grp(bson.D{{Key: "$in", Value: bson.A{int32(1), int32(2)}}})), count}},
+		{"filter_outside_index", bson.A{match(bson.D{{Key: "grp", Value: int32(5)}, {Key: "t", Value: int32(1)}}), count}},
+		{"collscan", bson.A{match(bson.D{{Key: "t", Value: int32(5)}}), count}},
+		{"no_match", bson.A{count}},
+		{"count_stage", bson.A{match(grp(int32(5))), bson.D{{Key: "$count", Value: "n"}}}},
+		{"stage_after_count", bson.A{match(grp(int32(5))), count, bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: int32(0)}}}}}},
+	}
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if err := setupGrpK(ctx, col); err != nil {
+			return err
+		}
+		return createIndex(ctx, col, bson.D{{Key: "grp", Value: 1}, {Key: "k", Value: 1}})
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "ExplainPlan_CountingGroup_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					doc, err := explainRunExplain(ctx, col, bson.D{
+						{Key: "aggregate", Value: col.Name()},
+						{Key: "pipeline", Value: tc.pipeline},
+						{Key: "cursor", Value: bson.D{}},
+					}, "executionStats")
+					if err != nil {
+						return nil, err
+					}
+					return countingGroupWork(doc), nil
+				},
+			})
+		})
+	}
+}
+
+// countingGroupWork reduces the explain of a plan MongoDB's SBE engine runs to
+// its explain version, the stages after the query, the query plan and the
+// totals. SBE's executionStages are its own stages, so they are left out.
+func countingGroupWork(doc bson.D) bson.D {
+	out := bson.D{}
+	if v, ok := lookup(doc, "explainVersion"); ok {
+		out = append(out, bson.E{Key: "explainVersion", Value: v})
+	}
+	if stages, ok := lookup(doc, "stages"); ok {
+		var names bson.A
+		for _, s := range stages.(bson.A) {
+			if d, ok := s.(bson.D); ok && len(d) > 0 {
+				names = append(names, d[0].Key)
+			}
+		}
+		out = append(out, bson.E{Key: "stages", Value: names})
+	}
+	if qp := findQueryPlanner(doc); qp != nil {
+		if wp, ok := lookup(qp, "winningPlan"); ok {
+			if plan, ok := lookup(wp.(bson.D), "queryPlan"); ok {
+				out = append(out, bson.E{Key: "queryPlan", Value: explainExtractPlan(plan)})
+			}
+		}
+	}
+	if es := findExecutionStats(doc); es != nil {
+		for _, k := range []string{"nReturned", "totalKeysExamined", "totalDocsExamined"} {
+			if v, ok := lookup(es, k); ok {
+				out = append(out, bson.E{Key: k, Value: v})
+			}
+		}
+	}
+	return out
 }
 
 // explainAgreement explains inner, then runs it with run under scannedBy, and
