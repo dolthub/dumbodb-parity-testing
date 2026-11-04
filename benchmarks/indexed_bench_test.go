@@ -35,7 +35,6 @@ const idIndex = "_id_"
 var (
 	halfCollectionCapGap = indexUseExpectation{knownDumboGap: "dumbodb#139: a range over half the collection is scanned, not read through the index"}
 	explainSeparateGap   = indexUseExpectation{knownDumboGap: "workspace-2bq.15: the CountDocuments aggregate explains its $match as a find, not the index count it runs"}
-	distinctScanGap      = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#141: distinct reads every index key and fetches documents"}
 	coveredGroupGap      = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#139: $group on an indexed field fetches documents"}
 	geoIndexGap          = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#124: geo queries scan the collection and sort by distance"}
 )
@@ -231,7 +230,7 @@ func BenchmarkDistinct_Indexed(b *testing.B) {
 	col, ctx := withSeededCollection(b, "distinct_idx", benchDatasetSize, benchDocSize)
 	idx := createIndex(b, ctx, col, bson.D{{Key: "grp", Value: 1}})
 	requireIndexed(b, ctx, col, distinctCmd(col, "grp"), idx, benchDatasetSize, mustUseIndex)
-	requireWork(b, ctx, col, isDumboDB(ctx, col.Database().Client()), distinctCmd(col, "grp"), keysOnly(11), distinctScanGap)
+	requireWork(b, ctx, col, isDumboDB(ctx, col.Database().Client()), distinctCmd(col, "grp"), keysOnly(11), mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if _, err := col.Distinct(ctx, "grp", bson.D{}); err != nil {
