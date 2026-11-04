@@ -144,8 +144,7 @@ type indexUseExpectation struct {
 }
 
 var (
-	mustUseIndex         = indexUseExpectation{}
-	coveredProjectionGap = indexUseExpectation{knownDumboGap: "dumbodb#142: covered projections fetch documents"}
+	mustUseIndex = indexUseExpectation{}
 )
 
 type explainSummary struct {
@@ -880,7 +879,7 @@ func BenchmarkIndexUse_CoveredProjection_10K(b *testing.B) {
 	projection := bson.D{{Key: "k", Value: 1}, {Key: "_id", Value: 0}}
 	inner := append(findCmd(col, rangeOn("k", 50)(indexUseDocs/2), nil, 0), bson.E{Key: "projection", Value: projection})
 	requireIndexUse(b, ctx, col, dumbo, inner, mustUseIndex)
-	requireWork(b, ctx, col, dumbo, inner, keysOnly(50), coveredProjectionGap)
+	requireWork(b, ctx, col, dumbo, inner, keysOnly(50), mustUseIndex)
 	opts := options.Find().SetProjection(projection)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -903,7 +902,7 @@ func BenchmarkIndexUse_CoveredSortLimit_10K(b *testing.B) {
 	sort := bson.D{{Key: "k", Value: 1}}
 	inner := append(findCmd(col, rangeOn("k", 1000)(indexUseDocs/2), sort, 10), bson.E{Key: "projection", Value: projection})
 	requireIndexUse(b, ctx, col, dumbo, inner, mustUseIndex)
-	requireWork(b, ctx, col, dumbo, inner, keysOnly(11), coveredProjectionGap)
+	requireWork(b, ctx, col, dumbo, inner, keysOnly(11), mustUseIndex)
 	opts := options.Find().SetProjection(projection).SetSort(sort).SetLimit(10)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

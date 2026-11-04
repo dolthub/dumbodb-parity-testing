@@ -17,6 +17,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"math"
 	"sort"
 	"testing"
 
@@ -322,12 +323,36 @@ func distinctWork(field string, filter bson.D) func(context.Context, *mongo.Coll
 	}
 }
 
-// coveredFindWork measures a find projected to field alone.
-func coveredFindWork(filter bson.D, field string) func(context.Context, *mongo.Collection) (bson.D, error) {
+// coveredFindWork measures a find projected to fields alone, comparing each
+// returned document with its values' types.
+func coveredFindWork(filter bson.D, opts *options.FindOptions, fields ...string) func(context.Context, *mongo.Collection) (bson.D, error) {
 	return func(ctx context.Context, col *mongo.Collection) (bson.D, error) {
-		opts := options.Find().SetProjection(bson.D{{Key: field, Value: 1}, {Key: "_id", Value: 0}})
+		projection := bson.D{{Key: "_id", Value: 0}}
+		for _, f := range fields {
+			projection = append(projection, bson.E{Key: f, Value: 1})
+		}
+		if opts == nil {
+			opts = options.Find()
+		}
+		opts.SetProjection(projection)
 		values, keys, docs, err := readWork(ctx, col, func() ([]string, error) {
-			return findValues(ctx, col, filter, opts, field)
+			cur, err := col.Find(ctx, filter, opts)
+			if err != nil {
+				return nil, err
+			}
+			var found []bson.D
+			if err := cur.All(ctx, &found); err != nil {
+				return nil, err
+			}
+			out := make([]string, 0, len(found))
+			for _, d := range found {
+				entry := ""
+				for _, e := range d {
+					entry += fmt.Sprintf("%s=%T(%v) ", e.Key, e.Value, e.Value)
+				}
+				out = append(out, entry)
+			}
+			return out, nil
 		})
 		if err != nil {
 			return nil, err
@@ -398,9 +423,36 @@ func TestIndexPlanner_Covered(t *testing.T) {
 		bson.D{{Key: "$match", Value: bson.D{{Key: "grp", Value: bson.D{{Key: "$gte", Value: int32(0)}}}}}},
 		bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: "$grp"}}}},
 	}
-	runPlannerCases(t, "IndexPlanner_Covered", setupGrpK, []plannerCase{
-		{name: "projection", support: harness.DumboDBXFail, work: coveredFindWork(rangeK, "k")},
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if err := setupGrpK(ctx, col); err != nil {
+			return err
+		}
+		return createIndex(ctx, col, bson.D{{Key: "grp", Value: 1}, {Key: "k", Value: 1}})
+	}
+	runPlannerCases(t, "IndexPlanner_Covered", setup, []plannerCase{
+		{name: "projection", support: harness.DumboDBFull, work: coveredFindWork(rangeK, nil, "k")},
+		// mongod serves grp with grp_1_k_1, which covers k; DumboDB prefers
+		// the single-field grp_1 and fetches each document.
+		{name: "compound", support: harness.DumboDBXFail, work: coveredFindWork(bson.D{{Key: "grp", Value: int32(7)}}, nil, "grp", "k")},
+		{name: "sort_limit", support: harness.DumboDBFull, work: coveredFindWork(rangeK, options.Find().SetSort(bson.D{{Key: "k", Value: -1}}).SetLimit(5), "k")},
 		{name: "match_group", support: harness.DumboDBXFail, work: groupWork(groupGrp)},
+	})
+
+	// Numbers of every type share one index encoding; a covered read must
+	// still return each as the type stored.
+	typed := func(ctx context.Context, col *mongo.Collection) error {
+		values := []interface{}{int32(5), int64(6), 7.0, 7.5, -0.25, math.Copysign(0, -1), int64(1) << 40, "s", true, nil}
+		docs := make([]interface{}, 0, len(values))
+		for i, v := range values {
+			docs = append(docs, bson.D{{Key: "_id", Value: int32(i)}, {Key: "v", Value: v}})
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		return createIndex(ctx, col, bson.D{{Key: "v", Value: 1}})
+	}
+	runPlannerCases(t, "IndexPlanner_Covered", typed, []plannerCase{
+		{name: "typed_values", support: harness.DumboDBFull, work: coveredFindWork(bson.D{{Key: "v", Value: bson.D{{Key: "$gte", Value: int32(-10)}}}}, nil, "v")},
 	})
 }
 
