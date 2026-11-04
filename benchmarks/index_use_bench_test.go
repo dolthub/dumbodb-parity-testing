@@ -841,7 +841,7 @@ func BenchmarkIndexUse_OrUnion_Compound_10K(b *testing.B) {
 		}}}
 	}
 	cmd := findCmd(col, filter(indexUseDocs/2), nil, 0)
-	requireIndexUse(b, ctx, col, dumbo, cmd, orUnionExplainGap)
+	requireIndexUse(b, ctx, col, dumbo, cmd, mustUseIndex)
 	requireWork(b, ctx, col, dumbo, cmd, workBound{maxKeys: 13, maxDocs: 11}, mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -865,7 +865,7 @@ func BenchmarkIndexUse_OrUnion_Nested_10K(b *testing.B) {
 		}}}
 	}
 	cmd := findCmd(col, filter(indexUseDocs/2), nil, 0)
-	requireIndexUse(b, ctx, col, dumbo, cmd, orUnionExplainGap)
+	requireIndexUse(b, ctx, col, dumbo, cmd, mustUseIndex)
 	requireWork(b, ctx, col, dumbo, cmd, workBound{maxKeys: 24, maxDocs: 21}, mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

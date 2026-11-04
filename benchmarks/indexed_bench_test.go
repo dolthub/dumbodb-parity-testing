@@ -33,16 +33,14 @@ func createIndex(b *testing.B, ctx context.Context, col *mongo.Collection, keys 
 const idIndex = "_id_"
 
 var (
-	idLookupExplainGap    = indexUseExpectation{knownDumboGap: "dumbodb#143: explain reports COLLSCAN for _id lookups"}
 	lookupForeignIndexGap = indexUseExpectation{knownDumboGap: "dumbodb#144: explain omits the $lookup foreign index"}
 	halfCollectionCapGap  = indexUseExpectation{knownDumboGap: "dumbodb#139: a range over half the collection is scanned, not read through the index"}
-	explainSeparateGap    = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#139: explain plans separately, so its counts differ from the plan that runs"}
+	explainSeparateGap    = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#144: aggregate explain runs the $match as a find, not the index count the pipeline runs"}
 	distinctScanGap       = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#141: distinct reads every index key and fetches documents"}
 	sortMergeGap          = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#146: $in ranges are read whole and sorted, not merged"}
 	dottedNullKeyGap      = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#181: dotted-path indexes hold no null keys for missing fields"}
 	coveredGroupGap       = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#139: $group on an indexed field fetches documents"}
 	geoIndexGap           = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#124: geo queries scan the collection and sort by distance"}
-	orUnionExplainGap     = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#132: explain shows a COLLSCAN for the $or union the runtime runs"}
 )
 
 // requireIndexed fails b unless inner, run on col of collDocs documents, uses
@@ -88,7 +86,7 @@ func distinctCmd(col *mongo.Collection, field string) bson.D {
 func BenchmarkFindOne_ById_Indexed(b *testing.B) {
 	col, ctx := withSeededCollection(b, "findone_idx", benchDatasetSize, benchDocSize)
 	createIndex(b, ctx, col, bson.D{{Key: "_id", Value: 1}})
-	requireIndexed(b, ctx, col, findCmd(col, bson.D{{Key: "_id", Value: benchDatasetSize / 2}}, nil, 1), idIndex, benchDatasetSize, idLookupExplainGap)
+	requireIndexed(b, ctx, col, findCmd(col, bson.D{{Key: "_id", Value: benchDatasetSize / 2}}, nil, 1), idIndex, benchDatasetSize, mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		id := i % benchDatasetSize
@@ -139,7 +137,7 @@ func BenchmarkFind_FilterRange_Indexed(b *testing.B) {
 func BenchmarkUpdateOne_Indexed(b *testing.B) {
 	col, ctx := withSeededCollection(b, "updateone_idx", benchDatasetSize, benchDocSize)
 	createIndex(b, ctx, col, bson.D{{Key: "_id", Value: 1}})
-	requireIndexed(b, ctx, col, updateCmd(col, bson.D{{Key: "_id", Value: benchDatasetSize / 2}}, false), idIndex, benchDatasetSize, idLookupExplainGap)
+	requireIndexed(b, ctx, col, updateCmd(col, bson.D{{Key: "_id", Value: benchDatasetSize / 2}}, false), idIndex, benchDatasetSize, mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		id := i % benchDatasetSize
@@ -173,7 +171,7 @@ func BenchmarkUpdateMany_Indexed(b *testing.B) {
 func BenchmarkDeleteOne_Indexed(b *testing.B) {
 	col, ctx := withSeededCollection(b, "deleteone_idx", benchDatasetSize, benchDocSize)
 	createIndex(b, ctx, col, bson.D{{Key: "_id", Value: 1}})
-	requireIndexed(b, ctx, col, deleteCmd(col, bson.D{{Key: "_id", Value: benchDatasetSize / 2}}, 1), idIndex, benchDatasetSize, idLookupExplainGap)
+	requireIndexed(b, ctx, col, deleteCmd(col, bson.D{{Key: "_id", Value: benchDatasetSize / 2}}, 1), idIndex, benchDatasetSize, mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		id := i % benchDatasetSize

@@ -112,11 +112,13 @@ func setupGrp10(ctx context.Context, col *mongo.Collection) error {
 	return createIndex(ctx, col, bson.D{{Key: "grp", Value: 1}})
 }
 
-// TestExplainPlan_IdEquality: mongod serves an _id equality with an EXPRESS
-// stage on _id_. DumboDB does a primary-key point read but explains a
-// COLLSCAN (dolthub/dumbodb#143), with zero counts for writes (#145).
+// TestExplainPlan_IdEquality: an _id equality alone is served by an EXPRESS
+// stage on _id_; with another field it is a FETCH of an _id_ IXSCAN
+// (dolthub/dumbodb#143).
 func TestExplainPlan_IdEquality(t *testing.T) {
 	id := bson.D{{Key: "_id", Value: int32(7)}}
+	idAndGrp := bson.D{{Key: "_id", Value: int32(7)}, {Key: "grp", Value: int32(7)}}
+	setT := bson.D{{Key: "$set", Value: bson.D{{Key: "t", Value: int32(1)}}}}
 	cases := []struct {
 		name  string
 		inner func(*mongo.Collection) bson.D
@@ -126,12 +128,25 @@ func TestExplainPlan_IdEquality(t *testing.T) {
 		}},
 		{"update", func(col *mongo.Collection) bson.D { return updateGrpCmd(col, id, false) }},
 		{"delete", func(col *mongo.Collection) bson.D { return deleteGrpCmd(col, id, 1) }},
+		{"find_with_other_field", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: idAndGrp}}
+		}},
+		{"update_with_other_field", func(col *mongo.Collection) bson.D { return updateGrpCmd(col, idAndGrp, false) }},
+		{"find_and_modify", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "findAndModify", Value: col.Name()}, {Key: "query", Value: id}, {Key: "update", Value: setT}}
+		}},
+		{"find_and_modify_remove", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "findAndModify", Value: col.Name()}, {Key: "query", Value: id}, {Key: "remove", Value: true}}
+		}},
+		{"find_and_modify_by_index", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "findAndModify", Value: col.Name()}, {Key: "query", Value: bson.D{{Key: "grp", Value: int32(3)}}}, {Key: "update", Value: setT}}
+		}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "ExplainPlan_IdEquality_" + tc.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   setupGrp10,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return explainWorkOf(tc.inner(col))(ctx, col)
@@ -179,6 +194,35 @@ func TestExplainPlan_OrUnion(t *testing.T) {
 			or := bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "k", Value: int32(5000)}}, bson.D{{Key: "grp", Value: int32(1)}}}}}
 			return explainWorkOf(bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: or}})(ctx, col)
 		},
+	})
+}
+
+// TestExplainPlan_OverHalf: a range over most of the collection. mongod reads
+// the index; DumboDB deliberately scans the collection past half of it, and
+// explains the scan it runs (dolthub/dumbodb#139).
+func TestExplainPlan_OverHalf(t *testing.T) {
+	expectRoot := func(stage string) func(*testing.T, interface{}, error) {
+		return func(t *testing.T, res interface{}, err error) {
+			if err != nil {
+				t.Fatal(err)
+			}
+			plan, _ := lookup(res.(bson.D), "winningPlan")
+			stages := plan.([]bson.D)
+			if got, _ := lookup(stages[len(stages)-1], "stage"); got != stage {
+				t.Errorf("winning plan %v, want a %s leaf", stages, stage)
+			}
+		}
+	}
+	harness.PairTest(t, harness.TestCase{
+		Name:    "ExplainPlan_OverHalf",
+		Support: harness.DumboDBDeviates,
+		Setup:   setupGrpK,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			wide := bson.D{{Key: "k", Value: bson.D{{Key: "$gte", Value: int32(1000)}}}}
+			return explainWorkOf(bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: wide}})(ctx, col)
+		},
+		MongoExpect: expectRoot("IXSCAN"),
+		DumboExpect: expectRoot("COLLSCAN"),
 	})
 }
 
