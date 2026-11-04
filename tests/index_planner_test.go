@@ -496,3 +496,69 @@ func TestIndexPlanner_DottedNull(t *testing.T) {
 		{name: "array_shapes_eq_operator", support: harness.DumboDBFull, filter: bson.D{{Key: "e.b", Value: bson.D{{Key: "$eq", Value: nil}}}}},
 	})
 }
+
+// nearWork measures a read nearest first: the ids it returns and whether it
+// fetched at most a tenth of the collection, as a read from a geo index does.
+func nearWork(read func(ctx context.Context, col *mongo.Collection) ([]bson.M, error)) func(context.Context, *mongo.Collection) (bson.D, error) {
+	return func(ctx context.Context, col *mongo.Collection) (bson.D, error) {
+		var ids []string
+		scanned, err := scannedBy(ctx, col, func() error {
+			docs, err := read(ctx, col)
+			ids = ids[:0]
+			for _, d := range docs {
+				ids = append(ids, fmt.Sprint(d["_id"]))
+			}
+			return err
+		}, true)
+		if err != nil {
+			return nil, err
+		}
+		docs, _ := scanned[1].Value.(int64)
+		return bson.D{{Key: "returned", Value: ids}, {Key: "fewDocs", Value: docs <= 1000}}, nil
+	}
+}
+
+// TestIndexPlanner_GeoNear: a $near find and a $geoNear pipeline with a limit
+// read a 2dsphere index nearest first and stop, fetching a small part of the
+// collection (dolthub/dumbodb#124). The query point is off the grid, so no
+// two points tie.
+func TestIndexPlanner_GeoNear(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 0, 10000)
+		for i := 0; i < 10000; i++ {
+			docs = append(docs, bson.D{{Key: "_id", Value: int32(i)}, {Key: "loc", Value: bson.D{
+				{Key: "type", Value: "Point"}, {Key: "coordinates", Value: bson.A{float64(i%100) * 0.01, float64(i/100) * 0.01}},
+			}}})
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "loc", Value: "2dsphere"}}})
+		return err
+	}
+	point := bson.D{{Key: "type", Value: "Point"}, {Key: "coordinates", Value: bson.A{0.5031, 0.4127}}}
+	all := func(cur *mongo.Cursor, err error) ([]bson.M, error) {
+		if err != nil {
+			return nil, err
+		}
+		var docs []bson.M
+		err = cur.All(context.Background(), &docs)
+		return docs, err
+	}
+	runPlannerCases(t, "IndexPlanner_GeoNear", setup, []plannerCase{
+		{name: "near_limit", support: harness.DumboDBFull, work: nearWork(func(ctx context.Context, col *mongo.Collection) ([]bson.M, error) {
+			filter := bson.D{{Key: "loc", Value: bson.D{{Key: "$near", Value: bson.D{{Key: "$geometry", Value: point}}}}}}
+			return all(col.Find(ctx, filter, options.Find().SetLimit(10)))
+		})},
+		{name: "near_max_distance", support: harness.DumboDBFull, work: nearWork(func(ctx context.Context, col *mongo.Collection) ([]bson.M, error) {
+			filter := bson.D{{Key: "loc", Value: bson.D{{Key: "$near", Value: bson.D{{Key: "$geometry", Value: point}, {Key: "$maxDistance", Value: 3000}}}}}}
+			return all(col.Find(ctx, filter))
+		})},
+		{name: "geo_near_limit", support: harness.DumboDBFull, work: nearWork(func(ctx context.Context, col *mongo.Collection) ([]bson.M, error) {
+			return all(col.Aggregate(ctx, bson.A{
+				bson.D{{Key: "$geoNear", Value: bson.D{{Key: "near", Value: point}, {Key: "distanceField", Value: "d"}, {Key: "spherical", Value: true}}}},
+				bson.D{{Key: "$limit", Value: 10}},
+			}))
+		})},
+	})
+}

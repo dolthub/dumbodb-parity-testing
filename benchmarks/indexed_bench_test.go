@@ -32,10 +32,7 @@ func createIndex(b *testing.B, ctx context.Context, col *mongo.Collection, keys 
 // idIndex names the primary index; creating {_id: 1} again leaves it in place.
 const idIndex = "_id_"
 
-var (
-	halfCollectionCapGap = indexUseExpectation{knownDumboGap: "dumbodb#139: a range over half the collection is scanned, not read through the index"}
-	geoIndexGap          = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#124: geo queries scan the collection and sort by distance"}
-)
+var halfCollectionCapGap = indexUseExpectation{knownDumboGap: "dumbodb#139: a range over half the collection is scanned, not read through the index"}
 
 // requireIndexed fails b unless inner, run on col of collDocs documents, uses
 // the index named idx.
