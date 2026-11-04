@@ -87,7 +87,7 @@ func assertJoinSizes(b *testing.B, ctx context.Context, orders *mongo.Collection
 func requireForeignIndex(b *testing.B, ctx context.Context, orders *mongo.Collection, pipeline bson.A, idx string) {
 	b.Helper()
 	if idx != "" {
-		requireIndexed(b, ctx, orders, aggregateCmd(orders, pipeline), idx, 0, lookupForeignIndexGap)
+		requireIndexed(b, ctx, orders, aggregateCmd(orders, pipeline), idx, 0, mustUseIndex)
 	}
 }
 

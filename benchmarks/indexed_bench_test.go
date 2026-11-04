@@ -33,14 +33,13 @@ func createIndex(b *testing.B, ctx context.Context, col *mongo.Collection, keys 
 const idIndex = "_id_"
 
 var (
-	lookupForeignIndexGap = indexUseExpectation{knownDumboGap: "dumbodb#144: explain omits the $lookup foreign index"}
-	halfCollectionCapGap  = indexUseExpectation{knownDumboGap: "dumbodb#139: a range over half the collection is scanned, not read through the index"}
-	explainSeparateGap    = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#144: aggregate explain runs the $match as a find, not the index count the pipeline runs"}
-	distinctScanGap       = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#141: distinct reads every index key and fetches documents"}
-	sortMergeGap          = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#146: $in ranges are read whole and sorted, not merged"}
-	dottedNullKeyGap      = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#181: dotted-path indexes hold no null keys for missing fields"}
-	coveredGroupGap       = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#139: $group on an indexed field fetches documents"}
-	geoIndexGap           = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#124: geo queries scan the collection and sort by distance"}
+	halfCollectionCapGap = indexUseExpectation{knownDumboGap: "dumbodb#139: a range over half the collection is scanned, not read through the index"}
+	explainSeparateGap   = indexUseExpectation{knownDumboGap: "workspace-2bq.15: the CountDocuments aggregate explains its $match as a find, not the index count it runs"}
+	distinctScanGap      = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#141: distinct reads every index key and fetches documents"}
+	sortMergeGap         = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#146: $in ranges are read whole and sorted, not merged"}
+	dottedNullKeyGap     = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#181: dotted-path indexes hold no null keys for missing fields"}
+	coveredGroupGap      = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#139: $group on an indexed field fetches documents"}
+	geoIndexGap          = indexUseExpectation{knownDumboGap: "dolthub/dumbodb#124: geo queries scan the collection and sort by distance"}
 )
 
 // requireIndexed fails b unless inner, run on col of collDocs documents, uses
