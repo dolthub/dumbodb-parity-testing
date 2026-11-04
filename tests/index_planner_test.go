@@ -412,10 +412,9 @@ func TestIndexPlanner_Distinct(t *testing.T) {
 	})
 }
 
-// TestIndexPlanner_Covered: a read that needs only indexed fields is answered
-// from the index keys without fetching documents. DumboDB fetches every
-// document: it cannot decode values from index keys (dolthub/dumbodb#142), nor
-// group from them (#139).
+// TestIndexPlanner_Covered: a read that needs only indexed fields, a find's
+// projection or a $group's key, is answered from the index keys without
+// fetching documents (dolthub/dumbodb#142, #139).
 func TestIndexPlanner_Covered(t *testing.T) {
 	rangeK := bson.D{{Key: "k", Value: bson.D{{Key: "$gte", Value: int32(5000)}, {Key: "$lt", Value: int32(5050)}}}}
 	groupGrp := bson.A{
@@ -434,7 +433,7 @@ func TestIndexPlanner_Covered(t *testing.T) {
 		// the single-field grp_1 and fetches each document.
 		{name: "compound", support: harness.DumboDBXFail, work: coveredFindWork(bson.D{{Key: "grp", Value: int32(7)}}, nil, "grp", "k")},
 		{name: "sort_limit", support: harness.DumboDBFull, work: coveredFindWork(rangeK, options.Find().SetSort(bson.D{{Key: "k", Value: -1}}).SetLimit(5), "k")},
-		{name: "match_group", support: harness.DumboDBXFail, work: groupWork(groupGrp)},
+		{name: "match_group", support: harness.DumboDBFull, work: groupWork(groupGrp)},
 	})
 
 	// Numbers of every type share one index encoding; a covered read must
