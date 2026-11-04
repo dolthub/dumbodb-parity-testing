@@ -449,7 +449,9 @@ func TestExplainPlan_AgreesWithExecution(t *testing.T) {
 	count := func(col *mongo.Collection) bson.D {
 		return bson.D{{Key: "count", Value: col.Name()}, {Key: "query", Value: rangeK}}
 	}
-	update := func(col *mongo.Collection) bson.D { return updateGrpCmd(col, bson.D{{Key: "grp", Value: int32(3)}}, true) }
+	update := func(col *mongo.Collection) bson.D {
+		return updateGrpCmd(col, bson.D{{Key: "grp", Value: int32(3)}}, true)
+	}
 	cases := []struct {
 		name       string
 		support    harness.DumboDBSupport
