@@ -225,13 +225,13 @@ func TestAggOperators_BoundsArguments(t *testing.T) {
 	})
 }
 
-// MongoDB streams $geoNear from its geo index. DumboDB sorts by distance in
-// memory, limited to 100MB like $sort, so over ~130MB of matches it fails with
-// QueryExceededMemoryLimitNoDiskUseAllowed (292) where MongoDB succeeds.
+// $geoNear streams from its geo index, nearest first, so over ~130MB of
+// matches it succeeds where an in-memory sort limited to 100MB like $sort
+// fails (dolthub/dumbodb#124).
 func TestAggGeoNear_LargeResultBeyondSortLimit(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "AggGeoNear_LargeResultBeyondSortLimit",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			blob := strings.Repeat("x", 100*1024)
 			for start := 0; start < 1300; start += 100 {

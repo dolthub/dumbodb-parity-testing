@@ -54,7 +54,7 @@ func geoNearLimit(i int) bson.A {
 
 func BenchmarkGeoNear_Limit_10K(b *testing.B) {
 	col, ctx, dumbo := withIndexUseCollectionN(b, "geo_near_limit", indexUseDocs, options.Index(), geoKey, geoPointDoc)
-	requireWork(b, ctx, col, dumbo, aggregateCmd(col, geoNearLimit(0)), docsWithin(indexUseDocs/10), geoIndexGap)
+	requireWork(b, ctx, col, dumbo, aggregateCmd(col, geoNearLimit(0)), docsWithin(indexUseDocs/10), mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		cur, err := col.Aggregate(ctx, geoNearLimit(i))
@@ -78,7 +78,7 @@ func nearFilter(i int, maxMeters float64) bson.D {
 
 func BenchmarkNear_Limit_10K(b *testing.B) {
 	col, ctx, dumbo := withIndexUseCollectionN(b, "geo_near_find_limit", indexUseDocs, options.Index(), geoKey, geoPointDoc)
-	requireWork(b, ctx, col, dumbo, findCmd(col, nearFilter(0, 0), nil, 10), docsWithin(indexUseDocs/10), geoIndexGap)
+	requireWork(b, ctx, col, dumbo, findCmd(col, nearFilter(0, 0), nil, 10), docsWithin(indexUseDocs/10), mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		runFind(b, ctx, col, nearFilter(i, 0), nil, 10)
@@ -88,7 +88,7 @@ func BenchmarkNear_Limit_10K(b *testing.B) {
 // A $maxDistance of 2 km holds about ten grid points.
 func BenchmarkNear_MaxDistance_10K(b *testing.B) {
 	col, ctx, dumbo := withIndexUseCollectionN(b, "geo_near_max_distance", indexUseDocs, options.Index(), geoKey, geoPointDoc)
-	requireWork(b, ctx, col, dumbo, findCmd(col, nearFilter(0, 2000), nil, 0), docsWithin(indexUseDocs/10), geoIndexGap)
+	requireWork(b, ctx, col, dumbo, findCmd(col, nearFilter(0, 2000), nil, 0), docsWithin(indexUseDocs/10), mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		runFind(b, ctx, col, nearFilter(i, 2000), nil, 0)
