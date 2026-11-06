@@ -198,40 +198,40 @@ func cluNatural(name string, support harness.DumboDBSupport, ids []interface{}, 
 }
 
 func TestClustered_NaturalOrder_Int(t *testing.T) {
-	harness.PairTest(t, cluNatural("Clustered_NaturalOrder_Int", harness.DumboDBXFail, cluIntIDs(40)))
+	harness.PairTest(t, cluNatural("Clustered_NaturalOrder_Int", harness.DumboDBFull, cluIntIDs(40)))
 }
 
 func TestClustered_NaturalOrder_Limit(t *testing.T) {
-	harness.PairTest(t, cluNatural("Clustered_NaturalOrder_Limit", harness.DumboDBXFail, cluIntIDs(200), options.Find().SetLimit(5)))
+	harness.PairTest(t, cluNatural("Clustered_NaturalOrder_Limit", harness.DumboDBFull, cluIntIDs(200), options.Find().SetLimit(5)))
 }
 
 func TestClustered_NaturalOrder_Reverse(t *testing.T) {
-	harness.PairTest(t, cluNatural("Clustered_NaturalOrder_Reverse", harness.DumboDBXFail, cluIntIDs(40),
+	harness.PairTest(t, cluNatural("Clustered_NaturalOrder_Reverse", harness.DumboDBFull, cluIntIDs(40),
 		options.Find().SetSort(bson.D{{Key: "$natural", Value: -1}})))
 }
 
 func TestClustered_NaturalOrder_ObjectID(t *testing.T) {
-	harness.PairTest(t, cluNatural("Clustered_NaturalOrder_ObjectID", harness.DumboDBXFail, cluObjectIDs(40)))
+	harness.PairTest(t, cluNatural("Clustered_NaturalOrder_ObjectID", harness.DumboDBFull, cluObjectIDs(40)))
 }
 
 func TestClustered_NaturalOrder_String(t *testing.T) {
-	harness.PairTest(t, cluNatural("Clustered_NaturalOrder_String", harness.DumboDBXFail, cluStringIDs()))
+	harness.PairTest(t, cluNatural("Clustered_NaturalOrder_String", harness.DumboDBFull, cluStringIDs()))
 }
 
 func TestClustered_NaturalOrder_MixedTypes(t *testing.T) {
-	harness.PairTest(t, cluNatural("Clustered_NaturalOrder_MixedTypes", harness.DumboDBXFail, cluMixedIDs()))
+	harness.PairTest(t, cluNatural("Clustered_NaturalOrder_MixedTypes", harness.DumboDBFull, cluMixedIDs()))
 }
 
 func TestClustered_NaturalOrder_Numeric(t *testing.T) {
-	harness.PairTest(t, cluNatural("Clustered_NaturalOrder_Numeric", harness.DumboDBXFail, cluNumericIDs()))
+	harness.PairTest(t, cluNatural("Clustered_NaturalOrder_Numeric", harness.DumboDBFull, cluNumericIDs()))
 }
 
 func TestClustered_NaturalOrder_Embedded(t *testing.T) {
-	harness.PairTest(t, cluNatural("Clustered_NaturalOrder_Embedded", harness.DumboDBXFail, cluEmbeddedIDs()))
+	harness.PairTest(t, cluNatural("Clustered_NaturalOrder_Embedded", harness.DumboDBFull, cluEmbeddedIDs()))
 }
 
 func TestClustered_NaturalOrder_BinData(t *testing.T) {
-	harness.PairTest(t, cluNatural("Clustered_NaturalOrder_BinData", harness.DumboDBXFail, cluBinDataIDs()))
+	harness.PairTest(t, cluNatural("Clustered_NaturalOrder_BinData", harness.DumboDBFull, cluBinDataIDs()))
 }
 
 func TestClustered_SortID_Asc(t *testing.T) {
@@ -265,7 +265,7 @@ func cluFilter(name string, support harness.DumboDBSupport, ids []interface{}, f
 }
 
 func TestClustered_Range_Unsorted(t *testing.T) {
-	harness.PairTest(t, cluFilter("Clustered_Range_Unsorted", harness.DumboDBXFail, cluIntIDs(200), cluRange(int32(100), int32(110))))
+	harness.PairTest(t, cluFilter("Clustered_Range_Unsorted", harness.DumboDBFull, cluIntIDs(200), cluRange(int32(100), int32(110))))
 }
 
 func TestClustered_Range_Sorted(t *testing.T) {
@@ -346,7 +346,7 @@ func cluPaginate(sort bson.D) func(context.Context, *mongo.Collection) (interfac
 }
 
 func TestClustered_MinMax(t *testing.T) {
-	harness.PairTest(t, cluFilter("Clustered_MinMax", harness.DumboDBXFail, cluIntIDs(50), bson.D{},
+	harness.PairTest(t, cluFilter("Clustered_MinMax", harness.DumboDBFull, cluIntIDs(50), bson.D{},
 		options.Find().SetMin(bson.D{{Key: "_id", Value: int32(10)}}).SetMax(bson.D{{Key: "_id", Value: int32(15)}}).SetHint(bson.D{{Key: "_id", Value: 1}})))
 }
 
