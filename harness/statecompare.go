@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -179,7 +180,7 @@ func diffDatabase(dbName string, want, got *DatabaseState, wantSrc, gotSrc strin
 func diffCollection(ns string, want, got *CollectionState, wantSrc, gotSrc string) []Divergence {
 	var out []Divergence
 
-	if d := compareRawDocuments(ns+" options", want.Options, got.Options); d != nil {
+	if d := compareRawDocuments(ns+" options", withoutIDClustering(want.Options), withoutIDClustering(got.Options)); d != nil {
 		out = append(out, *d)
 	}
 
@@ -193,6 +194,9 @@ func diffCollection(ns string, want, got *CollectionState, wantSrc, gotSrc strin
 		case !inWant:
 			out = append(out, Divergence{path, fmt.Sprintf("index present on %s, absent on %s", gotSrc, wantSrc)})
 		default:
+			if name == "_id_" {
+				w, g = withoutFields(w, "clustered", "unique"), withoutFields(g, "clustered", "unique")
+			}
 			if d := compareRawDocuments(path, stripIndexVersion(w), stripIndexVersion(g)); d != nil {
 				out = append(out, *d)
 			}
@@ -215,6 +219,46 @@ func diffCollection(ns string, want, got *CollectionState, wantSrc, gotSrc strin
 		}
 	}
 	return out
+}
+
+// withoutIDClustering drops a clusteredIndex option that clusters by _id.
+// DumboDB stores every collection clustered by _id (dumbodb#207), so whether a
+// collection reports that clustering is a storage choice, not replicated
+// state; a secondary keeps the same documents either way.
+func withoutIDClustering(opts bson.Raw) bson.Raw {
+	spec, ok := opts.Lookup("clusteredIndex").DocumentOK()
+	if !ok {
+		return opts
+	}
+	key, ok := spec.Lookup("key").DocumentOK()
+	if !ok {
+		return opts
+	}
+	elems, err := key.Elements()
+	if err != nil || len(elems) != 1 || elems[0].Key() != "_id" {
+		return opts
+	}
+	return withoutFields(opts, "clusteredIndex")
+}
+
+// withoutFields returns doc without the named top-level fields.
+func withoutFields(doc bson.Raw, names ...string) bson.Raw {
+	elems, err := doc.Elements()
+	if err != nil {
+		return doc
+	}
+	out := bson.D{}
+	for _, e := range elems {
+		if slices.Contains(names, e.Key()) {
+			continue
+		}
+		out = append(out, bson.E{Key: e.Key(), Value: e.Value()})
+	}
+	raw, err := bson.Marshal(out)
+	if err != nil {
+		return doc
+	}
+	return raw
 }
 
 func stripIndexVersion(idx bson.Raw) bson.Raw {
