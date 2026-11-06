@@ -405,7 +405,7 @@ func TestClustered_DuplicateKey_NumericTypes(t *testing.T) {
 func TestClustered_CreateCollection_ClusteredOption(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Clustered_CreateCollection_ClusteredOption",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			err := col.Database().CreateCollection(ctx, "clu", options.CreateCollection().SetClusteredIndex(harness.ClusteredIndexOption))
 			if err != nil {
@@ -427,7 +427,7 @@ func TestClustered_CreateCollection_ClusteredOption(t *testing.T) {
 func TestClustered_Explain_PointLookup(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:      "Clustered_Explain_PointLookup",
-		Support:   harness.DumboDBXFail,
+		Support:   harness.DumboDBFull,
 		Clustered: true,
 		Setup:     cluInsertIDs(cluIntIDs(200)),
 		Run:       cluExplain(cluFindCmd(bson.D{{Key: "_id", Value: int32(150)}}), "executionStats"),
@@ -437,7 +437,7 @@ func TestClustered_Explain_PointLookup(t *testing.T) {
 func TestClustered_Explain_Range(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:      "Clustered_Explain_Range",
-		Support:   harness.DumboDBXFail,
+		Support:   harness.DumboDBFull,
 		Clustered: true,
 		Setup:     cluInsertIDs(cluIntIDs(200)),
 		Run:       cluExplain(cluFindCmd(cluRange(int32(100), int32(110))), "executionStats"),
@@ -447,7 +447,7 @@ func TestClustered_Explain_Range(t *testing.T) {
 func TestClustered_Explain_SortID(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:      "Clustered_Explain_SortID",
-		Support:   harness.DumboDBXFail,
+		Support:   harness.DumboDBFull,
 		Clustered: true,
 		Setup:     cluInsertIDs(cluIntIDs(200)),
 		Run: cluExplain(cluFindCmd(bson.D{}, bson.E{Key: "sort", Value: bson.D{{Key: "_id", Value: 1}}}, bson.E{Key: "limit", Value: int32(5)}),
@@ -469,7 +469,7 @@ func TestClustered_Explain_CollScan(t *testing.T) {
 func TestClustered_ListIndexes(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:      "Clustered_ListIndexes",
-		Support:   harness.DumboDBXFail,
+		Support:   harness.DumboDBFull,
 		Clustered: true,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cur, err := col.Indexes().List(ctx)
@@ -481,4 +481,218 @@ func TestClustered_ListIndexes(t *testing.T) {
 			return specs, err
 		},
 	})
+}
+
+// TestClustered_ExplainShapes covers how a clustered collection plans each
+// shape of _id predicate and sort.
+func TestClustered_ExplainShapes(t *testing.T) {
+	sortID := func(dir int32) bson.E { return bson.E{Key: "sort", Value: bson.D{{Key: "_id", Value: dir}}} }
+	limit := func(n int32) bson.E { return bson.E{Key: "limit", Value: n} }
+	gte := func(v interface{}) bson.D { return bson.D{{Key: "_id", Value: bson.D{{Key: "$gte", Value: v}}}} }
+	lt := func(v interface{}) bson.D { return bson.D{{Key: "_id", Value: bson.D{{Key: "$lt", Value: v}}}} }
+	withN := func(f bson.D) bson.D {
+		return append(f, bson.E{Key: "n", Value: bson.D{{Key: "$gte", Value: int32(0)}}})
+	}
+	cases := []struct {
+		name   string
+		filter bson.D
+		extra  []bson.E
+	}{
+		{"point_and_field", withN(bson.D{{Key: "_id", Value: int32(150)}}), nil},
+		{"point_missing", bson.D{{Key: "_id", Value: int32(5000)}}, nil},
+		{"range_and_field", withN(cluRange(int32(100), int32(110))), nil},
+		{"range_lower_only", gte(int32(190)), nil},
+		{"range_upper_only", lt(int32(5)), nil},
+		{"range_past_end", cluRange(int32(195), int32(1000)), nil},
+		{"range_other_type", gte("a"), nil},
+		{"in_ids", bson.D{{Key: "_id", Value: bson.D{{Key: "$in", Value: bson.A{int32(3), int32(7), int32(9)}}}}}, nil},
+		{"sort_id", bson.D{}, []bson.E{sortID(1)}},
+		{"sort_id_desc_limit", bson.D{}, []bson.E{sortID(-1), limit(5)}},
+		{"sort_id_filter_limit", bson.D{{Key: "n", Value: bson.D{{Key: "$gte", Value: int32(0)}}}}, []bson.E{sortID(1), limit(5)}},
+		{"range_sort_id", cluRange(int32(100), int32(110)), []bson.E{sortID(1)}},
+		{"range_sort_id_desc_limit", cluRange(int32(100), int32(110)), []bson.E{sortID(-1), limit(3)}},
+		{"range_limit", cluRange(int32(100), int32(110)), []bson.E{limit(3)}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Clustered_ExplainShapes_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     cluInsertIDs(cluIntIDs(200)),
+				Run:       cluExplain(cluFindCmd(tc.filter, tc.extra...), "executionStats"),
+			})
+		})
+	}
+}
+
+// TestClustered_ExplainBrackets covers where a clustered scan of an _id range
+// starts and stops among _ids of other types, and how it competes with a
+// secondary index.
+func TestClustered_ExplainBrackets(t *testing.T) {
+	ids := cluIntIDs(10)
+	ids = append(ids, "a", "b", "c", "d", "e", nil, primitive.MinKey{}, primitive.MaxKey{})
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if err := cluInsertIDs(ids)(ctx, col); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "n", Value: 1}}})
+		return err
+	}
+	op := func(o string, v interface{}) bson.D { return bson.D{{Key: "_id", Value: bson.D{{Key: o, Value: v}}}} }
+	cases := []struct {
+		name   string
+		filter bson.D
+		extra  []bson.E
+	}{
+		{"gte_number", op("$gte", int32(5)), nil},
+		{"gt_number_desc", op("$gt", int32(5)), []bson.E{{Key: "sort", Value: bson.D{{Key: "_id", Value: -1}}}}},
+		{"lt_number", op("$lt", int32(3)), nil},
+		{"lt_string", op("$lt", "c"), nil},
+		{"gte_string", op("$gte", "c"), nil},
+		{"eq_null", op("$eq", nil), nil},
+		{"range_and_indexed_field", append(cluRange(int32(2), int32(8)), bson.E{Key: "n", Value: int32(4)}), nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Clustered_ExplainBrackets_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run:       cluExplain(cluFindCmd(tc.filter, tc.extra...), "executionStats"),
+			})
+		})
+	}
+}
+
+// TestClustered_ExplainWrites covers the _id plans of writes and counts on a
+// clustered collection.
+func TestClustered_ExplainWrites(t *testing.T) {
+	point := bson.D{{Key: "_id", Value: int32(150)}}
+	set := bson.D{{Key: "$set", Value: bson.D{{Key: "x", Value: int32(1)}}}}
+	cases := []struct {
+		name string
+		cmd  func(col *mongo.Collection) bson.D
+	}{
+		{"update_point", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "update", Value: col.Name()}, {Key: "updates", Value: bson.A{bson.D{{Key: "q", Value: point}, {Key: "u", Value: set}}}}}
+		}},
+		{"update_range", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "update", Value: col.Name()}, {Key: "updates", Value: bson.A{bson.D{{Key: "q", Value: cluRange(int32(100), int32(110))}, {Key: "u", Value: set}, {Key: "multi", Value: true}}}}}
+		}},
+		{"delete_point", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "delete", Value: col.Name()}, {Key: "deletes", Value: bson.A{bson.D{{Key: "q", Value: point}, {Key: "limit", Value: int32(1)}}}}}
+		}},
+		{"delete_range", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "delete", Value: col.Name()}, {Key: "deletes", Value: bson.A{bson.D{{Key: "q", Value: cluRange(int32(100), int32(110))}, {Key: "limit", Value: int32(0)}}}}}
+		}},
+		{"find_and_modify_point", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "findAndModify", Value: col.Name()}, {Key: "query", Value: point}, {Key: "update", Value: set}}
+		}},
+		{"count_range", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "count", Value: col.Name()}, {Key: "query", Value: cluRange(int32(100), int32(110))}}
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Clustered_ExplainWrites_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     cluInsertIDs(cluIntIDs(200)),
+				Run:       cluExplain(tc.cmd, "executionStats"),
+			})
+		})
+	}
+}
+
+// TestClustered_ListCollections covers how listCollections reports a
+// clustered collection.
+func TestClustered_ListCollections(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:      "Clustered_ListCollections",
+		Support:   harness.DumboDBFull,
+		Clustered: true,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			specs, err := col.Database().ListCollections(ctx, bson.D{{Key: "name", Value: col.Name()}})
+			if err != nil {
+				return nil, err
+			}
+			var out []bson.D
+			for specs.Next(ctx) {
+				var spec bson.D
+				if err := specs.Decode(&spec); err != nil {
+					return nil, err
+				}
+				kept := bson.D{}
+				for _, e := range spec {
+					if e.Key != "info" {
+						kept = append(kept, e)
+					}
+				}
+				out = append(out, kept)
+			}
+			return out, specs.Err()
+		},
+	})
+}
+
+// TestClustered_CreateOptions covers the clusteredIndex option's validation.
+func TestClustered_CreateOptions(t *testing.T) {
+	create := func(opts ...bson.E) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			var res bson.D
+			cmd := append(bson.D{{Key: "create", Value: "clu"}}, opts...)
+			err := col.Database().RunCommand(ctx, cmd).Decode(&res)
+			return res, err
+		}
+	}
+	idKey := bson.E{Key: "key", Value: bson.D{{Key: "_id", Value: int32(1)}}}
+	unique := bson.E{Key: "unique", Value: true}
+	cases := []struct {
+		name string
+		run  func(context.Context, *mongo.Collection) (interface{}, error)
+	}{
+		{"other_key", create(bson.E{Key: "clusteredIndex", Value: bson.D{{Key: "key", Value: bson.D{{Key: "a", Value: int32(1)}}}, unique}})},
+		{"descending", create(bson.E{Key: "clusteredIndex", Value: bson.D{{Key: "key", Value: bson.D{{Key: "_id", Value: int32(-1)}}}, unique}})},
+		{"not_unique", create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, {Key: "unique", Value: false}}})},
+		{"missing_unique", create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey}})},
+		{"named", create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "name", Value: "byID"}}})},
+		{"bool_true", create(bson.E{Key: "clusteredIndex", Value: true})},
+		{"bool_false", create(bson.E{Key: "clusteredIndex", Value: false})},
+		{"capped", create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique}}, bson.E{Key: "capped", Value: true}, bson.E{Key: "size", Value: int32(4096)})},
+		{"twice", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique}})(ctx, col); err != nil {
+				return nil, err
+			}
+			return create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique}})(ctx, col)
+		}},
+		{"named_listed", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "name", Value: "byID"}}})(ctx, col); err != nil {
+				return nil, err
+			}
+			cur, err := col.Database().Collection("clu").Indexes().List(ctx)
+			if err != nil {
+				return nil, err
+			}
+			var specs []bson.D
+			err = cur.All(ctx, &specs)
+			return specs, err
+		}},
+	}
+	for _, tc := range cases {
+		support := harness.DumboDBFull
+		if tc.name == "named_listed" {
+			// DumboDB does not record a clustered index's name; it is always _id_.
+			support = harness.DumboDBXFail
+		}
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Clustered_CreateOptions_" + tc.name,
+				Support: support,
+				Run:     tc.run,
+			})
+		})
+	}
 }
