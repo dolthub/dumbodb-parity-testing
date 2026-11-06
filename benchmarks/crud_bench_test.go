@@ -14,8 +14,7 @@ import (
 
 // The CRUD benchmarks below intentionally target a single dataset size (1K small
 // docs) for the initial cut. Scaling dimensions are added by parameterizing
-// datasetSize / docSize once the baseline stabilizes — see
-// bd pa-xp1 "Scaling dimensions" in the design.
+// datasetSize / docSize once the baseline stabilizes.
 const (
 	benchDatasetSize = 1000
 	benchDocSize     = sizeSmall
@@ -81,26 +80,52 @@ func clearEvery(b *testing.B, ctx context.Context, col *mongo.Collection, i, eve
 	b.StartTimer()
 }
 
-func BenchmarkInsertOne(b *testing.B) {
-	col, ctx := withEmptyCollection(b, "insertone")
+// iterStringID sorts as iter-1, iter-10, iter-100, iter-2, ..., so inserts land
+// throughout the _id order rather than at its end.
+func iterStringID(i, j int) interface{} {
+	if j < 0 {
+		return fmt.Sprintf("iter-%d", i)
+	}
+	return fmt.Sprintf("iter-%d-%d", i, j)
+}
+
+// freshObjectID increases with each call, as server-generated ids do, so
+// inserts append at the end of the _id order.
+func freshObjectID(int, int) interface{} { return primitive.NewObjectID() }
+
+func BenchmarkInsertOne(b *testing.B)          { benchmarkInsertOne(b, "insertone", iterStringID) }
+func BenchmarkInsertOne_ObjectId(b *testing.B) { benchmarkInsertOne(b, "insertone_oid", freshObjectID) }
+
+// benchmarkInsertOne inserts one document per iteration with _id idOf(i, -1).
+func benchmarkInsertOne(b *testing.B, label string, idOf func(i, j int) interface{}) {
+	col, ctx := withEmptyCollection(b, label)
 	r := rand.New(rand.NewSource(*dataSeed))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		clearEvery(b, ctx, col, i, insertOneResetIts, bson.D{})
 		doc := makeDoc(r, i, benchDocSize)
-		// Use a fresh _id per iteration so inserts never collide.
-		doc[0].Value = fmt.Sprintf("iter-%d", i)
+		doc[0].Value = idOf(i, -1)
 		if _, err := col.InsertOne(ctx, doc); err != nil {
 			b.Fatalf("InsertOne: %v", err)
 		}
 	}
 }
 
-func BenchmarkInsertMany_100(b *testing.B)  { benchmarkInsertMany(b, 100) }
-func BenchmarkInsertMany_1000(b *testing.B) { benchmarkInsertMany(b, 1000) }
+func BenchmarkInsertMany_100(b *testing.B) {
+	benchmarkInsertMany(b, "insertmany100", 100, iterStringID)
+}
+func BenchmarkInsertMany_1000(b *testing.B) {
+	benchmarkInsertMany(b, "insertmany1000", 1000, iterStringID)
+}
+func BenchmarkInsertMany_ObjectId_100(b *testing.B) {
+	benchmarkInsertMany(b, "insertmany100_oid", 100, freshObjectID)
+}
+func BenchmarkInsertMany_ObjectId_1000(b *testing.B) {
+	benchmarkInsertMany(b, "insertmany1000_oid", 1000, freshObjectID)
+}
 
-func benchmarkInsertMany(b *testing.B, batch int) {
-	col, ctx := withEmptyCollection(b, fmt.Sprintf("insertmany%d", batch))
+func benchmarkInsertMany(b *testing.B, label string, batch int, idOf func(i, j int) interface{}) {
+	col, ctx := withEmptyCollection(b, label)
 	r := rand.New(rand.NewSource(*dataSeed))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -109,7 +134,7 @@ func benchmarkInsertMany(b *testing.B, batch int) {
 		docs := make([]interface{}, batch)
 		for j := 0; j < batch; j++ {
 			d := makeDoc(r, i*batch+j, benchDocSize)
-			d[0].Value = fmt.Sprintf("iter-%d-%d", i, j)
+			d[0].Value = idOf(i, j)
 			docs[j] = d
 		}
 		b.StartTimer()

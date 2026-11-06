@@ -16,7 +16,7 @@ import (
 // container describes one benchmark target's container lifecycle.
 //
 // Fixed container/image names are an intentional design choice: the
-// investigation flow documented on pa-lxa has a human running
+// investigation flow (-f) has a human running
 // `mongosh mongodb://localhost:27018` after the bench run, so the names and
 // ports have to be predictable.
 type container struct {

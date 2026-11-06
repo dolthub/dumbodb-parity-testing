@@ -33,9 +33,9 @@ func createIndex(b *testing.B, ctx context.Context, col *mongo.Collection, keys 
 const idIndex = "_id_"
 
 var (
-	idLookupExplainGap    = indexUseExpectation{knownDumboGap: "workspace-edl: explain reports COLLSCAN for _id lookups"}
-	lookupForeignIndexGap = indexUseExpectation{knownDumboGap: "workspace-0sn: explain omits the $lookup foreign index"}
-	halfCollectionCapGap  = indexUseExpectation{knownDumboGap: "workspace-fep: a range over half the collection is scanned, not read through the index"}
+	idLookupExplainGap    = indexUseExpectation{knownDumboGap: "dumbodb#143: explain reports COLLSCAN for _id lookups"}
+	lookupForeignIndexGap = indexUseExpectation{knownDumboGap: "dumbodb#144: explain omits the $lookup foreign index"}
+	halfCollectionCapGap  = indexUseExpectation{knownDumboGap: "dumbodb#139: a range over half the collection is scanned, not read through the index"}
 )
 
 // requireIndexed fails b unless inner, run on col of collDocs documents, uses
