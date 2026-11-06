@@ -29,6 +29,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -42,7 +43,7 @@ import (
 var (
 	benchRegex    = flag.String("bench", "^Benchmark", "-run pattern for benchmarks (go test -bench)")
 	benchTime     = flag.String("benchtime", "2s", "-benchtime value passed to go test")
-	count         = flag.Int("count", 1, "-count value passed to go test (repetitions per benchmark)")
+	count         = flag.Int("count", 1, "-count value passed to go test (repetitions per benchmark; the report shows each benchmark's median)")
 	csvOut        = flag.String("csv", "", "if set, write CSV results to this path")
 	benchPkg      = flag.String("pkg", "./benchmarks", "Go package containing the benchmarks")
 	verbose       = flag.Bool("v", false, "stream go test output to stderr as it runs")
@@ -407,8 +408,7 @@ func compileSuite() (*benchSuite, func(), error) {
 	return suite, cleanup, nil
 }
 
-// run runs one benchmark against the target at uri and parses its output;
-// when -count > 1 the last run wins.
+// run runs one benchmark against the target at uri and parses its output.
 func (s *benchSuite) run(name, label, uri string) ([]result, error) {
 	cmd := exec.Command(s.bin,
 		"-test.run", "^$",
@@ -463,6 +463,8 @@ func parseBench(out, label, uri string) []result {
 	return results
 }
 
+// merge pairs each benchmark's dumbodb and mongodb results, reporting the
+// median ns/op when -count repeated it.
 func merge(dumbo, mongo []result) []combined {
 	byName := map[string]*combined{}
 	ensure := func(name string) *combined {
@@ -473,15 +475,13 @@ func merge(dumbo, mongo []result) []combined {
 		}
 		return c
 	}
-	for _, r := range dumbo {
-		c := ensure(r.Name)
-		v := r.NsPerOp
-		c.DumboDBNs = &v
+	for name, ns := range nsByName(dumbo) {
+		v := median(ns)
+		ensure(name).DumboDBNs = &v
 	}
-	for _, r := range mongo {
-		c := ensure(r.Name)
-		v := r.NsPerOp
-		c.MongoNs = &v
+	for name, ns := range nsByName(mongo) {
+		v := median(ns)
+		ensure(name).MongoNs = &v
 	}
 	var rows []combined
 	for _, c := range byName {
@@ -493,6 +493,24 @@ func merge(dumbo, mongo []result) []combined {
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].Name < rows[j].Name })
 	return rows
+}
+
+func nsByName(results []result) map[string][]float64 {
+	out := map[string][]float64{}
+	for _, r := range results {
+		out[r.Name] = append(out[r.Name], r.NsPerOp)
+	}
+	return out
+}
+
+func median(xs []float64) float64 {
+	s := slices.Clone(xs)
+	slices.Sort(s)
+	n := len(s)
+	if n%2 == 1 {
+		return s[n/2]
+	}
+	return (s[n/2-1] + s[n/2]) / 2
 }
 
 func printTable(w *os.File, rows []combined) {

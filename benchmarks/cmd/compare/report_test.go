@@ -17,6 +17,24 @@ func results(target string, nsByName map[string]float64) []result {
 	return out
 }
 
+func TestMergeReportsMedianOfRepetitions(t *testing.T) {
+	var dumbo, mongo []result
+	for _, ns := range []float64{20, 10, 30} {
+		dumbo = append(dumbo, result{Name: "BenchmarkA", Target: "dumbodb", NsPerOp: ns})
+	}
+	for _, ns := range []float64{4, 8, 2, 6} {
+		mongo = append(mongo, result{Name: "BenchmarkA", Target: "mongodb", NsPerOp: ns})
+	}
+	rows := merge(dumbo, mongo)
+	if len(rows) != 1 {
+		t.Fatalf("got %d rows, want 1", len(rows))
+	}
+	r := rows[0]
+	if *r.DumboDBNs != 20 || *r.MongoNs != 5 || *r.Multiplier != 4 {
+		t.Fatalf("dumbodb %v, mongodb %v, multiplier %v; want 20, 5, 4", *r.DumboDBNs, *r.MongoNs, *r.Multiplier)
+	}
+}
+
 func TestResultsCSVKeepsFormat(t *testing.T) {
 	rows := merge(results("dumbodb", map[string]float64{"BenchmarkA": 10, "BenchmarkB": 30}),
 		results("mongodb", map[string]float64{"BenchmarkA": 5}))
