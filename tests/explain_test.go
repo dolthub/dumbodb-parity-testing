@@ -516,8 +516,10 @@ func TestExplain_DISTINCT_SCAN(t *testing.T) {
 
 func TestExplain_OR_MultiIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "Explain_OR_MultiIndex",
-		Support: harness.DumboDBFull,
+		Name: "Explain_OR_MultiIndex",
+		// MongoDB orders an $or's index scans by index creation order; DumboDB
+		// does not record it and uses index name order.
+		Support: harness.DumboDBXFail,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			if err := insertExplainDocs(ctx, col); err != nil {
 				return err

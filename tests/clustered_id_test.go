@@ -458,7 +458,7 @@ func TestClustered_Explain_SortID(t *testing.T) {
 func TestClustered_Explain_CollScan(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:      "Clustered_Explain_CollScan",
-		Support:   harness.DumboDBXFail,
+		Support:   harness.DumboDBFull,
 		Clustered: true,
 		Setup:     cluInsertIDs(cluIntIDs(200)),
 		Run:       cluExplain(cluFindCmd(bson.D{{Key: "n", Value: int32(3)}}), "executionStats"),
