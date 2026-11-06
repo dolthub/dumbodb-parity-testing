@@ -244,12 +244,21 @@ var indexScanStages = []string{
 	"EXPRESS_IXSCAN", "EXPRESS_UPDATE", "EXPRESS_DELETE", "EQ_LOOKUP",
 }
 
+// clusteredScanStages read a clustered collection by _id. They name no index;
+// the collection itself is the _id_ index.
+var clusteredScanStages = []string{"CLUSTERED_IXSCAN", "EXPRESS_CLUSTERED_IXSCAN"}
+
+func (s explainSummary) clusteredIDScan() bool {
+	return slices.ContainsFunc(s.stages, func(st string) bool { return slices.Contains(clusteredScanStages, st) })
+}
+
 // usesIndex reports whether s shows an index scan on idx and, when the command
 // reports document counts for a find or aggregate, examined no more documents than it
 // returned or a tenth of the collDocs-document collection, whichever is more.
 func (s explainSummary) usesIndex(idx string, collDocs int, checkExamined bool) (bool, string) {
 	scan := slices.ContainsFunc(s.stages, func(st string) bool { return slices.Contains(indexScanStages, st) })
-	if !(scan && slices.Contains(s.indexNames, idx)) && !slices.Contains(s.indexesUsed, idx) {
+	clustered := idx == idIndex && s.clusteredIDScan()
+	if !(scan && slices.Contains(s.indexNames, idx)) && !slices.Contains(s.indexesUsed, idx) && !clustered {
 		return false, fmt.Sprintf("plan %v on %v, want an index scan on %q", s.stages, s.indexNames, idx)
 	}
 	allowed := max(s.nReturned, int64(collDocs/10))
@@ -279,7 +288,7 @@ func requireIndexUseOf(b *testing.B, ctx context.Context, col *mongo.Collection,
 	ok, why := s.usesIndex(idx, collDocs, checkExamined)
 	readsChecked := true
 	if ok && collDocs > 0 && readCommands[inner[0].Key] {
-		ok, why, readsChecked = indexedReads(b, ctx, col, inner, collDocs)
+		ok, why, readsChecked = indexedReads(b, ctx, col, inner, collDocs, idx == idIndex && s.clusteredIDScan())
 	}
 	switch {
 	case ok && dumbo && exp.knownDumboGap != "" && !readsChecked:
@@ -298,10 +307,11 @@ var readCommands = map[string]bool{"find": true, "aggregate": true, "count": tru
 // indexedReads runs inner and reports whether the server read every document
 // through an index key and, for a find or a pipeline that returns documents
 // unchanged, read no more documents than it returned or a tenth of the
-// collDocs-document collection, whichever is more.
+// collDocs-document collection, whichever is more. A clustered _id scan reads
+// documents without index keys, so only the second bound applies to it.
 // Unlike explain, which plans separately, this measures the command itself.
 // checked is false when the server reports no counters, so nothing was measured.
-func indexedReads(b *testing.B, ctx context.Context, col *mongo.Collection, inner bson.D, collDocs int) (ok bool, why string, checked bool) {
+func indexedReads(b *testing.B, ctx context.Context, col *mongo.Collection, inner bson.D, collDocs int, clustered bool) (ok bool, why string, checked bool) {
 	b.Helper()
 	r, err := readsOf(ctx, col, inner)
 	if err != nil {
@@ -311,7 +321,7 @@ func indexedReads(b *testing.B, ctx context.Context, col *mongo.Collection, inne
 	case !r.tracked:
 		b.Logf("server reports no queryExecutor counters; reads unchecked")
 		return true, "", false
-	case r.docs > r.keys:
+	case !clustered && r.docs > r.keys:
 		return false, fmt.Sprintf("read %d docs but only %d index keys: some came from a collection scan", r.docs, r.keys), true
 	case returnsReadDocuments(inner) && r.docs > max(r.returned, int64(collDocs/10)):
 		return false, fmt.Sprintf("read %d of %d docs for %d results", r.docs, collDocs, r.returned), true
