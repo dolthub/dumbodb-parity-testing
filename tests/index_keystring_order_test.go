@@ -67,7 +67,7 @@ func TestIndexKeyString_SortHinted_Numeric(t *testing.T) {
 
 func TestIndexKeyString_SortHinted_TinyNegatives(t *testing.T) {
 	values := []interface{}{-1e-20, -3e-20, -2e-20, -4e-20}
-	harness.PairTest(t, iksCase("IndexKeyString_SortHinted_TinyNegatives", harness.DumboDBXFail, values, iksV, bson.D{},
+	harness.PairTest(t, iksCase("IndexKeyString_SortHinted_TinyNegatives", harness.DumboDBFull, values, iksV, bson.D{},
 		options.Find().SetSort(bson.D{{Key: "v", Value: 1}}).SetHint(iksV)))
 }
 
@@ -82,12 +82,12 @@ func TestIndexKeyString_SortHinted_Embedded(t *testing.T) {
 }
 
 func TestIndexKeyString_SortHinted_BinData(t *testing.T) {
-	harness.PairTest(t, iksCase("IndexKeyString_SortHinted_BinData", harness.DumboDBXFail, cluBinDataIDs(), iksV, bson.D{},
+	harness.PairTest(t, iksCase("IndexKeyString_SortHinted_BinData", harness.DumboDBFull, cluBinDataIDs(), iksV, bson.D{},
 		options.Find().SetSort(bson.D{{Key: "v", Value: 1}}).SetHint(iksV)))
 }
 
 func TestIndexKeyString_RangeHinted_BinData(t *testing.T) {
-	harness.PairTest(t, iksCase("IndexKeyString_RangeHinted_BinData", harness.DumboDBXFail, cluBinDataIDs(), iksV,
+	harness.PairTest(t, iksCase("IndexKeyString_RangeHinted_BinData", harness.DumboDBFull, cluBinDataIDs(), iksV,
 		bson.D{{Key: "v", Value: bson.D{{Key: "$gt", Value: primitive.Binary{Subtype: 0x00, Data: []byte{0xff}}}}}},
 		options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}).SetHint(iksV)))
 }
@@ -136,7 +136,7 @@ func TestIndexKeyString_MultikeySort(t *testing.T) {
 func TestIndexKeyString_Unique_TinyNegatives(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "IndexKeyString_Unique_TinyNegatives",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: iksV, Options: options.Index().SetUnique(true)})
 			return err
@@ -155,7 +155,7 @@ func TestIndexKeyString_Unique_TinyNegatives(t *testing.T) {
 func TestIndexKeyString_Unique_Embedded(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "IndexKeyString_Unique_Embedded",
-		Support: harness.DumboDBXFail,
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: iksV, Options: options.Index().SetUnique(true)})
 			return err
