@@ -22,7 +22,10 @@ need isolation: one server under load at a time, no cross-contamination.
 **CRUD**: `InsertOne`, `InsertMany` (batches of 100 and 1000), `FindOne` (by
 `_id`), `Find` (full scan), `Find` with equality filter, `Find` with range
 filter, `UpdateOne`, `UpdateMany`, `ReplaceOne`, `DeleteOne`, `DeleteMany`,
-`CountDocuments`, `Distinct`.
+`CountDocuments`, `Distinct`. `InsertOne` and `InsertMany` use string `_id`s;
+their `_ObjectId` variants use fresh driver ObjectIds, which increase as
+server-generated ids do, so the pair shows whether `_id` order changes insert
+cost.
 
 **Aggregation**: `$match + $group`, `$sort + $limit`, `$project`.
 `Agg_Sort_10K[_Indexed]` repeats `$sort + $limit` on 10K documents, the indexed
