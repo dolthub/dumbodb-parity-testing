@@ -250,8 +250,14 @@ var indexScanStages = []string{
 // the collection itself is the _id_ index.
 var clusteredScanStages = []string{"CLUSTERED_IXSCAN", "EXPRESS_CLUSTERED_IXSCAN"}
 
+// clusteredIDScan reports whether s reads the clustered _id_ index: a
+// clustered scan, or an EXPRESS write naming no index.
 func (s explainSummary) clusteredIDScan() bool {
-	return slices.ContainsFunc(s.stages, func(st string) bool { return slices.Contains(clusteredScanStages, st) })
+	if slices.ContainsFunc(s.stages, func(st string) bool { return slices.Contains(clusteredScanStages, st) }) {
+		return true
+	}
+	express := slices.Contains(s.stages, "EXPRESS_UPDATE") || slices.Contains(s.stages, "EXPRESS_DELETE")
+	return express && len(s.indexNames) == 0
 }
 
 // usesIndex reports whether s shows an index scan on idx and, when the command
