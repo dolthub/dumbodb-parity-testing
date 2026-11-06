@@ -366,9 +366,10 @@ func TestCollection_ListCollectionNamesFilter(t *testing.T) {
 
 func TestCollection_ListCollectionsIdIndex(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "Collection_ListCollectionsIdIndex",
-		Support: harness.DumboDBFull,
-		Setup:   insertColTestDocs,
+		Name:      "Collection_ListCollectionsIdIndex",
+		Support:   harness.DumboDBFull,
+		Clustered: true,
+		Setup:     insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// ListCollections result includes idIndex field with index spec.
 			cursor, err := col.Database().ListCollections(ctx, bson.D{{Key: "name", Value: col.Name()}})
@@ -622,9 +623,10 @@ func TestDB_RunCommand_CollStats(t *testing.T) {
 
 func TestDB_RunCommand_ListIndexes(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "DB_RunCommand_ListIndexes",
-		Support: harness.DumboDBFull,
-		Setup:   insertColTestDocs,
+		Name:      "DB_RunCommand_ListIndexes",
+		Support:   harness.DumboDBFull,
+		Clustered: true,
+		Setup:     insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// listIndexes returns a cursor-like response with index specs.
 			return runCommandDoc(ctx, col, bson.D{{Key: "listIndexes", Value: col.Name()}})
@@ -646,9 +648,10 @@ func TestDB_RunCommand_Validate(t *testing.T) {
 
 func TestDB_RunCommand_ListCollections(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "DB_RunCommand_ListCollections",
-		Support: harness.DumboDBFull,
-		Setup:   insertColTestDocs,
+		Name:      "DB_RunCommand_ListCollections",
+		Support:   harness.DumboDBFull,
+		Clustered: true,
+		Setup:     insertColTestDocs,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			// listCollections via RunCommand returns a cursor response document.
 			return runCommandDoc(ctx, col, bson.D{

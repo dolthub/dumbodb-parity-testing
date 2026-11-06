@@ -143,11 +143,18 @@ func TestExplainPlan_IdEquality(t *testing.T) {
 		}},
 	}
 	for _, tc := range cases {
+		support := harness.DumboDBFull
+		if tc.name == "update_with_other_field" {
+			// A single-document update over a clustered _id scan examines the
+			// document after its match on MongoDB; DumboDB stops at the match.
+			support = harness.DumboDBXFail
+		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
-				Name:    "ExplainPlan_IdEquality_" + tc.name,
-				Support: harness.DumboDBFull,
-				Setup:   setupGrp10,
+				Name:      "ExplainPlan_IdEquality_" + tc.name,
+				Support:   support,
+				Clustered: true,
+				Setup:     setupGrp10,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return explainWorkOf(tc.inner(col))(ctx, col)
 				},

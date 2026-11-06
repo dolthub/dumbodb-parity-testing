@@ -129,9 +129,10 @@ func TestServerStatus_QueryExecutorScanned(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
-				Name:    fmt.Sprintf("ServerStatus_QueryExecutorScanned_%s", tc.name),
-				Support: tc.support,
-				Setup:   setup,
+				Name:      fmt.Sprintf("ServerStatus_QueryExecutorScanned_%s", tc.name),
+				Support:   tc.support,
+				Clustered: true,
+				Setup:     setup,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return scannedBy(ctx, col, func() error { return tc.op(ctx, col) }, tc.repeatable)
 				},

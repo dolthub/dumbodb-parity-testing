@@ -2469,8 +2469,9 @@ func TestIndex_ListIndexes_AfterDropAll(t *testing.T) {
 
 func TestIndex_ListIndexes_CheckKeys(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "Index_ListIndexes_CheckKeys",
-		Support: harness.DumboDBFull,
+		Name:      "Index_ListIndexes_CheckKeys",
+		Support:   harness.DumboDBFull,
+		Clustered: true,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			model := mongo.IndexModel{Keys: bson.D{{Key: "username", Value: 1}}}
 			if _, err := col.Indexes().CreateOne(ctx, model); err != nil {
@@ -2485,8 +2486,9 @@ func TestIndex_ListIndexes_CheckKeys(t *testing.T) {
 
 func TestIndex_CreateMany_MixedTypes(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "Index_CreateMany_MixedTypes",
-		Support: harness.DumboDBFull,
+		Name:      "Index_CreateMany_MixedTypes",
+		Support:   harness.DumboDBFull,
+		Clustered: true,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			sparse := true
 			unique := true
@@ -2751,8 +2753,9 @@ func TestIndex_Hint_KeyPatternWrongDirection(t *testing.T) {
 // {b:1,a:1}; keyPatternString now makes the order observable.
 func TestIndex_ListIndexes_CompoundKeyOrder(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
-		Name:    "Index_ListIndexes_CompoundKeyOrder",
-		Support: harness.DumboDBFull,
+		Name:      "Index_ListIndexes_CompoundKeyOrder",
+		Support:   harness.DumboDBFull,
+		Clustered: true,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 				Keys: bson.D{{Key: "b", Value: 1}, {Key: "a", Value: -1}},
