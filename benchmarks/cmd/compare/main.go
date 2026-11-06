@@ -329,8 +329,7 @@ func printKeepAliveBanner(w *os.File) {
 // connections) before handing off to runBench. The early check exists because
 // an opaque "dial tcp ... connection refused" bubbling up from inside `go
 // test` is much harder to triage than an explicit "container X is not running
-// anymore" from the runner — which is exactly the failure mode pa-c8s
-// reported against the first cut of this runner.
+// anymore" from the runner.
 //
 // When -no-containers is set, we trust the user and skip the verification.
 func runTargetBench(ctx context.Context, label string, c container, suite *benchSuite, name string) ([]result, error) {

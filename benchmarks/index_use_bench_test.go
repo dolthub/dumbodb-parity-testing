@@ -144,7 +144,7 @@ type indexUseExpectation struct {
 
 var (
 	mustUseIndex         = indexUseExpectation{}
-	coveredProjectionGap = indexUseExpectation{knownDumboGap: "workspace-3u3: covered projections fetch documents"}
+	coveredProjectionGap = indexUseExpectation{knownDumboGap: "dumbodb#142: covered projections fetch documents"}
 )
 
 type explainSummary struct {
@@ -780,7 +780,7 @@ func BenchmarkIndexUse_RangeUnderHalf_10K(b *testing.B) {
 
 func BenchmarkIndexUse_RangeOverHalf_10K(b *testing.B) {
 	benchmarkIndexedFind(b, "iu_range_over_half", flatKey, func(int) bson.D { return rangeOn("k", 5500)(2000) }, nil, 0,
-		indexUseExpectation{knownDumboGap: "workspace-fep: a range over half the collection is scanned, not read through the index"})
+		halfCollectionCapGap)
 }
 
 // $or with an indexed field in every branch: a union of index scans.

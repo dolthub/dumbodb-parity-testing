@@ -73,8 +73,20 @@ the result set is constant across N, unlike `Find_FilterEq`/`Find_FilterRange`
 whose result sets grow with the collection. That isolates pure seek cost: the
 indexed variant's latency stays near-flat from 10K to 50K (log-N seek) while the
 unindexed variant grows linearly (full scan). This is the black-box latency
-companion to dumbodb's white-box node-fetch proof (`workspace-da6.1`), which
-counts prolly-tree nodes per seek and reaches larger N in-process.
+companion to dumbodb's white-box `TestSeekScaling_PointLookupIsLogarithmic`,
+which counts prolly-tree nodes per seek and reaches larger N in-process.
+
+**`_id` range variants** (in `id_range_scaled_bench_test.go`): every
+collection has the `_id_` index, so these have no unindexed counterpart; the
+10K-to-50K growth is the signal. `Find_IdRange_{Int,String,ObjectId}` at
+`_10K`/`_50K` find a window of n/100 consecutive `_id`s
+(`$gte`/`$lt`), sliding the window each iteration. The string and ObjectId keys
+are built so their sort order matches insertion order. `Find_IdPaginate` at
+`_10K`/`_50K` times one page of keyset pagination: `{_id: {$gt: last}}`
+sorted on `_id` with a limit of 100, walking the collection page by page.
+Before timing, each checks the result count (or, for pagination, the exact
+page of `_id`s in order) and the `_id_` index use. DumboDB keys rows by a hash
+of `_id` and scans for these, a known gap tracked by dolthub/dumbodb#207.
 
 `CollatedPointLookup` (in `collated_point_lookup_scaled_bench_test.go`) is the
 same at `_10K`/`_50K` `[_Indexed]` but on a *string* key with an fr_CA collation
@@ -143,7 +155,7 @@ is unchecked because MongoDB's explain does not report its index use.
 
 ## Scope - deferred
 
-These are enumerated in `bd pa-xp1` but not implemented in the first cut:
+These are not implemented yet:
 
 - `$unwind + $group`
 - `CreateCollection`, `Drop` (they'd be their own benchmarks - mostly DDL timing)

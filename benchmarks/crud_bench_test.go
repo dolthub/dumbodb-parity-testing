@@ -14,8 +14,7 @@ import (
 
 // The CRUD benchmarks below intentionally target a single dataset size (1K small
 // docs) for the initial cut. Scaling dimensions are added by parameterizing
-// datasetSize / docSize once the baseline stabilizes — see
-// bd pa-xp1 "Scaling dimensions" in the design.
+// datasetSize / docSize once the baseline stabilizes.
 const (
 	benchDatasetSize = 1000
 	benchDocSize     = sizeSmall
