@@ -81,15 +81,24 @@ which counts prolly-tree nodes per seek and reaches larger N in-process.
 
 **`_id` range variants** (in `id_range_scaled_bench_test.go`): every
 collection has the `_id_` index, so these have no unindexed counterpart; the
-10K-to-50K growth is the signal. `Find_IdRange_{Int,String,ObjectId}` at
+10K-to-50K growth is the signal. `Find_IdRange_{Int,String,ObjectId,UUID}` at
 `_10K`/`_50K` find a window of n/100 consecutive `_id`s
-(`$gte`/`$lt`), sliding the window each iteration. The string and ObjectId keys
-are built so their sort order matches insertion order. `Find_IdPaginate` at
+(`$gte`/`$lt`), sliding the window each iteration. The string, ObjectId, and
+UUID (BSON binary subtype 4, in `uuid_bench_test.go`) keys are built so their
+sort order matches insertion order. `Find_IdPaginate` at
 `_10K`/`_50K` times one page of keyset pagination: `{_id: {$gt: last}}`
 sorted on `_id` with a limit of 100, walking the collection page by page.
 Before timing, each checks the result count (or, for pagination, the exact
 page of `_id`s in order) and the `_id_` index use. DumboDB keys rows by a hash
 of `_id` and scans for these, a known gap tracked by dolthub/dumbodb#207.
+
+**UUID insert variants** (in `uuid_bench_test.go`):
+`InsertMany_{UUIDv4,UUIDv7,UUIDv4String}_50K_{100,1000}` insert batches into a
+collection seeded with 50K documents whose `_id`s are the same kind, so each
+insert lands among existing keys; only the inserted documents are cleared.
+Binary v4 UUIDs are random and land throughout the `_id` order, v7 UUIDs
+increase and append at its end, and `UUIDv4String` stores v4 UUIDs as
+36-character strings, as many applications do.
 
 `CollatedPointLookup` (in `collated_point_lookup_scaled_bench_test.go`) is the
 same at `_10K`/`_50K` `[_Indexed]` but on a *string* key with an fr_CA collation
