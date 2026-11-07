@@ -1073,3 +1073,89 @@ func TestExplainPlan_ViewFilter(t *testing.T) {
 		})
 	}
 }
+
+// TestExplainPlan_LookupStrategy: whether an equality $lookup joins in the
+// query plan (EQ_LOOKUP) or as a classic $lookup stage, its strategy and the
+// foreign index it uses, across foreign index shapes, a missing foreign
+// collection, an absorbed $unwind, a collation and a foreign view.
+func TestExplainPlan_LookupStrategy(t *testing.T) {
+	setup := func(index bson.D, view bool) func(context.Context, *mongo.Collection) error {
+		return func(ctx context.Context, col *mongo.Collection) error {
+			local := make([]interface{}, 0, 50)
+			for i := 0; i < 50; i++ {
+				local = append(local, bson.D{{Key: "_id", Value: int32(i)}, {Key: "fk", Value: int32(i % 10)}})
+			}
+			if _, err := col.InsertMany(ctx, local); err != nil {
+				return err
+			}
+			if index == nil {
+				return nil
+			}
+			foreign := col.Database().Collection(col.Name() + "_f")
+			docs := make([]interface{}, 0, 100)
+			for i := 0; i < 100; i++ {
+				docs = append(docs, bson.D{{Key: "_id", Value: int32(i)}, {Key: "x", Value: int32(i % 10)}, {Key: "y", Value: int32(i)}})
+			}
+			if _, err := foreign.InsertMany(ctx, docs); err != nil {
+				return err
+			}
+			if err := createIndex(ctx, foreign, index); err != nil {
+				return err
+			}
+			if view {
+				_ = col.Database().Collection(col.Name() + "_fv").Drop(ctx)
+				return col.Database().CreateView(ctx, col.Name()+"_fv", col.Name()+"_f", mongo.Pipeline{})
+			}
+			return nil
+		}
+	}
+	join := func(from string) bson.D {
+		return bson.D{{Key: "$lookup", Value: bson.D{{Key: "from", Value: from}, {Key: "localField", Value: "fk"}, {Key: "foreignField", Value: "x"}, {Key: "as", Value: "j"}}}}
+	}
+	cases := []struct {
+		name      string
+		setup     func(context.Context, *mongo.Collection) error
+		from      string
+		pipeline  func(from string) bson.A
+		collation *options.Collation
+	}{
+		{"compound_leading_index", setup(bson.D{{Key: "x", Value: 1}, {Key: "y", Value: 1}}, false), "_f", func(f string) bson.A { return bson.A{join(f)} }, nil},
+		{"missing_foreign", setup(nil, false), "_missing", func(f string) bson.A { return bson.A{join(f)} }, nil},
+		{"unwind_absorbed", setup(bson.D{{Key: "x", Value: 1}}, false), "_f", func(f string) bson.A {
+			return bson.A{join(f), bson.D{{Key: "$unwind", Value: "$j"}}}
+		}, nil},
+		{"collation", setup(bson.D{{Key: "x", Value: 1}}, false), "_f", func(f string) bson.A { return bson.A{join(f)} }, &options.Collation{Locale: "en", Strength: 2}},
+		{"foreign_view", setup(bson.D{{Key: "x", Value: 1}, {Key: "y", Value: 1}}, true), "_fv", func(f string) bson.A { return bson.A{join(f)} }, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "ExplainPlan_LookupStrategy_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup:   tc.setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					cmd := bson.D{{Key: "aggregate", Value: col.Name()}, {Key: "pipeline", Value: tc.pipeline(col.Name() + tc.from)}, {Key: "cursor", Value: bson.D{}}}
+					if tc.collation != nil {
+						cmd = append(cmd, bson.E{Key: "collation", Value: bson.D{{Key: "locale", Value: tc.collation.Locale}, {Key: "strength", Value: tc.collation.Strength}}})
+					}
+					doc, err := explainRunExplain(ctx, col, cmd, "queryPlanner")
+					if err != nil {
+						return nil, err
+					}
+					ver, _ := lookup(doc, "explainVersion")
+					classic := false
+					if stages, ok := lookup(doc, "stages"); ok {
+						if arr, ok := stages.(bson.A); ok {
+							for _, s := range arr {
+								if d, ok := s.(bson.D); ok && len(d) > 0 && d[0].Key == "$lookup" {
+									classic = true
+								}
+							}
+						}
+					}
+					return bson.D{{Key: "explainVersion", Value: ver}, {Key: "classic", Value: classic}, {Key: "joins", Value: lookupJoins(doc)}}, nil
+				},
+			})
+		})
+	}
+}
