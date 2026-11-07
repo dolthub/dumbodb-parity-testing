@@ -695,3 +695,65 @@ func TestExplainPlan_SortMergeScanLimit(t *testing.T) {
 		})
 	}
 }
+
+// TestSortMerge_DuplicateInValues: $in values equal as keys, or a multikey
+// document in two $in ranges, return each document once.
+func TestSortMerge_DuplicateInValues(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 1}, {Key: "b", Value: 1}},
+			bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: 2}, {Key: "b", Value: 2}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "a", Value: int64(2)}, {Key: "b", Value: 3}},
+			bson.D{{Key: "_id", Value: 4}, {Key: "a", Value: 3}, {Key: "b", Value: 0}},
+			bson.D{{Key: "_id", Value: 5}, {Key: "a", Value: bson.A{1, 3}}, {Key: "b", Value: 4}},
+		}); err != nil {
+			return err
+		}
+		return createIndex(ctx, col, bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}})
+	}
+	in := func(vals ...interface{}) bson.D {
+		return bson.D{{Key: "a", Value: bson.D{{Key: "$in", Value: bson.A(vals)}}}}
+	}
+	byB := bson.D{{Key: "b", Value: 1}}
+	find := func(filter bson.D, opts *options.FindOptions) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Find(ctx, filter, opts)
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			err = cur.All(ctx, &docs)
+			return docs, err
+		}
+	}
+	cases := []struct {
+		name string
+		run  func(context.Context, *mongo.Collection) (interface{}, error)
+	}{
+		{"repeated", find(in(2, 1, 2), options.Find().SetSort(byB))},
+		{"equal_numbers", find(in(2, int64(2)), options.Find().SetSort(byB))},
+		{"covered", find(in(2, 2), options.Find().SetSort(byB).SetProjection(bson.D{{Key: "b", Value: 1}, {Key: "_id", Value: 0}}))},
+		{"skip_limit", find(in(2, 2), options.Find().SetSort(byB).SetSkip(1).SetLimit(1))},
+		{"multikey", find(in(1, 3), options.Find().SetSort(byB))},
+		{"aggregate", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Aggregate(ctx, mongo.Pipeline{{{Key: "$match", Value: in(2, 2)}}, {{Key: "$sort", Value: byB}}})
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			err = cur.All(ctx, &docs)
+			return docs, err
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "SortMerge_DuplicateInValues_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run:       tc.run,
+			})
+		})
+	}
+}
