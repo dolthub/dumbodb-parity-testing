@@ -68,6 +68,15 @@ var metaPending = map[string]bool{
 	"GeoNearDistance":           true,
 	"GeoNearPoint":              true,
 	"FindSortKey":               true,
+}
+
+// metaClustered compare against a clustered mongod: a DumboDB RecordId is the
+// _id's KeyString, as on a clustered collection, where a plain collection has
+// a counter and no recordId metadata in a pipeline.
+var metaClustered = map[string]bool{
+	"Unavailable_recordId":      true,
+	"UnavailableValue_recordId": true,
+	"RecordIdType":              true,
 	"FindRecordId":              true,
 }
 
@@ -166,10 +175,11 @@ func TestMetaExpression(t *testing.T) {
 		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
-				Name:    "Meta_" + tc.name,
-				Support: support,
-				Setup:   insertMetaDocs,
-				Run:     pipelineRunExtJSON(tc.pipeline),
+				Name:      "Meta_" + tc.name,
+				Support:   support,
+				Clustered: metaClustered[tc.name],
+				Setup:     insertMetaDocs,
+				Run:       pipelineRunExtJSON(tc.pipeline),
 			})
 		})
 	}
@@ -197,9 +207,10 @@ func TestMetaExpression(t *testing.T) {
 		}
 		t.Run(fc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
-				Name:    "Meta_" + fc.name,
-				Support: support,
-				Setup:   insertMetaDocs,
+				Name:      "Meta_" + fc.name,
+				Support:   support,
+				Clustered: metaClustered[fc.name],
+				Setup:     insertMetaDocs,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					opts := fc.opts
 					if opts == nil {

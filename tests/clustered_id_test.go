@@ -1274,3 +1274,87 @@ func TestClustered_TimeSeriesListIndexes(t *testing.T) {
 		},
 	})
 }
+
+// TestClustered_DuplicateKey_SignedZero: -0 equals 0 and a Decimal128 -0
+// equals both, so each second insert is a duplicate key. A double NaN beside a
+// Decimal128 NaN is left out: a clustered mongod 8.0 fails that insert with
+// "KeyString format error: Invalid type bits for numeric NaN", where a plain
+// collection, like DumboDB, reports a duplicate key.
+func TestClustered_DuplicateKey_SignedZero(t *testing.T) {
+	decNegZero := primitive.NewDecimal128(0xb040000000000000, 0)
+	pairs := [][2]interface{}{
+		{int32(0), math.Copysign(0, -1)},
+		{math.Copysign(0, -1), decNegZero},
+		{decNegZero, int64(0)},
+	}
+	harness.PairTest(t, harness.TestCase{
+		Name:      "Clustered_DuplicateKey_SignedZero",
+		Support:   harness.DumboDBFull,
+		Clustered: true,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			var dups bson.A
+			for _, pair := range pairs {
+				if _, err := col.DeleteMany(ctx, bson.D{}); err != nil {
+					return nil, err
+				}
+				if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: pair[0]}}); err != nil {
+					return nil, err
+				}
+				_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: pair[1]}})
+				dups = append(dups, mongo.IsDuplicateKeyError(err))
+			}
+			return dups, nil
+		},
+	})
+}
+
+// TestClustered_SortID_SignedZeroAndNaN orders -0, NaN and Decimal128 edge
+// values among other numbers.
+func TestClustered_SortID_SignedZeroAndNaN(t *testing.T) {
+	ids := []interface{}{
+		math.Copysign(0, -1), math.NaN(), int32(1), -1e-300, 1e-300, math.Inf(-1),
+		primitive.NewDecimal128(0x0000000000000000, 1), // 1E-6176
+		primitive.NewDecimal128(0x8000000000000000, 1), // -1E-6176
+	}
+	harness.PairTest(t, cluFilter("Clustered_SortID_SignedZeroAndNaN", harness.DumboDBFull, ids, bson.D{},
+		options.Find().SetSort(bson.D{{Key: "_id", Value: 1}})))
+}
+
+// TestClustered_RecordID: a clustered collection's record id is the _id's
+// KeyString, returned as BinData by $meta and showRecordId.
+func TestClustered_RecordID(t *testing.T) {
+	oid, err := primitive.ObjectIDFromHex("65a0333600000000000000aa")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := []interface{}{int32(1), "a", -0.5, oid, bson.D{{Key: "k", Value: int32(2)}}, primitive.NewDecimal128(0x303e000000000000, 35)}
+	recordIDs := func(opts *options.FindOptions) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Find(ctx, bson.D{}, opts.SetSort(bson.D{{Key: "_id", Value: 1}}))
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			err = cur.All(ctx, &docs)
+			return docs, err
+		}
+	}
+	cases := []struct {
+		name string
+		opts *options.FindOptions
+	}{
+		{"meta", options.Find().SetProjection(bson.D{{Key: "r", Value: bson.D{{Key: "$meta", Value: "recordId"}}}})},
+		{"show_record_id", options.Find().SetShowRecordID(true)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Clustered_RecordID_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     cluInsertIDs(ids),
+				Run:       recordIDs(tc.opts),
+			})
+		})
+	}
+}
