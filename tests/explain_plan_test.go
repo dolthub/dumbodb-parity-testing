@@ -862,3 +862,111 @@ func TestTieOrder(t *testing.T) {
 		})
 	}
 }
+
+// TestExplainPlan_SingleWriteOptions: explain of a single-document write
+// honours its sort, hint and collation, as the write itself does.
+func TestExplainPlan_SingleWriteOptions(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: 1}, {Key: "u", Value: 1}, {Key: "a", Value: 3}, {Key: "b", Value: 1}, {Key: "n", Value: "abc"}},
+			bson.D{{Key: "_id", Value: 2}, {Key: "u", Value: 2}, {Key: "a", Value: 3}, {Key: "b", Value: 2}, {Key: "n", Value: "ABC"}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "u", Value: 3}, {Key: "a", Value: 3}, {Key: "b", Value: 3}, {Key: "n", Value: "Abc"}},
+			bson.D{{Key: "_id", Value: 4}, {Key: "u", Value: 4}, {Key: "a", Value: 4}, {Key: "b", Value: 4}, {Key: "n", Value: "x"}},
+		}); err != nil {
+			return err
+		}
+		for _, k := range []string{"a", "b", "n"} {
+			if err := createIndex(ctx, col, bson.D{{Key: k, Value: 1}}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	set := bson.D{{Key: "$set", Value: bson.D{{Key: "t", Value: 1}}}}
+	ci := bson.D{{Key: "locale", Value: "en"}, {Key: "strength", Value: 2}}
+	cases := []struct {
+		name  string
+		inner func(*mongo.Collection) bson.D
+	}{
+		{"find_and_modify_sort_remove", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "findAndModify", Value: col.Name()}, {Key: "query", Value: bson.D{{Key: "u", Value: bson.D{{Key: "$gt", Value: 0}}}}},
+				{Key: "sort", Value: bson.D{{Key: "u", Value: -1}}}, {Key: "remove", Value: true}}
+		}},
+		{"update_one_sort", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "update", Value: col.Name()}, {Key: "updates", Value: bson.A{bson.D{
+				{Key: "q", Value: bson.D{{Key: "u", Value: bson.D{{Key: "$gt", Value: 0}}}}}, {Key: "u", Value: set}, {Key: "sort", Value: bson.D{{Key: "u", Value: -1}}}}}}}
+		}},
+		{"find_and_modify_hint", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "findAndModify", Value: col.Name()}, {Key: "query", Value: bson.D{{Key: "a", Value: 3}}}, {Key: "update", Value: set}, {Key: "hint", Value: "b_1"}}
+		}},
+		{"delete_statement_collation", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "delete", Value: col.Name()}, {Key: "deletes", Value: bson.A{bson.D{
+				{Key: "q", Value: bson.D{{Key: "n", Value: "abc"}}}, {Key: "limit", Value: 0}, {Key: "collation", Value: ci}}}}}
+		}},
+		{"delete_statement_hint", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "delete", Value: col.Name()}, {Key: "deletes", Value: bson.A{bson.D{
+				{Key: "q", Value: bson.D{{Key: "a", Value: 3}}}, {Key: "limit", Value: 0}, {Key: "hint", Value: "b_1"}}}}}
+		}},
+		{"update_statement_collation", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "update", Value: col.Name()}, {Key: "updates", Value: bson.A{bson.D{
+				{Key: "q", Value: bson.D{{Key: "n", Value: "abc"}}}, {Key: "u", Value: set}, {Key: "multi", Value: true}, {Key: "collation", Value: ci}}}}}
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "ExplainPlan_SingleWriteOptions_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return explainWorkOf(tc.inner(col))(ctx, col)
+				},
+			})
+		})
+	}
+}
+
+// TestExplainPlan_IxscanReturns: an IXSCAN reports the entries it returned,
+// before the FETCH above it applies the rest of the filter.
+func TestExplainPlan_IxscanReturns(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 0, 300)
+		for i := 0; i < 300; i++ {
+			docs = append(docs, bson.D{{Key: "_id", Value: int32(i)}, {Key: "b", Value: int32(i % 10)}, {Key: "u", Value: int32(i % 20)}, {Key: "a", Value: int32(i % 13)}})
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		for _, k := range []string{"b", "a"} {
+			if err := createIndex(ctx, col, bson.D{{Key: k, Value: 1}}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	cases := []struct {
+		name string
+		cmd  func(*mongo.Collection) bson.D
+	}{
+		{"residual_filter", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: bson.D{{Key: "b", Value: int32(3)}, {Key: "u", Value: bson.D{{Key: "$lt", Value: int32(5)}}}}}}
+		}},
+		{"hinted_residual", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: bson.D{{Key: "a", Value: int32(3)}, {Key: "u", Value: bson.D{{Key: "$gte", Value: int32(10)}}}}}, {Key: "hint", Value: "a_1"}}
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "ExplainPlan_IxscanReturns_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return explainWorkOf(tc.cmd(col))(ctx, col)
+				},
+			})
+		})
+	}
+}
