@@ -1217,3 +1217,26 @@ func TestDistinctHintAndCoveredMissing(t *testing.T) {
 		})
 	}
 }
+
+// TestClustered_TimeSeriesListIndexes: a time-series collection lists no _id
+// index.
+func TestClustered_TimeSeriesListIndexes(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "Clustered_TimeSeriesListIndexes",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			_ = db.Collection("ts").Drop(ctx)
+			if err := db.CreateCollection(ctx, "ts", options.CreateCollection().SetTimeSeriesOptions(options.TimeSeries().SetTimeField("t"))); err != nil {
+				return nil, err
+			}
+			cur, err := db.Collection("ts").Indexes().List(ctx)
+			if err != nil {
+				return nil, err
+			}
+			var specs []bson.D
+			err = cur.All(ctx, &specs)
+			return specs, err
+		},
+	})
+}
