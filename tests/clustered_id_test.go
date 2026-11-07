@@ -873,3 +873,79 @@ func TestClustered_NaNAndLargeLongEquality(t *testing.T) {
 		})
 	}
 }
+
+// TestClustered_TinyDecimalBesideDouble: a Decimal128 below 2^-255 that is not
+// exactly a double is distinct from, and ordered against, the doubles beside
+// it, as _id and as an indexed value.
+func TestClustered_TinyDecimalBesideDouble(t *testing.T) {
+	dec := mustDecimal
+	ids := func(ctx context.Context, col *mongo.Collection, filter bson.D) (interface{}, error) {
+		return cluFindIDs(filter)(ctx, col)
+	}
+	cases := []struct {
+		name string
+		run  func(context.Context, *mongo.Collection) (interface{}, error)
+	}{
+		{"id_both_stored", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: 2e-300}}); err != nil {
+				return nil, err
+			}
+			if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: dec("2E-300")}}); err != nil {
+				return nil, err
+			}
+			found, err := ids(ctx, col, bson.D{{Key: "_id", Value: dec("2E-300")}})
+			if err != nil {
+				return nil, err
+			}
+			all, err := ids(ctx, col, bson.D{})
+			return bson.A{found, all}, err
+		}},
+		{"id_range_above_double", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: 1.000155232458693e-307}},
+				bson.D{{Key: "_id", Value: dec("1.0001552324586932E-307")}},
+			}); err != nil {
+				return nil, err
+			}
+			return ids(ctx, col, bson.D{{Key: "_id", Value: bson.D{{Key: "$gt", Value: 1.000155232458693e-307}}}})
+		}},
+		{"unique_index", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}}, Options: options.Index().SetUnique(true)}); err != nil {
+				return nil, err
+			}
+			if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: dec("1E-78")}}); err != nil {
+				return nil, err
+			}
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: 1e-78}})
+			return nil, err
+		}},
+		{"count_and_distinct", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}}}); err != nil {
+				return nil, err
+			}
+			if _, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: dec("1E-78")}},
+				bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: 1e-78}},
+				bson.D{{Key: "_id", Value: 3}, {Key: "a", Value: dec("1E-78")}},
+			}); err != nil {
+				return nil, err
+			}
+			n, err := col.CountDocuments(ctx, bson.D{{Key: "a", Value: 1e-78}})
+			if err != nil {
+				return nil, err
+			}
+			values, err := col.Distinct(ctx, "a", bson.D{})
+			return bson.A{n, values}, err
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Clustered_TinyDecimalBesideDouble_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Run:       tc.run,
+			})
+		})
+	}
+}
