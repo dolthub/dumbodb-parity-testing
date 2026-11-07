@@ -21,6 +21,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
@@ -193,6 +194,55 @@ func TestAggGroupNum_SumOrder(t *testing.T) {
 							{Key: "arraySum", Value: bson.D{{Key: "$sum", Value: bson.A{tc.values}}}},
 							{Key: "arrayAvg", Value: bson.D{{Key: "$avg", Value: bson.A{tc.values}}}}}}},
 					})
+					if err != nil {
+						return nil, err
+					}
+					var docs []bson.D
+					err = cur.All(ctx, &docs)
+					return docs, err
+				},
+			})
+		})
+	}
+}
+
+// TestAggGroup_Collation: under a case-insensitive collation $group puts
+// strings equal under it in one group, at top level and inside an _id
+// document, and $addToSet and distinct counts follow it.
+func TestAggGroup_Collation(t *testing.T) {
+	ci := &options.Collation{Locale: "en", Strength: 2}
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		_, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: 1}, {Key: "s", Value: "abc"}, {Key: "n", Value: 1}},
+			bson.D{{Key: "_id", Value: 2}, {Key: "s", Value: "ABC"}, {Key: "n", Value: 2}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "s", Value: "Abc"}, {Key: "n", Value: 3}},
+			bson.D{{Key: "_id", Value: 4}, {Key: "s", Value: "xyz"}, {Key: "n", Value: 4}},
+		})
+		return err
+	}
+	cases := []struct {
+		name  string
+		group bson.D
+	}{
+		{"by_field", bson.D{{Key: "_id", Value: "$s"}, {Key: "total", Value: bson.D{{Key: "$sum", Value: "$n"}}}, {Key: "count", Value: bson.D{{Key: "$sum", Value: 1}}}}},
+		{"by_document", bson.D{{Key: "_id", Value: bson.D{{Key: "k", Value: "$s"}}}, {Key: "count", Value: bson.D{{Key: "$sum", Value: 1}}}}},
+		{"add_to_set", bson.D{{Key: "_id", Value: nil}, {Key: "set", Value: bson.D{{Key: "$addToSet", Value: "$s"}}}, {Key: "count", Value: bson.D{{Key: "$sum", Value: 1}}}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "AggGroup_Collation_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					cur, err := col.Aggregate(ctx, mongo.Pipeline{
+						{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+						{{Key: "$group", Value: tc.group}},
+						{{Key: "$sort", Value: bson.D{{Key: "count", Value: -1}, {Key: "_id", Value: 1}}}},
+						// $addToSet's order is unspecified.
+						{{Key: "$addFields", Value: bson.D{{Key: "set", Value: bson.D{{Key: "$size", Value: bson.D{{Key: "$ifNull", Value: bson.A{"$set", bson.A{}}}}}}}}}},
+					}, options.Aggregate().SetCollation(ci))
 					if err != nil {
 						return nil, err
 					}
