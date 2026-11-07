@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -991,4 +992,48 @@ func TestGeo_2dsphere_IndexVersion(t *testing.T) {
 			return len(indexes), nil
 		},
 	})
+}
+
+// TestGeo_geoWithin_PointForms: a stored point is a GeoJSON Point, a legacy
+// array, or a legacy document's first two values, with coordinates of any
+// numeric type; a document with coordinates but no type is not a point.
+func TestGeo_geoWithin_PointForms(t *testing.T) {
+	dec, err := primitive.ParseDecimal128("1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	docs := []interface{}{
+		bson.D{{Key: "_id", Value: 1}, {Key: "loc", Value: bson.D{{Key: "x", Value: 1}, {Key: "y", Value: 2}}}},
+		bson.D{{Key: "_id", Value: 2}, {Key: "loc", Value: bson.A{1, 2}}},
+		bson.D{{Key: "_id", Value: 3}, {Key: "loc", Value: geoPoint(1, 2)}},
+		bson.D{{Key: "_id", Value: 4}, {Key: "loc", Value: bson.D{{Key: "coordinates", Value: bson.A{1, 2}}}}},
+		bson.D{{Key: "_id", Value: 5}, {Key: "loc", Value: bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 2}, {Key: "c", Value: 3}}}},
+		bson.D{{Key: "_id", Value: 6}, {Key: "loc", Value: bson.A{1, 2, 3}}},
+		bson.D{{Key: "_id", Value: 7}, {Key: "loc", Value: bson.D{{Key: "x", Value: dec}, {Key: "y", Value: 2}}}},
+	}
+	shapes := []struct {
+		name  string
+		shape bson.D
+	}{
+		{"box", bson.D{{Key: "$box", Value: bson.A{bson.A{0, 0}, bson.A{3, 3}}}}},
+		{"center", bson.D{{Key: "$center", Value: bson.A{bson.A{1, 2}, 0.5}}}},
+		{"centerSphere", bson.D{{Key: "$centerSphere", Value: bson.A{bson.A{1, 2}, 0.01}}}},
+		{"polygon", bson.D{{Key: "$polygon", Value: bson.A{bson.A{0, 0}, bson.A{3, 0}, bson.A{3, 3}, bson.A{0, 3}}}}},
+	}
+	for _, s := range shapes {
+		t.Run(s.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Geo_geoWithin_PointForms_" + s.name,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					_, err := col.InsertMany(ctx, docs)
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					filter := bson.D{{Key: "loc", Value: bson.D{{Key: "$geoWithin", Value: s.shape}}}}
+					return geoFindSortedIDs(ctx, col, filter)
+				},
+			})
+		})
+	}
 }
