@@ -6,7 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // Topology is the Mongo deployment shape a test expects to compare against.
@@ -48,6 +50,11 @@ type TestCase struct {
 	// that require multi-document transactions or replica-set features
 	// set TopologyReplicaSet and skip when MONGO_RS_URI is not set.
 	Topology Topology
+	// Clustered creates the MongoDB collection as a clustered collection
+	// ({_id: 1}) before Setup, matching how DumboDB stores every collection.
+	// Use it where natural order, _id scans or explain differ between
+	// clustered and default MongoDB collections.
+	Clustered bool
 	// Setup runs before the test operation; may be nil.
 	// It is called with the same collection passed to Run.
 	Setup func(ctx context.Context, col *mongo.Collection) error
@@ -82,6 +89,12 @@ func PairTest(t *testing.T, tc TestCase) TestResult {
 
 	mongoURIForTest := mongoURIForTopology(tc.Topology)
 
+	if tc.Clustered {
+		if err := createClustered(ctx, mongoCol, dumboDBCol); err != nil {
+			t.Fatalf("PairTest %s: %v", tc.Name, err)
+		}
+	}
+
 	switch tc.Support {
 	case DumboDBMongoOnly:
 		return runMongoOnly(t, ctx, tc, mongoCol)
@@ -95,6 +108,22 @@ func PairTest(t *testing.T, tc TestCase) TestResult {
 		t.Fatalf("PairTest %s: unknown DumboDBSupport level %d", tc.Name, tc.Support)
 		return TestResult{Name: tc.Name, Status: StatusFail}
 	}
+}
+
+// ClusteredIndexOption is the createCollection clusteredIndex spec the
+// harness uses for clustered reference collections.
+var ClusteredIndexOption = bson.D{{Key: "key", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "unique", Value: true}}
+
+// createClustered creates mongoCol as a clustered collection and dumboDBCol
+// as a plain one: DumboDB clusters every collection by _id.
+func createClustered(ctx context.Context, mongoCol, dumboDBCol *mongo.Collection) error {
+	if err := mongoCol.Database().CreateCollection(ctx, mongoCol.Name(), options.CreateCollection().SetClusteredIndex(ClusteredIndexOption)); err != nil {
+		return fmt.Errorf("creating clustered mongo collection: %w", err)
+	}
+	if err := dumboDBCol.Database().CreateCollection(ctx, dumboDBCol.Name()); err != nil {
+		return fmt.Errorf("creating dumbodb collection: %w", err)
+	}
+	return nil
 }
 
 func runMongoOnly(t *testing.T, ctx context.Context, tc TestCase, mongoCol *mongo.Collection) TestResult {
