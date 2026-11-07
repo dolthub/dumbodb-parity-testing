@@ -183,6 +183,13 @@ func diffCollection(ns string, want, got *CollectionState, wantSrc, gotSrc strin
 	if d := compareRawDocuments(ns+" options", withoutIDClustering(want.Options), withoutIDClustering(got.Options)); d != nil {
 		out = append(out, *d)
 	}
+	wantClustered, wantOK := want.Options.Lookup("clusteredIndex").DocumentOK()
+	gotClustered, gotOK := got.Options.Lookup("clusteredIndex").DocumentOK()
+	if wantOK && gotOK {
+		if d := compareRawDocuments(ns+" options.clusteredIndex", wantClustered, gotClustered); d != nil {
+			out = append(out, *d)
+		}
+	}
 
 	for _, name := range sortedKeys(want.Indexes, got.Indexes) {
 		path := ns + " index " + name
@@ -224,7 +231,8 @@ func diffCollection(ns string, want, got *CollectionState, wantSrc, gotSrc strin
 // withoutIDClustering drops a clusteredIndex option that clusters by _id.
 // DumboDB stores every collection clustered by _id (dumbodb#207), so whether a
 // collection reports that clustering is a storage choice, not replicated
-// state; a secondary keeps the same documents either way.
+// state; a secondary keeps the same documents either way. When both sides
+// report a clusteredIndex, diffCollection still compares the two specs.
 func withoutIDClustering(opts bson.Raw) bson.Raw {
 	spec, ok := opts.Lookup("clusteredIndex").DocumentOK()
 	if !ok {
