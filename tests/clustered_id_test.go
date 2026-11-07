@@ -1144,3 +1144,76 @@ func TestCount_SparseHint(t *testing.T) {
 		})
 	}
 }
+
+// TestDistinctHintAndCoveredMissing: distinct accepts a hint, and a covered
+// projection of a field a document lacks reports the null its index entry
+// holds.
+func TestDistinctHintAndCoveredMissing(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 1}, {Key: "b", Value: 1}},
+			bson.D{{Key: "_id", Value: 2}, {Key: "b", Value: 2}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "a", Value: 2}, {Key: "b", Value: 3}},
+		}); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}}})
+		return err
+	}
+	cases := []struct {
+		name string
+		run  func(context.Context, *mongo.Collection) (interface{}, error)
+	}{
+		{"distinct_hint_name", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			var res bson.D
+			err := col.Database().RunCommand(ctx, bson.D{{Key: "distinct", Value: col.Name()}, {Key: "key", Value: "b"}, {Key: "hint", Value: "a_1"}}).Decode(&res)
+			return res, err
+		}},
+		{"distinct_hint_spec", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			var res bson.D
+			err := col.Database().RunCommand(ctx, bson.D{{Key: "distinct", Value: col.Name()}, {Key: "key", Value: "a"}, {Key: "hint", Value: bson.D{{Key: "a", Value: 1}}}}).Decode(&res)
+			return res, err
+		}},
+		{"covered_missing_field", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Find(ctx, bson.D{{Key: "a", Value: bson.D{{Key: "$lte", Value: 5}}}},
+				options.Find().SetProjection(bson.D{{Key: "a", Value: 1}, {Key: "_id", Value: 0}}).SetHint("a_1"))
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			err = cur.All(ctx, &docs)
+			return docs, err
+		}},
+		{"covered_full_index_scan", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Find(ctx, bson.D{},
+				options.Find().SetProjection(bson.D{{Key: "a", Value: 1}, {Key: "_id", Value: 0}}).SetHint("a_1"))
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			err = cur.All(ctx, &docs)
+			return docs, err
+		}},
+		{"covered_null_scan", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Find(ctx, bson.D{{Key: "a", Value: nil}},
+				options.Find().SetProjection(bson.D{{Key: "a", Value: 1}, {Key: "_id", Value: 0}}))
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			err = cur.All(ctx, &docs)
+			return docs, err
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "DistinctHintAndCoveredMissing_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run:       tc.run,
+			})
+		})
+	}
+}
