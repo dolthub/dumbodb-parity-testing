@@ -949,3 +949,63 @@ func TestClustered_TinyDecimalBesideDouble(t *testing.T) {
 		})
 	}
 }
+
+// TestRange_MinKeyMaxKeyBounds: a range bounded by MinKey or MaxKey spans
+// every type, on _id and on another field, including null and missing.
+func TestRange_MinKeyMaxKeyBounds(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		_, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: primitive.MinKey{}}, {Key: "a", Value: primitive.MinKey{}}},
+			bson.D{{Key: "_id", Value: nil}, {Key: "a", Value: nil}},
+			bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 1}},
+			bson.D{{Key: "_id", Value: "s"}, {Key: "a", Value: "s"}},
+			bson.D{{Key: "_id", Value: bson.D{{Key: "x", Value: 1}}}, {Key: "a", Value: bson.A{1, 2}}},
+			bson.D{{Key: "_id", Value: true}},
+			bson.D{{Key: "_id", Value: primitive.MaxKey{}}, {Key: "a", Value: primitive.MaxKey{}}},
+		})
+		return err
+	}
+	op := func(field, o string, v interface{}) bson.D {
+		return bson.D{{Key: field, Value: bson.D{{Key: o, Value: v}}}}
+	}
+	cases := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"id_gte_minkey", op("_id", "$gte", primitive.MinKey{})},
+		{"id_gt_minkey", op("_id", "$gt", primitive.MinKey{})},
+		{"id_lte_maxkey", op("_id", "$lte", primitive.MaxKey{})},
+		{"id_lt_maxkey", op("_id", "$lt", primitive.MaxKey{})},
+		{"field_gte_minkey", op("a", "$gte", primitive.MinKey{})},
+		{"field_gt_minkey", op("a", "$gt", primitive.MinKey{})},
+		{"field_lte_maxkey", op("a", "$lte", primitive.MaxKey{})},
+		{"field_lt_maxkey", op("a", "$lt", primitive.MaxKey{})},
+		{"field_between", bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: primitive.MinKey{}}, {Key: "$lt", Value: primitive.MaxKey{}}}}}},
+	}
+	for _, tc := range cases {
+		for _, indexed := range []bool{false, true} {
+			name := tc.name
+			if indexed {
+				name += "_indexed"
+			}
+			t.Run(name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:      "Range_MinKeyMaxKeyBounds_" + name,
+					Support:   harness.DumboDBFull,
+					Clustered: true,
+					Setup: func(ctx context.Context, col *mongo.Collection) error {
+						if err := setup(ctx, col); err != nil {
+							return err
+						}
+						if indexed {
+							_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}}})
+							return err
+						}
+						return nil
+					},
+					Run: cluFindIDs(tc.filter, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}})),
+				})
+			})
+		}
+	}
+}
