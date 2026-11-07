@@ -696,3 +696,16 @@ func TestClustered_CreateOptions(t *testing.T) {
 		})
 	}
 }
+
+// An _id document with an empty field name is a value inside $in, not an
+// operator.
+func TestClustered_InEmptyFieldName(t *testing.T) {
+	id := bson.D{{Key: "", Value: int32(1)}}
+	harness.PairTest(t, harness.TestCase{
+		Name:      "Clustered_InEmptyFieldName",
+		Support:   harness.DumboDBFull,
+		Clustered: true,
+		Setup:     cluInsertIDs([]interface{}{id, int32(2)}),
+		Run:       cluFindIDs(bson.D{{Key: "_id", Value: bson.D{{Key: "$in", Value: bson.A{id}}}}}),
+	})
+}
