@@ -1009,3 +1009,30 @@ func TestRange_MinKeyMaxKeyBounds(t *testing.T) {
 		}
 	}
 }
+
+// TestClustered_HintNaturalDescending: {$natural: -1} as a hint reads the
+// collection in reverse _id order, alone and with a filter or limit.
+func TestClustered_HintNaturalDescending(t *testing.T) {
+	cases := []struct {
+		name string
+		opts *options.FindOptions
+		f    bson.D
+	}{
+		{"all", options.Find().SetHint(bson.D{{Key: "$natural", Value: -1}}), bson.D{}},
+		{"filtered", options.Find().SetHint(bson.D{{Key: "$natural", Value: -1}}), bson.D{{Key: "n", Value: bson.D{{Key: "$gte", Value: 3}}}}},
+		{"limit", options.Find().SetHint(bson.D{{Key: "$natural", Value: -1}}).SetLimit(3), bson.D{}},
+		{"ascending", options.Find().SetHint(bson.D{{Key: "$natural", Value: 1}}), bson.D{}},
+		{"double", options.Find().SetHint(bson.D{{Key: "$natural", Value: -1.0}}), bson.D{}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Clustered_HintNaturalDescending_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     cluInsertIDs(cluIntIDs(12)),
+				Run:       cluFindIDs(tc.f, tc.opts),
+			})
+		})
+	}
+}
