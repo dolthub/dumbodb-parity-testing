@@ -1036,3 +1036,56 @@ func TestClustered_HintNaturalDescending(t *testing.T) {
 		})
 	}
 }
+
+// TestDistinct_EqualNumbers: distinct returns one of each value, numbers of
+// different types that compare equal counting once, with or without a filter
+// and an index.
+func TestDistinct_EqualNumbers(t *testing.T) {
+	setup := func(indexed bool) func(context.Context, *mongo.Collection) error {
+		return func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 1}},
+				bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: mustDecimal("1.00")}},
+				bson.D{{Key: "_id", Value: 3}, {Key: "a", Value: 2.0}},
+				bson.D{{Key: "_id", Value: 4}, {Key: "a", Value: mustDecimal("2")}},
+				bson.D{{Key: "_id", Value: 5}, {Key: "a", Value: int64(3)}},
+				bson.D{{Key: "_id", Value: 6}, {Key: "a", Value: 3.0}},
+			}); err != nil {
+				return err
+			}
+			if indexed {
+				_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}}})
+				return err
+			}
+			return nil
+		}
+	}
+	filters := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"no_filter", bson.D{}},
+		{"in", bson.D{{Key: "a", Value: bson.D{{Key: "$in", Value: bson.A{1, 2}}}}}},
+		{"range", bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: 2}}}}},
+		{"other_field", bson.D{{Key: "_id", Value: bson.D{{Key: "$gte", Value: 2}}}}},
+	}
+	for _, f := range filters {
+		for _, indexed := range []bool{false, true} {
+			name := f.name
+			if indexed {
+				name += "_indexed"
+			}
+			t.Run(name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:      "Distinct_EqualNumbers_" + name,
+					Support:   harness.DumboDBFull,
+					Clustered: true,
+					Setup:     setup(indexed),
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						return col.Distinct(ctx, "a", f.filter)
+					},
+				})
+			})
+		}
+	}
+}
