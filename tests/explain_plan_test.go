@@ -757,3 +757,39 @@ func TestSortMerge_DuplicateInValues(t *testing.T) {
 		})
 	}
 }
+
+// TestExplainPlan_InSortPicksMerge: with single-field and compound indexes on
+// the $in and sort fields, an $in sorted on the second compound key merges the
+// compound index's ranges.
+func TestExplainPlan_InSortPicksMerge(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 0, 1000)
+		for i := 0; i < 1000; i++ {
+			docs = append(docs, bson.D{{Key: "_id", Value: int32(i)}, {Key: "grp", Value: int32(i % 10)}, {Key: "k", Value: int32(i)}})
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		for _, keys := range []bson.D{{{Key: "grp", Value: 1}}, {{Key: "k", Value: 1}}, {{Key: "grp", Value: 1}, {Key: "k", Value: 1}}} {
+			if err := createIndex(ctx, col, keys); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	harness.PairTest(t, harness.TestCase{
+		Name:      "ExplainPlan_InSortPicksMerge",
+		Support:   harness.DumboDBFull,
+		Clustered: true,
+		Setup:     setup,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			find := bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: bson.D{{Key: "grp", Value: bson.D{{Key: "$in", Value: bson.A{int32(1), int32(2)}}}}}},
+				{Key: "sort", Value: bson.D{{Key: "k", Value: 1}}}, {Key: "limit", Value: int32(5)}}
+			doc, err := explainRunExplain(ctx, col, find, "queryPlanner")
+			if err != nil {
+				return nil, err
+			}
+			return explainExtractCritical(doc), nil
+		},
+	})
+}
