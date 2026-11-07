@@ -1089,3 +1089,58 @@ func TestDistinct_EqualNumbers(t *testing.T) {
 		}
 	}
 }
+
+// TestCount_SparseHint: a count hinted to a sparse index counts only the
+// documents the index holds, with and without a filter, for count, the
+// countDocuments pipeline and find.
+func TestCount_SparseHint(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 0, 300)
+		for i := 0; i < 300; i++ {
+			d := bson.D{{Key: "_id", Value: int32(i)}, {Key: "g", Value: int32(i % 4)}}
+			if i%4 == 0 {
+				d = append(d, bson.E{Key: "s", Value: int32(i % 10)})
+			}
+			docs = append(docs, d)
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "s", Value: 1}}, Options: options.Index().SetSparse(true)})
+		return err
+	}
+	hint := bson.D{{Key: "s", Value: 1}}
+	filters := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"all", bson.D{}},
+		{"other_field", bson.D{{Key: "g", Value: int32(0)}}},
+		{"other_field_none_sparse", bson.D{{Key: "g", Value: int32(1)}}},
+	}
+	for _, f := range filters {
+		t.Run(f.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Count_SparseHint_" + f.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					var count bson.D
+					if err := col.Database().RunCommand(ctx, bson.D{{Key: "count", Value: col.Name()}, {Key: "query", Value: f.filter}, {Key: "hint", Value: hint}}).Decode(&count); err != nil {
+						return nil, err
+					}
+					n, err := col.CountDocuments(ctx, f.filter, options.Count().SetHint(hint))
+					if err != nil {
+						return nil, err
+					}
+					found, err := cluFindIDs(f.filter, options.Find().SetHint(hint))(ctx, col)
+					if err != nil {
+						return nil, err
+					}
+					return bson.A{count, n, len(found.(bson.A))}, nil
+				},
+			})
+		})
+	}
+}
