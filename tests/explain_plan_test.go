@@ -16,6 +16,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -643,6 +644,52 @@ func TestOr_EmptyIn(t *testing.T) {
 					var docs []bson.D
 					err = cur.All(ctx, &docs)
 					return docs, err
+				},
+			})
+		})
+	}
+}
+
+// TestExplainPlan_SortMergeScanLimit: an $in on a compound index's leading
+// field, sorted on its second, merges up to 200 scans; more sort in memory.
+func TestExplainPlan_SortMergeScanLimit(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 0, 2000)
+		for i := 0; i < 2000; i++ {
+			docs = append(docs, bson.D{{Key: "_id", Value: int32(i)}, {Key: "grp", Value: int32(i % 1000)}, {Key: "k", Value: int32(i)}})
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		return createIndex(ctx, col, bson.D{{Key: "grp", Value: 1}, {Key: "k", Value: 1}})
+	}
+	for _, n := range []int{200, 201} {
+		vals := bson.A{}
+		for i := 0; i < n; i++ {
+			vals = append(vals, int32(i))
+		}
+		find := bson.D{{Key: "filter", Value: bson.D{{Key: "grp", Value: bson.D{{Key: "$in", Value: vals}}}}},
+			{Key: "sort", Value: bson.D{{Key: "k", Value: 1}}}, {Key: "limit", Value: int32(5)}}
+		t.Run(fmt.Sprintf("in_%d", n), func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      fmt.Sprintf("ExplainPlan_SortMergeScanLimit_%d", n),
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					doc, err := explainRunExplain(ctx, col, append(bson.D{{Key: "find", Value: col.Name()}}, find...), "queryPlanner")
+					if err != nil {
+						return nil, err
+					}
+					cur, err := col.Find(ctx, find[0].Value, options.Find().SetSort(find[1].Value).SetLimit(5))
+					if err != nil {
+						return nil, err
+					}
+					var docs []bson.D
+					if err := cur.All(ctx, &docs); err != nil {
+						return nil, err
+					}
+					return bson.D{{Key: "plan", Value: explainExtractCritical(doc)}, {Key: "docs", Value: docs}}, nil
 				},
 			})
 		})
