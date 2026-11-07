@@ -775,3 +775,62 @@ func TestClustered_IDRegex(t *testing.T) {
 		})
 	}
 }
+
+// TestClustered_DecimalMatchesNumber: a number in a filter matches an equal
+// stored Decimal128, on _id beside another field and on any other field.
+func TestClustered_DecimalMatchesNumber(t *testing.T) {
+	dec := func(s string) primitive.Decimal128 {
+		d, err := primitive.ParseDecimal128(s)
+		if err != nil {
+			panic(err)
+		}
+		return d
+	}
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		_, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: dec("7.000")}, {Key: "w", Value: 1}, {Key: "x", Value: dec("7.000")}},
+			bson.D{{Key: "_id", Value: dec("1.50")}, {Key: "w", Value: 1}, {Key: "x", Value: dec("1.50")}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "w", Value: 1}, {Key: "x", Value: 3}},
+		})
+		return err
+	}
+	cases := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"id_int_beside_field", bson.D{{Key: "_id", Value: 7}, {Key: "w", Value: 1}}},
+		{"id_double_beside_field", bson.D{{Key: "_id", Value: 1.5}, {Key: "w", Value: 1}}},
+		{"field_int", bson.D{{Key: "x", Value: 7}}},
+		{"field_long_beside_field", bson.D{{Key: "x", Value: int64(7)}, {Key: "w", Value: 1}}},
+		{"field_double", bson.D{{Key: "x", Value: 1.5}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Clustered_DecimalMatchesNumber_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					found, err := cluFindIDs(tc.filter)(ctx, col)
+					if err != nil {
+						return nil, err
+					}
+					n, err := col.CountDocuments(ctx, tc.filter)
+					if err != nil {
+						return nil, err
+					}
+					upd, err := col.UpdateMany(ctx, tc.filter, bson.D{{Key: "$set", Value: bson.D{{Key: "t", Value: 1}}}})
+					if err != nil {
+						return nil, err
+					}
+					del, err := col.DeleteMany(ctx, tc.filter)
+					if err != nil {
+						return nil, err
+					}
+					return bson.A{found, n, upd.ModifiedCount, del.DeletedCount}, nil
+				},
+			})
+		})
+	}
+}
