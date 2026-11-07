@@ -307,8 +307,27 @@ func TestClustered_Pagination_Natural(t *testing.T) {
 		Support:   harness.DumboDBFull,
 		Clustered: true,
 		Setup:     cluInsertIDs(cluIntIDs(100)),
-		Run:       cluPaginate(nil),
+		Run:       cluPaginateNatural,
 	})
+}
+
+// cluPaginateNatural pages through the collection in natural order, by skip
+// and limit and then by one cursor with a small batch size. A clustered
+// collection's natural order is _id order.
+func cluPaginateNatural(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+	var pages bson.A
+	for skip := int64(0); skip <= 100; skip += 10 {
+		page, err := cluFindIDs(bson.D{}, options.Find().SetSkip(skip).SetLimit(10))(ctx, col)
+		if err != nil {
+			return nil, err
+		}
+		pages = append(pages, page)
+	}
+	batched, err := cluFindIDs(bson.D{}, options.Find().SetBatchSize(7))(ctx, col)
+	if err != nil {
+		return nil, err
+	}
+	return bson.A{pages, batched}, nil
 }
 
 func TestClustered_Pagination_Sorted(t *testing.T) {
@@ -321,6 +340,7 @@ func TestClustered_Pagination_Sorted(t *testing.T) {
 	})
 }
 
+// cluPaginate pages through _id ranges, optionally sorted.
 func cluPaginate(sort bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
 	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 		var pages bson.A
