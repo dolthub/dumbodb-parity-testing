@@ -970,3 +970,54 @@ func TestExplainPlan_IxscanReturns(t *testing.T) {
 		})
 	}
 }
+
+// TestExplainPlan_CountOptions: count explains its skip and limit, a multikey
+// index and a hint as mongod does.
+func TestExplainPlan_CountOptions(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 0, 100)
+		for i := 0; i < 100; i++ {
+			d := bson.D{{Key: "_id", Value: int32(i)}, {Key: "b", Value: int32(i % 10)}, {Key: "a", Value: int32(i % 7)}, {Key: "m", Value: bson.A{int32(i), int32(i + 1)}}}
+			docs = append(docs, d)
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		for _, k := range []string{"b", "a", "m"} {
+			if err := createIndex(ctx, col, bson.D{{Key: k, Value: 1}}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	count := func(extra ...bson.E) func(*mongo.Collection) bson.D {
+		return func(col *mongo.Collection) bson.D { return append(bson.D{{Key: "count", Value: col.Name()}}, extra...) }
+	}
+	cases := []struct {
+		name string
+		cmd  func(*mongo.Collection) bson.D
+	}{
+		{"skip_limit", count(bson.E{Key: "query", Value: bson.D{{Key: "b", Value: int32(2)}}}, bson.E{Key: "skip", Value: int32(1)}, bson.E{Key: "limit", Value: int32(3)})},
+		{"multikey", count(bson.E{Key: "query", Value: bson.D{{Key: "m", Value: bson.D{{Key: "$gt", Value: int32(50)}}}}})},
+		{"hint_other_index", count(bson.E{Key: "query", Value: bson.D{{Key: "a", Value: int32(3)}}}, bson.E{Key: "hint", Value: "b_1"})},
+	}
+	for _, tc := range cases {
+		support := harness.DumboDBFull
+		if tc.name == "multikey" {
+			// mongod's multikey COUNT_SCAN examines one key more than the
+			// range holds; DumboDB counts the range's entries.
+			support = harness.DumboDBXFail
+		}
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "ExplainPlan_CountOptions_" + tc.name,
+				Support:   support,
+				Clustered: true,
+				Setup:     setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return explainWorkOf(tc.cmd(col))(ctx, col)
+				},
+			})
+		})
+	}
+}
