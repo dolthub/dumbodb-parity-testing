@@ -20,6 +20,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
@@ -609,6 +610,39 @@ func TestExplainPlan_AgreesWithExecution(t *testing.T) {
 				Setup:   setupGrpK,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return explainAgreement(tc.inner(col), tc.run, tc.repeatable)(ctx, col)
+				},
+			})
+		})
+	}
+}
+
+// TestOr_EmptyIn: an $or branch with an empty $in on an indexed field matches
+// nothing, alone or beside another indexed branch.
+func TestOr_EmptyIn(t *testing.T) {
+	emptyIn := bson.D{{Key: "grp", Value: bson.D{{Key: "$in", Value: bson.A{}}}}}
+	cases := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"alone", bson.D{{Key: "$or", Value: bson.A{emptyIn}}}},
+		{"beside_id", bson.D{{Key: "$or", Value: bson.A{emptyIn, bson.D{{Key: "_id", Value: int32(7)}}}}}},
+		{"beside_indexed", bson.D{{Key: "$or", Value: bson.A{emptyIn, bson.D{{Key: "grp", Value: int32(3)}, {Key: "_id", Value: bson.D{{Key: "$lt", Value: int32(40)}}}}}}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Or_EmptyIn_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setupGrp10,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					cur, err := col.Find(ctx, tc.filter, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+					if err != nil {
+						return nil, err
+					}
+					var docs []bson.D
+					err = cur.All(ctx, &docs)
+					return docs, err
 				},
 			})
 		})
