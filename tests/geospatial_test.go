@@ -1318,3 +1318,84 @@ func TestGeo_NonFinitePoint(t *testing.T) {
 		})
 	}
 }
+
+// TestGeo_NearShapes: nearest-first reads over 2d locations stored as arrays
+// of points or {x, y} documents, 2dsphere lines and polygons, the distances
+// $geoNear reports, and the locations a 2dsphere index refuses.
+func TestGeo_NearShapes(t *testing.T) {
+	setup2d := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: 1}, {Key: "pos", Value: bson.A{4.0, 4.0}}},
+			bson.D{{Key: "_id", Value: 2}, {Key: "pos", Value: bson.A{bson.A{9.0, 9.0}, bson.A{1.0, 1.0}}}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "pos", Value: bson.D{{Key: "x", Value: 2.0}, {Key: "y", Value: 2.0}}}},
+			bson.D{{Key: "_id", Value: 4}, {Key: "pos", Value: bson.D{{Key: "y", Value: 3.0}, {Key: "x", Value: 0.5}}}},
+		}); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "pos", Value: "2d"}}})
+		return err
+	}
+	line := func(pts ...bson.A) bson.D {
+		return bson.D{{Key: "type", Value: "LineString"}, {Key: "coordinates", Value: bson.A(func() []interface{} {
+			out := make([]interface{}, len(pts))
+			for i, p := range pts {
+				out[i] = p
+			}
+			return out
+		}())}}
+	}
+	setupSphere := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: 1}, {Key: "loc", Value: geoPoint(3, 0)}},
+			bson.D{{Key: "_id", Value: 2}, {Key: "loc", Value: line(bson.A{1.0, -1.0}, bson.A{1.0, 1.0})}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "loc", Value: bson.D{{Key: "type", Value: "Polygon"}, {Key: "coordinates", Value: bson.A{bson.A{
+				bson.A{2.0, -1.0}, bson.A{2.5, -1.0}, bson.A{2.5, 1.0}, bson.A{2.0, 1.0}, bson.A{2.0, -1.0}}}}}}},
+			bson.D{{Key: "_id", Value: 4}, {Key: "loc", Value: geoPoint(0.5, 0.5)}},
+		}); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "loc", Value: "2dsphere"}}})
+		return err
+	}
+	ids := func(filter bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return geoFindNear(ctx, col, filter)
+		}
+	}
+	geoNear := func(stage bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Aggregate(ctx, mongo.Pipeline{{{Key: "$geoNear", Value: stage}}, {{Key: "$project", Value: bson.D{{Key: "d", Value: 1}}}}})
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			err = cur.All(ctx, &docs)
+			return docs, err
+		}
+	}
+	cases := []struct {
+		name  string
+		setup func(context.Context, *mongo.Collection) error
+		run   func(context.Context, *mongo.Collection) (interface{}, error)
+	}{
+		{"near_2d_point_arrays_and_docs", setup2d, ids(bson.D{{Key: "pos", Value: bson.D{{Key: "$near", Value: bson.A{0.0, 0.0}}}}})},
+		{"geonear_2d_point_arrays_and_docs", setup2d, geoNear(bson.D{{Key: "near", Value: bson.A{0.0, 0.0}}, {Key: "distanceField", Value: "d"}})},
+		{"near_sphere_lines_and_polygons", setupSphere, ids(bson.D{{Key: "loc", Value: bson.D{{Key: "$near", Value: bson.D{{Key: "$geometry", Value: geoPoint(0, 0)}}}}}})},
+		{"geonear_sphere_distances", setupSphere, geoNear(bson.D{{Key: "near", Value: geoPoint(0, 0)}, {Key: "distanceField", Value: "d"}, {Key: "spherical", Value: true}})},
+		{"sphere_rejects_legacy_pair_array", setupSphere, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: 9}, {Key: "loc", Value: bson.A{bson.A{1.0, 1.0}, bson.A{2.0, 2.0}}}})
+			return nil, err
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Geo_NearShapes_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     tc.setup,
+				Run:       tc.run,
+			})
+		})
+	}
+}
