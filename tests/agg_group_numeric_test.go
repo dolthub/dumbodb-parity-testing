@@ -141,3 +141,66 @@ func TestAggGroupNum_IntPromotionAvg(t *testing.T) {
 		Run:     groupByGAvgAmount,
 	})
 }
+
+// TestAggGroupNum_SumOrder: $sum and $avg give one result whatever the order
+// of doubles, integers and decimals, in $group (input sorted on _id first)
+// and over an array. Doubles alone keep the double-double sum's precision.
+func TestAggGroupNum_SumOrder(t *testing.T) {
+	dec := mustDecimal
+	cases := []struct {
+		name   string
+		values bson.A
+	}{
+		{"overflow_then_decimal", bson.A{1e308, 1e308, dec("1")}},
+		{"decimal_then_overflow", bson.A{dec("1"), 1e308, 1e308}},
+		{"decimal_then_overflow_back", bson.A{dec("1"), 1e308, 1e308, -1e308}},
+		{"tiny_decimal_after", bson.A{1e20, dec("1E-20")}},
+		{"tiny_decimal_before", bson.A{dec("1E-20"), 1e20}},
+		{"cancel_then_decimal", bson.A{1e300, 1.0, -1e300, dec("2")}},
+		{"decimal_then_cancel", bson.A{dec("2"), 1e300, 1.0, -1e300}},
+		{"ints_doubles_decimal", bson.A{int32(1), 0.1, int64(2), dec("0.3"), 0.2}},
+		{"doubles_small_after_large", bson.A{1e16, 1.0, 1.0, 1.0, 1.0}},
+		{"doubles_tenths", bson.A{0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1}},
+		{"long_and_doubles", bson.A{int64(1 << 60), 0.5, 0.25}},
+	}
+	for _, tc := range cases {
+		support := harness.DumboDBFull
+		if tc.name == "ints_doubles_decimal" {
+			// The last of 34 digits differs: mongod rounds its double-double's
+			// conversion to Decimal128 in a way DumboDB does not reproduce.
+			support = harness.DumboDBXFail
+		}
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "AggGroupNum_SumOrder_" + tc.name,
+				Support:   support,
+				Clustered: true,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					docs := make([]interface{}, len(tc.values))
+					for i, v := range tc.values {
+						docs[i] = bson.D{{Key: "_id", Value: int32(i)}, {Key: "v", Value: v}}
+					}
+					_, err := col.InsertMany(ctx, docs)
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					cur, err := col.Aggregate(ctx, mongo.Pipeline{
+						{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+						{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil},
+							{Key: "sum", Value: bson.D{{Key: "$sum", Value: "$v"}}},
+							{Key: "avg", Value: bson.D{{Key: "$avg", Value: "$v"}}}}}},
+						{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "sum", Value: 1}, {Key: "avg", Value: 1},
+							{Key: "arraySum", Value: bson.D{{Key: "$sum", Value: bson.A{tc.values}}}},
+							{Key: "arrayAvg", Value: bson.D{{Key: "$avg", Value: bson.A{tc.values}}}}}}},
+					})
+					if err != nil {
+						return nil, err
+					}
+					var docs []bson.D
+					err = cur.All(ctx, &docs)
+					return docs, err
+				},
+			})
+		})
+	}
+}
