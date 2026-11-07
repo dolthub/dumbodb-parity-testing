@@ -1159,3 +1159,57 @@ func TestExplainPlan_LookupStrategy(t *testing.T) {
 		})
 	}
 }
+
+// TestExplainPlan_SkipAndOrWalk: a find's skip and limit bound the read
+// together, and an $or answered by walking a sort index is planned under
+// SUBPLAN.
+func TestExplainPlan_SkipAndOrWalk(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 0, 50)
+		for i := 0; i < 50; i++ {
+			docs = append(docs, bson.D{{Key: "_id", Value: int32(i)}, {Key: "u", Value: int32(i)}, {Key: "a", Value: int32(i % 7)}, {Key: "b", Value: int32(i % 5)}, {Key: "grp", Value: int32(i % 3)}})
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		for _, k := range []string{"u", "a", "b", "grp"} {
+			if err := createIndex(ctx, col, bson.D{{Key: k, Value: 1}}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	cases := []struct {
+		name string
+		cmd  func(*mongo.Collection) bson.D
+	}{
+		{"skip_limit", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: bson.D{{Key: "u", Value: bson.D{{Key: "$gt", Value: int32(0)}}}}},
+				{Key: "skip", Value: int32(2)}, {Key: "limit", Value: int32(1)}}
+		}},
+		{"or_sort_walk", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: bson.D{{Key: "$or", Value: bson.A{
+				bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: int32(3)}}}}, bson.D{{Key: "b", Value: bson.D{{Key: "$gt", Value: int32(1)}}}}}}}},
+				{Key: "sort", Value: bson.D{{Key: "grp", Value: 1}}}, {Key: "limit", Value: int32(2)}}
+		}},
+	}
+	for _, tc := range cases {
+		support := harness.DumboDBFull
+		if tc.name == "skip_limit" {
+			// mongod skips index keys before fetching (FETCH > SKIP > IXSCAN);
+			// DumboDB fetches the skipped documents too.
+			support = harness.DumboDBXFail
+		}
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "ExplainPlan_SkipAndOrWalk_" + tc.name,
+				Support:   support,
+				Clustered: true,
+				Setup:     setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return explainWorkOf(tc.cmd(col))(ctx, col)
+				},
+			})
+		})
+	}
+}
