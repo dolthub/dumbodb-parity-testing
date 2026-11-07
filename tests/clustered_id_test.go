@@ -638,6 +638,18 @@ func TestClustered_ListCollections(t *testing.T) {
 	})
 }
 
+// errorMessage returns run's error text as its result, so the comparison
+// checks the message and not only the code.
+func errorMessage(run func(context.Context, *mongo.Collection) (interface{}, error)) func(context.Context, *mongo.Collection) (interface{}, error) {
+	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		res, err := run(ctx, col)
+		if err != nil {
+			return err.Error(), nil
+		}
+		return res, nil
+	}
+}
+
 // TestClustered_CreateOptions covers the clusteredIndex option's validation.
 func TestClustered_CreateOptions(t *testing.T) {
 	create := func(opts ...bson.E) func(context.Context, *mongo.Collection) (interface{}, error) {
@@ -659,6 +671,8 @@ func TestClustered_CreateOptions(t *testing.T) {
 		{"not_unique", create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, {Key: "unique", Value: false}}})},
 		{"missing_unique", create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey}})},
 		{"named", create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "name", Value: "byID"}}})},
+		{"version_1", errorMessage(create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "v", Value: int32(1)}, {Key: "name", Value: "nm"}}}))},
+		{"version_3", errorMessage(create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "v", Value: int32(3)}}}))},
 		{"bool_true", create(bson.E{Key: "clusteredIndex", Value: true})},
 		{"bool_false", create(bson.E{Key: "clusteredIndex", Value: false})},
 		{"capped", create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique}}, bson.E{Key: "capped", Value: true}, bson.E{Key: "size", Value: int32(4096)})},
