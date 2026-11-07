@@ -709,3 +709,69 @@ func TestClustered_InEmptyFieldName(t *testing.T) {
 		Run:       cluFindIDs(bson.D{{Key: "_id", Value: bson.D{{Key: "$in", Value: bson.A{id}}}}}),
 	})
 }
+
+// TestClustered_IDRegex: an _id regex matches string _ids by pattern in every
+// read and write command, alone, beside another field, and inside $in.
+func TestClustered_IDRegex(t *testing.T) {
+	re := primitive.Regex{Pattern: "^a"}
+	setup := cluInsertIDs([]interface{}{"abc", "abd", "b", int32(1)})
+	count := func(filter bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return col.CountDocuments(ctx, filter)
+		}
+	}
+	cases := []struct {
+		name string
+		run  func(context.Context, *mongo.Collection) (interface{}, error)
+	}{
+		{"find", cluFindIDs(bson.D{{Key: "_id", Value: re}})},
+		{"find_beside_field", cluFindIDs(bson.D{{Key: "_id", Value: re}, {Key: "q", Value: bson.D{{Key: "$exists", Value: false}}}})},
+		{"find_in", cluFindIDs(bson.D{{Key: "_id", Value: bson.D{{Key: "$in", Value: bson.A{re, "b"}}}}})},
+		{"count", count(bson.D{{Key: "_id", Value: re}})},
+		{"aggregate", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Aggregate(ctx, mongo.Pipeline{{{Key: "$match", Value: bson.D{{Key: "_id", Value: re}}}}, {{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}}})
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			err = cur.All(ctx, &docs)
+			return docs, err
+		}},
+		{"distinct", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return col.Distinct(ctx, "_id", bson.D{{Key: "_id", Value: re}})
+		}},
+		{"update_many", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			res, err := col.UpdateMany(ctx, bson.D{{Key: "_id", Value: re}}, bson.D{{Key: "$set", Value: bson.D{{Key: "t", Value: 1}}}})
+			if err != nil {
+				return nil, err
+			}
+			ids, err := cluFindIDs(bson.D{{Key: "t", Value: 1}})(ctx, col)
+			return bson.A{res.MatchedCount, res.ModifiedCount, ids}, err
+		}},
+		{"delete_many", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			res, err := col.DeleteMany(ctx, bson.D{{Key: "_id", Value: re}})
+			if err != nil {
+				return nil, err
+			}
+			ids, err := cluFindIDs(bson.D{})(ctx, col)
+			return bson.A{res.DeletedCount, ids}, err
+		}},
+		{"find_and_modify", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			var doc bson.D
+			err := col.FindOneAndUpdate(ctx, bson.D{{Key: "_id", Value: re}}, bson.D{{Key: "$set", Value: bson.D{{Key: "t", Value: 1}}}},
+				options.FindOneAndUpdate().SetSort(bson.D{{Key: "_id", Value: 1}})).Decode(&doc)
+			return doc, err
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Clustered_IDRegex_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run:       tc.run,
+			})
+		})
+	}
+}
