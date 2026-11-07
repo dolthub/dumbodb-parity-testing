@@ -235,7 +235,7 @@ Flags:
 |---|---|---|
 | `-bench`           | `^Benchmark` | Regex of benchmarks to run |
 | `-benchtime`       | `2s` | Go's `-benchtime` (wall-clock per benchmark) |
-| `-count`           | `1` | Go's `-count` (repetitions) |
+| `-count`           | `1` | Go's `-count` (repetitions; the report shows each benchmark's median) |
 | `-csv`             | `""` | If set, write CSV results here |
 | `-v`               | `false` | Stream `go test` stderr |
 | `-f`               | `false` | Keep containers running after the run (for investigation) |
