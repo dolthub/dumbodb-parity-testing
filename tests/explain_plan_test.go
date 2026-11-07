@@ -793,3 +793,72 @@ func TestExplainPlan_InSortPicksMerge(t *testing.T) {
 		},
 	})
 }
+
+// TestTieOrder: documents tied on the sort key across $in branches, and
+// documents equally far from a $near point, come back in MongoDB's order, so a
+// limit keeps the same ones.
+func TestTieOrder(t *testing.T) {
+	inSetup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := []interface{}{}
+		for i := 0; i < 12; i++ {
+			docs = append(docs, bson.D{{Key: "_id", Value: int32(100 - i)}, {Key: "grp", Value: int32(i % 3)}, {Key: "k", Value: int32(i / 3)}})
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		return createIndex(ctx, col, bson.D{{Key: "grp", Value: 1}, {Key: "k", Value: 1}})
+	}
+	geoSetup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := []interface{}{}
+		for i, p := range [][2]float64{{1, 0}, {0, 1}, {-1, 0}, {0, -1}, {2, 0}, {0, 2}} {
+			docs = append(docs, bson.D{{Key: "_id", Value: int32(50 - i)}, {Key: "pos", Value: bson.A{p[0], p[1]}}})
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "pos", Value: "2d"}}})
+		return err
+	}
+	find := func(filter, sort bson.D, limit int64) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			opts := options.Find().SetLimit(limit)
+			if sort != nil {
+				opts.SetSort(sort)
+			}
+			cur, err := col.Find(ctx, filter, opts)
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			err = cur.All(ctx, &docs)
+			return docs, err
+		}
+	}
+	in := bson.D{{Key: "grp", Value: bson.D{{Key: "$in", Value: bson.A{int32(2), int32(0), int32(1)}}}}}
+	cases := []struct {
+		name  string
+		setup func(context.Context, *mongo.Collection) error
+		run   func(context.Context, *mongo.Collection) (interface{}, error)
+	}{
+		{"in_branches_ascending", inSetup, find(in, bson.D{{Key: "k", Value: 1}}, 4)},
+		{"in_branches_descending", inSetup, find(in, bson.D{{Key: "k", Value: -1}}, 4)},
+		{"near_equidistant", geoSetup, find(bson.D{{Key: "pos", Value: bson.D{{Key: "$near", Value: bson.A{0.0, 0.0}}}}}, nil, 3)},
+	}
+	for _, tc := range cases {
+		support := harness.DumboDBFull
+		if tc.name == "near_equidistant" {
+			// mongod returns points at equal distance in the order its
+			// distance heap yields them, which no stable order reproduces.
+			support = harness.DumboDBXFail
+		}
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "TieOrder_" + tc.name,
+				Support:   support,
+				Clustered: true,
+				Setup:     tc.setup,
+				Run:       tc.run,
+			})
+		})
+	}
+}
