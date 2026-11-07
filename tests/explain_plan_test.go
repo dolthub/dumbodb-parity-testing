@@ -1021,3 +1021,55 @@ func TestExplainPlan_CountOptions(t *testing.T) {
 		})
 	}
 }
+
+// TestExplainPlan_ViewFilter: explain of a find or count on a view applies
+// both the view's $match and the command's filter.
+func TestExplainPlan_ViewFilter(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 1}},
+			bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: 2}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "a", Value: 3}},
+		}); err != nil {
+			return err
+		}
+		db := col.Database()
+		_ = db.Collection(col.Name() + "_v").Drop(ctx)
+		return db.CreateView(ctx, col.Name()+"_v", col.Name(), mongo.Pipeline{{{Key: "$match", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: 2}}}}}}})
+	}
+	cases := []struct {
+		name string
+		cmd  func(view string) bson.D
+	}{
+		{"find", func(view string) bson.D {
+			return bson.D{{Key: "find", Value: view}, {Key: "filter", Value: bson.D{{Key: "a", Value: 3}}}}
+		}},
+		{"count", func(view string) bson.D {
+			return bson.D{{Key: "count", Value: view}, {Key: "query", Value: bson.D{{Key: "a", Value: 3}}}}
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "ExplainPlan_ViewFilter_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					var doc bson.D
+					err := col.Database().RunCommand(ctx, bson.D{{Key: "explain", Value: tc.cmd(col.Name() + "_v")}, {Key: "verbosity", Value: "executionStats"}}).Decode(&doc)
+					if err != nil {
+						return nil, err
+					}
+					es := findExecutionStats(doc)
+					var n interface{}
+					if es != nil {
+						n, _ = lookup(es, "nReturned")
+					}
+					ver, _ := lookup(doc, "explainVersion")
+					return bson.D{{Key: "nReturned", Value: n}, {Key: "explainVersion", Value: ver}}, nil
+				},
+			})
+		})
+	}
+}
