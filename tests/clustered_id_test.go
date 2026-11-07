@@ -834,3 +834,42 @@ func TestClustered_DecimalMatchesNumber(t *testing.T) {
 		})
 	}
 }
+
+// TestClustered_NaNAndLargeLongEquality (dolthub/dumbodb#210): NaN equals
+// NaN, and a long beyond the doubles' exact range matches itself, on _id and
+// on another field, alone and beside another predicate.
+func TestClustered_NaNAndLargeLongEquality(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		_, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: math.NaN()}, {Key: "a", Value: math.NaN()}, {Key: "n", Value: 1}},
+			bson.D{{Key: "_id", Value: int64(math.MaxInt64)}, {Key: "a", Value: int64(math.MaxInt64)}, {Key: "n", Value: 1}},
+			bson.D{{Key: "_id", Value: int64(1<<53 + 1)}, {Key: "a", Value: int64(1<<53 + 1)}, {Key: "n", Value: 1}},
+		})
+		return err
+	}
+	n := bson.E{Key: "n", Value: bson.D{{Key: "$gte", Value: 1}}}
+	cases := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"id_nan_beside_field", bson.D{{Key: "_id", Value: math.NaN()}, n}},
+		{"id_max_long_beside_field", bson.D{{Key: "_id", Value: int64(math.MaxInt64)}, n}},
+		{"field_nan", bson.D{{Key: "a", Value: math.NaN()}}},
+		{"field_nan_beside_field", bson.D{{Key: "a", Value: math.NaN()}, n}},
+		{"field_max_long", bson.D{{Key: "a", Value: int64(math.MaxInt64)}}},
+		{"field_max_long_beside_field", bson.D{{Key: "a", Value: int64(math.MaxInt64)}, n}},
+		{"field_long_above_2_53", bson.D{{Key: "a", Value: int64(1<<53 + 1)}, n}},
+		{"field_double_2_53", bson.D{{Key: "a", Value: float64(1 << 53)}, n}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Clustered_NaNAndLargeLongEquality_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run:       cluFindIDs(tc.filter),
+			})
+		})
+	}
+}
