@@ -36,6 +36,7 @@ type DumboMember struct {
 	bin  string
 	rs   *ReplicaSet
 	proc *serverProc
+	logs []string
 	t    *testing.T
 	opts DumboMemberOptions
 }
@@ -97,6 +98,7 @@ func (d *DumboMember) launch() {
 		d.t.Fatalf("launch dumbodb: %v", err)
 	}
 	d.proc = proc
+	d.logs = append(d.logs, proc.log)
 	if !waitPort(d.Addr, 60*time.Second) {
 		d.t.Fatalf("dumbodb did not listen on %s (log %s)", d.Addr, proc.log)
 	}
@@ -225,6 +227,28 @@ func (d *DumboMember) ReadLog() (string, error) {
 	return string(contents), nil
 }
 
+// maxFailureLogBytes caps how much of a member log a failing test reports, so
+// one runaway log cannot flood the CI output.
+const maxFailureLogBytes = 4 << 20
+
+// logMemberLogs reports every log the member wrote, one per launch, in the
+// test output, which CI keeps in its results artifact, so a failure such as a
+// member stuck in RECOVERING can be diagnosed from its whole history.
+func (d *DumboMember) logMemberLogs() {
+	for _, path := range d.logs {
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			d.t.Logf("read dumbodb member %s log: %v", d.Addr, err)
+			continue
+		}
+		if len(contents) > maxFailureLogBytes {
+			d.t.Logf("dumbodb member %s log %s is %d bytes; reporting the last %d", d.Addr, path, len(contents), maxFailureLogBytes)
+			contents = contents[len(contents)-maxFailureLogBytes:]
+		}
+		d.t.Logf("dumbodb member %s log %s:\n%s", d.Addr, path, contents)
+	}
+}
+
 func (d *DumboMember) AssertHiddenNonVoting(ctx context.Context) {
 	d.t.Helper()
 	cfg, err := d.rs.Config(ctx)
@@ -251,6 +275,9 @@ func (d *DumboMember) AssertHiddenNonVoting(ctx context.Context) {
 }
 
 func (d *DumboMember) teardown() {
+	if d.t.Failed() {
+		d.logMemberLogs()
+	}
 	if d.rs.external {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
