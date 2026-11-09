@@ -1491,3 +1491,52 @@ func TestClustered_DuplicateKey_DecodedRecordID(t *testing.T) {
 		}),
 	})
 }
+
+// TestClustered_RecordIDThroughViews: a view stage that reshapes documents
+// leaves no RecordId, so find on the view cannot reveal the base _id through
+// showRecordId or $meta "recordId".
+func TestClustered_RecordIDThroughViews(t *testing.T) {
+	views := []struct {
+		name     string
+		pipeline bson.A
+	}{
+		{"project", bson.A{bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "a", Value: 1}}}}}},
+		{"set", bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "_id", Value: "hidden"}}}}}},
+		{"add_fields", bson.A{bson.D{{Key: "$addFields", Value: bson.D{{Key: "_id", Value: "hidden"}}}}}},
+		{"replace_root", bson.A{bson.D{{Key: "$replaceRoot", Value: bson.D{{Key: "newRoot", Value: bson.D{{Key: "a", Value: "$a"}}}}}}}},
+		{"group", bson.A{bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: "$a"}}}}}},
+	}
+	reads := []struct {
+		name string
+		opts *options.FindOptions
+	}{
+		{"show_record_id", options.Find().SetShowRecordID(true)},
+		{"meta", options.Find().SetProjection(bson.D{{Key: "a", Value: 1}, {Key: "r", Value: bson.D{{Key: "$meta", Value: "recordId"}}}})},
+	}
+	for _, v := range views {
+		for _, r := range reads {
+			t.Run(v.name+"/"+r.name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:      "Clustered_RecordIDThroughViews_" + v.name + "_" + r.name,
+					Support:   harness.DumboDBFull,
+					Clustered: true,
+					Setup: func(ctx context.Context, col *mongo.Collection) error {
+						if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "SSN-123-45-6789"}, {Key: "a", Value: int32(1)}}); err != nil {
+							return err
+						}
+						return col.Database().RunCommand(ctx, bson.D{{Key: "create", Value: col.Name() + "_v"}, {Key: "viewOn", Value: col.Name()}, {Key: "pipeline", Value: v.pipeline}}).Err()
+					},
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						cur, err := col.Database().Collection(col.Name()+"_v").Find(ctx, bson.D{}, r.opts)
+						if err != nil {
+							return nil, err
+						}
+						var docs []bson.D
+						err = cur.All(ctx, &docs)
+						return docs, err
+					},
+				})
+			})
+		}
+	}
+}
