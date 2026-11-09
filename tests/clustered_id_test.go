@@ -16,6 +16,8 @@ package tests
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"math"
 	"math/rand/v2"
 	"testing"
@@ -1276,10 +1278,8 @@ func TestClustered_TimeSeriesListIndexes(t *testing.T) {
 }
 
 // TestClustered_DuplicateKey_SignedZero: -0 equals 0 and a Decimal128 -0
-// equals both, so each second insert is a duplicate key. A double NaN beside a
-// Decimal128 NaN is left out: a clustered mongod 8.0 fails that insert with
-// "KeyString format error: Invalid type bits for numeric NaN", where a plain
-// collection, like DumboDB, reports a duplicate key.
+// equals both, so each second insert is a duplicate key. NaN is covered by
+// TestClustered_DuplicateKey_DecodedRecordID.
 func TestClustered_DuplicateKey_SignedZero(t *testing.T) {
 	decNegZero := primitive.NewDecimal128(0xb040000000000000, 0)
 	pairs := [][2]interface{}{
@@ -1357,4 +1357,88 @@ func TestClustered_RecordID(t *testing.T) {
 			})
 		})
 	}
+}
+
+// dupIDValues are _id values of every type, each inserted twice by the
+// duplicate-key cases.
+func dupIDValues() []interface{} {
+	oid, _ := primitive.ObjectIDFromHex("65a0333600000000000000aa")
+	return []interface{}{
+		int32(1), int64(5), int64(math.MaxInt64), 0.5, math.Copysign(0, -1), 1e20, 5e-324, math.NaN(), math.Inf(1), math.Inf(-1),
+		primitive.NewDecimal128(0x303e000000000000, 1), // 0.1
+		primitive.NewDecimal128(0x7c00000000000000, 0), // NaN
+		primitive.NewDecimal128(0x2d20000000000000, 1), // 1E-400
+		"a", oid, bson.D{{Key: "a", Value: int32(1)}}, bson.D{{Key: "a", Value: 1.5}}, bson.D{{Key: "a", Value: bson.A{int32(1)}}},
+		primitive.DateTime(0), true, primitive.Binary{Data: []byte{1}}, primitive.MinKey{}, primitive.Timestamp{T: 1, I: 1},
+	}
+}
+
+// duplicateIDErrors inserts each value twice and returns each second insert's
+// error code and message.
+func duplicateIDErrors(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+	var out bson.A
+	for _, id := range dupIDValues() {
+		if _, err := col.DeleteMany(ctx, bson.D{}); err != nil {
+			return nil, err
+		}
+		if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: id}}); err != nil {
+			return nil, err
+		}
+		_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: id}})
+		var we mongo.WriteException
+		if errors.As(err, &we) && len(we.WriteErrors) > 0 {
+			out = append(out, bson.A{int32(we.WriteErrors[0].Code), we.WriteErrors[0].Message})
+		} else {
+			out = append(out, fmt.Sprint(err))
+		}
+	}
+	return out, nil
+}
+
+// TestDuplicateKey_IDTypes: a duplicate _id of each type fails with E11000 and
+// MongoDB's message on a default collection.
+func TestDuplicateKey_IDTypes(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "DuplicateKey_IDTypes",
+		Support: harness.DumboDBFull,
+		Run:     duplicateIDErrors,
+	})
+}
+
+// TestClustered_DuplicateKey_DecodedRecordID records a clustered mongod quirk
+// DumboDB does not copy. mongod builds a clustered collection's E11000 message
+// by decoding the RecordId, which keeps no TypeBits, so every number decodes as
+// an int32: NumberLong(MaxInt64) is reported as -1, and NaN, infinities,
+// fractions and large doubles fail with a KeyString format error (50819,
+// 50826, 50825, 50823) instead of E11000. A default MongoDB collection reports
+// E11000 for all of them (TestDuplicateKey_IDTypes), as DumboDB does, so
+// drivers and applications that detect duplicates by code 11000 keep working.
+func TestClustered_DuplicateKey_DecodedRecordID(t *testing.T) {
+	ids := []interface{}{int64(math.MaxInt64), math.NaN(), primitive.NewDecimal128(0x7c00000000000000, 0), math.Inf(1), 0.5, 1e20, 5e-324}
+	codes := func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		var out bson.A
+		for _, id := range ids {
+			if _, err := col.DeleteMany(ctx, bson.D{}); err != nil {
+				return nil, err
+			}
+			if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: id}}); err != nil {
+				return nil, err
+			}
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: id}})
+			var we mongo.WriteException
+			if !errors.As(err, &we) || len(we.WriteErrors) == 0 {
+				return nil, fmt.Errorf("second insert of %v: %v", id, err)
+			}
+			out = append(out, int32(we.WriteErrors[0].Code))
+		}
+		return out, nil
+	}
+	harness.PairTest(t, harness.TestCase{
+		Name:        "Clustered_DuplicateKey_DecodedRecordID",
+		Support:     harness.DumboDBDeviates,
+		Clustered:   true,
+		Run:         codes,
+		MongoExpect: expectResult("mongo", bson.A{int32(11000), int32(50819), int32(50819), int32(50826), int32(50825), int32(50826), int32(50823)}),
+		DumboExpect: expectResult("dumbodb", bson.A{int32(11000), int32(11000), int32(11000), int32(11000), int32(11000), int32(11000), int32(11000)}),
+	})
 }
