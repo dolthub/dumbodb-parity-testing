@@ -1540,3 +1540,72 @@ func TestClustered_RecordIDThroughViews(t *testing.T) {
 		}
 	}
 }
+
+// TestClustered_CoveredNullOrMissing: an index key of null stands for null or
+// a missing field. A covered read may report it as null only when the filter
+// cannot tell the two apart; otherwise it must fetch the document.
+func TestClustered_CoveredNullOrMissing(t *testing.T) {
+	filters := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"empty", bson.D{}},
+		{"exists_true", bson.D{{Key: "a", Value: bson.D{{Key: "$exists", Value: true}}}}},
+		{"exists_false", bson.D{{Key: "a", Value: bson.D{{Key: "$exists", Value: false}}}}},
+		{"type_null", bson.D{{Key: "a", Value: bson.D{{Key: "$type", Value: "null"}}}}},
+		{"not_exists_false", bson.D{{Key: "a", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$exists", Value: false}}}}}}},
+		{"not_ne_null", bson.D{{Key: "a", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$ne", Value: nil}}}}}}},
+		{"all_null", bson.D{{Key: "a", Value: bson.D{{Key: "$all", Value: bson.A{nil}}}}}},
+		{"eq_null", bson.D{{Key: "a", Value: nil}}},
+		{"ne_null", bson.D{{Key: "a", Value: bson.D{{Key: "$ne", Value: nil}}}}},
+		{"nin", bson.D{{Key: "a", Value: bson.D{{Key: "$nin", Value: bson.A{int32(1)}}}}}},
+		{"nin_null", bson.D{{Key: "a", Value: bson.D{{Key: "$nin", Value: bson.A{nil}}}}}},
+		{"ne_value", bson.D{{Key: "a", Value: bson.D{{Key: "$ne", Value: int32(1)}}}}},
+		{"lte_maxkey", bson.D{{Key: "a", Value: bson.D{{Key: "$lte", Value: primitive.MaxKey{}}}}}},
+		{"gt", bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: int32(0)}}}}},
+		{"gte_minkey", bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: primitive.MinKey{}}}}}},
+		{"in_values", bson.D{{Key: "a", Value: bson.D{{Key: "$in", Value: bson.A{int32(1), "s"}}}}}},
+	}
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		_, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: int32(1)}, {Key: "g", Value: int32(1)}, {Key: "a", Value: nil}},
+			bson.D{{Key: "_id", Value: int32(2)}, {Key: "g", Value: int32(1)}},
+			bson.D{{Key: "_id", Value: int32(3)}, {Key: "g", Value: int32(1)}, {Key: "a", Value: int32(1)}},
+			bson.D{{Key: "_id", Value: int32(4)}, {Key: "g", Value: int32(1)}, {Key: "a", Value: "s"}},
+		})
+		if err != nil {
+			return err
+		}
+		_, err = col.Indexes().CreateMany(ctx, []mongo.IndexModel{
+			{Keys: bson.D{{Key: "a", Value: 1}}, Options: options.Index().SetName("a_1")},
+			{Keys: bson.D{{Key: "g", Value: 1}, {Key: "a", Value: 1}}, Options: options.Index().SetName("g_a")},
+		})
+		return err
+	}
+	for _, f := range filters {
+		for _, hint := range []string{"a_1", "g_a"} {
+			t.Run(f.name+"/"+hint, func(t *testing.T) {
+				filter := f.filter
+				if hint == "g_a" {
+					filter = append(bson.D{{Key: "g", Value: int32(1)}}, filter...)
+				}
+				harness.PairTest(t, harness.TestCase{
+					Name:      "Clustered_CoveredNullOrMissing_" + f.name + "_" + hint,
+					Support:   harness.DumboDBFull,
+					Clustered: true,
+					Setup:     setup,
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						opts := options.Find().SetProjection(bson.D{{Key: "a", Value: 1}, {Key: "_id", Value: 0}}).SetHint(hint)
+						cur, err := col.Find(ctx, filter, opts)
+						if err != nil {
+							return nil, err
+						}
+						var docs []bson.D
+						err = cur.All(ctx, &docs)
+						return docs, err
+					},
+				})
+			})
+		}
+	}
+}
