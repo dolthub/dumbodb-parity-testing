@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand/v2"
+	"strings"
 	"testing"
 	"time"
 
@@ -1406,39 +1407,87 @@ func TestDuplicateKey_IDTypes(t *testing.T) {
 }
 
 // TestClustered_DuplicateKey_DecodedRecordID records a clustered mongod quirk
-// DumboDB does not copy. mongod builds a clustered collection's E11000 message
-// by decoding the RecordId, which keeps no TypeBits, so every number decodes as
-// an int32: NumberLong(MaxInt64) is reported as -1, and NaN, infinities,
-// fractions and large doubles fail with a KeyString format error (50819,
-// 50826, 50825, 50823) instead of E11000. A default MongoDB collection reports
-// E11000 for all of them (TestDuplicateKey_IDTypes), as DumboDB does, so
-// drivers and applications that detect duplicates by code 11000 keep working.
+// DumboDB does not copy. Both servers refuse every duplicate _id below and keep
+// the first document unchanged; only the error differs. mongod builds a
+// clustered collection's E11000 message by decoding the RecordId, which keeps
+// no TypeBits, so every number decodes as an int32: NumberLong(MaxInt64) is
+// reported as -1, and NaN, infinities, fractions and large doubles fail with a
+// KeyString format error (50819, 50826, 50825, 50823) instead of E11000.
+// DumboDB returns what a default MongoDB collection returns
+// (TestDuplicateKey_IDTypes), so code that detects duplicates by 11000 works.
 func TestClustered_DuplicateKey_DecodedRecordID(t *testing.T) {
 	ids := []interface{}{int64(math.MaxInt64), math.NaN(), primitive.NewDecimal128(0x7c00000000000000, 0), math.Inf(1), 0.5, 1e20, 5e-324}
-	codes := func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-		var out bson.A
+	// outcome is the second insert's error code and message, with the
+	// namespace replaced by "NS", and the documents stored afterwards.
+	type outcome struct {
+		code    int32
+		message string
+		stored  []string
+	}
+	run := func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		ns := col.Database().Name() + "." + col.Name()
+		var out []outcome
 		for _, id := range ids {
 			if _, err := col.DeleteMany(ctx, bson.D{}); err != nil {
 				return nil, err
 			}
-			if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: id}}); err != nil {
+			if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: id}, {Key: "v", Value: "first"}}); err != nil {
 				return nil, err
 			}
-			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: id}})
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: id}, {Key: "v", Value: "second"}})
 			var we mongo.WriteException
 			if !errors.As(err, &we) || len(we.WriteErrors) == 0 {
 				return nil, fmt.Errorf("second insert of %v: %v", id, err)
 			}
-			out = append(out, int32(we.WriteErrors[0].Code))
+			cur, err := col.Find(ctx, bson.D{})
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.M
+			if err := cur.All(ctx, &docs); err != nil {
+				return nil, err
+			}
+			var stored []string
+			for _, d := range docs {
+				stored = append(stored, fmt.Sprint(d["v"]))
+			}
+			out = append(out, outcome{
+				code:    int32(we.WriteErrors[0].Code),
+				message: strings.ReplaceAll(we.WriteErrors[0].Message, ns, "NS"),
+				stored:  stored,
+			})
 		}
 		return out, nil
 	}
+	dup := func(key string) string {
+		return "E11000 duplicate key error collection: NS index: _id_ dup key: { _id: " + key + " }"
+	}
+	first := []string{"first"}
+	keyStringError := func(code int32, message string) outcome {
+		return outcome{code: code, message: "KeyString format error: " + message, stored: first}
+	}
 	harness.PairTest(t, harness.TestCase{
-		Name:        "Clustered_DuplicateKey_DecodedRecordID",
-		Support:     harness.DumboDBDeviates,
-		Clustered:   true,
-		Run:         codes,
-		MongoExpect: expectResult("mongo", bson.A{int32(11000), int32(50819), int32(50819), int32(50826), int32(50825), int32(50826), int32(50823)}),
-		DumboExpect: expectResult("dumbodb", bson.A{int32(11000), int32(11000), int32(11000), int32(11000), int32(11000), int32(11000), int32(11000)}),
+		Name:      "Clustered_DuplicateKey_DecodedRecordID",
+		Support:   harness.DumboDBDeviates,
+		Clustered: true,
+		Run:       run,
+		MongoExpect: expectResult("mongo", []outcome{
+			{code: 11000, message: "E11000 duplicate key error collection: NS dup key: { _id: -1 } found value: {}", stored: first},
+			keyStringError(50819, "Invalid type bits for numeric NaN"),
+			keyStringError(50819, "Invalid type bits for numeric NaN"),
+			keyStringError(50826, "Unexpected type of large number."),
+			keyStringError(50825, "Unexpected type for small number, expected decimal."),
+			keyStringError(50826, "Unexpected type of large number."),
+			keyStringError(50823, "Expected decimal continuation."),
+		}),
+		DumboExpect: expectResult("dumbodb", []outcome{
+			{code: 11000, message: dup("9223372036854775807"), stored: first},
+			{code: 11000, message: dup("nan.0"), stored: first},
+			{code: 11000, message: dup("NaN"), stored: first},
+			{code: 11000, message: dup("inf.0"), stored: first},
+			{code: 11000, message: dup("0.5"), stored: first},
+			{code: 11000, message: dup("1e+20.0"), stored: first},
+			{code: 11000, message: dup("4.940656458412465e-324"), stored: first},
+		}),
 	})
 }
