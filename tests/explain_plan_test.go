@@ -1000,10 +1000,17 @@ func TestExplainPlan_CountOptions(t *testing.T) {
 		{"skip_limit", count(bson.E{Key: "query", Value: bson.D{{Key: "b", Value: int32(2)}}}, bson.E{Key: "skip", Value: int32(1)}, bson.E{Key: "limit", Value: int32(3)})},
 		{"multikey", count(bson.E{Key: "query", Value: bson.D{{Key: "m", Value: bson.D{{Key: "$gt", Value: int32(50)}}}}})},
 		{"hint_other_index", count(bson.E{Key: "query", Value: bson.D{{Key: "a", Value: int32(3)}}}, bson.E{Key: "hint", Value: "b_1"})},
+		{"multikey_limit", count(bson.E{Key: "query", Value: bson.D{{Key: "m", Value: bson.D{{Key: "$gt", Value: int32(5)}}}}}, bson.E{Key: "limit", Value: int32(5)})},
+		{"multikey_hinted", count(bson.E{Key: "query", Value: bson.D{{Key: "m", Value: bson.D{{Key: "$gt", Value: int32(50)}}}}}, bson.E{Key: "hint", Value: "m_1"})},
+		{"multikey_in", count(bson.E{Key: "query", Value: bson.D{{Key: "m", Value: bson.D{{Key: "$in", Value: bson.A{int32(1), int32(2), int32(8)}}}}}})},
+		{"in", count(bson.E{Key: "query", Value: bson.D{{Key: "b", Value: bson.D{{Key: "$in", Value: bson.A{int32(1), int32(2), int32(8)}}}}}})},
+		{"in_limit", count(bson.E{Key: "query", Value: bson.D{{Key: "b", Value: bson.D{{Key: "$in", Value: bson.A{int32(1), int32(2), int32(8)}}}}}}, bson.E{Key: "limit", Value: int32(4)})},
+		{"hint_other_index_skip_limit", count(bson.E{Key: "query", Value: bson.D{{Key: "a", Value: int32(3)}}}, bson.E{Key: "hint", Value: "b_1"},
+			bson.E{Key: "skip", Value: int32(2)}, bson.E{Key: "limit", Value: int32(3)})},
 	}
 	for _, tc := range cases {
 		support := harness.DumboDBFull
-		if tc.name == "multikey" {
+		if tc.name == "multikey" || tc.name == "multikey_hinted" {
 			// mongod's multikey COUNT_SCAN examines one key more than the
 			// range holds; DumboDB counts the range's entries.
 			support = harness.DumboDBXFail
