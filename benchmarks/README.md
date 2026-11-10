@@ -89,8 +89,8 @@ sort order matches insertion order. `Find_IdPaginate` at
 `_10K`/`_50K` times one page of keyset pagination: `{_id: {$gt: last}}`
 sorted on `_id` with a limit of 100, walking the collection page by page.
 Before timing, each checks the result count (or, for pagination, the exact
-page of `_id`s in order) and the `_id_` index use. DumboDB keys rows by a hash
-of `_id` and scans for these, a known gap tracked by dolthub/dumbodb#207.
+page of `_id`s in order) and the `_id_` index use, which must read the `_id`
+index or the clustered `_id` order.
 
 **UUID insert variants** (in `uuid_bench_test.go`):
 `InsertMany_{UUIDv4,UUIDv7,UUIDv4String}_50K_{100,1000}` insert batches into a

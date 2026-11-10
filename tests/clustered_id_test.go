@@ -816,13 +816,7 @@ func TestClustered_IDRegex(t *testing.T) {
 // TestClustered_DecimalMatchesNumber: a number in a filter matches an equal
 // stored Decimal128, on _id beside another field and on any other field.
 func TestClustered_DecimalMatchesNumber(t *testing.T) {
-	dec := func(s string) primitive.Decimal128 {
-		d, err := primitive.ParseDecimal128(s)
-		if err != nil {
-			panic(err)
-		}
-		return d
-	}
+	dec := mustDecimal
 	setup := func(ctx context.Context, col *mongo.Collection) error {
 		_, err := col.InsertMany(ctx, []interface{}{
 			bson.D{{Key: "_id", Value: dec("7.000")}, {Key: "w", Value: 1}, {Key: "x", Value: dec("7.000")}},

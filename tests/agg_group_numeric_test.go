@@ -143,9 +143,10 @@ func TestAggGroupNum_IntPromotionAvg(t *testing.T) {
 	})
 }
 
-// TestAggGroupNum_SumOrder: $sum and $avg give one result whatever the order
-// of doubles, integers and decimals, in $group (input sorted on _id first)
-// and over an array. Doubles alone keep the double-double sum's precision.
+// TestAggGroupNum_SumOrder: $sum and $avg over doubles, integers and decimals
+// in each input order match mongod's result for that order, in $group (input
+// sorted on _id first) and over an array. Doubles alone keep the double-double
+// sum's precision.
 func TestAggGroupNum_SumOrder(t *testing.T) {
 	dec := mustDecimal
 	cases := []struct {
