@@ -1282,3 +1282,80 @@ func TestExplainPlan_SortWalkCounts(t *testing.T) {
 		})
 	}
 }
+
+// TestExplainPlan_ReshapingView: explain of a find, count or aggregate on a
+// view whose pipeline reshapes documents runs the view's stages before the
+// command's, so the command's filter sees the reshaped documents.
+func TestExplainPlan_ReshapingView(t *testing.T) {
+	views := []struct {
+		name     string
+		pipeline mongo.Pipeline
+	}{
+		{"project", mongo.Pipeline{{{Key: "$project", Value: bson.D{{Key: "z", Value: "$a"}}}}}},
+		{"match_set", mongo.Pipeline{{{Key: "$match", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: 2}}}}}}, {{Key: "$set", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$multiply", Value: bson.A{"$a", 10}}}}}}}}},
+		{"sort_limit", mongo.Pipeline{{{Key: "$sort", Value: bson.D{{Key: "a", Value: -1}}}}, {{Key: "$limit", Value: 2}}}},
+		{"match", mongo.Pipeline{{{Key: "$match", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: 2}}}}}}}},
+	}
+	cmds := []struct {
+		name string
+		cmd  func(view string, filter bson.D) bson.D
+	}{
+		{"find", func(view string, filter bson.D) bson.D {
+			return bson.D{{Key: "find", Value: view}, {Key: "filter", Value: filter}}
+		}},
+		{"count", func(view string, filter bson.D) bson.D {
+			return bson.D{{Key: "count", Value: view}, {Key: "query", Value: filter}}
+		}},
+		{"aggregate", func(view string, filter bson.D) bson.D {
+			return bson.D{{Key: "aggregate", Value: view}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: filter}}}}, {Key: "cursor", Value: bson.D{}}}
+		}},
+	}
+	filters := map[string]bson.D{
+		"project":    {{Key: "z", Value: 3}},
+		"match_set":  {{Key: "a", Value: 30}},
+		"sort_limit": {{Key: "a", Value: bson.D{{Key: "$lt", Value: 3}}}},
+		"match":      {{Key: "a", Value: 3}},
+	}
+	for _, v := range views {
+		for _, c := range cmds {
+			t.Run(v.name+"/"+c.name, func(t *testing.T) {
+				support := harness.DumboDBFull
+				if v.name == "project" {
+					// mongod moves a $match ahead of a $project that renames the
+					// matched field, so its query layer filters on a; DumboDB
+					// pushes down only leading $match, $sort and $limit stages.
+					support = harness.DumboDBXFail
+				}
+				harness.PairTest(t, harness.TestCase{
+					Name:      "ExplainPlan_ReshapingView_" + v.name + "_" + c.name,
+					Support:   support,
+					Clustered: true,
+					Setup: func(ctx context.Context, col *mongo.Collection) error {
+						docs := []interface{}{}
+						for i := 1; i <= 5; i++ {
+							docs = append(docs, bson.D{{Key: "_id", Value: i}, {Key: "a", Value: (i % 3) + 1}})
+						}
+						if _, err := col.InsertMany(ctx, docs); err != nil {
+							return err
+						}
+						return col.Database().CreateView(ctx, col.Name()+"_v", col.Name(), v.pipeline)
+					},
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						var doc bson.D
+						err := col.Database().RunCommand(ctx, bson.D{{Key: "explain", Value: c.cmd(col.Name()+"_v", filters[v.name])}, {Key: "verbosity", Value: "executionStats"}}).Decode(&doc)
+						if err != nil {
+							return nil, err
+						}
+						es := findExecutionStats(doc)
+						var n interface{}
+						if es != nil {
+							n, _ = lookup(es, "nReturned")
+						}
+						ver, _ := lookup(doc, "explainVersion")
+						return bson.D{{Key: "nReturned", Value: n}, {Key: "explainVersion", Value: ver}}, nil
+					},
+				})
+			})
+		}
+	}
+}
