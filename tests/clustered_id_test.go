@@ -1902,10 +1902,10 @@ func TestClustered_HintDescendingIndex(t *testing.T) {
 	}
 }
 
-// TestRange_MinMaxKeySparse: count and find agree on MinKey and MaxKey bounds,
-// with and without a sparse index on the field. With a sparse index, mongod
-// answers count from the index and leaves out the documents without the field,
-// so its count disagrees with its own find; DumboDB counts what find returns.
+// TestRange_MinMaxKeySparse: count and find on MinKey and MaxKey bounds, with
+// and without a sparse index on the field. With a sparse index, mongod answers
+// count from the index and leaves out the documents without the field, so its
+// count is lower than its own find; DumboDB does the same.
 func TestRange_MinMaxKeySparse(t *testing.T) {
 	setup := func(sparse bool) func(context.Context, *mongo.Collection) error {
 		return func(ctx context.Context, col *mongo.Collection) error {
@@ -1967,11 +1967,6 @@ func TestRange_MinMaxKeySparse(t *testing.T) {
 						}
 						return bson.D{{Key: "countDocuments", Value: n}, {Key: "count", Value: cmd["n"]}, {Key: "find", Value: int32(len(ids.(bson.A)))}}, nil
 					},
-				}
-				if sparse {
-					tc.Support = harness.DumboDBDeviates
-					tc.MongoExpect = expectResult("mongo", bson.D{{Key: "countDocuments", Value: int64(25)}, {Key: "count", Value: int32(25)}, {Key: "find", Value: int32(30)}})
-					tc.DumboExpect = expectResult("dumbodb", bson.D{{Key: "countDocuments", Value: int64(30)}, {Key: "count", Value: int32(30)}, {Key: "find", Value: int32(30)}})
 				}
 				harness.PairTest(t, tc)
 			})
