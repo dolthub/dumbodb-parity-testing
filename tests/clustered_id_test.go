@@ -705,6 +705,18 @@ func TestClustered_CreateOptions(t *testing.T) {
 			}
 			return create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique}})(ctx, col)
 		}},
+		{"named_on_existing", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique}})(ctx, col); err != nil {
+				return nil, err
+			}
+			return create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "name", Value: "zz"}}})(ctx, col)
+		}},
+		{"default_name_on_existing", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique}})(ctx, col); err != nil {
+				return nil, err
+			}
+			return create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "name", Value: "_id_"}, {Key: "v", Value: int32(2)}}})(ctx, col)
+		}},
 		{"named_listed", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			if _, err := create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "name", Value: "byID"}}})(ctx, col); err != nil {
 				return nil, err
