@@ -2136,3 +2136,129 @@ func TestClustered_RecordIDOutsideProjection(t *testing.T) {
 		})
 	}
 }
+
+// TestHint_Invalid: hints of the wrong type, $natural values other than 1 and
+// -1, an empty name, a $natural sort against the hint, and an index hint on an
+// upsert into a missing collection are refused as mongod refuses them.
+func TestHint_Invalid(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.InsertMany(ctx, []interface{}{bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 1}}, bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: 2}}}); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}}})
+		return err
+	}
+	// outcome is the command error's code, or n and the write errors' codes.
+	// mongod's message for an unknown index embeds its query tree, so only
+	// the $natural messages are compared.
+	outcome := func(res bson.M, err error) interface{} {
+		var we mongo.WriteException
+		if errors.As(err, &we) {
+			var codes bson.A
+			for _, e := range we.WriteErrors {
+				codes = append(codes, int32(e.Index), int32(e.Code))
+			}
+			n, _ := we.Raw.Lookup("n").AsInt64OK()
+			return bson.A{"n", n, codes}
+		}
+		var ce mongo.CommandError
+		if errors.As(err, &ce) {
+			if strings.Contains(ce.Message, "$natural") {
+				return bson.A{"command", ce.Code, ce.Message}
+			}
+			return bson.A{"command", ce.Code}
+		}
+		if err != nil {
+			return fmt.Sprint(err)
+		}
+		n, _ := res["n"].(int32)
+		return bson.A{"n", int64(n), bson.A(nil)}
+	}
+	run := func(cmd func(col *mongo.Collection) bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			var res bson.M
+			err := col.Database().RunCommand(ctx, cmd(col)).Decode(&res)
+			return outcome(res, err), nil
+		}
+	}
+	hints := []struct {
+		name string
+		hint interface{}
+	}{
+		{"natural_2", bson.D{{Key: "$natural", Value: 2}}},
+		{"natural_0", bson.D{{Key: "$natural", Value: 0}}},
+		{"natural_string", bson.D{{Key: "$natural", Value: "x"}}},
+		{"int", 5},
+		{"array", bson.A{1}},
+		{"empty_name", ""},
+		{"empty_document", bson.D{}},
+	}
+	for _, h := range hints {
+		cmds := []struct {
+			name string
+			cmd  func(col *mongo.Collection) bson.D
+		}{
+			{"update", func(col *mongo.Collection) bson.D {
+				return bson.D{{Key: "update", Value: col.Name()}, {Key: "updates", Value: bson.A{bson.D{{Key: "q", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "w", Value: 1}}}}}, {Key: "hint", Value: h.hint}}}}}
+			}},
+			{"delete", func(col *mongo.Collection) bson.D {
+				return bson.D{{Key: "delete", Value: col.Name()}, {Key: "deletes", Value: bson.A{bson.D{{Key: "q", Value: bson.D{{Key: "a", Value: 2}}}, {Key: "limit", Value: 1}, {Key: "hint", Value: h.hint}}}}}
+			}},
+			{"find_and_modify", func(col *mongo.Collection) bson.D {
+				return bson.D{{Key: "findAndModify", Value: col.Name()}, {Key: "query", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "update", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "w", Value: 2}}}}}, {Key: "hint", Value: h.hint}}
+			}},
+			{"find", func(col *mongo.Collection) bson.D {
+				return bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "hint", Value: h.hint}}
+			}},
+		}
+		for _, c := range cmds {
+			t.Run(h.name+"/"+c.name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "Hint_Invalid_" + h.name + "_" + c.name,
+					Support: harness.DumboDBFull,
+					Setup:   setup,
+					Run:     run(c.cmd),
+				})
+			})
+		}
+	}
+	extra := []struct {
+		name string
+		cmd  func(col *mongo.Collection) bson.D
+	}{
+		{"find_and_modify_upsert_missing_collection", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "findAndModify", Value: col.Name() + "_missing"}, {Key: "query", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "update", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "w", Value: 2}}}}}, {Key: "upsert", Value: true}, {Key: "hint", Value: "a1"}}
+		}},
+		{"update_upsert_missing_collection", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "update", Value: col.Name() + "_missing"}, {Key: "updates", Value: bson.A{bson.D{{Key: "q", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "w", Value: 2}}}}}, {Key: "upsert", Value: true}, {Key: "hint", Value: "a1"}}}}}
+		}},
+		{"find_and_modify_natural_sort_against_hint", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "findAndModify", Value: col.Name()}, {Key: "query", Value: bson.D{}}, {Key: "update", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "w", Value: 3}}}}}, {Key: "sort", Value: bson.D{{Key: "$natural", Value: 1}}}, {Key: "hint", Value: bson.D{{Key: "$natural", Value: -1}}}}
+		}},
+		{"find_natural_sort_against_hint", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: bson.D{}}, {Key: "sort", Value: bson.D{{Key: "$natural", Value: 1}}}, {Key: "hint", Value: bson.D{{Key: "$natural", Value: -1}}}}
+		}},
+		{"update_unordered_bad_hint_in_first_statement", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "update", Value: col.Name()}, {Key: "ordered", Value: false}, {Key: "updates", Value: bson.A{
+				bson.D{{Key: "q", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "w", Value: 5}}}}}, {Key: "hint", Value: "zz"}},
+				bson.D{{Key: "q", Value: bson.D{{Key: "a", Value: 2}}}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "w", Value: 5}}}}}},
+			}}}
+		}},
+		{"update_bad_hint_in_second_statement", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "update", Value: col.Name()}, {Key: "updates", Value: bson.A{
+				bson.D{{Key: "q", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "w", Value: 5}}}}}},
+				bson.D{{Key: "q", Value: bson.D{{Key: "a", Value: 2}}}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "w", Value: 5}}}}}, {Key: "hint", Value: "zz"}},
+			}}}
+		}},
+	}
+	for _, c := range extra {
+		t.Run(c.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Hint_Invalid_" + c.name,
+				Support: harness.DumboDBFull,
+				Setup:   setup,
+				Run:     run(c.cmd),
+			})
+		})
+	}
+}
