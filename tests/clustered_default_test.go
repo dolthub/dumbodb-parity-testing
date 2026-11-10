@@ -216,3 +216,54 @@ func defaultRecordIDTypes(projection bson.D) func(context.Context, *mongo.Collec
 		return types, nil
 	}
 }
+
+// TestExplain_MultiFieldSortDeviates: for a sort on two fields, mongod walks a
+// compound index in sort order; DumboDB walks an index only for a one-field
+// sort, so it plans the filter's index and sorts in memory. Its explain shows
+// that plan, with counts from the same run.
+func TestExplain_MultiFieldSortDeviates(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 10)
+		for i := range docs {
+			docs[i] = bson.D{{Key: "_id", Value: int32(i)}, {Key: "a", Value: int32(i + 1)}, {Key: "b", Value: int32(10 - i)}}
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateMany(ctx, []mongo.IndexModel{
+			{Keys: bson.D{{Key: "a", Value: 1}}},
+			{Keys: bson.D{{Key: "b", Value: 1}, {Key: "a", Value: 1}}, Options: options.Index().SetName("b_a")},
+		})
+		return err
+	}
+	run := func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		find := bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: int32(5)}}}}},
+			{Key: "sort", Value: bson.D{{Key: "b", Value: 1}, {Key: "a", Value: 1}}}, {Key: "limit", Value: int32(2)}}
+		var res bson.M
+		if err := col.Database().RunCommand(ctx, bson.D{{Key: "explain", Value: find}, {Key: "verbosity", Value: "executionStats"}}).Decode(&res); err != nil {
+			return nil, err
+		}
+		planner, _ := res["queryPlanner"].(bson.M)
+		stage, _ := planner["winningPlan"].(bson.M)
+		var stages []string
+		for stage != nil {
+			name, _ := stage["stage"].(string)
+			if index, ok := stage["indexName"].(string); ok {
+				name += " " + index
+			}
+			stages = append(stages, name)
+			stage, _ = stage["inputStage"].(bson.M)
+		}
+		stats, _ := res["executionStats"].(bson.M)
+		return bson.D{{Key: "stages", Value: stages}, {Key: "keys", Value: stats["totalKeysExamined"]}, {Key: "returned", Value: stats["nReturned"]}}, nil
+	}
+	harness.PairTest(t, harness.TestCase{
+		Name:        "Explain_MultiFieldSortDeviates",
+		Support:     harness.DumboDBDeviates,
+		Clustered:   true,
+		Setup:       setup,
+		Run:         run,
+		MongoExpect: expectResult("mongo", bson.D{{Key: "stages", Value: []string{"LIMIT", "FETCH", "IXSCAN b_a"}}, {Key: "keys", Value: int32(2)}, {Key: "returned", Value: int32(2)}}),
+		DumboExpect: expectResult("dumbodb", bson.D{{Key: "stages", Value: []string{"SORT", "FETCH", "IXSCAN a_1"}}, {Key: "keys", Value: int32(5)}, {Key: "returned", Value: int32(2)}}),
+	})
+}
