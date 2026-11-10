@@ -1736,3 +1736,74 @@ func TestClustered_WriteNaturalHint(t *testing.T) {
 		})
 	}
 }
+
+// TestClustered_RecordIDPaths: showRecordId returns the KeyString on sort-walk
+// and $or reads, and a pipeline's $meta "recordId" survives $match only.
+func TestClustered_RecordIDPaths(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 6)
+		for i := range docs {
+			docs[i] = bson.D{{Key: "_id", Value: int32(i)}, {Key: "a", Value: int32(i % 3)}, {Key: "b", Value: int32(5 - i)}}
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateMany(ctx, []mongo.IndexModel{{Keys: bson.D{{Key: "a", Value: 1}}}, {Keys: bson.D{{Key: "b", Value: 1}}}})
+		return err
+	}
+	find := func(filter bson.D, opts *options.FindOptions) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Find(ctx, filter, opts.SetShowRecordID(true))
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			err = cur.All(ctx, &docs)
+			return docs, err
+		}
+	}
+	meta := bson.D{{Key: "$project", Value: bson.D{{Key: "r", Value: bson.D{{Key: "$meta", Value: "recordId"}}}}}}
+	pipeline := func(stages ...bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Aggregate(ctx, append(mongo.Pipeline(stages), meta))
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			err = cur.All(ctx, &docs)
+			return docs, err
+		}
+	}
+	cases := []struct {
+		name string
+		run  func(context.Context, *mongo.Collection) (interface{}, error)
+	}{
+		{"sort_walk", find(bson.D{}, options.Find().SetSort(bson.D{{Key: "b", Value: -1}}).SetLimit(2))},
+		{"or_union", find(bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "a", Value: int32(2)}}, bson.D{{Key: "b", Value: int32(2)}}}}}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))},
+		{"meta_first", pipeline()},
+		{"meta_after_match", pipeline(bson.D{{Key: "$match", Value: bson.D{{Key: "a", Value: int32(2)}}}})},
+		{"meta_after_sort", pipeline(bson.D{{Key: "$sort", Value: bson.D{{Key: "b", Value: 1}}}})},
+		{"meta_after_limit", pipeline(bson.D{{Key: "$limit", Value: int32(2)}})},
+		{"meta_after_set", pipeline(bson.D{{Key: "$set", Value: bson.D{{Key: "c", Value: int32(1)}}}})},
+		{"set_meta", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Aggregate(ctx, mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "r", Value: bson.D{{Key: "$meta", Value: "recordId"}}}}}}})
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			err = cur.All(ctx, &docs)
+			return docs, err
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Clustered_RecordIDPaths_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run:       tc.run,
+			})
+		})
+	}
+}
