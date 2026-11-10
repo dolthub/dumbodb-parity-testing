@@ -1609,3 +1609,43 @@ func TestClustered_CoveredNullOrMissing(t *testing.T) {
 		}
 	}
 }
+
+// TestRange_NestedIDMinKeyMaxKey: an _id inside an array element is an
+// ordinary field, so MinKey and MaxKey bounds on it span every type, unlike a
+// clustered collection's top-level _id.
+func TestRange_NestedIDMinKeyMaxKey(t *testing.T) {
+	bound := func(op string, v interface{}) bson.D { return bson.D{{Key: op, Value: v}} }
+	filters := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"gte_minkey", bson.D{{Key: "arr", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "_id", Value: bound("$gte", primitive.MinKey{})}}}}}}},
+		{"gt_minkey", bson.D{{Key: "arr", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "_id", Value: bound("$gt", primitive.MinKey{})}}}}}}},
+		{"lte_maxkey", bson.D{{Key: "arr", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "_id", Value: bound("$lte", primitive.MaxKey{})}}}}}}},
+		{"lt_maxkey", bson.D{{Key: "arr", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "_id", Value: bound("$lt", primitive.MaxKey{})}}}}}}},
+		{"or_gte_minkey", bson.D{{Key: "arr", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$or", Value: bson.A{
+			bson.D{{Key: "_id", Value: bound("$gte", primitive.MinKey{})}}, bson.D{{Key: "k", Value: int32(9)}},
+		}}}}}}}},
+		{"dotted_gte_minkey", bson.D{{Key: "arr._id", Value: bound("$gte", primitive.MinKey{})}}},
+		{"top_level_gte_minkey", bson.D{{Key: "_id", Value: bound("$gte", primitive.MinKey{})}}},
+	}
+	for _, f := range filters {
+		t.Run(f.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Range_NestedIDMinKeyMaxKey_" + f.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					_, err := col.InsertMany(ctx, []interface{}{
+						bson.D{{Key: "_id", Value: int32(1)}, {Key: "arr", Value: bson.A{bson.D{{Key: "_id", Value: int32(5)}}}}},
+						bson.D{{Key: "_id", Value: int32(2)}, {Key: "arr", Value: bson.A{bson.D{{Key: "_id", Value: "x"}}}}},
+						bson.D{{Key: "_id", Value: int32(3)}, {Key: "arr", Value: bson.A{bson.D{{Key: "k", Value: int32(1)}}}}},
+						bson.D{{Key: "_id", Value: int32(4)}, {Key: "arr", Value: bson.A{bson.D{{Key: "_id", Value: primitive.MinKey{}}}}}},
+					})
+					return err
+				},
+				Run: cluFindIDs(f.filter, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}})),
+			})
+		})
+	}
+}
