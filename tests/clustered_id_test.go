@@ -1916,6 +1916,75 @@ func TestClustered_HintDescendingIndex(t *testing.T) {
 	}
 }
 
+// TestClustered_HintDescendingMultikey: a read or single-document write hinted
+// to a descending multikey index takes documents in index order, which reaches
+// a document first at the entry of an array element inside the filter's
+// bounds, not at its largest element.
+func TestClustered_HintDescendingMultikey(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 0, 10)
+		for i := int32(1); i <= 10; i++ {
+			var a, b interface{} = i % 3, i * 7 % 10
+			switch i {
+			case 7:
+				a = bson.A{int32(1), int32(4)}
+			case 8:
+				b = bson.A{int32(0), int32(5)}
+			}
+			docs = append(docs, bson.D{{Key: "_id", Value: i}, {Key: "a", Value: a}, {Key: "b", Value: b}})
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateMany(ctx, []mongo.IndexModel{
+			{Keys: bson.D{{Key: "b", Value: -1}}, Options: options.Index().SetName("bd")},
+			{Keys: bson.D{{Key: "a", Value: -1}, {Key: "b", Value: 1}}, Options: options.Index().SetName("ad_b")},
+		})
+		return err
+	}
+	bLow := bson.D{{Key: "b", Value: bson.D{{Key: "$lt", Value: int32(3)}}}}
+	aIn := bson.D{{Key: "a", Value: bson.D{{Key: "$in", Value: bson.A{int32(1), int32(2)}}}}, {Key: "b", Value: bson.D{{Key: "$gt", Value: int32(0)}}}}
+	set := bson.D{{Key: "$set", Value: bson.D{{Key: "w", Value: true}}}}
+	touched := cluFindIDs(bson.D{{Key: "w", Value: true}})
+	remaining := cluFindIDs(bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+	cases := []struct {
+		name string
+		run  func(context.Context, *mongo.Collection) (interface{}, error)
+	}{
+		{"find_bd", cluFindIDs(bLow, options.Find().SetHint("bd"))},
+		{"find_ad_b", cluFindIDs(aIn, options.Find().SetHint("ad_b"))},
+		{"find_and_modify", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if err := col.FindOneAndUpdate(ctx, bLow, set, options.FindOneAndUpdate().SetHint("bd")).Err(); err != nil {
+				return nil, err
+			}
+			return touched(ctx, col)
+		}},
+		{"update_one", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := col.UpdateOne(ctx, aIn, set, options.Update().SetHint("ad_b")); err != nil {
+				return nil, err
+			}
+			return touched(ctx, col)
+		}},
+		{"delete_one", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := col.DeleteOne(ctx, bLow, options.Delete().SetHint("bd")); err != nil {
+				return nil, err
+			}
+			return remaining(ctx, col)
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Clustered_HintDescendingMultikey_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run:       tc.run,
+			})
+		})
+	}
+}
+
 // TestRange_MinMaxKeySparse: count and find on MinKey and MaxKey bounds, with
 // and without a sparse index on the field. Which documents match depends on the
 // plan: one that reads the sparse index leaves out the documents without the
