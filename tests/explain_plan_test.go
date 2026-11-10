@@ -1339,16 +1339,9 @@ func TestExplainPlan_ReshapingView(t *testing.T) {
 	for _, v := range views {
 		for _, c := range cmds {
 			t.Run(v.name+"/"+c.name, func(t *testing.T) {
-				support := harness.DumboDBFull
-				if v.name == "project" {
-					// mongod moves a $match ahead of a $project that renames the
-					// matched field, so its query layer filters on a; DumboDB
-					// pushes down only leading $match, $sort and $limit stages.
-					support = harness.DumboDBXFail
-				}
 				harness.PairTest(t, harness.TestCase{
 					Name:      "ExplainPlan_ReshapingView_" + v.name + "_" + c.name,
-					Support:   support,
+					Support:   harness.DumboDBFull,
 					Clustered: true,
 					Setup: func(ctx context.Context, col *mongo.Collection) error {
 						docs := []interface{}{}
@@ -1377,5 +1370,51 @@ func TestExplainPlan_ReshapingView(t *testing.T) {
 				})
 			})
 		}
+	}
+}
+
+// TestAggregate_MatchAfterShaping: a $match after a $project or $set returns
+// what it would without being moved ahead, whatever the optimizer does.
+func TestAggregate_MatchAfterShaping(t *testing.T) {
+	pipelines := []struct {
+		name     string
+		pipeline mongo.Pipeline
+	}{
+		{"rename", mongo.Pipeline{{{Key: "$project", Value: bson.D{{Key: "z", Value: "$a"}}}}, {{Key: "$match", Value: bson.D{{Key: "z", Value: 3}}}}}},
+		{"rename_missing", mongo.Pipeline{{{Key: "$project", Value: bson.D{{Key: "z", Value: "$q"}}}}, {{Key: "$match", Value: bson.D{{Key: "z", Value: nil}}}}}},
+		{"included", mongo.Pipeline{{{Key: "$project", Value: bson.D{{Key: "a", Value: 1}}}}, {{Key: "$match", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: 2}}}}}}}},
+		{"dropped", mongo.Pipeline{{{Key: "$project", Value: bson.D{{Key: "a", Value: 1}}}}, {{Key: "$match", Value: bson.D{{Key: "b", Value: 1}}}}}},
+		{"set_overwrite", mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$multiply", Value: bson.A{"$a", 10}}}}}}}, {{Key: "$match", Value: bson.D{{Key: "a", Value: 30}}}}}},
+		{"set_rename_or", mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "z", Value: "$a"}}}}, {{Key: "$match", Value: bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "z", Value: 1}}, bson.D{{Key: "b", Value: 2}}}}}}}}},
+		{"array_rename", mongo.Pipeline{{{Key: "$project", Value: bson.D{{Key: "z", Value: "$arr.k"}}}}, {{Key: "$match", Value: bson.D{{Key: "z", Value: 2}}}}}},
+	}
+	for _, p := range pipelines {
+		t.Run(p.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Aggregate_MatchAfterShaping_" + p.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					docs := []interface{}{}
+					for i := 1; i <= 6; i++ {
+						docs = append(docs, bson.D{{Key: "_id", Value: i}, {Key: "a", Value: (i % 3) + 1}, {Key: "b", Value: i % 2},
+							{Key: "arr", Value: bson.A{bson.D{{Key: "k", Value: i}}, bson.D{{Key: "k", Value: i + 1}}}}})
+					}
+					if _, err := col.InsertMany(ctx, docs); err != nil {
+						return err
+					}
+					return createIndex(ctx, col, bson.D{{Key: "a", Value: 1}})
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					cur, err := col.Aggregate(ctx, append(p.pipeline, bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}}))
+					if err != nil {
+						return nil, err
+					}
+					var docs []bson.D
+					err = cur.All(ctx, &docs)
+					return docs, err
+				},
+			})
+		})
 	}
 }
