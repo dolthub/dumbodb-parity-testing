@@ -1953,3 +1953,30 @@ func TestRange_MinMaxKeySparse(t *testing.T) {
 		}
 	}
 }
+
+// TestMultikey_FirstOfEqualElements: array elements with equal keys share one
+// index entry, which keeps the first element's value and type.
+func TestMultikey_FirstOfEqualElements(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:      "Multikey_FirstOfEqualElements",
+		Support:   harness.DumboDBFull,
+		Clustered: true,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: bson.A{int32(2), 2.0}}},
+				bson.D{{Key: "_id", Value: int32(2)}, {Key: "a", Value: bson.A{3.0, int32(3)}}},
+				bson.D{{Key: "_id", Value: int32(3)}, {Key: "a", Value: bson.A{int64(4), mustDecimal("4.0"), 4.0}}},
+			})
+			if err != nil {
+				return err
+			}
+			_, err = col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			var res bson.D
+			err := col.Database().RunCommand(ctx, bson.D{{Key: "distinct", Value: col.Name()}, {Key: "key", Value: "a"}}).Decode(&res)
+			return res, err
+		},
+	})
+}
