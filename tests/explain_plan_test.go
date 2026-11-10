@@ -223,6 +223,8 @@ func TestExplainPlan_OrUnion(t *testing.T) {
 		// Branches of one predicate on k_1 are one scan of their intervals.
 		// XFail: index creation order, as above.
 		{"nested_or", harness.DumboDBXFail, or(k, or(bson.D{{Key: "grp", Value: int32(1)}}, bson.D{{Key: "k", Value: int32(7)}}))},
+		// A one-branch $or is planned as its branch, without SUBPLAN.
+		{"single_branch", harness.DumboDBFull, or(grpK)},
 		// Equalities on one field are planned as an $in, without SUBPLAN.
 		{"equalities_on_one_field", harness.DumboDBFull, or(bson.D{{Key: "k", Value: int32(1)}}, bson.D{{Key: "k", Value: int32(2)}})},
 		// Branches scan in index order, a branch of several predicates as
