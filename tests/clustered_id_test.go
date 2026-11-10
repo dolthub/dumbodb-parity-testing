@@ -2091,3 +2091,48 @@ func TestClustered_WriteDescendingHint(t *testing.T) {
 		}
 	}
 }
+
+// TestClustered_RecordIDOutsideProjection: $meta "recordId" has a value only
+// in a projection; in a filter or an accumulator it is missing.
+func TestClustered_RecordIDOutsideProjection(t *testing.T) {
+	meta := bson.D{{Key: "$meta", Value: "recordId"}}
+	docs := func(cur *mongo.Cursor, err error) (interface{}, error) {
+		if err != nil {
+			return nil, err
+		}
+		var out []bson.D
+		err = cur.All(context.Background(), &out)
+		return out, err
+	}
+	cases := []struct {
+		name string
+		run  func(context.Context, *mongo.Collection) (interface{}, error)
+	}{
+		{"find_expr", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return docs(col.Find(ctx, bson.D{{Key: "$expr", Value: bson.D{{Key: "$gt", Value: bson.A{meta, nil}}}}}))
+		}},
+		{"match_expr", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return docs(col.Aggregate(ctx, mongo.Pipeline{{{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$gt", Value: bson.A{meta, nil}}}}}}}}))
+		}},
+		{"match_type", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return docs(col.Aggregate(ctx, mongo.Pipeline{{{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{bson.D{{Key: "$type", Value: meta}}, "binData"}}}}}}}}))
+		}},
+		{"group_push", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return docs(col.Aggregate(ctx, mongo.Pipeline{{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "ids", Value: bson.D{{Key: "$push", Value: meta}}}}}}}))
+		}},
+		{"project", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return docs(col.Aggregate(ctx, mongo.Pipeline{{{Key: "$project", Value: bson.D{{Key: "r", Value: meta}}}}, {{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}}}))
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Clustered_RecordIDOutsideProjection_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     cluInsertIDs([]interface{}{int32(1), int32(2), int32(3)}),
+				Run:       tc.run,
+			})
+		})
+	}
+}
