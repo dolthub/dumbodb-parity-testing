@@ -1217,3 +1217,61 @@ func TestExplainPlan_SkipAndOrWalk(t *testing.T) {
 		})
 	}
 }
+
+// TestExplainPlan_SortWalkCounts: a walk of a multikey sort index reports each
+// document once in its IXSCAN, and a lone $or answered by a walk stays under
+// SUBPLAN once its plan is cached.
+func TestExplainPlan_SortWalkCounts(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 0, 50)
+		for i := 0; i < 50; i++ {
+			docs = append(docs, bson.D{{Key: "_id", Value: int32(i)}, {Key: "u", Value: int32(i % 20)},
+				{Key: "arr", Value: bson.A{int32(i), int32(i + 1), int32(i + 2)}},
+				{Key: "a", Value: int32(i % 7)}, {Key: "b", Value: int32(i % 5)}, {Key: "grp", Value: int32(i % 3)}})
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		for _, k := range []string{"arr", "a", "b", "grp"} {
+			if err := createIndex(ctx, col, bson.D{{Key: k, Value: 1}}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	orFind := func(col *mongo.Collection) bson.D {
+		return bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: bson.D{{Key: "$or", Value: bson.A{
+			bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: int32(3)}}}}, bson.D{{Key: "b", Value: bson.D{{Key: "$gt", Value: int32(1)}}}}}}}},
+			{Key: "sort", Value: bson.D{{Key: "grp", Value: 1}}}, {Key: "limit", Value: int32(2)}}
+	}
+	cases := []struct {
+		name   string
+		cmd    func(*mongo.Collection) bson.D
+		warmup int
+	}{
+		{"multikey", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: bson.D{{Key: "u", Value: int32(15)}}},
+				{Key: "sort", Value: bson.D{{Key: "arr", Value: 1}}}, {Key: "limit", Value: int32(1)}}
+		}, 0},
+		{"or_walk", orFind, 0},
+		{"or_walk_cached", orFind, 3},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "ExplainPlan_SortWalkCounts_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					for i := 0; i < tc.warmup; i++ {
+						if err := col.Database().RunCommand(ctx, tc.cmd(col)).Err(); err != nil {
+							return nil, err
+						}
+					}
+					return explainWorkOf(tc.cmd(col))(ctx, col)
+				},
+			})
+		})
+	}
+}
