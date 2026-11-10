@@ -68,6 +68,24 @@ func cluInsertIDs(ids []interface{}) func(context.Context, *mongo.Collection) er
 	}
 }
 
+// cluFindDocs returns the documents find returns, in the order returned.
+func cluFindDocs(filter bson.D, opts ...*options.FindOptions) func(context.Context, *mongo.Collection) (interface{}, error) {
+	return cluFindDocsIn("", filter, opts...)
+}
+
+// cluFindDocsIn is cluFindDocs on the collection named col's name plus suffix.
+func cluFindDocsIn(suffix string, filter bson.D, opts ...*options.FindOptions) func(context.Context, *mongo.Collection) (interface{}, error) {
+	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		cur, err := col.Database().Collection(col.Name()+suffix).Find(ctx, filter, opts...)
+		if err != nil {
+			return nil, err
+		}
+		var docs []bson.D
+		err = cur.All(ctx, &docs)
+		return docs, err
+	}
+}
+
 // cluFindIDs returns the _ids find returns, in the order returned.
 func cluFindIDs(filter bson.D, opts ...*options.FindOptions) func(context.Context, *mongo.Collection) (interface{}, error) {
 	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
@@ -1596,15 +1614,7 @@ func TestClustered_RecordIDThroughViews(t *testing.T) {
 						}
 						return col.Database().RunCommand(ctx, bson.D{{Key: "create", Value: col.Name() + "_v"}, {Key: "viewOn", Value: col.Name()}, {Key: "pipeline", Value: v.pipeline}}).Err()
 					},
-					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-						cur, err := col.Database().Collection(col.Name()+"_v").Find(ctx, bson.D{}, r.opts)
-						if err != nil {
-							return nil, err
-						}
-						var docs []bson.D
-						err = cur.All(ctx, &docs)
-						return docs, err
-					},
+					Run: cluFindDocsIn("_v", bson.D{}, r.opts),
 				})
 			})
 		}
@@ -1664,16 +1674,7 @@ func TestClustered_CoveredNullOrMissing(t *testing.T) {
 					Support:   harness.DumboDBFull,
 					Clustered: true,
 					Setup:     setup,
-					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-						opts := options.Find().SetProjection(bson.D{{Key: "a", Value: 1}, {Key: "_id", Value: 0}}).SetHint(hint)
-						cur, err := col.Find(ctx, filter, opts)
-						if err != nil {
-							return nil, err
-						}
-						var docs []bson.D
-						err = cur.All(ctx, &docs)
-						return docs, err
-					},
+					Run:       cluFindDocs(filter, options.Find().SetProjection(bson.D{{Key: "a", Value: 1}, {Key: "_id", Value: 0}}).SetHint(hint)),
 				})
 			})
 		}
@@ -1808,7 +1809,8 @@ func TestClustered_WriteNaturalHint(t *testing.T) {
 }
 
 // TestClustered_RecordIDPaths: showRecordId returns the KeyString on sort-walk
-// and $or reads, and a pipeline's $meta "recordId" survives $match only.
+// and $or reads, and a pipeline's $meta "recordId" is present after $match and
+// missing after $sort, $limit and $set.
 func TestClustered_RecordIDPaths(t *testing.T) {
 	setup := func(ctx context.Context, col *mongo.Collection) error {
 		docs := make([]interface{}, 6)
@@ -1822,15 +1824,7 @@ func TestClustered_RecordIDPaths(t *testing.T) {
 		return err
 	}
 	find := func(filter bson.D, opts *options.FindOptions) func(context.Context, *mongo.Collection) (interface{}, error) {
-		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			cur, err := col.Find(ctx, filter, opts.SetShowRecordID(true))
-			if err != nil {
-				return nil, err
-			}
-			var docs []bson.D
-			err = cur.All(ctx, &docs)
-			return docs, err
-		}
+		return cluFindDocs(filter, opts.SetShowRecordID(true))
 	}
 	meta := bson.D{{Key: "$project", Value: bson.D{{Key: "r", Value: bson.D{{Key: "$meta", Value: "recordId"}}}}}}
 	pipeline := func(stages ...bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
@@ -1899,17 +1893,7 @@ func TestClustered_HintDescendingIndex(t *testing.T) {
 		})
 		return err
 	}
-	read := func(filter bson.D, opts *options.FindOptions) func(context.Context, *mongo.Collection) (interface{}, error) {
-		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			cur, err := col.Find(ctx, filter, opts)
-			if err != nil {
-				return nil, err
-			}
-			var docs []bson.D
-			err = cur.All(ctx, &docs)
-			return docs, err
-		}
-	}
+	read := cluFindDocs
 	cases := []struct {
 		name string
 		run  func(context.Context, *mongo.Collection) (interface{}, error)
