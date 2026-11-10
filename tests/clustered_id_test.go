@@ -1876,3 +1876,80 @@ func TestClustered_HintDescendingIndex(t *testing.T) {
 		})
 	}
 }
+
+// TestRange_MinMaxKeySparse: count and find agree on MinKey and MaxKey bounds,
+// with and without a sparse index on the field. With a sparse index, mongod
+// answers count from the index and leaves out the documents without the field,
+// so its count disagrees with its own find; DumboDB counts what find returns.
+func TestRange_MinMaxKeySparse(t *testing.T) {
+	setup := func(sparse bool) func(context.Context, *mongo.Collection) error {
+		return func(ctx context.Context, col *mongo.Collection) error {
+			docs := make([]interface{}, 0, 30)
+			for i := 0; i < 30; i++ {
+				d := bson.D{{Key: "_id", Value: int32(i)}}
+				switch {
+				case i%6 == 0:
+				case i%6 == 1:
+					d = append(d, bson.E{Key: "b", Value: nil})
+				default:
+					d = append(d, bson.E{Key: "b", Value: int32(i)})
+				}
+				docs = append(docs, d)
+			}
+			if _, err := col.InsertMany(ctx, docs); err != nil {
+				return err
+			}
+			if !sparse {
+				return nil
+			}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "b", Value: 1}}, Options: options.Index().SetSparse(true)})
+			return err
+		}
+	}
+	filters := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"lte_maxkey", bson.D{{Key: "b", Value: bson.D{{Key: "$lte", Value: primitive.MaxKey{}}}}}},
+		{"lt_maxkey", bson.D{{Key: "b", Value: bson.D{{Key: "$lt", Value: primitive.MaxKey{}}}}}},
+		{"gte_minkey", bson.D{{Key: "b", Value: bson.D{{Key: "$gte", Value: primitive.MinKey{}}}}}},
+		{"gt_minkey", bson.D{{Key: "b", Value: bson.D{{Key: "$gt", Value: primitive.MinKey{}}}}}},
+	}
+	for _, f := range filters {
+		for _, sparse := range []bool{false, true} {
+			name := f.name
+			if sparse {
+				name += "_sparse"
+			}
+			t.Run(name, func(t *testing.T) {
+				tc := harness.TestCase{
+					Name:      "Range_MinMaxKeySparse_" + name,
+					Support:   harness.DumboDBFull,
+					Clustered: true,
+					Setup:     setup(sparse),
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						n, err := col.CountDocuments(ctx, f.filter)
+						if err != nil {
+							return nil, err
+						}
+						var cmd bson.M
+						if err := col.Database().RunCommand(ctx, bson.D{{Key: "count", Value: col.Name()}, {Key: "query", Value: f.filter}}).Decode(&cmd); err != nil {
+							return nil, err
+						}
+						ids, err := cluFindIDs(f.filter, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))(ctx, col)
+						if err != nil {
+							return nil, err
+						}
+						return bson.D{{Key: "countDocuments", Value: n}, {Key: "count", Value: cmd["n"]}, {Key: "find", Value: int32(len(ids.(bson.A)))}}, nil
+					},
+				}
+				if sparse {
+					tc.Support = harness.DumboDBDeviates
+					tc.MongoExpect = expectResult("mongo", bson.D{{Key: "countDocuments", Value: int64(25)}, {Key: "count", Value: int32(25)}, {Key: "find", Value: int32(30)}})
+					tc.DumboExpect = expectResult("dumbodb", bson.D{{Key: "countDocuments", Value: int64(30)}, {Key: "count", Value: int32(30)}, {Key: "find", Value: int32(30)}})
+				}
+				harness.PairTest(t, tc)
+			})
+		}
+	}
+}
