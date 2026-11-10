@@ -2016,3 +2016,78 @@ func TestMultikey_FirstOfEqualElements(t *testing.T) {
 		},
 	})
 }
+
+// TestClustered_WriteDescendingHint: a single-document write hinted to an
+// index with a descending key acts on the first match in that index's order.
+func TestClustered_WriteDescendingHint(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 10)
+		for i := range docs {
+			docs[i] = bson.D{{Key: "_id", Value: int32(i)}, {Key: "a", Value: int32(i % 3)}, {Key: "b", Value: int32(i * 7 % 10)}, {Key: "arr", Value: bson.A{int32(1), int32(2)}}}
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateMany(ctx, []mongo.IndexModel{
+			{Keys: bson.D{{Key: "b", Value: -1}}, Options: options.Index().SetName("bd")},
+			{Keys: bson.D{{Key: "a", Value: 1}, {Key: "b", Value: -1}}, Options: options.Index().SetName("ab")},
+		})
+		return err
+	}
+	set := bson.D{{Key: "$set", Value: bson.D{{Key: "w", Value: true}}}}
+	touched := func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		return cluFindIDs(bson.D{{Key: "w", Value: true}}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))(ctx, col)
+	}
+	remaining := func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		return cluFindIDs(bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))(ctx, col)
+	}
+	for _, hint := range []interface{}{"bd", bson.D{{Key: "b", Value: -1}}, "ab"} {
+		hint := hint
+		name := fmt.Sprint(hint)
+		if _, ok := hint.(bson.D); ok {
+			name = "b_desc_spec"
+		}
+		cases := []struct {
+			name string
+			run  func(context.Context, *mongo.Collection) (interface{}, error)
+		}{
+			{"find_and_modify", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				if err := col.FindOneAndUpdate(ctx, bson.D{{Key: "a", Value: int32(1)}}, set, options.FindOneAndUpdate().SetHint(hint)).Err(); err != nil {
+					return nil, err
+				}
+				return touched(ctx, col)
+			}},
+			{"update_one", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				if _, err := col.UpdateOne(ctx, bson.D{{Key: "a", Value: int32(0)}}, set, options.Update().SetHint(hint)); err != nil {
+					return nil, err
+				}
+				return touched(ctx, col)
+			}},
+			{"update_one_array_filters", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				update := bson.D{{Key: "$set", Value: bson.D{{Key: "arr.$[e]", Value: int32(9)}}}}
+				opts := options.Update().SetHint(hint).SetArrayFilters(options.ArrayFilters{Filters: []interface{}{bson.D{{Key: "e", Value: int32(2)}}}})
+				if _, err := col.UpdateOne(ctx, bson.D{{Key: "a", Value: int32(2)}}, update, opts); err != nil {
+					return nil, err
+				}
+				return cluFindIDs(bson.D{{Key: "arr", Value: int32(9)}}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))(ctx, col)
+			}},
+			{"delete_one", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				if _, err := col.DeleteOne(ctx, bson.D{{Key: "a", Value: int32(2)}}, options.Delete().SetHint(hint)); err != nil {
+					return nil, err
+				}
+				return remaining(ctx, col)
+			}},
+		}
+		for _, tc := range cases {
+			t.Run(name+"/"+tc.name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:      "Clustered_WriteDescendingHint_" + name + "_" + tc.name,
+					Support:   harness.DumboDBFull,
+					Clustered: true,
+					Setup:     setup,
+					Run:       tc.run,
+				})
+			})
+		}
+	}
+}
