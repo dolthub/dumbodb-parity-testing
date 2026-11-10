@@ -923,6 +923,31 @@ func TestClustered_NaNAndLargeLongEquality(t *testing.T) {
 				Run:       cluFindIDs(tc.filter),
 			})
 		})
+		// Writes find the same documents: an updateMany marks them, then a
+		// deleteMany removes them.
+		t.Run(tc.name+"/writes", func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Clustered_NaNAndLargeLongEquality_writes_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					updated, err := col.UpdateMany(ctx, tc.filter, bson.D{{Key: "$set", Value: bson.D{{Key: "w", Value: true}}}})
+					if err != nil {
+						return nil, err
+					}
+					marked, err := col.CountDocuments(ctx, bson.D{{Key: "w", Value: true}})
+					if err != nil {
+						return nil, err
+					}
+					deleted, err := col.DeleteMany(ctx, tc.filter)
+					if err != nil {
+						return nil, err
+					}
+					return bson.D{{Key: "matched", Value: updated.MatchedCount}, {Key: "marked", Value: marked}, {Key: "deleted", Value: deleted.DeletedCount}}, nil
+				},
+			})
+		})
 	}
 }
 
