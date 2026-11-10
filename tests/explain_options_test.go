@@ -17,6 +17,8 @@ package tests
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -142,4 +144,57 @@ func TestExplain_InTransaction(t *testing.T) {
 			return bson.D{{Key: "explain", Value: explained}, {Key: "committed", Value: commitErr == nil}, {Key: "inserted", Value: n}}, nil
 		},
 	})
+}
+
+// TestMaxTimeMS_CommandValues: count, distinct and explain read maxTimeMS by
+// mongod's generic rules, and an explained find checks its own maxTimeMS.
+func TestMaxTimeMS_CommandValues(t *testing.T) {
+	values := []struct {
+		name  string
+		value interface{}
+	}{
+		{"negative_half", -0.5}, {"negative_one_and_half", -1.5}, {"one_and_half", 1.5},
+		{"decimal_negative_half", mustDecimal("-0.5")}, {"nan", math.NaN()}, {"decimal_nan", mustDecimal("NaN")},
+		{"inf", math.Inf(1)}, {"string", "x"}, {"bool", true}, {"null", nil}, {"array", bson.A{}},
+		{"negative_one", -1}, {"two_to_31", 2147483648.0}, {"huge", 1e300}, {"long", int64(10000)},
+	}
+	cmds := []struct {
+		name string
+		cmd  func(col *mongo.Collection, v interface{}) bson.D
+	}{
+		{"count", func(col *mongo.Collection, v interface{}) bson.D {
+			return bson.D{{Key: "count", Value: col.Name()}, {Key: "query", Value: bson.D{}}, {Key: "maxTimeMS", Value: v}}
+		}},
+		{"distinct", func(col *mongo.Collection, v interface{}) bson.D {
+			return bson.D{{Key: "distinct", Value: col.Name()}, {Key: "key", Value: "a"}, {Key: "maxTimeMS", Value: v}}
+		}},
+		{"explain", func(col *mongo.Collection, v interface{}) bson.D {
+			return bson.D{{Key: "explain", Value: bson.D{{Key: "count", Value: col.Name()}}}, {Key: "maxTimeMS", Value: v}}
+		}},
+		{"explain_inner_find", func(col *mongo.Collection, v interface{}) bson.D {
+			return bson.D{{Key: "explain", Value: bson.D{{Key: "find", Value: col.Name()}, {Key: "maxTimeMS", Value: v}}}}
+		}},
+	}
+	for _, v := range values {
+		for _, c := range cmds {
+			t.Run(v.name+"/"+c.name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "MaxTimeMS_CommandValues_" + v.name + "_" + c.name,
+					Support: harness.DumboDBFull,
+					Setup: func(ctx context.Context, col *mongo.Collection) error {
+						_, err := col.InsertOne(ctx, bson.D{{Key: "a", Value: 1}})
+						return err
+					},
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						err := col.Database().RunCommand(ctx, c.cmd(col, v.value)).Err()
+						var ce mongo.CommandError
+						if errors.As(err, &ce) {
+							return bson.D{{Key: "code", Value: ce.Code}, {Key: "message", Value: sortExpectedTypes(ce.Message)}}, nil
+						}
+						return fmt.Sprint(err), nil
+					},
+				})
+			})
+		}
+	}
 }
