@@ -4,10 +4,10 @@ package tests
 
 import (
 	"context"
+	"sort"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -994,33 +994,19 @@ func TestGeo_2dsphere_IndexVersion(t *testing.T) {
 	})
 }
 
-// TestGeo_geoWithin_PointForms: a stored point is a GeoJSON Point, a legacy
-// array, or a legacy document's first two values, with coordinates of any
-// numeric type; a document with coordinates but no type is not a point.
+// TestGeo_geoWithin_PointForms: a stored point is a GeoJSON Point or a legacy
+// array, with coordinates of any numeric type and extra elements ignored; a
+// document with coordinates but no type is not a point. Points stored as
+// documents are in TestGeo_DocumentPoints.
 func TestGeo_geoWithin_PointForms(t *testing.T) {
-	dec, err := primitive.ParseDecimal128("1")
-	if err != nil {
-		t.Fatal(err)
-	}
 	docs := []interface{}{
-		bson.D{{Key: "_id", Value: 1}, {Key: "loc", Value: bson.D{{Key: "x", Value: 1}, {Key: "y", Value: 2}}}},
 		bson.D{{Key: "_id", Value: 2}, {Key: "loc", Value: bson.A{1, 2}}},
 		bson.D{{Key: "_id", Value: 3}, {Key: "loc", Value: geoPoint(1, 2)}},
 		bson.D{{Key: "_id", Value: 4}, {Key: "loc", Value: bson.D{{Key: "coordinates", Value: bson.A{1, 2}}}}},
-		bson.D{{Key: "_id", Value: 5}, {Key: "loc", Value: bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 2}, {Key: "c", Value: 3}}}},
 		bson.D{{Key: "_id", Value: 6}, {Key: "loc", Value: bson.A{1, 2, 3}}},
-		bson.D{{Key: "_id", Value: 7}, {Key: "loc", Value: bson.D{{Key: "x", Value: dec}, {Key: "y", Value: 2}}}},
+		bson.D{{Key: "_id", Value: 7}, {Key: "loc", Value: bson.A{mustDecimal("1"), 2}}},
 	}
-	shapes := []struct {
-		name  string
-		shape bson.D
-	}{
-		{"box", bson.D{{Key: "$box", Value: bson.A{bson.A{0, 0}, bson.A{3, 3}}}}},
-		{"center", bson.D{{Key: "$center", Value: bson.A{bson.A{1, 2}, 0.5}}}},
-		{"centerSphere", bson.D{{Key: "$centerSphere", Value: bson.A{bson.A{1, 2}, 0.01}}}},
-		{"polygon", bson.D{{Key: "$polygon", Value: bson.A{bson.A{0, 0}, bson.A{3, 0}, bson.A{3, 3}, bson.A{0, 3}}}}},
-	}
-	for _, s := range shapes {
+	for _, s := range geoWithinShapes() {
 		t.Run(s.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "Geo_geoWithin_PointForms_" + s.name,
@@ -1033,6 +1019,103 @@ func TestGeo_geoWithin_PointForms(t *testing.T) {
 					filter := bson.D{{Key: "loc", Value: bson.D{{Key: "$geoWithin", Value: s.shape}}}}
 					return geoFindSortedIDs(ctx, col, filter)
 				},
+			})
+		})
+	}
+}
+
+type geoWithinShape struct {
+	name  string
+	shape bson.D
+}
+
+// geoWithinShapes are legacy $geoWithin shapes that each contain (1, 2).
+func geoWithinShapes() []geoWithinShape {
+	return []geoWithinShape{
+		{"box", bson.D{{Key: "$box", Value: bson.A{bson.A{0, 0}, bson.A{3, 3}}}}},
+		{"center", bson.D{{Key: "$center", Value: bson.A{bson.A{1, 2}, 0.5}}}},
+		{"centerSphere", bson.D{{Key: "$centerSphere", Value: bson.A{bson.A{1, 2}, 0.01}}}},
+		{"polygon", bson.D{{Key: "$polygon", Value: bson.A{bson.A{0, 0}, bson.A{3, 0}, bson.A{3, 3}, bson.A{0, 3}}}}},
+	}
+}
+
+// TestGeo_DocumentPoints records a deviation. mongod reads a legacy point
+// stored as a document from its first two fields, x then y, whatever their
+// names: {lng: 10, lat: 1} is (10, 1) and {lat: 1, lng: 10} is (1, 10).
+// DumboDB stores documents with sorted keys, so it cannot know which field
+// came first, and does not read a stored document as a point at all.
+// Points stored as arrays or GeoJSON are read as mongod reads them.
+func TestGeo_DocumentPoints(t *testing.T) {
+	docs := []interface{}{
+		bson.D{{Key: "_id", Value: "array"}, {Key: "loc", Value: bson.A{10.0, 1.0}}},
+		bson.D{{Key: "_id", Value: "geojson"}, {Key: "loc", Value: geoPoint(10, 1)}},
+		bson.D{{Key: "_id", Value: "lng_lat"}, {Key: "loc", Value: bson.D{{Key: "lng", Value: 10.0}, {Key: "lat", Value: 1.0}}}},
+		bson.D{{Key: "_id", Value: "lat_lng"}, {Key: "loc", Value: bson.D{{Key: "lat", Value: 1.0}, {Key: "lng", Value: 10.0}}}},
+		bson.D{{Key: "_id", Value: "x_y"}, {Key: "loc", Value: bson.D{{Key: "x", Value: 10.0}, {Key: "y", Value: 1.0}}}},
+		bson.D{{Key: "_id", Value: "foo_bar"}, {Key: "loc", Value: bson.D{{Key: "foo", Value: 10.0}, {Key: "bar", Value: 1.0}}}},
+	}
+	setup := func(index bool) func(context.Context, *mongo.Collection) error {
+		return func(ctx context.Context, col *mongo.Collection) error {
+			stored := docs
+			if index {
+				// A 2d index refuses GeoJSON values.
+				stored = append(append([]interface{}{}, docs[:1]...), docs[2:]...)
+			}
+			if _, err := col.InsertMany(ctx, stored); err != nil {
+				return err
+			}
+			if !index {
+				return nil
+			}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "loc", Value: "2d"}}})
+			return err
+		}
+	}
+	// sortedIDs returns the string _ids filter matches, sorted.
+	sortedIDs := func(filter bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Find(ctx, filter, options.Find().SetProjection(bson.D{{Key: "_id", Value: 1}}))
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.M
+			if err := cur.All(ctx, &docs); err != nil {
+				return nil, err
+			}
+			ids := []string{}
+			for _, d := range docs {
+				ids = append(ids, d["_id"].(string))
+			}
+			sort.Strings(ids)
+			return ids, nil
+		}
+	}
+	within := func(x, y float64) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return sortedIDs(bson.D{{Key: "loc", Value: bson.D{{Key: "$geoWithin", Value: bson.D{{Key: "$center", Value: bson.A{bson.A{x, y}, 0.1}}}}}}})
+	}
+	near := sortedIDs(bson.D{{Key: "loc", Value: bson.D{{Key: "$near", Value: bson.A{10.0, 1.0}}, {Key: "$maxDistance", Value: 0.1}}}})
+	ids := func(v ...string) []string { return append([]string{}, v...) }
+	cases := []struct {
+		name      string
+		index     bool
+		run       func(context.Context, *mongo.Collection) (interface{}, error)
+		mongoWant interface{}
+		dumboWant interface{}
+	}{
+		{"within_10_1", false, within(10, 1), ids("array", "foo_bar", "geojson", "lng_lat", "x_y"), ids("array", "geojson")},
+		{"within_1_10", false, within(1, 10), ids("lat_lng"), ids()},
+		{"within_10_1_indexed", true, within(10, 1), ids("array", "foo_bar", "lng_lat", "x_y"), ids("array")},
+		{"near_10_1", true, near, ids("array", "foo_bar", "lng_lat", "x_y"), ids("array")},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:        "Geo_DocumentPoints_" + tc.name,
+				Support:     harness.DumboDBDeviates,
+				Setup:       setup(tc.index),
+				Run:         tc.run,
+				MongoExpect: expectResult("mongo", tc.mongoWant),
+				DumboExpect: expectResult("dumbodb", tc.dumboWant),
 			})
 		})
 	}

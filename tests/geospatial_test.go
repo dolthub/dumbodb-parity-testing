@@ -1319,16 +1319,17 @@ func TestGeo_NonFinitePoint(t *testing.T) {
 	}
 }
 
-// TestGeo_NearShapes: nearest-first reads over 2d locations stored as arrays
-// of points or {x, y} documents, 2dsphere lines and polygons, the distances
-// $geoNear reports, and the locations a 2dsphere index refuses.
+// TestGeo_NearShapes: nearest-first reads over 2d locations stored as points
+// and arrays of points, 2dsphere lines and polygons, the distances $geoNear
+// reports, and the locations a 2dsphere index refuses. Points stored as
+// documents are in TestGeo_DocumentPoints.
 func TestGeo_NearShapes(t *testing.T) {
 	setup2d := func(ctx context.Context, col *mongo.Collection) error {
 		if _, err := col.InsertMany(ctx, []interface{}{
 			bson.D{{Key: "_id", Value: 1}, {Key: "pos", Value: bson.A{4.0, 4.0}}},
 			bson.D{{Key: "_id", Value: 2}, {Key: "pos", Value: bson.A{bson.A{9.0, 9.0}, bson.A{1.0, 1.0}}}},
-			bson.D{{Key: "_id", Value: 3}, {Key: "pos", Value: bson.D{{Key: "x", Value: 2.0}, {Key: "y", Value: 2.0}}}},
-			bson.D{{Key: "_id", Value: 4}, {Key: "pos", Value: bson.D{{Key: "y", Value: 3.0}, {Key: "x", Value: 0.5}}}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "pos", Value: bson.A{2.0, 2.0}}},
+			bson.D{{Key: "_id", Value: 4}, {Key: "pos", Value: bson.A{bson.A{0.5, 3.0}, bson.A{7.0, 7.0}}}},
 		}); err != nil {
 			return err
 		}
@@ -1378,8 +1379,8 @@ func TestGeo_NearShapes(t *testing.T) {
 		setup func(context.Context, *mongo.Collection) error
 		run   func(context.Context, *mongo.Collection) (interface{}, error)
 	}{
-		{"near_2d_point_arrays_and_docs", setup2d, ids(bson.D{{Key: "pos", Value: bson.D{{Key: "$near", Value: bson.A{0.0, 0.0}}}}})},
-		{"geonear_2d_point_arrays_and_docs", setup2d, geoNear(bson.D{{Key: "near", Value: bson.A{0.0, 0.0}}, {Key: "distanceField", Value: "d"}})},
+		{"near_2d_points_and_arrays", setup2d, ids(bson.D{{Key: "pos", Value: bson.D{{Key: "$near", Value: bson.A{0.0, 0.0}}}}})},
+		{"geonear_2d_points_and_arrays", setup2d, geoNear(bson.D{{Key: "near", Value: bson.A{0.0, 0.0}}, {Key: "distanceField", Value: "d"}})},
 		{"near_sphere_lines_and_polygons", setupSphere, ids(bson.D{{Key: "loc", Value: bson.D{{Key: "$near", Value: bson.D{{Key: "$geometry", Value: geoPoint(0, 0)}}}}}})},
 		{"geonear_sphere_distances", setupSphere, geoNear(bson.D{{Key: "near", Value: geoPoint(0, 0)}, {Key: "distanceField", Value: "d"}, {Key: "spherical", Value: true}})},
 		{"sphere_rejects_legacy_pair_array", setupSphere, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
