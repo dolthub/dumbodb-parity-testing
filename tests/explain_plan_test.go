@@ -1160,9 +1160,9 @@ func TestExplainPlan_LookupStrategy(t *testing.T) {
 	}
 }
 
-// TestExplainPlan_SkipAndOrWalk: a find's skip and limit bound the read
-// together, and an $or answered by walking a sort index is planned under
-// SUBPLAN.
+// TestExplainPlan_SkipAndOrWalk: a find reads skip plus limit index keys, a
+// blocking sort keeps skip plus limit documents, and an $or answered by
+// walking a sort index is planned under SUBPLAN.
 func TestExplainPlan_SkipAndOrWalk(t *testing.T) {
 	setup := func(ctx context.Context, col *mongo.Collection) error {
 		docs := make([]interface{}, 0, 50)
@@ -1186,6 +1186,10 @@ func TestExplainPlan_SkipAndOrWalk(t *testing.T) {
 		{"skip_limit", func(col *mongo.Collection) bson.D {
 			return bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: bson.D{{Key: "u", Value: bson.D{{Key: "$gt", Value: int32(0)}}}}},
 				{Key: "skip", Value: int32(2)}, {Key: "limit", Value: int32(1)}}
+		}},
+		{"sort_skip_limit", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: int32(2)}}}}},
+				{Key: "sort", Value: bson.D{{Key: "b", Value: -1}, {Key: "u", Value: 1}}}, {Key: "skip", Value: int32(1)}, {Key: "limit", Value: int32(1)}}
 		}},
 		{"or_sort_walk", func(col *mongo.Collection) bson.D {
 			return bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: bson.D{{Key: "$or", Value: bson.A{
