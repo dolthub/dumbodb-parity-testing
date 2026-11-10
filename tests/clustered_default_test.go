@@ -22,6 +22,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
@@ -65,6 +66,18 @@ func TestClusteredDefault_Deviates(t *testing.T) {
 			run:       defaultIDIndexSpec,
 			mongoWant: bson.M{"key": bson.M{"_id": int32(1)}, "name": "_id_", "v": int32(2)},
 			dumboWant: bson.M{"key": bson.M{"_id": int32(1)}, "name": "_id_", "v": int32(2), "unique": true, "clustered": true},
+		},
+		{
+			name:      "show_record_id_type",
+			run:       defaultRecordIDTypes(nil),
+			mongoWant: []string{"long", "long", "long"},
+			dumboWant: []string{"binData", "binData", "binData"},
+		},
+		{
+			name:      "meta_record_id_type",
+			run:       defaultRecordIDTypes(bson.D{{Key: "r", Value: bson.D{{Key: "$meta", Value: "recordId"}}}}),
+			mongoWant: []string{"long", "long", "long"},
+			dumboWant: []string{"binData", "binData", "binData"},
 		},
 		{
 			name:      "explain_id_equality",
@@ -161,5 +174,45 @@ func defaultExplainStages(filter bson.D) func(context.Context, *mongo.Collection
 			stage, _ = stage["inputStage"].(bson.M)
 		}
 		return stages, nil
+	}
+}
+
+// defaultRecordIDTypes returns the BSON type of each document's RecordId, from
+// showRecordId when projection is nil, else from the projection's r field.
+func defaultRecordIDTypes(projection bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
+	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}})
+		field := "$recordId"
+		if projection == nil {
+			opts.SetShowRecordID(true)
+		} else {
+			opts.SetProjection(projection)
+			field = "r"
+		}
+		cur, err := col.Find(ctx, bson.D{}, opts)
+		if err != nil {
+			return nil, err
+		}
+		var docs []bson.Raw
+		if err := cur.All(ctx, &docs); err != nil {
+			return nil, err
+		}
+		types := make([]string, len(docs))
+		for i, d := range docs {
+			v, err := d.LookupErr(field)
+			if err != nil {
+				types[i] = "missing"
+				continue
+			}
+			switch v.Type {
+			case bson.TypeInt64:
+				types[i] = "long"
+			case bson.TypeBinary:
+				types[i] = "binData"
+			default:
+				types[i] = v.Type.String()
+			}
+		}
+		return types, nil
 	}
 }
