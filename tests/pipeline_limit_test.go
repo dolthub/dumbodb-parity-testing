@@ -124,3 +124,50 @@ func TestExplain_LongLookupMatchPipeline(t *testing.T) {
 		},
 	})
 }
+
+// TestMaxTimeMS_LargeIDIn: a count or distinct whose _id $in holds many slow-to-
+// encode decimals stops at maxTimeMS with MaxTimeMSExpired.
+func TestMaxTimeMS_LargeIDIn(t *testing.T) {
+	values := make(bson.A, 300_000)
+	for i := range values {
+		values[i] = mustDecimal(fmt.Sprintf("1.%033dE-6065", i))
+	}
+	filter := bson.D{{Key: "_id", Value: bson.D{{Key: "$in", Value: values}}}}
+	cases := []struct {
+		name string
+		cmd  func(col *mongo.Collection) bson.D
+	}{
+		{"count", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "count", Value: col.Name()}, {Key: "query", Value: filter}, {Key: "maxTimeMS", Value: 5}}
+		}},
+		{"distinct", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "distinct", Value: col.Name()}, {Key: "key", Value: "a"}, {Key: "query", Value: filter}, {Key: "maxTimeMS", Value: 5}}
+		}},
+		{"find", func(col *mongo.Collection) bson.D {
+			return bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: filter}, {Key: "maxTimeMS", Value: 5}}
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "MaxTimeMS_LargeIDIn_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 1}})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					start := time.Now()
+					err := col.Database().RunCommand(ctx, tc.cmd(col)).Err()
+					var ce mongo.CommandError
+					code := int32(0)
+					if errors.As(err, &ce) {
+						code = ce.Code
+					}
+					return bson.D{{Key: "code", Value: code}, {Key: "prompt", Value: time.Since(start) < 5*time.Second}}, nil
+				},
+			})
+		})
+	}
+}
