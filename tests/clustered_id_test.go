@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"math"
 	"math/rand/v2"
+	"regexp"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -662,15 +664,29 @@ func TestClustered_ListCollections(t *testing.T) {
 }
 
 // errorMessage returns run's error text as its result, so the comparison
-// checks the message and not only the code.
+// checks the message and not only the code. A TypeMismatch message's list of
+// expected types is sorted: mongod's order is fixed per build but differs
+// between builds.
 func errorMessage(run func(context.Context, *mongo.Collection) (interface{}, error)) func(context.Context, *mongo.Collection) (interface{}, error) {
 	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 		res, err := run(ctx, col)
 		if err != nil {
-			return err.Error(), nil
+			return sortExpectedTypes(err.Error()), nil
 		}
 		return res, nil
 	}
+}
+
+var expectedTypesList = regexp.MustCompile(`expected types '\[([^\]']*)'?\]'?`)
+
+// sortExpectedTypes sorts the type names in each "expected types '[...]'" of msg.
+func sortExpectedTypes(msg string) string {
+	return expectedTypesList.ReplaceAllStringFunc(msg, func(m string) string {
+		inner := expectedTypesList.FindStringSubmatch(m)[1]
+		names := strings.Split(inner, ", ")
+		sort.Strings(names)
+		return "expected types [" + strings.Join(names, ", ") + "]"
+	})
 }
 
 // TestClustered_CreateOptions covers the clusteredIndex option's validation.
