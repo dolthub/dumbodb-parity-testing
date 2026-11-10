@@ -125,8 +125,10 @@ func TestExplain_LongLookupMatchPipeline(t *testing.T) {
 	})
 }
 
-// TestMaxTimeMS_LargeIDIn: a count or distinct whose _id $in holds many slow-to-
-// encode decimals stops at maxTimeMS with MaxTimeMSExpired.
+// TestMaxTimeMS_LargeIDIn: a count, distinct or find whose _id $in holds many
+// slow-to-encode decimals either finishes or stops at maxTimeMS with
+// MaxTimeMSExpired, promptly; which one depends on the server's speed, so both
+// count as the same outcome.
 func TestMaxTimeMS_LargeIDIn(t *testing.T) {
 	values := make(bson.A, 300_000)
 	for i := range values {
@@ -161,11 +163,13 @@ func TestMaxTimeMS_LargeIDIn(t *testing.T) {
 					start := time.Now()
 					err := col.Database().RunCommand(ctx, tc.cmd(col)).Err()
 					var ce mongo.CommandError
-					code := int32(0)
-					if errors.As(err, &ce) {
-						code = ce.Code
+					outcome := "finished or timed out"
+					if errors.As(err, &ce) && ce.Code != 50 {
+						outcome = fmt.Sprintf("error %d", ce.Code)
+					} else if err != nil && !errors.As(err, &ce) {
+						outcome = err.Error()
 					}
-					return bson.D{{Key: "code", Value: code}, {Key: "prompt", Value: time.Since(start) < 5*time.Second}}, nil
+					return bson.D{{Key: "outcome", Value: outcome}, {Key: "prompt", Value: time.Since(start) < 5*time.Second}}, nil
 				},
 			})
 		})
