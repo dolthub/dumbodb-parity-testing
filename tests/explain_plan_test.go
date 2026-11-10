@@ -17,6 +17,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -1133,6 +1134,10 @@ func TestExplainPlan_LookupStrategy(t *testing.T) {
 		}, nil},
 		{"collation", setup(bson.D{{Key: "x", Value: 1}}, false), "_f", func(f string) bson.A { return bson.A{join(f)} }, &options.Collation{Locale: "en", Strength: 2}},
 		{"foreign_view", setup(bson.D{{Key: "x", Value: 1}, {Key: "y", Value: 1}}, true), "_fv", func(f string) bson.A { return bson.A{join(f)} }, nil},
+		{"foreign_view_stats", setup(bson.D{{Key: "x", Value: 1}, {Key: "y", Value: 1}}, true), "_fv", func(f string) bson.A { return bson.A{join(f)} }, nil},
+		{"match_between_unwind", setup(bson.D{{Key: "x", Value: 1}}, false), "_f", func(f string) bson.A {
+			return bson.A{join(f), bson.D{{Key: "$match", Value: bson.D{{Key: "fk", Value: 1}}}}, bson.D{{Key: "$unwind", Value: "$j"}}}
+		}, nil},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1145,22 +1150,37 @@ func TestExplainPlan_LookupStrategy(t *testing.T) {
 					if tc.collation != nil {
 						cmd = append(cmd, bson.E{Key: "collation", Value: bson.D{{Key: "locale", Value: tc.collation.Locale}, {Key: "strength", Value: tc.collation.Strength}}})
 					}
-					doc, err := explainRunExplain(ctx, col, cmd, "queryPlanner")
+					verbosity := "queryPlanner"
+					if strings.HasSuffix(tc.name, "_stats") {
+						verbosity = "executionStats"
+					}
+					doc, err := explainRunExplain(ctx, col, cmd, verbosity)
 					if err != nil {
 						return nil, err
 					}
 					ver, _ := lookup(doc, "explainVersion")
 					classic := false
+					var names []string
+					unwinding := false
 					if stages, ok := lookup(doc, "stages"); ok {
 						if arr, ok := stages.(bson.A); ok {
 							for _, s := range arr {
-								if d, ok := s.(bson.D); ok && len(d) > 0 && d[0].Key == "$lookup" {
+								d, ok := s.(bson.D)
+								if !ok || len(d) == 0 {
+									continue
+								}
+								names = append(names, d[0].Key)
+								if d[0].Key == "$lookup" {
 									classic = true
+									if spec, ok := d[0].Value.(bson.D); ok {
+										_, unwinding = lookup(spec, "unwinding")
+									}
 								}
 							}
 						}
 					}
-					return bson.D{{Key: "explainVersion", Value: ver}, {Key: "classic", Value: classic}, {Key: "joins", Value: lookupJoins(doc)}}, nil
+					return bson.D{{Key: "explainVersion", Value: ver}, {Key: "classic", Value: classic}, {Key: "stages", Value: names},
+						{Key: "unwinding", Value: unwinding}, {Key: "joins", Value: lookupJoins(doc)}}, nil
 				},
 			})
 		})
