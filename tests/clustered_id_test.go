@@ -1822,3 +1822,57 @@ func TestClustered_RecordIDPaths(t *testing.T) {
 		})
 	}
 }
+
+// TestClustered_HintDescendingIndex: an unsorted read hinted to an index with a
+// descending key returns documents in index order.
+func TestClustered_HintDescendingIndex(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		_, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: int32(2)}, {Key: "b", Value: int32(3)}},
+			bson.D{{Key: "_id", Value: int32(2)}, {Key: "a", Value: int32(2)}},
+			bson.D{{Key: "_id", Value: int32(3)}, {Key: "a", Value: int32(1)}, {Key: "b", Value: int32(5)}},
+			bson.D{{Key: "_id", Value: int32(4)}, {Key: "a", Value: int32(2)}, {Key: "b", Value: nil}},
+			bson.D{{Key: "_id", Value: int32(5)}, {Key: "a", Value: int32(1)}, {Key: "b", Value: int32(1)}},
+			bson.D{{Key: "_id", Value: int32(6)}, {Key: "a", Value: int32(2)}, {Key: "b", Value: int32(2)}},
+		})
+		if err != nil {
+			return err
+		}
+		_, err = col.Indexes().CreateMany(ctx, []mongo.IndexModel{
+			{Keys: bson.D{{Key: "b", Value: -1}}, Options: options.Index().SetName("bd")},
+			{Keys: bson.D{{Key: "a", Value: 1}, {Key: "b", Value: -1}}, Options: options.Index().SetName("a_bd")},
+		})
+		return err
+	}
+	read := func(filter bson.D, opts *options.FindOptions) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Find(ctx, filter, opts)
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			err = cur.All(ctx, &docs)
+			return docs, err
+		}
+	}
+	cases := []struct {
+		name string
+		run  func(context.Context, *mongo.Collection) (interface{}, error)
+	}{
+		{"whole_index", read(bson.D{}, options.Find().SetHint("bd"))},
+		{"covered", read(bson.D{{Key: "a", Value: int32(2)}}, options.Find().SetHint(bson.D{{Key: "b", Value: -1}}).SetProjection(bson.D{{Key: "b", Value: 1}, {Key: "_id", Value: 0}}))},
+		{"mixed_compound", read(bson.D{}, options.Find().SetHint("a_bd"))},
+		{"mixed_compound_filtered", read(bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: int32(1)}}}}, options.Find().SetHint("a_bd").SetLimit(4))},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Clustered_HintDescendingIndex_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run:       tc.run,
+			})
+		})
+	}
+}
