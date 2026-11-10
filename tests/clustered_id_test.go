@@ -1917,14 +1917,15 @@ func TestClustered_HintDescendingIndex(t *testing.T) {
 }
 
 // TestRange_MinMaxKeySparse: count and find on MinKey and MaxKey bounds, with
-// and without a sparse index on the field. With a sparse index, mongod answers
-// count from the index and leaves out the documents without the field, so its
-// count is lower than its own find; DumboDB does the same.
+// and without a sparse index on the field. Which documents match depends on the
+// plan: one that reads the sparse index leaves out the documents without the
+// field, and one that scans the collection does not. mongod answers count and
+// an unsorted find from the index, and an _id-sorted find from the collection.
 func TestRange_MinMaxKeySparse(t *testing.T) {
 	setup := func(sparse bool) func(context.Context, *mongo.Collection) error {
 		return func(ctx context.Context, col *mongo.Collection) error {
-			docs := make([]interface{}, 0, 30)
-			for i := 0; i < 30; i++ {
+			docs := make([]interface{}, 0, 200)
+			for i := 0; i < 200; i++ {
 				d := bson.D{{Key: "_id", Value: int32(i)}}
 				switch {
 				case i%6 == 0:
@@ -1975,11 +1976,20 @@ func TestRange_MinMaxKeySparse(t *testing.T) {
 						if err := col.Database().RunCommand(ctx, bson.D{{Key: "count", Value: col.Name()}, {Key: "query", Value: f.filter}}).Decode(&cmd); err != nil {
 							return nil, err
 						}
-						ids, err := cluFindIDs(f.filter, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))(ctx, col)
+						unsorted, err := cluFindIDs(f.filter)(ctx, col)
 						if err != nil {
 							return nil, err
 						}
-						return bson.D{{Key: "countDocuments", Value: n}, {Key: "count", Value: cmd["n"]}, {Key: "find", Value: int32(len(ids.(bson.A)))}}, nil
+						sorted, err := cluFindIDs(f.filter, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))(ctx, col)
+						if err != nil {
+							return nil, err
+						}
+						return bson.D{
+							{Key: "countDocuments", Value: n},
+							{Key: "count", Value: cmd["n"]},
+							{Key: "find", Value: int32(len(unsorted.(bson.A)))},
+							{Key: "findSortedByID", Value: int32(len(sorted.(bson.A)))},
+						}, nil
 					},
 				}
 				harness.PairTest(t, tc)
