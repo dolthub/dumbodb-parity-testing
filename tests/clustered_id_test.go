@@ -1649,3 +1649,90 @@ func TestRange_NestedIDMinKeyMaxKey(t *testing.T) {
 		})
 	}
 }
+
+// TestClustered_WriteNaturalHint: a single-document write picks the first
+// match in the hinted order, so {$natural: -1} acts on the last match; a hint
+// naming no index is refused.
+func TestClustered_WriteNaturalHint(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 10)
+		for i := range docs {
+			docs[i] = bson.D{{Key: "_id", Value: int32(i)}, {Key: "a", Value: int32(i % 3)}}
+		}
+		_, err := col.InsertMany(ctx, docs)
+		return err
+	}
+	reverse := bson.D{{Key: "$natural", Value: -1}}
+	// touched returns the _ids whose "w" field the write set, or its error.
+	touched := func(write func(context.Context, *mongo.Collection) error) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if err := write(ctx, col); err != nil {
+				return fmt.Sprint(err), nil
+			}
+			return cluFindIDs(bson.D{{Key: "w", Value: true}}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))(ctx, col)
+		}
+	}
+	remaining := func(write func(context.Context, *mongo.Collection) error) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if err := write(ctx, col); err != nil {
+				return fmt.Sprint(err), nil
+			}
+			return cluFindIDs(bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))(ctx, col)
+		}
+	}
+	// refused returns whether write failed as a command or a write error, and
+	// its code. mongod's message embeds its query tree, so it is not compared.
+	refused := func(write func(context.Context, *mongo.Collection) error) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			err := write(ctx, col)
+			var we mongo.WriteException
+			var ce mongo.CommandError
+			switch {
+			case errors.As(err, &we) && len(we.WriteErrors) > 0:
+				return bson.A{"write error", int32(we.WriteErrors[0].Code)}, nil
+			case errors.As(err, &ce):
+				return bson.A{"command error", ce.Code}, nil
+			}
+			return fmt.Sprint(err), nil
+		}
+	}
+	set := bson.D{{Key: "$set", Value: bson.D{{Key: "w", Value: true}}}}
+	cases := []struct {
+		name string
+		run  func(context.Context, *mongo.Collection) (interface{}, error)
+	}{
+		{"find_and_modify", touched(func(ctx context.Context, col *mongo.Collection) error {
+			return col.FindOneAndUpdate(ctx, bson.D{{Key: "a", Value: int32(1)}}, set, options.FindOneAndUpdate().SetHint(reverse)).Err()
+		})},
+		{"update_one", touched(func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.UpdateOne(ctx, bson.D{{Key: "a", Value: int32(0)}}, set, options.Update().SetHint(reverse))
+			return err
+		})},
+		{"delete_one", remaining(func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.DeleteOne(ctx, bson.D{{Key: "a", Value: int32(2)}}, options.Delete().SetHint(reverse))
+			return err
+		})},
+		{"find_and_modify_unknown_index", refused(func(ctx context.Context, col *mongo.Collection) error {
+			return col.FindOneAndUpdate(ctx, bson.D{{Key: "a", Value: int32(1)}}, set, options.FindOneAndUpdate().SetHint("nope")).Err()
+		})},
+		{"update_unknown_index", refused(func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.UpdateOne(ctx, bson.D{{Key: "a", Value: int32(0)}}, set, options.Update().SetHint("nope"))
+			return err
+		})},
+		{"delete_unknown_index", refused(func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.DeleteOne(ctx, bson.D{{Key: "a", Value: int32(2)}}, options.Delete().SetHint("nope"))
+			return err
+		})},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Clustered_WriteNaturalHint_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run:       tc.run,
+			})
+		})
+	}
+}
