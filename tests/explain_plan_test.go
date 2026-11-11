@@ -1012,16 +1012,10 @@ func TestExplainPlan_CountOptions(t *testing.T) {
 			bson.E{Key: "skip", Value: int32(2)}, bson.E{Key: "limit", Value: int32(3)})},
 	}
 	for _, tc := range cases {
-		support := harness.DumboDBFull
-		if tc.name == "multikey" || tc.name == "multikey_hinted" {
-			// mongod's multikey COUNT_SCAN examines one key more than the
-			// range holds; DumboDB counts the range's entries.
-			support = harness.DumboDBXFail
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:      "ExplainPlan_CountOptions_" + tc.name,
-				Support:   support,
+				Support:   harness.DumboDBFull,
 				Clustered: true,
 				Setup:     setup,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
@@ -1826,4 +1820,48 @@ func planStageNames(plan bson.D) bson.D {
 		plan = next
 	}
 	return out
+}
+
+// TestExplainPlan_CountScanEndKey: a COUNT_SCAN that reaches the end of its
+// range examines one key more than it counts, the key past the end; one its
+// limit stops examines only what it counted.
+func TestExplainPlan_CountScanEndKey(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 40)
+		for i := range docs {
+			docs[i] = bson.D{{Key: "_id", Value: int32(i)}, {Key: "a", Value: int32(i % 10)}}
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		return createIndex(ctx, col, bson.D{{Key: "a", Value: 1}})
+	}
+	count := func(query bson.D, extra ...bson.E) bson.D {
+		return append(bson.D{{Key: "count", Value: "_"}, {Key: "query", Value: query}}, extra...)
+	}
+	cases := []struct {
+		name string
+		cmd  bson.D
+	}{
+		{"equality", count(bson.D{{Key: "a", Value: int32(3)}})},
+		{"miss", count(bson.D{{Key: "a", Value: int32(100)}})},
+		{"to_index_end", count(bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: int32(7)}}}})},
+		{"limit_reached", count(bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: int32(2)}}}}, bson.E{Key: "limit", Value: int32(5)})},
+		{"limit_not_reached", count(bson.D{{Key: "a", Value: int32(3)}}, bson.E{Key: "limit", Value: int32(10)})},
+		{"skip", count(bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: int32(2)}}}}, bson.E{Key: "skip", Value: int32(3)})},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "ExplainPlan_CountScanEndKey_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					cmd := append(bson.D{{Key: "count", Value: col.Name()}}, tc.cmd[1:]...)
+					return explainWorkOf(cmd)(ctx, col)
+				},
+			})
+		})
+	}
 }
