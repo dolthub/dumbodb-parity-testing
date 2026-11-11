@@ -1615,6 +1615,7 @@ func TestClustered_RecordIDThroughViews(t *testing.T) {
 		{"add_fields", bson.A{bson.D{{Key: "$addFields", Value: bson.D{{Key: "_id", Value: "hidden"}}}}}},
 		{"replace_root", bson.A{bson.D{{Key: "$replaceRoot", Value: bson.D{{Key: "newRoot", Value: bson.D{{Key: "a", Value: "$a"}}}}}}}},
 		{"group", bson.A{bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: "$a"}}}}}},
+		{"match", bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: 1}}}}}}}},
 	}
 	reads := []struct {
 		name string
@@ -1622,6 +1623,8 @@ func TestClustered_RecordIDThroughViews(t *testing.T) {
 	}{
 		{"show_record_id", options.Find().SetShowRecordID(true)},
 		{"meta", options.Find().SetProjection(bson.D{{Key: "a", Value: 1}, {Key: "r", Value: bson.D{{Key: "$meta", Value: "recordId"}}}})},
+		{"meta_only", options.Find().SetProjection(bson.D{{Key: "r", Value: bson.D{{Key: "$meta", Value: "recordId"}}}})},
+		{"meta_only_no_id", options.Find().SetProjection(bson.D{{Key: "r", Value: bson.D{{Key: "$meta", Value: "recordId"}}}, {Key: "_id", Value: 0}})},
 	}
 	for _, v := range views {
 		for _, r := range reads {
