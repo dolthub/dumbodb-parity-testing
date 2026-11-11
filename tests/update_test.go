@@ -923,6 +923,53 @@ func TestPull_by_condition(t *testing.T) {
 	})
 }
 
+// TestPull_element_query: a $pull condition naming fields is a query each
+// element document must match, including MinKey and MaxKey bounds; one led by
+// an operator applies to the element itself.
+func TestPull_element_query(t *testing.T) {
+	cases := []struct {
+		name string
+		cond interface{}
+	}{
+		{"field_range", bson.D{{Key: "k", Value: bson.D{{Key: "$gte", Value: int32(2)}}}}},
+		{"field_equality_extra_fields", bson.D{{Key: "k", Value: int32(1)}}},
+		{"gte_minkey", bson.D{{Key: "k", Value: bson.D{{Key: "$gte", Value: primitive.MinKey{}}}}}},
+		{"lte_maxkey", bson.D{{Key: "k", Value: bson.D{{Key: "$lte", Value: primitive.MaxKey{}}}}}},
+		{"or_of_fields", bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "k", Value: int32(1)}}, bson.D{{Key: "j", Value: int32(2)}}}}}},
+		{"value_operator", bson.D{{Key: "$type", Value: "object"}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Pull_element_query_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					_, err := col.InsertOne(ctx, bson.D{
+						{Key: "_id", Value: "pull-q"},
+						{Key: "arr", Value: bson.A{
+							bson.D{{Key: "k", Value: int32(1)}, {Key: "z", Value: int32(1)}},
+							bson.D{{Key: "k", Value: int32(2)}},
+							bson.D{{Key: "k", Value: "x"}},
+							bson.D{{Key: "k", Value: nil}},
+							bson.D{{Key: "j", Value: int32(2)}},
+							int32(3),
+						}},
+					})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					_, err := col.UpdateOne(ctx, bson.D{{Key: "_id", Value: "pull-q"}},
+						bson.D{{Key: "$pull", Value: bson.D{{Key: "arr", Value: tc.cond}}}})
+					if err != nil {
+						return nil, err
+					}
+					return readOne(ctx, col, "pull-q")
+				},
+			})
+		})
+	}
+}
+
 func TestPull_by_in_condition(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Pull_by_in_condition",
