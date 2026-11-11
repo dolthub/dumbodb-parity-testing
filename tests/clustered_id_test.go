@@ -2423,3 +2423,43 @@ func TestHint_Invalid(t *testing.T) {
 		})
 	}
 }
+
+// TestClustered_CoveredLeadingKeyUnfiltered: a hinted find whose filter does
+// not name the index's leading field fetches each document, so a document
+// missing that field shows no null for it; with no filter the read is
+// covered and does.
+func TestClustered_CoveredLeadingKeyUnfiltered(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: 1}, {Key: "c", Value: 1}},
+			bson.D{{Key: "_id", Value: 2}, {Key: "b", Value: nil}, {Key: "c", Value: 2}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "b", Value: 5}, {Key: "c", Value: 3}},
+		}); err != nil {
+			return err
+		}
+		return createIndex(ctx, col, bson.D{{Key: "b", Value: 1}, {Key: "c", Value: 1}})
+	}
+	opts := func() *options.FindOptions {
+		return options.Find().SetProjection(bson.D{{Key: "b", Value: 1}, {Key: "c", Value: 1}, {Key: "_id", Value: 0}}).
+			SetHint(bson.D{{Key: "b", Value: 1}, {Key: "c", Value: 1}})
+	}
+	cases := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"trailing_only", bson.D{{Key: "c", Value: bson.D{{Key: "$gte", Value: 0}}}}},
+		{"leading_exists", bson.D{{Key: "b", Value: bson.D{{Key: "$exists", Value: true}}}, {Key: "c", Value: bson.D{{Key: "$gte", Value: 0}}}}},
+		{"no_filter", bson.D{}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Clustered_CoveredLeadingKeyUnfiltered_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run:       cluFindDocs(tc.filter, opts()),
+			})
+		})
+	}
+}
