@@ -1305,9 +1305,10 @@ func TestExplainPlan_SortWalkCounts(t *testing.T) {
 	}
 }
 
-// TestExplainPlan_ReshapingView: explain of a find, count or aggregate on a
-// view whose pipeline reshapes documents runs the view's stages before the
-// command's, so the command's filter sees the reshaped documents.
+// TestExplainPlan_ReshapingView: explain of a find, count, distinct or
+// aggregate on a view whose pipeline reshapes documents runs the view's stages
+// before the command's, so the command's filter sees the reshaped documents,
+// and reports each stage the query does not absorb.
 func TestExplainPlan_ReshapingView(t *testing.T) {
 	views := []struct {
 		name     string
@@ -1330,6 +1331,9 @@ func TestExplainPlan_ReshapingView(t *testing.T) {
 		}},
 		{"aggregate", func(view string, filter bson.D) bson.D {
 			return bson.D{{Key: "aggregate", Value: view}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: filter}}}}, {Key: "cursor", Value: bson.D{}}}
+		}},
+		{"distinct", func(view string, filter bson.D) bson.D {
+			return bson.D{{Key: "distinct", Value: view}, {Key: "key", Value: "_id"}, {Key: "query", Value: filter}}
 		}},
 	}
 	filters := map[string]bson.D{
@@ -1367,7 +1371,7 @@ func TestExplainPlan_ReshapingView(t *testing.T) {
 							n, _ = lookup(es, "nReturned")
 						}
 						ver, _ := lookup(doc, "explainVersion")
-						return bson.D{{Key: "nReturned", Value: n}, {Key: "explainVersion", Value: ver}}, nil
+						return bson.D{{Key: "nReturned", Value: n}, {Key: "explainVersion", Value: ver}, {Key: "stages", Value: topLevelStages(doc)}}, nil
 					},
 				})
 			})
@@ -1415,6 +1419,83 @@ func TestAggregate_MatchAfterShaping(t *testing.T) {
 					var docs []bson.D
 					err = cur.All(ctx, &docs)
 					return docs, err
+				},
+			})
+		})
+	}
+}
+
+// topLevelStages returns each top-level stage of an aggregate explain as its
+// name and nReturned, or nil for an explain without stages.
+func topLevelStages(doc bson.D) bson.A {
+	v, ok := lookupBSONField(doc, "stages")
+	if !ok {
+		return nil
+	}
+	arr, _ := v.(bson.A)
+	out := bson.A{}
+	for _, s := range arr {
+		stage, _ := s.(bson.D)
+		entry := bson.D{}
+		for _, e := range stage {
+			if strings.HasPrefix(e.Key, "$") {
+				entry = append(entry, bson.E{Key: "stage", Value: e.Key})
+			}
+		}
+		if n, ok := lookupBSONField(stage, "nReturned"); ok {
+			entry = append(entry, bson.E{Key: "nReturned", Value: n})
+		}
+		out = append(out, entry)
+	}
+	return out
+}
+
+// TestExplainPlan_PipelineStages: an aggregate explain reports, after the
+// query under $cursor, each stage the query does not absorb, with the number
+// of documents it returned.
+func TestExplainPlan_PipelineStages(t *testing.T) {
+	match := bson.D{{Key: "$match", Value: bson.D{{Key: "g", Value: 1}}}}
+	set := bson.D{{Key: "$set", Value: bson.D{{Key: "b", Value: 1}}}}
+	pipelines := []struct {
+		name     string
+		pipeline bson.A
+	}{
+		{"set", bson.A{match, set}},
+		{"project", bson.A{match, bson.D{{Key: "$project", Value: bson.D{{Key: "a", Value: 1}}}}}},
+		{"unset", bson.A{bson.D{{Key: "$unset", Value: "a"}}}},
+		{"unwind", bson.A{match, bson.D{{Key: "$unwind", Value: "$arr"}}}},
+		{"sort_limit_set", bson.A{match, bson.D{{Key: "$sort", Value: bson.D{{Key: "a", Value: 1}}}}, bson.D{{Key: "$limit", Value: 3}}, set}},
+		{"set_only", bson.A{set}},
+		{"skip", bson.A{match, bson.D{{Key: "$skip", Value: 2}}}},
+		{"limit_then_match", bson.A{bson.D{{Key: "$limit", Value: 6}}, match}},
+		{"add_fields_sort", bson.A{match, bson.D{{Key: "$addFields", Value: bson.D{{Key: "b", Value: 1}}}}, bson.D{{Key: "$sort", Value: bson.D{{Key: "b", Value: 1}}}}}},
+		{"replace_root", bson.A{bson.D{{Key: "$replaceRoot", Value: bson.D{{Key: "newRoot", Value: bson.D{{Key: "x", Value: "$a"}}}}}}}},
+		{"set_then_match", bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$multiply", Value: bson.A{"$a", 10}}}}}}}, bson.D{{Key: "$match", Value: bson.D{{Key: "a", Value: 10}}}}}},
+	}
+	for _, p := range pipelines {
+		t.Run(p.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "ExplainPlan_PipelineStages_" + p.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					docs := make([]interface{}, 20)
+					for i := range docs {
+						docs[i] = bson.D{{Key: "_id", Value: i}, {Key: "g", Value: i % 4}, {Key: "a", Value: i % 3}, {Key: "arr", Value: bson.A{i, i + 1}}}
+					}
+					if _, err := col.InsertMany(ctx, docs); err != nil {
+						return err
+					}
+					return createIndex(ctx, col, bson.D{{Key: "g", Value: 1}})
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					var doc bson.D
+					cmd := bson.D{{Key: "aggregate", Value: col.Name()}, {Key: "pipeline", Value: p.pipeline}, {Key: "cursor", Value: bson.D{}}}
+					if err := col.Database().RunCommand(ctx, bson.D{{Key: "explain", Value: cmd}, {Key: "verbosity", Value: "executionStats"}}).Decode(&doc); err != nil {
+						return nil, err
+					}
+					ver, _ := lookup(doc, "explainVersion")
+					return bson.D{{Key: "explainVersion", Value: ver}, {Key: "stages", Value: topLevelStages(doc)}}, nil
 				},
 			})
 		})
