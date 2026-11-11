@@ -774,6 +774,22 @@ func TestClustered_CreateOptions(t *testing.T) {
 			}
 			return create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "name", Value: "_id_"}, {Key: "v", Value: int32(2)}}})(ctx, col)
 		}},
+		{"named_again", recreateNamed(create, idKey, unique, bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "name", Value: "byID"}}})},
+		{"named_then_plain", recreateNamed(create, idKey, unique)},
+		{"named_then_default", recreateNamed(create, idKey, unique, bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique}})},
+		{"named_then_other", recreateNamed(create, idKey, unique, bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "name", Value: "other"}}})},
+		{"named_options", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "name", Value: "byID"}}})(ctx, col); err != nil {
+				return nil, err
+			}
+			specs, err := col.Database().ListCollectionSpecifications(ctx, bson.D{{Key: "name", Value: "clu"}})
+			if err != nil || len(specs) != 1 {
+				return nil, err
+			}
+			var options bson.D
+			err = bson.Unmarshal(specs[0].Options, &options)
+			return options, err
+		}},
 		{"named_listed", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			if _, err := create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "name", Value: "byID"}}})(ctx, col); err != nil {
 				return nil, err
@@ -788,18 +804,24 @@ func TestClustered_CreateOptions(t *testing.T) {
 		}},
 	}
 	for _, tc := range cases {
-		support := harness.DumboDBFull
-		if tc.name == "named_listed" {
-			// DumboDB does not record a clustered index's name; it is always _id_.
-			support = harness.DumboDBXFail
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "Clustered_CreateOptions_" + tc.name,
-				Support: support,
+				Support: harness.DumboDBFull,
 				Run:     tc.run,
 			})
 		})
+	}
+}
+
+// recreateNamed creates the collection with a clusteredIndex named byID, then
+// runs create again with opts.
+func recreateNamed(create func(...bson.E) func(context.Context, *mongo.Collection) (interface{}, error), idKey, unique bson.E, opts ...bson.E) func(context.Context, *mongo.Collection) (interface{}, error) {
+	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		if _, err := create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "name", Value: "byID"}}})(ctx, col); err != nil {
+			return nil, err
+		}
+		return create(opts...)(ctx, col)
 	}
 }
 
