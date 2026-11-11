@@ -2670,3 +2670,87 @@ func TestClustered_HintTopLevelOperator(t *testing.T) {
 		})
 	}
 }
+
+// TestClustered_NamedClusteredIndex: a collection whose clustered index is
+// named "foo" takes "foo" as a hint in every command, no longer knows "_id_",
+// and refuses to drop the clustered index by name or key.
+func TestClustered_NamedClusteredIndex(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		db := col.Database()
+		name := col.Name() + "_n"
+		if err := db.RunCommand(ctx, bson.D{{Key: "create", Value: name}, {Key: "clusteredIndex", Value: bson.D{{Key: "key", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "unique", Value: true}, {Key: "name", Value: "foo"}}}}).Err(); err != nil {
+			return err
+		}
+		_, err := db.Collection(name).InsertMany(ctx, []interface{}{bson.D{{Key: "_id", Value: 3}, {Key: "a", Value: 1}}, bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 2}}, bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: 1}}})
+		return err
+	}
+	q := bson.D{{Key: "a", Value: 1}}
+	cmds := []struct {
+		name string
+		cmd  func(n string) bson.D
+	}{
+		{"find", func(n string) bson.D {
+			return bson.D{{Key: "find", Value: n}, {Key: "filter", Value: q}, {Key: "hint", Value: "foo"}}
+		}},
+		{"find_default_name", func(n string) bson.D {
+			return bson.D{{Key: "find", Value: n}, {Key: "filter", Value: q}, {Key: "hint", Value: "_id_"}}
+		}},
+		{"count", func(n string) bson.D {
+			return bson.D{{Key: "count", Value: n}, {Key: "query", Value: q}, {Key: "hint", Value: "foo"}}
+		}},
+		{"distinct", func(n string) bson.D {
+			return bson.D{{Key: "distinct", Value: n}, {Key: "key", Value: "a"}, {Key: "hint", Value: "foo"}}
+		}},
+		{"aggregate", func(n string) bson.D {
+			return bson.D{{Key: "aggregate", Value: n}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: q}}}}, {Key: "cursor", Value: bson.D{}}, {Key: "hint", Value: "foo"}}
+		}},
+		{"update", func(n string) bson.D {
+			return bson.D{{Key: "update", Value: n}, {Key: "updates", Value: bson.A{bson.D{{Key: "q", Value: q}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: 1}}}}}, {Key: "hint", Value: "foo"}}}}}
+		}},
+		{"find_and_modify", func(n string) bson.D {
+			return bson.D{{Key: "findAndModify", Value: n}, {Key: "query", Value: q}, {Key: "update", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "y", Value: 1}}}}}, {Key: "hint", Value: "foo"}}
+		}},
+		{"drop_by_name", func(n string) bson.D { return bson.D{{Key: "dropIndexes", Value: n}, {Key: "index", Value: "foo"}} }},
+		{"drop_by_key", func(n string) bson.D {
+			return bson.D{{Key: "dropIndexes", Value: n}, {Key: "index", Value: bson.D{{Key: "_id", Value: 1}}}}
+		}},
+		{"drop_default_name", func(n string) bson.D { return bson.D{{Key: "dropIndexes", Value: n}, {Key: "index", Value: "_id_"}} }},
+	}
+	for _, c := range cmds {
+		t.Run(c.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Clustered_NamedClusteredIndex_" + c.name,
+				Support: harness.DumboDBFull,
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					var res bson.M
+					err := col.Database().RunCommand(ctx, c.cmd(col.Name()+"_n")).Decode(&res)
+					var ce mongo.CommandError
+					if errors.As(err, &ce) {
+						// mongod's message for an unknown hint embeds its query tree.
+						if strings.HasPrefix(ce.Message, "error processing query") || strings.Contains(ce.Message, "hint provided does not correspond") {
+							return bson.D{{Key: "code", Value: ce.Code}}, nil
+						}
+						return bson.D{{Key: "code", Value: ce.Code}, {Key: "message", Value: ce.Message}}, nil
+					}
+					if err != nil {
+						return nil, err
+					}
+					out := bson.D{}
+					for _, k := range []string{"n", "nModified", "values"} {
+						if v, ok := res[k]; ok {
+							out = append(out, bson.E{Key: k, Value: v})
+						}
+					}
+					if cur, ok := res["cursor"].(bson.M); ok {
+						out = append(out, bson.E{Key: "firstBatch", Value: cur["firstBatch"]})
+					}
+					if v, ok := res["value"].(bson.M); ok {
+						out = append(out, bson.E{Key: "value_id", Value: v["_id"]})
+					}
+					return out, nil
+				},
+			})
+		})
+	}
+}
