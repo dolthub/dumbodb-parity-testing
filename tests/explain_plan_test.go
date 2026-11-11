@@ -1865,3 +1865,48 @@ func TestExplainPlan_CountScanEndKey(t *testing.T) {
 		})
 	}
 }
+
+// TestExplainPlan_CountTrailingMultikey: on a compound index whose trailing
+// field holds arrays, a count bounded on the leading field reads only keys,
+// counting each document once.
+func TestExplainPlan_CountTrailingMultikey(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 0, 82)
+		for i := 0; i < 80; i++ {
+			docs = append(docs, bson.D{{Key: "_id", Value: int32(i)}, {Key: "b", Value: int32(i % 7)}, {Key: "m", Value: bson.A{int32(i % 4), int32(i % 3), int32(i % 5)}}})
+		}
+		docs = append(docs, bson.D{{Key: "_id", Value: int32(100)}, {Key: "m", Value: bson.A{1, 2}}}, bson.D{{Key: "_id", Value: int32(101)}, {Key: "b", Value: nil}})
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		return createIndex(ctx, col, bson.D{{Key: "b", Value: 1}, {Key: "m", Value: 1}})
+	}
+	cases := []struct {
+		name  string
+		query bson.D
+	}{
+		{"equality", bson.D{{Key: "b", Value: int32(3)}}},
+		{"range", bson.D{{Key: "b", Value: bson.D{{Key: "$gt", Value: int32(3)}}}}},
+		{"two_sided", bson.D{{Key: "b", Value: bson.D{{Key: "$gt", Value: int32(1)}, {Key: "$lt", Value: int32(5)}}}}},
+		{"null", bson.D{{Key: "b", Value: nil}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "ExplainPlan_CountTrailingMultikey_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					cmd := bson.D{{Key: "count", Value: col.Name()}, {Key: "query", Value: tc.query}}
+					var res bson.M
+					if err := col.Database().RunCommand(ctx, cmd).Decode(&res); err != nil {
+						return nil, err
+					}
+					work, err := explainWorkOf(cmd)(ctx, col)
+					return bson.D{{Key: "n", Value: res["n"]}, {Key: "explain", Value: work}}, err
+				},
+			})
+		})
+	}
+}
