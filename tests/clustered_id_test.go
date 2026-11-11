@@ -778,6 +778,11 @@ func TestClustered_CreateOptions(t *testing.T) {
 		{"named_then_plain", recreateNamed(create, idKey, unique)},
 		{"named_then_default", recreateNamed(create, idKey, unique, bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique}})},
 		{"named_then_other", recreateNamed(create, idKey, unique, bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "name", Value: "other"}}})},
+		{"plain_then_clustered", twoCreates(create, nil, []bson.E{{Key: "clusteredIndex", Value: bson.D{idKey, unique}}})},
+		{"clustered_then_plain", twoCreates(create, []bson.E{{Key: "clusteredIndex", Value: bson.D{idKey, unique}}}, nil)},
+		{"existing_bad_version", twoCreates(create, nil, []bson.E{{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "v", Value: int32(3)}}}})},
+		{"existing_clustered_validator", twoCreates(create, []bson.E{{Key: "clusteredIndex", Value: bson.D{idKey, unique}}},
+			[]bson.E{{Key: "clusteredIndex", Value: bson.D{idKey, unique}}, {Key: "validator", Value: bson.D{{Key: "a", Value: 1}}}})},
 		{"named_options", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			if _, err := create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "name", Value: "byID"}}})(ctx, col); err != nil {
 				return nil, err
@@ -2610,5 +2615,24 @@ func TestHint_EmptyNameMissingCollection(t *testing.T) {
 				},
 			})
 		})
+	}
+}
+
+// twoCreates creates the collection with first, then runs create again with
+// second, returning the second's error code and its message without the
+// collection's UUID.
+func twoCreates(create func(...bson.E) func(context.Context, *mongo.Collection) (interface{}, error), first, second []bson.E) func(context.Context, *mongo.Collection) (interface{}, error) {
+	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		if _, err := create(first...)(ctx, col); err != nil {
+			return nil, err
+		}
+		_, err := create(second...)(ctx, col)
+		var ce mongo.CommandError
+		if errors.As(err, &ce) {
+			msg := regexp.MustCompile(`UUID\("[^"]+"\)`).ReplaceAllString(ce.Message, "UUID(...)")
+			msg = strings.ReplaceAll(msg, col.Database().Name()+".", "<db>.")
+			return bson.D{{Key: "code", Value: ce.Code}, {Key: "message", Value: msg}}, nil
+		}
+		return bson.D{{Key: "ok", Value: err == nil}}, nil
 	}
 }
