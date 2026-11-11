@@ -1393,6 +1393,13 @@ func TestAggregate_MatchAfterShaping(t *testing.T) {
 		{"set_overwrite", mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$multiply", Value: bson.A{"$a", 10}}}}}}}, {{Key: "$match", Value: bson.D{{Key: "a", Value: 30}}}}}},
 		{"set_rename_or", mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "z", Value: "$a"}}}}, {{Key: "$match", Value: bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "z", Value: 1}}, bson.D{{Key: "b", Value: 2}}}}}}}}},
 		{"array_rename", mongo.Pipeline{{{Key: "$project", Value: bson.D{{Key: "z", Value: "$arr.k"}}}}, {{Key: "$match", Value: bson.D{{Key: "z", Value: 2}}}}}},
+		{"array_index_source", mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "z", Value: "$n.0"}}}}, {{Key: "$match", Value: bson.D{{Key: "z", Value: 2}}}}}},
+		{"dotted_source_array_equality", mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "z", Value: "$arr.k"}}}}, {{Key: "$match", Value: bson.D{{Key: "z", Value: bson.A{1, 2}}}}}}},
+		{"dotted_source_size", mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "z", Value: "$arr.k"}}}}, {{Key: "$match", Value: bson.D{{Key: "z", Value: bson.D{{Key: "$size", Value: 2}}}}}}}},
+		{"dotted_source_type", mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "z", Value: "$arr.k"}}}}, {{Key: "$match", Value: bson.D{{Key: "z", Value: bson.D{{Key: "$type", Value: "array"}}}}}}}},
+		{"dotted_source_all", mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "z", Value: "$arr.k"}}}}, {{Key: "$match", Value: bson.D{{Key: "z", Value: bson.D{{Key: "$all", Value: bson.A{1, 2}}}}}}}}},
+		{"dotted_source_elem_match", mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "z", Value: "$arr.k"}}}}, {{Key: "$match", Value: bson.D{{Key: "z", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$gte", Value: 6}}}}}}}}}},
+		{"dotted_source_exists", mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "z", Value: "$arr.q"}}}}, {{Key: "$match", Value: bson.D{{Key: "z", Value: bson.D{{Key: "$exists", Value: true}}}}}}}},
 	}
 	for _, p := range pipelines {
 		t.Run(p.name, func(t *testing.T) {
@@ -1404,7 +1411,8 @@ func TestAggregate_MatchAfterShaping(t *testing.T) {
 					docs := []interface{}{}
 					for i := 1; i <= 6; i++ {
 						docs = append(docs, bson.D{{Key: "_id", Value: i}, {Key: "a", Value: (i % 3) + 1}, {Key: "b", Value: i % 2},
-							{Key: "arr", Value: bson.A{bson.D{{Key: "k", Value: i}}, bson.D{{Key: "k", Value: i + 1}}}}})
+							{Key: "arr", Value: bson.A{bson.D{{Key: "k", Value: i}}, bson.D{{Key: "k", Value: i + 1}}}},
+							{Key: "n", Value: bson.A{i, i + 1}}})
 					}
 					if _, err := col.InsertMany(ctx, docs); err != nil {
 						return err
