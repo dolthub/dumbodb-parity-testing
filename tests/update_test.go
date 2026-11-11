@@ -940,6 +940,60 @@ func TestPull_by_in_condition(t *testing.T) {
 	})
 }
 
+// mongod applies a $pull condition to each element only when its first key
+// is a field operator; a condition starting with $not is parsed as a query
+// and rejected, whether or not a document matches.
+func TestPull_not_condition(t *testing.T) {
+	conditions := []struct {
+		name      string
+		condition bson.D
+	}{
+		{"not_eq", bson.D{{Key: "$not", Value: bson.D{{Key: "$eq", Value: int32(5)}}}}},
+		{"not_regex", bson.D{{Key: "$not", Value: primitive.Regex{Pattern: "^s"}}}},
+		{"not_empty", bson.D{{Key: "$not", Value: bson.D{}}}},
+		{"operator_then_not", bson.D{{Key: "$gte", Value: int32(5)}, {Key: "$not", Value: bson.D{{Key: "$eq", Value: int32(5)}}}}},
+		{"ne", bson.D{{Key: "$ne", Value: int32(5)}}},
+	}
+	for _, c := range conditions {
+		for _, target := range []string{"match", "no_match"} {
+			for _, command := range []string{"update", "find_and_modify"} {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "Pull_not_condition_" + c.name + "_" + target + "_" + command,
+					Support: harness.DumboDBFull,
+					Setup: func(ctx context.Context, col *mongo.Collection) error {
+						_, err := col.InsertOne(ctx, bson.D{
+							{Key: "_id", Value: "pull-not"},
+							{Key: "arr", Value: bson.A{bson.D{}, int32(5), "str", int32(7)}},
+						})
+						return err
+					},
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						filter := bson.D{{Key: "_id", Value: "pull-not"}}
+						if target == "no_match" {
+							filter = bson.D{{Key: "_id", Value: "missing"}}
+						}
+						update := bson.D{{Key: "$pull", Value: bson.D{{Key: "arr", Value: c.condition}}}}
+						var err error
+						if command == "update" {
+							_, err = col.UpdateOne(ctx, filter, update)
+						} else {
+							err = col.FindOneAndUpdate(ctx, filter, update).Err()
+							if err == mongo.ErrNoDocuments {
+								err = nil
+							}
+						}
+						doc, readErr := readOne(ctx, col, "pull-not")
+						if readErr != nil {
+							return nil, readErr
+						}
+						return doc, err
+					},
+				})
+			}
+		}
+	}
+}
+
 func TestPull_no_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Pull_no_match",
