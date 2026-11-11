@@ -2601,3 +2601,61 @@ func twoCreates(create func(...bson.E) func(context.Context, *mongo.Collection) 
 		return bson.D{{Key: "ok", Value: err == nil}}, nil
 	}
 }
+
+// TestClustered_HintTopLevelOperator: a read or single-document write hinted
+// to an ascending index takes documents in index order when its filter's top
+// level is $or, $and, $nor or $expr.
+func TestClustered_HintTopLevelOperator(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 5}, {Key: "b", Value: 1}},
+			bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: 9}, {Key: "b", Value: 3}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "a", Value: 7}, {Key: "b", Value: 2}},
+			bson.D{{Key: "_id", Value: 4}, {Key: "a", Value: 0}, {Key: "b", Value: 2}},
+			bson.D{{Key: "_id", Value: 5}, {Key: "a", Value: 3}, {Key: "b", Value: 1}},
+		}); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}}, Options: options.Index().SetName("a1")})
+		return err
+	}
+	or := bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "b", Value: 1}}, bson.D{{Key: "b", Value: 2}}}}}
+	filters := map[string]bson.D{
+		"or":   or,
+		"and":  {{Key: "$and", Value: bson.A{bson.D{{Key: "b", Value: bson.D{{Key: "$gte", Value: 1}}}}}}},
+		"nor":  {{Key: "$nor", Value: bson.A{bson.D{{Key: "b", Value: 3}}}}},
+		"expr": {{Key: "$expr", Value: bson.D{{Key: "$gte", Value: bson.A{"$b", 2}}}}},
+	}
+	type tcase struct {
+		name string
+		run  func(context.Context, *mongo.Collection) (interface{}, error)
+	}
+	var cases []tcase
+	for name, f := range filters {
+		cases = append(cases, tcase{"find_" + name, cluFindIDs(f, options.Find().SetHint("a1"))})
+	}
+	cases = append(cases,
+		tcase{"find_and_modify_or", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			var doc bson.D
+			err := col.FindOneAndUpdate(ctx, or, bson.D{{Key: "$set", Value: bson.D{{Key: "w", Value: 1}}}}, options.FindOneAndUpdate().SetHint("a1")).Decode(&doc)
+			return doc, err
+		}},
+		tcase{"delete_one_or", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := col.DeleteOne(ctx, or, options.Delete().SetHint("a1")); err != nil {
+				return nil, err
+			}
+			return cluFindIDs(bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))(ctx, col)
+		}},
+	)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Clustered_HintTopLevelOperator_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run:       tc.run,
+			})
+		})
+	}
+}
