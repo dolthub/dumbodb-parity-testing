@@ -2055,6 +2055,17 @@ func TestClustered_HintDescendingAggregate(t *testing.T) {
 		{"compound", ids(mongo.Pipeline{match(bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: 1}}}})}, "a_bd")},
 		{"then_project", ids(mongo.Pipeline{match(bson.D{{Key: "b", Value: bson.D{{Key: "$gt", Value: 2}}}}), {{Key: "$project", Value: bson.D{{Key: "b", Value: 1}}}}}, "bd")},
 		{"limit", ids(mongo.Pipeline{{{Key: "$limit", Value: 3}}}, "bd")},
+		{"project_id_only", ids(mongo.Pipeline{{{Key: "$project", Value: bson.D{{Key: "_id", Value: 1}}}}}, "bd")},
+		{"project_other_field", ids(mongo.Pipeline{{{Key: "$project", Value: bson.D{{Key: "a", Value: 1}}}}}, "bd")},
+		{"group_push", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Aggregate(ctx, mongo.Pipeline{{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "x", Value: bson.D{{Key: "$push", Value: "$_id"}}}}}}}, options.Aggregate().SetHint("bd"))
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			err = cur.All(ctx, &docs)
+			return docs, err
+		}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
