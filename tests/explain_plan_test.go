@@ -1736,3 +1736,84 @@ func TestCount_MultikeyTwoSidedRange(t *testing.T) {
 		})
 	}
 }
+
+// TestExplainPlan_StagesAfterEqLookup: after a $lookup the query plan
+// absorbs, a $sort, $limit or $skip that keeps its order moves into the plan
+// and any other stage is reported on its own, with its count.
+func TestExplainPlan_StagesAfterEqLookup(t *testing.T) {
+	lookupStage := func(foreign string) bson.D {
+		return bson.D{{Key: "$lookup", Value: bson.D{{Key: "from", Value: foreign}, {Key: "localField", Value: "a"}, {Key: "foreignField", Value: "b"}, {Key: "as", Value: "j"}}}}
+	}
+	pipelines := []struct {
+		name  string
+		after []bson.D
+	}{
+		{"match_on_join", []bson.D{{{Key: "$match", Value: bson.D{{Key: "j.v", Value: "x"}}}}}},
+		{"sort_local", []bson.D{{{Key: "$sort", Value: bson.D{{Key: "a", Value: -1}}}}}},
+		{"sort_joined", []bson.D{{{Key: "$sort", Value: bson.D{{Key: "j.v", Value: 1}}}}}},
+		{"limit", []bson.D{{{Key: "$limit", Value: 1}}}},
+		{"sort_limit", []bson.D{{{Key: "$sort", Value: bson.D{{Key: "a", Value: -1}}}}, {{Key: "$limit", Value: 2}}}},
+	}
+	for _, p := range pipelines {
+		t.Run(p.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "ExplainPlan_StagesAfterEqLookup_" + p.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					if _, err := col.InsertMany(ctx, []interface{}{bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 1}}, bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: 2}}, bson.D{{Key: "_id", Value: 3}, {Key: "a", Value: 3}}}); err != nil {
+						return err
+					}
+					_, err := col.Database().Collection(col.Name()+"_j").InsertMany(ctx, []interface{}{
+						bson.D{{Key: "_id", Value: 1}, {Key: "b", Value: 1}, {Key: "v", Value: "x"}},
+						bson.D{{Key: "_id", Value: 2}, {Key: "b", Value: 2}, {Key: "v", Value: "y"}},
+						bson.D{{Key: "_id", Value: 3}, {Key: "b", Value: 3}, {Key: "v", Value: "y"}},
+					})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					pipeline := bson.A{lookupStage(col.Name() + "_j")}
+					for _, s := range p.after {
+						pipeline = append(pipeline, s)
+					}
+					cmd := bson.D{{Key: "aggregate", Value: col.Name()}, {Key: "pipeline", Value: pipeline}, {Key: "cursor", Value: bson.D{}}}
+					var doc bson.D
+					if err := col.Database().RunCommand(ctx, bson.D{{Key: "explain", Value: cmd}, {Key: "verbosity", Value: "executionStats"}}).Decode(&doc); err != nil {
+						return nil, err
+					}
+					ver, _ := lookup(doc, "explainVersion")
+					var plan bson.D
+					if qp := findQueryPlanner(doc); qp != nil {
+						if wp, ok := lookupBSONField(qp, "winningPlan"); ok {
+							if w, ok := wp.(bson.D); ok {
+								if inner, ok := lookupBSONField(w, "queryPlan"); ok {
+									w, _ = inner.(bson.D)
+								}
+								plan = planStageNames(w)
+							}
+						}
+					}
+					return bson.D{{Key: "explainVersion", Value: ver}, {Key: "stages", Value: topLevelStages(doc)}, {Key: "plan", Value: plan}}, nil
+				},
+			})
+		})
+	}
+}
+
+// planStageNames lists a plan's stages from the root down its first input.
+func planStageNames(plan bson.D) bson.D {
+	out := bson.D{}
+	for plan != nil {
+		name, _ := lookupBSONField(plan, "stage")
+		out = append(out, bson.E{Key: fmt.Sprint(len(out)), Value: name})
+		var next bson.D
+		for _, k := range []string{"inputStage", "outerStage"} {
+			if v, ok := lookupBSONField(plan, k); ok {
+				next, _ = v.(bson.D)
+				break
+			}
+		}
+		plan = next
+	}
+	return out
+}
