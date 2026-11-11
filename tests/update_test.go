@@ -2378,3 +2378,36 @@ func TestPull_refused_condition(t *testing.T) {
 		})
 	}
 }
+
+// TestUpdate_missing_collection: an update that cannot upsert matches nothing
+// in a missing collection, whatever its hint, and does not create it.
+func TestUpdate_missing_collection(t *testing.T) {
+	cases := []struct {
+		name string
+		stmt bson.D
+	}{
+		{"plain", bson.D{{Key: "q", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: 1}}}}}}},
+		{"hinted", bson.D{{Key: "q", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: 1}}}}}, {Key: "hint", Value: "a_1"}}},
+		{"upsert", bson.D{{Key: "q", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: 1}}}}}, {Key: "upsert", Value: true}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Update_missing_collection_" + tc.name,
+				Support: harness.DumboDBFull,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					name := col.Name() + "_missing"
+					var res bson.M
+					if err := col.Database().RunCommand(ctx, bson.D{{Key: "update", Value: name}, {Key: "updates", Value: bson.A{tc.stmt}}}).Decode(&res); err != nil {
+						return nil, err
+					}
+					names, err := col.Database().ListCollectionNames(ctx, bson.D{{Key: "name", Value: name}})
+					if err != nil {
+						return nil, err
+					}
+					return bson.D{{Key: "n", Value: res["n"]}, {Key: "writeErrors", Value: res["writeErrors"] != nil}, {Key: "created", Value: len(names) == 1}}, nil
+				},
+			})
+		})
+	}
+}
