@@ -994,6 +994,57 @@ func TestPull_not_condition(t *testing.T) {
 	}
 }
 
+// mongod runs a $pull condition that does not start with a field operator as
+// a query against each embedded document; scalars never match it.
+func TestPull_embedded_document_condition(t *testing.T) {
+	conditions := []struct {
+		name      string
+		condition bson.D
+	}{
+		{"field_gt", bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: int32(1)}}}}},
+		{"field_not", bson.D{{Key: "a", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$gt", Value: int32(1)}}}}}}},
+		{"field_ne", bson.D{{Key: "a", Value: bson.D{{Key: "$ne", Value: int32(1)}}}}},
+		{"field_in", bson.D{{Key: "a", Value: bson.D{{Key: "$in", Value: bson.A{int32(0), int32(3)}}}}}},
+		{"field_literal", bson.D{{Key: "a", Value: int32(1)}}},
+		{"two_fields", bson.D{{Key: "a", Value: int32(1)}, {Key: "b", Value: int32(2)}}},
+		{"nor", bson.D{{Key: "$nor", Value: bson.A{bson.D{{Key: "a", Value: int32(1)}}}}}},
+		{"or", bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "a", Value: int32(0)}}, bson.D{{Key: "b", Value: int32(1)}}}}}},
+		{"empty", bson.D{}},
+	}
+	for _, c := range conditions {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "Pull_embedded_document_condition_" + c.name,
+			Support: harness.DumboDBFull,
+			Setup: func(ctx context.Context, col *mongo.Collection) error {
+				_, err := col.InsertOne(ctx, bson.D{
+					{Key: "_id", Value: "pull-docs"},
+					{Key: "docs", Value: bson.A{
+						bson.D{{Key: "a", Value: int32(0)}},
+						bson.D{{Key: "a", Value: int32(3)}},
+						bson.D{{Key: "a", Value: int32(1)}, {Key: "b", Value: int32(2)}},
+						bson.D{{Key: "b", Value: int32(1)}},
+						bson.D{},
+						int32(5),
+						"s",
+					}},
+				})
+				return err
+			},
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				_, err := col.UpdateOne(ctx,
+					bson.D{{Key: "_id", Value: "pull-docs"}},
+					bson.D{{Key: "$pull", Value: bson.D{{Key: "docs", Value: c.condition}}}},
+				)
+				doc, readErr := readOne(ctx, col, "pull-docs")
+				if readErr != nil {
+					return nil, readErr
+				}
+				return doc, err
+			},
+		})
+	}
+}
+
 func TestPull_no_match(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "Pull_no_match",
