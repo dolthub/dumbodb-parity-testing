@@ -219,6 +219,14 @@ func TestDBRef_id_filter_nin(t *testing.T) {
 	})
 }
 
+// The operand of $not is always parsed as operators, so a DBRef there fails
+// with BadValue instead of matching every other document.
+func TestDBRef_id_filter_not(t *testing.T) {
+	runDBRefIDFilter(t, "not", func(id bson.D) bson.D {
+		return bson.D{{Key: "_id", Value: bson.D{{Key: "$not", Value: id}}}}
+	})
+}
+
 func runDBRefFieldFilter(t *testing.T, name string, indexed bool, filter func(ref bson.D) bson.D) {
 	for shape, ref := range dbrefIDShapes {
 		harness.PairTest(t, harness.TestCase{
@@ -258,6 +266,12 @@ func TestDBRef_field_filter(t *testing.T) {
 		runDBRefFieldFilter(t, "bare_equality_"+suffix, indexed, func(ref bson.D) bson.D { return bson.D{{Key: "ref", Value: ref}} })
 		runDBRefFieldFilter(t, "in_"+suffix, indexed, func(ref bson.D) bson.D {
 			return bson.D{{Key: "ref", Value: bson.D{{Key: "$in", Value: bson.A{ref, int32(7)}}}}}
+		})
+		runDBRefFieldFilter(t, "not_"+suffix, indexed, func(ref bson.D) bson.D {
+			return bson.D{{Key: "ref", Value: bson.D{{Key: "$not", Value: ref}}}}
+		})
+		runDBRefFieldFilter(t, "elem_match_not_"+suffix, indexed, func(ref bson.D) bson.D {
+			return bson.D{{Key: "ref", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$not", Value: ref}}}}}}
 		})
 	}
 }
