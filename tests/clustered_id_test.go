@@ -1889,6 +1889,15 @@ func TestClustered_RecordIDPaths(t *testing.T) {
 		{"meta_after_limit", pipeline(bson.D{{Key: "$limit", Value: int32(2)}})},
 		{"meta_after_set", pipeline(bson.D{{Key: "$set", Value: bson.D{{Key: "c", Value: int32(1)}}}})},
 		{"lookup_sub_pipeline", joined(bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "a", Value: int32(2)}}}}, meta})},
+		{"facet", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Aggregate(ctx, mongo.Pipeline{{{Key: "$facet", Value: bson.D{{Key: "x", Value: bson.A{meta}}}}}})
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			err = cur.All(ctx, &docs)
+			return docs, err
+		}},
 		{"lookup_sub_pipeline_reshaped", joined(bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "q", Value: 1}}}}, meta})},
 		{"set_meta", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cur, err := col.Aggregate(ctx, mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "r", Value: bson.D{{Key: "$meta", Value: "recordId"}}}}}}})
