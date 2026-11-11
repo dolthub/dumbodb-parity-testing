@@ -1860,6 +1860,23 @@ func TestClustered_RecordIDPaths(t *testing.T) {
 			return docs, err
 		}
 	}
+	// joined runs sub as a $lookup sub-pipeline over the collection itself
+	// and returns each document's joined array.
+	joined := func(sub bson.A) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Aggregate(ctx, mongo.Pipeline{
+				{{Key: "$lookup", Value: bson.D{{Key: "from", Value: col.Name()}, {Key: "as", Value: "j"}, {Key: "pipeline", Value: sub}}}},
+				{{Key: "$project", Value: bson.D{{Key: "j", Value: 1}}}},
+				{{Key: "$limit", Value: 1}},
+			})
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			err = cur.All(ctx, &docs)
+			return docs, err
+		}
+	}
 	cases := []struct {
 		name string
 		run  func(context.Context, *mongo.Collection) (interface{}, error)
@@ -1871,6 +1888,8 @@ func TestClustered_RecordIDPaths(t *testing.T) {
 		{"meta_after_sort", pipeline(bson.D{{Key: "$sort", Value: bson.D{{Key: "b", Value: 1}}}})},
 		{"meta_after_limit", pipeline(bson.D{{Key: "$limit", Value: int32(2)}})},
 		{"meta_after_set", pipeline(bson.D{{Key: "$set", Value: bson.D{{Key: "c", Value: int32(1)}}}})},
+		{"lookup_sub_pipeline", joined(bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "a", Value: int32(2)}}}}, meta})},
+		{"lookup_sub_pipeline_reshaped", joined(bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "q", Value: 1}}}}, meta})},
 		{"set_meta", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cur, err := col.Aggregate(ctx, mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "r", Value: bson.D{{Key: "$meta", Value: "recordId"}}}}}}})
 			if err != nil {
