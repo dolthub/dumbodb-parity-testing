@@ -1481,6 +1481,7 @@ func TestExplainPlan_PipelineStages(t *testing.T) {
 		{"add_fields_sort", bson.A{match, bson.D{{Key: "$addFields", Value: bson.D{{Key: "b", Value: 1}}}}, bson.D{{Key: "$sort", Value: bson.D{{Key: "b", Value: 1}}}}}},
 		{"replace_root", bson.A{bson.D{{Key: "$replaceRoot", Value: bson.D{{Key: "newRoot", Value: bson.D{{Key: "x", Value: "$a"}}}}}}}},
 		{"set_then_match", bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$multiply", Value: bson.A{"$a", 10}}}}}}}, bson.D{{Key: "$match", Value: bson.D{{Key: "a", Value: 10}}}}}},
+		{"unwind_then_limit", bson.A{match, bson.D{{Key: "$unwind", Value: "$arr"}}, bson.D{{Key: "$limit", Value: 2}}}},
 		{"set_then_count", bson.A{set, count}},
 		{"add_fields_then_count", bson.A{bson.D{{Key: "$addFields", Value: bson.D{{Key: "b", Value: 1}}}}, count}},
 		{"unset_then_count", bson.A{bson.D{{Key: "$unset", Value: "a"}}, count}},
