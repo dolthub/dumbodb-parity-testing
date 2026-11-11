@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -170,6 +171,84 @@ func TestMaxTimeMS_LargeIDIn(t *testing.T) {
 						outcome = err.Error()
 					}
 					return bson.D{{Key: "outcome", Value: outcome}, {Key: "prompt", Value: time.Since(start) < 5*time.Second}}, nil
+				},
+			})
+		})
+	}
+}
+
+// TestPipeline_LengthLimitThroughViews: commands on a view of 1000 stages, a
+// chain of views over 1000, collMod and a findAndModify pipeline are held to
+// the 1000-stage limit, counting the stages mongod runs a command as.
+func TestPipeline_LengthLimitThroughViews(t *testing.T) {
+	sets := func(n int) bson.A {
+		out := make(bson.A, n)
+		for i := range out {
+			out[i] = bson.D{{Key: "$set", Value: bson.D{{Key: "x", Value: 1}}}}
+		}
+		return out
+	}
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 1}}); err != nil {
+			return err
+		}
+		db := col.Database()
+		for _, v := range []struct {
+			name, on string
+			n        int
+		}{{"_v1000", col.Name(), 1000}, {"_v600", col.Name(), 600}, {"_v600b", col.Name() + "_v600", 600}} {
+			if err := db.RunCommand(ctx, bson.D{{Key: "create", Value: col.Name() + v.name}, {Key: "viewOn", Value: v.on}, {Key: "pipeline", Value: sets(v.n)}}).Err(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	cmds := []struct {
+		name string
+		cmd  func(name string) bson.D
+	}{
+		{"find_filtered", func(n string) bson.D {
+			return bson.D{{Key: "find", Value: n + "_v1000"}, {Key: "filter", Value: bson.D{{Key: "a", Value: 1}}}}
+		}},
+		{"find_unfiltered", func(n string) bson.D { return bson.D{{Key: "find", Value: n + "_v1000"}} }},
+		{"find_chain", func(n string) bson.D { return bson.D{{Key: "find", Value: n + "_v600b"}} }},
+		{"count", func(n string) bson.D { return bson.D{{Key: "count", Value: n + "_v1000"}} }},
+		{"count_chain", func(n string) bson.D { return bson.D{{Key: "count", Value: n + "_v600b"}} }},
+		{"distinct", func(n string) bson.D { return bson.D{{Key: "distinct", Value: n + "_v1000"}, {Key: "key", Value: "a"}} }},
+		{"aggregate_chain", func(n string) bson.D {
+			return bson.D{{Key: "aggregate", Value: n + "_v600b"}, {Key: "pipeline", Value: bson.A{}}, {Key: "cursor", Value: bson.D{}}}
+		}},
+		{"explain_find", func(n string) bson.D {
+			return bson.D{{Key: "explain", Value: bson.D{{Key: "find", Value: n + "_v1000"}, {Key: "filter", Value: bson.D{{Key: "a", Value: 1}}}}}}
+		}},
+		{"coll_mod", func(n string) bson.D {
+			return bson.D{{Key: "collMod", Value: n + "_v600"}, {Key: "viewOn", Value: n}, {Key: "pipeline", Value: sets(1001)}}
+		}},
+		{"find_and_modify_pipeline", func(n string) bson.D {
+			return bson.D{{Key: "findAndModify", Value: n}, {Key: "query", Value: bson.D{}}, {Key: "update", Value: sets(1001)}}
+		}},
+		{"update_pipeline", func(n string) bson.D {
+			return bson.D{{Key: "update", Value: n}, {Key: "updates", Value: bson.A{bson.D{{Key: "q", Value: bson.D{}}, {Key: "u", Value: sets(1001)}}}}}
+		}},
+		{"lookup_from_view", func(n string) bson.D {
+			return bson.D{{Key: "aggregate", Value: n}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: n + "_v1000"}, {Key: "localField", Value: "a"}, {Key: "foreignField", Value: "a"}, {Key: "as", Value: "j"}}}}}}, {Key: "cursor", Value: bson.D{}}}
+		}},
+	}
+	for _, c := range cmds {
+		t.Run(c.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Pipeline_LengthLimitThroughViews_" + c.name,
+				Support: harness.DumboDBFull,
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					err := col.Database().RunCommand(ctx, c.cmd(col.Name())).Err()
+					var ce mongo.CommandError
+					if errors.As(err, &ce) {
+						msg := strings.ReplaceAll(ce.Message, col.Database().Name()+"."+col.Name(), "<ns>")
+						return bson.D{{Key: "code", Value: ce.Code}, {Key: "message", Value: msg}}, nil
+					}
+					return bson.D{{Key: "ok", Value: err == nil}}, nil
 				},
 			})
 		})
