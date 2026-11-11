@@ -1571,3 +1571,37 @@ func TestExplainPlan_CountHintedFetch(t *testing.T) {
 		})
 	}
 }
+
+// TestExplainPlan_SourceStages: explain at executionStats verbosity answers a
+// pipeline led by a stage that makes its own documents, on a collection of
+// several documents.
+func TestExplainPlan_SourceStages(t *testing.T) {
+	addFields := bson.D{{Key: "$addFields", Value: bson.D{{Key: "x", Value: 1}}}}
+	pipelines := []struct {
+		name  string
+		first bson.D
+	}{
+		{"coll_stats_count", bson.D{{Key: "$collStats", Value: bson.D{{Key: "count", Value: bson.D{}}}}}},
+		{"coll_stats_storage", bson.D{{Key: "$collStats", Value: bson.D{{Key: "storageStats", Value: bson.D{}}}}}},
+		{"coll_stats_latency", bson.D{{Key: "$collStats", Value: bson.D{{Key: "latencyStats", Value: bson.D{}}}}}},
+		{"index_stats", bson.D{{Key: "$indexStats", Value: bson.D{}}}},
+	}
+	for _, p := range pipelines {
+		t.Run(p.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "ExplainPlan_SourceStages_" + p.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					_, err := col.InsertMany(ctx, []interface{}{bson.D{{Key: "_id", Value: 1}}, bson.D{{Key: "_id", Value: 2}}})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					cmd := bson.D{{Key: "aggregate", Value: col.Name()}, {Key: "pipeline", Value: bson.A{p.first, addFields}}, {Key: "cursor", Value: bson.D{}}}
+					err := col.Database().RunCommand(ctx, bson.D{{Key: "explain", Value: cmd}, {Key: "verbosity", Value: "executionStats"}}).Err()
+					return bson.D{{Key: "ok", Value: err == nil}}, nil
+				},
+			})
+		})
+	}
+}
