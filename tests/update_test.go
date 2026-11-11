@@ -2343,3 +2343,38 @@ func TestPull_from_nested_array(t *testing.T) {
 		},
 	})
 }
+
+// TestPull_refused_condition: mongod refuses a $pull condition holding $expr,
+// $where or $text, anywhere in it, or led by $not.
+func TestPull_refused_condition(t *testing.T) {
+	cases := []struct {
+		name string
+		cond bson.D
+	}{
+		{"expr", bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{"$k", 1}}}}}},
+		{"where", bson.D{{Key: "$where", Value: "true"}}},
+		{"text", bson.D{{Key: "$text", Value: bson.D{{Key: "$search", Value: "x"}}}}},
+		{"not", bson.D{{Key: "$not", Value: bson.D{{Key: "$gt", Value: 2}}}}},
+		{"field_and_expr", bson.D{{Key: "k", Value: 1}, {Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{1, 1}}}}}},
+		{"expr_under_and", bson.D{{Key: "$and", Value: bson.A{bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{1, 1}}}}}}}}},
+		{"comment_allowed", bson.D{{Key: "k", Value: 1}, {Key: "$comment", Value: "x"}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Pull_refused_condition_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "pull-r"}, {Key: "arr", Value: bson.A{bson.D{{Key: "k", Value: 1}}, bson.D{{Key: "k", Value: 2}}, 3}}})
+					return err
+				},
+				Run: errorMessage(func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					if _, err := col.UpdateOne(ctx, bson.D{{Key: "_id", Value: "pull-r"}}, bson.D{{Key: "$pull", Value: bson.D{{Key: "arr", Value: tc.cond}}}}); err != nil {
+						return nil, err
+					}
+					return readOne(ctx, col, "pull-r")
+				}),
+			})
+		})
+	}
+}
