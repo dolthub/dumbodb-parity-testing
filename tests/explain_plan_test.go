@@ -1662,3 +1662,27 @@ func TestAggregate_ViewMatchPushdown(t *testing.T) {
 		})
 	}
 }
+
+// TestExplainPlan_CompoundSortWithoutSortIndex: a sort on several fields that
+// no index yields is sorted in memory over the filter's index.
+func TestExplainPlan_CompoundSortWithoutSortIndex(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:      "ExplainPlan_CompoundSortWithoutSortIndex",
+		Support:   harness.DumboDBFull,
+		Clustered: true,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			docs := make([]interface{}, 240)
+			for i := range docs {
+				docs[i] = bson.D{{Key: "_id", Value: int32(i)}, {Key: "a", Value: int32(i % 7)}, {Key: "b", Value: int32(i * 13 % 11)}, {Key: "m", Value: int32(i % 5)}}
+			}
+			if _, err := col.InsertMany(ctx, docs); err != nil {
+				return err
+			}
+			return createIndex(ctx, col, bson.D{{Key: "a", Value: 1}, {Key: "m", Value: 1}})
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return explainWorkOf(bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 1}}}}},
+				{Key: "sort", Value: bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}}}, {Key: "limit", Value: 3}})(ctx, col)
+		},
+	})
+}
