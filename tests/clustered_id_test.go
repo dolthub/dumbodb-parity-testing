@@ -2463,3 +2463,50 @@ func TestClustered_CoveredLeadingKeyUnfiltered(t *testing.T) {
 		})
 	}
 }
+
+// TestClustered_HintDescendingBounds: a single-document write or read hinted
+// to an index with a descending key takes the first document in index order,
+// which follows the filter's bounds under $and and $or, ignores bounds below
+// an unbounded leading field, and keys an empty array as undefined.
+func TestClustered_HintDescendingBounds(t *testing.T) {
+	cases := []struct {
+		name   string
+		docs   []interface{}
+		index  bson.D
+		filter bson.D
+	}{
+		{"and", []interface{}{bson.D{{Key: "_id", Value: 1}, {Key: "b", Value: 4}}, bson.D{{Key: "_id", Value: 2}, {Key: "b", Value: bson.A{1, 9}}}, bson.D{{Key: "_id", Value: 3}, {Key: "b", Value: 3}}},
+			bson.D{{Key: "b", Value: -1}}, bson.D{{Key: "$and", Value: bson.A{bson.D{{Key: "b", Value: bson.D{{Key: "$lt", Value: 5}}}}}}}},
+		{"or", []interface{}{bson.D{{Key: "_id", Value: 1}, {Key: "b", Value: 4}}, bson.D{{Key: "_id", Value: 2}, {Key: "b", Value: bson.A{1, 9}}}, bson.D{{Key: "_id", Value: 3}, {Key: "b", Value: 3}}},
+			bson.D{{Key: "b", Value: -1}}, bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "b", Value: bson.D{{Key: "$lt", Value: 5}}}}, bson.D{{Key: "b", Value: bson.D{{Key: "$lt", Value: 2}}}}}}}},
+		{"trailing_field", []interface{}{bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: -1}, {Key: "b", Value: 4}}, bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: -1}, {Key: "b", Value: bson.A{1, 9}}}},
+			bson.D{{Key: "a", Value: 1}, {Key: "b", Value: -1}}, bson.D{{Key: "b", Value: bson.D{{Key: "$lt", Value: 5}}}}},
+		{"empty_array", []interface{}{bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: bson.A{}}}, bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: primitive.MinKey{}}}},
+			bson.D{{Key: "a", Value: 1}, {Key: "b", Value: -1}}, bson.D{}},
+	}
+	for _, tc := range cases {
+		setup := func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.InsertMany(ctx, tc.docs); err != nil {
+				return err
+			}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: tc.index, Options: options.Index().SetName("h")})
+			return err
+		}
+		t.Run(tc.name+"/find_and_modify", func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name: "Clustered_HintDescendingBounds_" + tc.name + "_find_and_modify", Support: harness.DumboDBFull, Clustered: true, Setup: setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					var doc bson.D
+					err := col.FindOneAndUpdate(ctx, tc.filter, bson.D{{Key: "$set", Value: bson.D{{Key: "w", Value: 1}}}}, options.FindOneAndUpdate().SetHint("h")).Decode(&doc)
+					return doc, err
+				},
+			})
+		})
+		t.Run(tc.name+"/find", func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name: "Clustered_HintDescendingBounds_" + tc.name + "_find", Support: harness.DumboDBFull, Clustered: true, Setup: setup,
+				Run: cluFindIDs(tc.filter, options.Find().SetHint("h")),
+			})
+		})
+	}
+}
