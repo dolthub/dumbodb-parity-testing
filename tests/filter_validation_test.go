@@ -50,6 +50,12 @@ func TestFilter_Validation(t *testing.T) {
 		{"InsideElemMatch", bson.D{{Key: "a", Value: int32(1)}, {Key: "f", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$in", Value: int32(1)}}}}}}},
 		{"InvalidRegex", bson.D{{Key: "a", Value: int32(1)}, {Key: "f", Value: bson.D{{Key: "$regex", Value: "("}}}}},
 		{"UnknownOperator", bson.D{{Key: "a", Value: int32(1)}, {Key: "f", Value: bson.D{{Key: "$nope", Value: int32(1)}}}}},
+		{"NotEmptyOperand", bson.D{{Key: "f", Value: bson.D{{Key: "$not", Value: bson.D{}}}}}},
+		{"NotPlainDocument", bson.D{{Key: "f", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "a", Value: int32(1)}}}}}}},
+		{"NotOperatorThenField", bson.D{{Key: "f", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$gt", Value: int32(1)}, {Key: "a", Value: int32(1)}}}}}}},
+		{"NotDBRef", bson.D{{Key: "f", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$ref", Value: "x"}, {Key: "$id", Value: int32(1)}}}}}}},
+		{"NotIncompleteDBRef", bson.D{{Key: "f", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$id", Value: int32(1)}}}}}}},
+		{"NotScalar", bson.D{{Key: "f", Value: bson.D{{Key: "$not", Value: int32(1)}}}}},
 		{"Valid", bson.D{{Key: "a", Value: int32(1)}, {Key: "f", Value: bson.D{{Key: "$in", Value: bson.A{int32(1)}}}}}},
 	}
 	commands := []struct {
