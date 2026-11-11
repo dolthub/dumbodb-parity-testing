@@ -2007,6 +2007,68 @@ func TestClustered_HintDescendingMultikey(t *testing.T) {
 	}
 }
 
+// TestClustered_HintDescendingAggregate: an aggregate hinted to an index
+// with a descending key and no $sort returns documents in index order.
+func TestClustered_HintDescendingAggregate(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 0, 10)
+		for i := int32(1); i <= 10; i++ {
+			var b interface{} = i * 7 % 10
+			if i == 8 {
+				b = bson.A{int32(0), int32(5)}
+			}
+			docs = append(docs, bson.D{{Key: "_id", Value: i}, {Key: "a", Value: i % 3}, {Key: "b", Value: b}})
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateMany(ctx, []mongo.IndexModel{
+			{Keys: bson.D{{Key: "b", Value: -1}}, Options: options.Index().SetName("bd")},
+			{Keys: bson.D{{Key: "a", Value: 1}, {Key: "b", Value: -1}}, Options: options.Index().SetName("a_bd")},
+		})
+		return err
+	}
+	ids := func(pipeline mongo.Pipeline, hint string) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cur, err := col.Aggregate(ctx, pipeline, options.Aggregate().SetHint(hint))
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			if err := cur.All(ctx, &docs); err != nil {
+				return nil, err
+			}
+			out := bson.A{}
+			for _, d := range docs {
+				out = append(out, d[0].Value)
+			}
+			return out, nil
+		}
+	}
+	match := func(f bson.D) bson.D { return bson.D{{Key: "$match", Value: f}} }
+	cases := []struct {
+		name string
+		run  func(context.Context, *mongo.Collection) (interface{}, error)
+	}{
+		{"whole_index", ids(mongo.Pipeline{}, "bd")},
+		{"multikey_range", ids(mongo.Pipeline{match(bson.D{{Key: "b", Value: bson.D{{Key: "$lt", Value: 3}}}})}, "bd")},
+		{"compound", ids(mongo.Pipeline{match(bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: 1}}}})}, "a_bd")},
+		{"then_project", ids(mongo.Pipeline{match(bson.D{{Key: "b", Value: bson.D{{Key: "$gt", Value: 2}}}}), {{Key: "$project", Value: bson.D{{Key: "b", Value: 1}}}}}, "bd")},
+		{"limit", ids(mongo.Pipeline{{{Key: "$limit", Value: 3}}}, "bd")},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Clustered_HintDescendingAggregate_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run:       tc.run,
+			})
+		})
+	}
+}
+
 // TestRange_MinMaxKeySparse: count and find on MinKey and MaxKey bounds, with
 // and without a sparse index on the field. Which documents match depends on the
 // plan: one that reads the sparse index leaves out the documents without the
