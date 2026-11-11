@@ -1095,17 +1095,13 @@ func TestGeo_DocumentPoints(t *testing.T) {
 	}
 	near := sortedIDs(bson.D{{Key: "loc", Value: bson.D{{Key: "$near", Value: bson.A{10.0, 1.0}}, {Key: "$maxDistance", Value: 0.1}}}})
 	geoNear := func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-		cur, err := col.Aggregate(ctx, mongo.Pipeline{{{Key: "$geoNear", Value: bson.D{{Key: "near", Value: bson.A{10.0, 1.0}}, {Key: "distanceField", Value: "d"}, {Key: "key", Value: "loc"}}}}})
+		docs, err := runPipeline(ctx, col, mongo.Pipeline{{{Key: "$geoNear", Value: bson.D{{Key: "near", Value: bson.A{10.0, 1.0}}, {Key: "distanceField", Value: "d"}, {Key: "key", Value: "loc"}}}}})
 		if err != nil {
-			return nil, err
-		}
-		var docs []bson.M
-		if err := cur.All(ctx, &docs); err != nil {
 			return nil, err
 		}
 		ids := []string{}
 		for _, d := range docs {
-			ids = append(ids, d["_id"].(string))
+			ids = append(ids, d.Map()["_id"].(string))
 		}
 		sort.Strings(ids)
 		return ids, nil

@@ -86,6 +86,13 @@ func cluFindDocsIn(suffix string, filter bson.D, opts ...*options.FindOptions) f
 	}
 }
 
+// cluAggregateDocs returns the documents an aggregate of stages returns.
+func cluAggregateDocs(stages ...bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
+	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		return runPipeline(ctx, col, stages)
+	}
+}
+
 // cluFindIDs returns the _ids find returns, in the order returned.
 func cluFindIDs(filter bson.D, opts ...*options.FindOptions) func(context.Context, *mongo.Collection) (interface{}, error) {
 	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
@@ -1858,15 +1865,7 @@ func TestClustered_RecordIDPaths(t *testing.T) {
 	}
 	meta := bson.D{{Key: "$project", Value: bson.D{{Key: "r", Value: bson.D{{Key: "$meta", Value: "recordId"}}}}}}
 	pipeline := func(stages ...bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
-		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			cur, err := col.Aggregate(ctx, append(mongo.Pipeline(stages), meta))
-			if err != nil {
-				return nil, err
-			}
-			var docs []bson.D
-			err = cur.All(ctx, &docs)
-			return docs, err
-		}
+		return cluAggregateDocs(append(stages, meta)...)
 	}
 	// joined runs sub as a $lookup sub-pipeline over the collection itself
 	// and returns each document's joined array.
@@ -1897,15 +1896,7 @@ func TestClustered_RecordIDPaths(t *testing.T) {
 		{"meta_after_limit", pipeline(bson.D{{Key: "$limit", Value: int32(2)}})},
 		{"meta_after_set", pipeline(bson.D{{Key: "$set", Value: bson.D{{Key: "c", Value: int32(1)}}}})},
 		{"lookup_sub_pipeline", joined(bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "a", Value: int32(2)}}}}, meta})},
-		{"facet", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			cur, err := col.Aggregate(ctx, mongo.Pipeline{{{Key: "$facet", Value: bson.D{{Key: "x", Value: bson.A{meta}}}}}})
-			if err != nil {
-				return nil, err
-			}
-			var docs []bson.D
-			err = cur.All(ctx, &docs)
-			return docs, err
-		}},
+		{"facet", cluAggregateDocs(bson.D{{Key: "$facet", Value: bson.D{{Key: "x", Value: bson.A{meta}}}}})},
 		{"find_and_modify", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			var doc bson.D
 			err := col.FindOneAndUpdate(ctx, bson.D{{Key: "_id", Value: int32(1)}}, bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: 1}}}},
@@ -1920,15 +1911,7 @@ func TestClustered_RecordIDPaths(t *testing.T) {
 			return doc, err
 		}},
 		{"lookup_sub_pipeline_reshaped", joined(bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "q", Value: 1}}}}, meta})},
-		{"set_meta", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			cur, err := col.Aggregate(ctx, mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "r", Value: bson.D{{Key: "$meta", Value: "recordId"}}}}}}})
-			if err != nil {
-				return nil, err
-			}
-			var docs []bson.D
-			err = cur.All(ctx, &docs)
-			return docs, err
-		}},
+		{"set_meta", cluAggregateDocs(bson.D{{Key: "$set", Value: bson.D{{Key: "r", Value: bson.D{{Key: "$meta", Value: "recordId"}}}}}})},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -2317,33 +2300,15 @@ func TestClustered_WriteDescendingHint(t *testing.T) {
 // in a projection; in a filter or an accumulator it is missing.
 func TestClustered_RecordIDOutsideProjection(t *testing.T) {
 	meta := bson.D{{Key: "$meta", Value: "recordId"}}
-	docs := func(cur *mongo.Cursor, err error) (interface{}, error) {
-		if err != nil {
-			return nil, err
-		}
-		var out []bson.D
-		err = cur.All(context.Background(), &out)
-		return out, err
-	}
 	cases := []struct {
 		name string
 		run  func(context.Context, *mongo.Collection) (interface{}, error)
 	}{
-		{"find_expr", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			return docs(col.Find(ctx, bson.D{{Key: "$expr", Value: bson.D{{Key: "$gt", Value: bson.A{meta, nil}}}}}))
-		}},
-		{"match_expr", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			return docs(col.Aggregate(ctx, mongo.Pipeline{{{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$gt", Value: bson.A{meta, nil}}}}}}}}))
-		}},
-		{"match_type", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			return docs(col.Aggregate(ctx, mongo.Pipeline{{{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{bson.D{{Key: "$type", Value: meta}}, "binData"}}}}}}}}))
-		}},
-		{"group_push", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			return docs(col.Aggregate(ctx, mongo.Pipeline{{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "ids", Value: bson.D{{Key: "$push", Value: meta}}}}}}}))
-		}},
-		{"project", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			return docs(col.Aggregate(ctx, mongo.Pipeline{{{Key: "$project", Value: bson.D{{Key: "r", Value: meta}}}}, {{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}}}))
-		}},
+		{"find_expr", cluFindDocs(bson.D{{Key: "$expr", Value: bson.D{{Key: "$gt", Value: bson.A{meta, nil}}}}})},
+		{"match_expr", cluAggregateDocs(bson.D{{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$gt", Value: bson.A{meta, nil}}}}}}})},
+		{"match_type", cluAggregateDocs(bson.D{{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{bson.D{{Key: "$type", Value: meta}}, "binData"}}}}}}})},
+		{"group_push", cluAggregateDocs(bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "ids", Value: bson.D{{Key: "$push", Value: meta}}}}}})},
+		{"project", cluAggregateDocs(bson.D{{Key: "$project", Value: bson.D{{Key: "r", Value: meta}}}}, bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}})},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
