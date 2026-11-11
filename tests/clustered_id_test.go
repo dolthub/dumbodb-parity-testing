@@ -2356,6 +2356,8 @@ func TestHint_Invalid(t *testing.T) {
 		{"array", bson.A{1}},
 		{"empty_name", ""},
 		{"empty_document", bson.D{}},
+		{"bool", true},
+		{"unknown_name", "zz"},
 	}
 	for _, h := range hints {
 		cmds := []struct {
@@ -2373,6 +2375,15 @@ func TestHint_Invalid(t *testing.T) {
 			}},
 			{"find", func(col *mongo.Collection) bson.D {
 				return bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "hint", Value: h.hint}}
+			}},
+			{"count", func(col *mongo.Collection) bson.D {
+				return bson.D{{Key: "count", Value: col.Name()}, {Key: "query", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "hint", Value: h.hint}}
+			}},
+			{"distinct", func(col *mongo.Collection) bson.D {
+				return bson.D{{Key: "distinct", Value: col.Name()}, {Key: "key", Value: "a"}, {Key: "hint", Value: h.hint}}
+			}},
+			{"aggregate", func(col *mongo.Collection) bson.D {
+				return bson.D{{Key: "aggregate", Value: col.Name()}, {Key: "pipeline", Value: bson.A{}}, {Key: "cursor", Value: bson.D{}}, {Key: "hint", Value: h.hint}}
 			}},
 		}
 		for _, c := range cmds {
