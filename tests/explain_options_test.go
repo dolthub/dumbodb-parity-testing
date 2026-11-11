@@ -147,7 +147,8 @@ func TestExplain_InTransaction(t *testing.T) {
 }
 
 // TestMaxTimeMS_CommandValues: count, distinct and explain read maxTimeMS by
-// mongod's generic rules, and an explained find checks its own maxTimeMS.
+// mongod's generic rules; find and aggregate check its type and sign first;
+// and an explained find, aggregate or count checks only its type and sign.
 func TestMaxTimeMS_CommandValues(t *testing.T) {
 	values := []struct {
 		name  string
@@ -157,6 +158,9 @@ func TestMaxTimeMS_CommandValues(t *testing.T) {
 		{"decimal_negative_half", mustDecimal("-0.5")}, {"nan", math.NaN()}, {"decimal_nan", mustDecimal("NaN")},
 		{"inf", math.Inf(1)}, {"string", "x"}, {"bool", true}, {"null", nil}, {"array", bson.A{}},
 		{"negative_one", -1}, {"two_to_31", 2147483648.0}, {"huge", 1e300}, {"long", int64(10000)},
+		{"decimal_negative_one", mustDecimal("-1")}, {"decimal_negative_one_and_half", mustDecimal("-1.5")},
+		{"decimal_fraction", mustDecimal("1000.4")}, {"decimal_inf", mustDecimal("Infinity")},
+		{"negative_inf", math.Inf(-1)}, {"long_min", int64(math.MinInt64)},
 	}
 	cmds := []struct {
 		name string
@@ -173,6 +177,21 @@ func TestMaxTimeMS_CommandValues(t *testing.T) {
 		}},
 		{"explain_inner_find", func(col *mongo.Collection, v interface{}) bson.D {
 			return bson.D{{Key: "explain", Value: bson.D{{Key: "find", Value: col.Name()}, {Key: "maxTimeMS", Value: v}}}}
+		}},
+		{"find", func(col *mongo.Collection, v interface{}) bson.D {
+			return bson.D{{Key: "find", Value: col.Name()}, {Key: "maxTimeMS", Value: v}}
+		}},
+		{"aggregate", func(col *mongo.Collection, v interface{}) bson.D {
+			return bson.D{{Key: "aggregate", Value: col.Name()}, {Key: "pipeline", Value: bson.A{}}, {Key: "cursor", Value: bson.D{}}, {Key: "maxTimeMS", Value: v}}
+		}},
+		{"explain_inner_count", func(col *mongo.Collection, v interface{}) bson.D {
+			return bson.D{{Key: "explain", Value: bson.D{{Key: "count", Value: col.Name()}, {Key: "maxTimeMS", Value: v}}}}
+		}},
+		{"explain_inner_distinct", func(col *mongo.Collection, v interface{}) bson.D {
+			return bson.D{{Key: "explain", Value: bson.D{{Key: "distinct", Value: col.Name()}, {Key: "key", Value: "a"}, {Key: "maxTimeMS", Value: v}}}}
+		}},
+		{"explain_inner_aggregate", func(col *mongo.Collection, v interface{}) bson.D {
+			return bson.D{{Key: "explain", Value: bson.D{{Key: "aggregate", Value: col.Name()}, {Key: "pipeline", Value: bson.A{}}, {Key: "cursor", Value: bson.D{}}, {Key: "maxTimeMS", Value: v}}}}
 		}},
 	}
 	for _, v := range values {
