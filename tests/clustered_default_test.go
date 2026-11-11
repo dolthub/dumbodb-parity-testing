@@ -280,7 +280,9 @@ func TestExplain_CompoundSortWalks(t *testing.T) {
 			return err
 		}
 	}
-	run := func(filter, sort bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
+	// run returns the plan's stages and the documents found; part limits the
+	// result to "stages" or "docs".
+	run := func(filter, sort bson.D, part string) func(context.Context, *mongo.Collection) (interface{}, error) {
 		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			find := bson.D{{Key: "find", Value: col.Name()}, {Key: "filter", Value: filter}, {Key: "sort", Value: sort}, {Key: "limit", Value: int32(4)}}
 			var res bson.M
@@ -303,6 +305,12 @@ func TestExplain_CompoundSortWalks(t *testing.T) {
 			if err := cur.All(ctx, &docs); err != nil {
 				return nil, err
 			}
+			switch part {
+			case "stages":
+				return bson.D{{Key: "stages", Value: stages}}, nil
+			case "docs":
+				return bson.D{{Key: "docs", Value: docs}}, nil
+			}
 			return bson.D{{Key: "stages", Value: stages}, {Key: "docs", Value: docs}}, nil
 		}
 	}
@@ -315,15 +323,17 @@ func TestExplain_CompoundSortWalks(t *testing.T) {
 		filter  bson.D
 		sort    bson.D
 		support harness.DumboDBSupport
+		part    string
 	}{
-		{"forward", bson.D{{Key: "b", Value: 1}, {Key: "a", Value: 1}, {Key: "_id", Value: 1}}, bson.D{}, asc, harness.DumboDBFull},
-		{"backward", bson.D{{Key: "b", Value: 1}, {Key: "a", Value: 1}, {Key: "_id", Value: 1}}, bson.D{}, desc, harness.DumboDBFull},
-		{"equality_prefix", bson.D{{Key: "g", Value: 1}, {Key: "b", Value: 1}, {Key: "a", Value: 1}, {Key: "_id", Value: 1}}, bson.D{{Key: "g", Value: int32(1)}}, asc, harness.DumboDBFull},
-		{"mixed_on_ascending_index", bson.D{{Key: "b", Value: 1}, {Key: "a", Value: 1}, {Key: "_id", Value: 1}}, bson.D{}, mixed, harness.DumboDBFull},
+		{"forward", bson.D{{Key: "b", Value: 1}, {Key: "a", Value: 1}, {Key: "_id", Value: 1}}, bson.D{}, asc, harness.DumboDBFull, ""},
+		{"backward", bson.D{{Key: "b", Value: 1}, {Key: "a", Value: 1}, {Key: "_id", Value: 1}}, bson.D{}, desc, harness.DumboDBFull, ""},
+		{"equality_prefix", bson.D{{Key: "g", Value: 1}, {Key: "b", Value: 1}, {Key: "a", Value: 1}, {Key: "_id", Value: 1}}, bson.D{{Key: "g", Value: int32(1)}}, asc, harness.DumboDBFull, ""},
+		{"mixed_on_ascending_index", bson.D{{Key: "b", Value: 1}, {Key: "a", Value: 1}, {Key: "_id", Value: 1}}, bson.D{}, mixed, harness.DumboDBFull, ""},
 		// mongod walks an index declared with the sort's mixed directions.
-		// DumboDB stores every key ascending, so no walk yields a mixed order;
-		// it returns the same documents from an in-memory sort.
-		{"mixed_on_matching_index", bson.D{{Key: "b", Value: 1}, {Key: "a", Value: -1}, {Key: "_id", Value: 1}}, bson.D{}, mixed, harness.DumboDBXFail},
+		// DumboDB stores every key ascending, so no walk yields a mixed order
+		// and its plan sorts in memory, but it returns the same documents.
+		{"mixed_on_matching_index_plan", bson.D{{Key: "b", Value: 1}, {Key: "a", Value: -1}, {Key: "_id", Value: 1}}, bson.D{}, mixed, harness.DumboDBXFail, "stages"},
+		{"mixed_on_matching_index_docs", bson.D{{Key: "b", Value: 1}, {Key: "a", Value: -1}, {Key: "_id", Value: 1}}, bson.D{}, mixed, harness.DumboDBFull, "docs"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -332,7 +342,7 @@ func TestExplain_CompoundSortWalks(t *testing.T) {
 				Support:   tc.support,
 				Clustered: true,
 				Setup:     setup(tc.index),
-				Run:       run(tc.filter, tc.sort),
+				Run:       run(tc.filter, tc.sort, tc.part),
 			})
 		})
 	}
