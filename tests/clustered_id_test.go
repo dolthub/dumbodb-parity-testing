@@ -2513,3 +2513,36 @@ func TestClustered_HintDescendingBounds(t *testing.T) {
 		})
 	}
 }
+
+// TestHint_EmptyNameMissingCollection: an empty hint on a missing collection
+// reads nothing, as any hint there does, but an upsert refuses it.
+func TestHint_EmptyNameMissingCollection(t *testing.T) {
+	cmds := []struct {
+		name string
+		cmd  func(name string) bson.D
+	}{
+		{"find", func(name string) bson.D { return bson.D{{Key: "find", Value: name}, {Key: "hint", Value: ""}} }},
+		{"find_and_modify", func(name string) bson.D {
+			return bson.D{{Key: "findAndModify", Value: name}, {Key: "query", Value: bson.D{}}, {Key: "update", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: 1}}}}}, {Key: "hint", Value: ""}}
+		}},
+		{"find_and_modify_upsert", func(name string) bson.D {
+			return bson.D{{Key: "findAndModify", Value: name}, {Key: "query", Value: bson.D{}}, {Key: "update", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: 1}}}}}, {Key: "upsert", Value: true}, {Key: "hint", Value: ""}}
+		}},
+	}
+	for _, c := range cmds {
+		t.Run(c.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Hint_EmptyNameMissingCollection_" + c.name,
+				Support: harness.DumboDBFull,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					err := col.Database().RunCommand(ctx, c.cmd(col.Name()+"_missing")).Err()
+					var ce mongo.CommandError
+					if errors.As(err, &ce) {
+						return bson.D{{Key: "code", Value: ce.Code}}, nil
+					}
+					return bson.D{{Key: "ok", Value: err == nil}}, nil
+				},
+			})
+		})
+	}
+}
