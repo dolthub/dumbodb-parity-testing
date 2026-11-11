@@ -1686,3 +1686,45 @@ func TestExplainPlan_CompoundSortWithoutSortIndex(t *testing.T) {
 		},
 	})
 }
+
+// TestCount_MultikeyTwoSidedRange: a count of a two-sided range on a multikey
+// field counts documents whose elements meet each side separately.
+func TestCount_MultikeyTwoSidedRange(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: bson.A{0, 6}}},
+			bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: 3}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "a", Value: bson.A{2}}},
+		}); err != nil {
+			return err
+		}
+		return createIndex(ctx, col, bson.D{{Key: "a", Value: 1}})
+	}
+	query := bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 1}, {Key: "$lt", Value: 5}}}}
+	for _, hinted := range []bool{false, true} {
+		name := "unhinted"
+		if hinted {
+			name = "hinted"
+		}
+		t.Run(name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Count_MultikeyTwoSidedRange_" + name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					cmd := bson.D{{Key: "count", Value: col.Name()}, {Key: "query", Value: query}}
+					if hinted {
+						cmd = append(cmd, bson.E{Key: "hint", Value: "a_1"})
+					}
+					var res bson.M
+					if err := col.Database().RunCommand(ctx, cmd).Decode(&res); err != nil {
+						return nil, err
+					}
+					work, err := explainWorkOf(cmd)(ctx, col)
+					return bson.D{{Key: "n", Value: res["n"]}, {Key: "explain", Value: work}}, err
+				},
+			})
+		})
+	}
+}
