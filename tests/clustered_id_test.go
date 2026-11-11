@@ -790,6 +790,17 @@ func TestClustered_CreateOptions(t *testing.T) {
 		{"existing_bad_version", twoCreates(create, nil, []bson.E{{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "v", Value: int32(3)}}}})},
 		{"existing_clustered_validator", twoCreates(create, []bson.E{{Key: "clusteredIndex", Value: bson.D{idKey, unique}}},
 			[]bson.E{{Key: "clusteredIndex", Value: bson.D{idKey, unique}}, {Key: "validator", Value: bson.D{{Key: "a", Value: 1}}}})},
+		{"named_then_index_same_name", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "name", Value: "a_1"}}})(ctx, col); err != nil {
+				return nil, err
+			}
+			err := col.Database().RunCommand(ctx, bson.D{{Key: "createIndexes", Value: "clu"}, {Key: "indexes", Value: bson.A{bson.D{{Key: "key", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "name", Value: "a_1"}}}}}).Err()
+			var ce mongo.CommandError
+			if errors.As(err, &ce) {
+				return bson.D{{Key: "code", Value: ce.Code}, {Key: "message", Value: ce.Message}}, nil
+			}
+			return bson.D{{Key: "ok", Value: err == nil}}, nil
+		}},
 		{"named_options", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			if _, err := create(bson.E{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "name", Value: "byID"}}})(ctx, col); err != nil {
 				return nil, err
