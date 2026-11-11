@@ -1501,3 +1501,65 @@ func TestExplainPlan_PipelineStages(t *testing.T) {
 		})
 	}
 }
+
+// TestExplainPlan_CountHintedFetch: a count's explain reads what mongod's
+// does: a hinted FETCH stops at the limit, its IXSCAN returning every key it
+// reads; an unfiltered hinted count reads only keys; and an $elemMatch, $size
+// or empty-array equality fetches each document its bounds hold.
+func TestExplainPlan_CountHintedFetch(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 0, 60)
+		for i := 0; i < 60; i++ {
+			arr := bson.A{int32(i % 4), int32(i % 3)}
+			if i%5 == 0 {
+				arr = bson.A{}
+			}
+			d := bson.D{{Key: "_id", Value: int32(i)}, {Key: "a", Value: int32(i % 10)}, {Key: "b", Value: int32(i % 7)}, {Key: "arr", Value: arr}}
+			if i%5 != 0 {
+				d = append(d, bson.E{Key: "s", Value: int32(i)})
+			}
+			docs = append(docs, d)
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateMany(ctx, []mongo.IndexModel{
+			{Keys: bson.D{{Key: "s", Value: 1}}, Options: options.Index().SetName("s_sp").SetSparse(true)},
+			{Keys: bson.D{{Key: "b", Value: 1}}},
+			{Keys: bson.D{{Key: "arr", Value: 1}}},
+		})
+		return err
+	}
+	count := func(query bson.D, hint string, limit int32) func(col *mongo.Collection) bson.D {
+		return func(col *mongo.Collection) bson.D {
+			cmd := bson.D{{Key: "count", Value: col.Name()}, {Key: "query", Value: query}, {Key: "hint", Value: hint}}
+			if limit > 0 {
+				cmd = append(cmd, bson.E{Key: "limit", Value: limit})
+			}
+			return cmd
+		}
+	}
+	cases := []struct {
+		name string
+		cmd  func(col *mongo.Collection) bson.D
+	}{
+		{"sparse_off_filter_limit", count(bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: int32(5)}}}}, "s_sp", 5)},
+		{"unfiltered_limit", count(bson.D{}, "b_1", 5)},
+		{"elem_match", count(bson.D{{Key: "arr", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$gt", Value: int32(1)}}}}}}, "arr_1", 0)},
+		{"size_zero", count(bson.D{{Key: "arr", Value: bson.D{{Key: "$size", Value: int32(0)}}}}, "arr_1", 0)},
+		{"empty_array", count(bson.D{{Key: "arr", Value: bson.A{}}}, "arr_1", 0)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "ExplainPlan_CountHintedFetch_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return explainWorkOf(tc.cmd(col))(ctx, col)
+				},
+			})
+		})
+	}
+}
