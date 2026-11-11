@@ -1898,6 +1898,19 @@ func TestClustered_RecordIDPaths(t *testing.T) {
 			err = cur.All(ctx, &docs)
 			return docs, err
 		}},
+		{"find_and_modify", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			var doc bson.D
+			err := col.FindOneAndUpdate(ctx, bson.D{{Key: "_id", Value: int32(1)}}, bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: 1}}}},
+				options.FindOneAndUpdate().SetProjection(bson.D{{Key: "r", Value: bson.D{{Key: "$meta", Value: "recordId"}}}})).Decode(&doc)
+			return doc, err
+		}},
+		{"find_and_modify_with_field", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			var doc bson.D
+			err := col.FindOneAndUpdate(ctx, bson.D{{Key: "_id", Value: int32(1)}}, bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: 1}}}},
+				options.FindOneAndUpdate().SetProjection(bson.D{{Key: "r", Value: bson.D{{Key: "$meta", Value: "recordId"}}}, {Key: "a", Value: 1}}).
+					SetReturnDocument(options.After)).Decode(&doc)
+			return doc, err
+		}},
 		{"lookup_sub_pipeline_reshaped", joined(bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "q", Value: 1}}}}, meta})},
 		{"set_meta", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cur, err := col.Aggregate(ctx, mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "r", Value: bson.D{{Key: "$meta", Value: "recordId"}}}}}}})
