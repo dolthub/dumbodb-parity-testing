@@ -1734,6 +1734,48 @@ func TestCountDocuments_limit(t *testing.T) {
 	})
 }
 
+// The aggregate pipeline drivers send for countDocuments returns no group,
+// not a zero count, when no document reaches $group.
+func TestCountDocuments_aggregate_zero(t *testing.T) {
+	createEmpty := func(ctx context.Context, col *mongo.Collection) error {
+		return col.Database().CreateCollection(ctx, col.Name())
+	}
+	noMatch := bson.D{{Key: "score", Value: bson.D{{Key: "$gt", Value: int32(1000000)}}}}
+	for _, tc := range []struct {
+		name   string
+		setup  func(context.Context, *mongo.Collection) error
+		filter bson.D
+		skip   int32
+	}{
+		{"no_collection", nil, bson.D{}, 0},
+		{"empty_collection", createEmpty, bson.D{}, 0},
+		{"empty_collection_filtered", createEmpty, noMatch, 0},
+		{"no_match", insertSeed, noMatch, 0},
+		{"skip_past_end", insertSeed, bson.D{}, 1000},
+	} {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "CountDocuments_aggregate_zero_" + tc.name,
+			Support: harness.DumboDBFull,
+			Setup:   tc.setup,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				pipeline := bson.A{bson.D{{Key: "$match", Value: tc.filter}}}
+				if tc.skip > 0 {
+					pipeline = append(pipeline, bson.D{{Key: "$skip", Value: tc.skip}})
+				}
+				pipeline = append(pipeline, bson.D{{Key: "$group", Value: bson.D{
+					{Key: "_id", Value: int32(1)}, {Key: "n", Value: bson.D{{Key: "$sum", Value: int32(1)}}},
+				}}})
+				cursor, err := col.Aggregate(ctx, pipeline)
+				if err != nil {
+					return nil, err
+				}
+				var results []bson.D
+				return results, cursor.All(ctx, &results)
+			},
+		})
+	}
+}
+
 func TestCountDocuments_nested_filter(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "CountDocuments_nested_filter",
