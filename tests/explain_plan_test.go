@@ -1452,10 +1452,12 @@ func topLevelStages(doc bson.D) bson.A {
 
 // TestExplainPlan_PipelineStages: an aggregate explain reports, after the
 // query under $cursor, each stage the query does not absorb, with the number
-// of documents it returned.
+// of documents it returned. A $count shows as its $group and $project after
+// a $set, $addFields or $unset, but not after a $project.
 func TestExplainPlan_PipelineStages(t *testing.T) {
 	match := bson.D{{Key: "$match", Value: bson.D{{Key: "g", Value: 1}}}}
 	set := bson.D{{Key: "$set", Value: bson.D{{Key: "b", Value: 1}}}}
+	count := bson.D{{Key: "$count", Value: "n"}}
 	pipelines := []struct {
 		name     string
 		pipeline bson.A
@@ -1471,6 +1473,12 @@ func TestExplainPlan_PipelineStages(t *testing.T) {
 		{"add_fields_sort", bson.A{match, bson.D{{Key: "$addFields", Value: bson.D{{Key: "b", Value: 1}}}}, bson.D{{Key: "$sort", Value: bson.D{{Key: "b", Value: 1}}}}}},
 		{"replace_root", bson.A{bson.D{{Key: "$replaceRoot", Value: bson.D{{Key: "newRoot", Value: bson.D{{Key: "x", Value: "$a"}}}}}}}},
 		{"set_then_match", bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$multiply", Value: bson.A{"$a", 10}}}}}}}, bson.D{{Key: "$match", Value: bson.D{{Key: "a", Value: 10}}}}}},
+		{"set_then_count", bson.A{set, count}},
+		{"add_fields_then_count", bson.A{bson.D{{Key: "$addFields", Value: bson.D{{Key: "b", Value: 1}}}}, count}},
+		{"unset_then_count", bson.A{bson.D{{Key: "$unset", Value: "a"}}, count}},
+		{"project_then_count", bson.A{bson.D{{Key: "$project", Value: bson.D{{Key: "a", Value: 1}}}}, count}},
+		{"match_set_count", bson.A{match, set, count}},
+		{"project_set_count", bson.A{bson.D{{Key: "$project", Value: bson.D{{Key: "a", Value: 1}}}}, set, count}},
 	}
 	for _, p := range pipelines {
 		t.Run(p.name, func(t *testing.T) {
