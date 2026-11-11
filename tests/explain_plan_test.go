@@ -1543,12 +1543,16 @@ func TestExplainPlan_CountHintedFetch(t *testing.T) {
 			{Keys: bson.D{{Key: "s", Value: 1}}, Options: options.Index().SetName("s_sp").SetSparse(true)},
 			{Keys: bson.D{{Key: "b", Value: 1}}},
 			{Keys: bson.D{{Key: "arr", Value: 1}}},
+			{Keys: bson.D{{Key: "b", Value: 1}, {Key: "a", Value: 1}}},
 		})
 		return err
 	}
 	count := func(query bson.D, hint string, limit int32) func(col *mongo.Collection) bson.D {
 		return func(col *mongo.Collection) bson.D {
-			cmd := bson.D{{Key: "count", Value: col.Name()}, {Key: "query", Value: query}, {Key: "hint", Value: hint}}
+			cmd := bson.D{{Key: "count", Value: col.Name()}, {Key: "query", Value: query}}
+			if hint != "" {
+				cmd = append(cmd, bson.E{Key: "hint", Value: hint})
+			}
 			if limit > 0 {
 				cmd = append(cmd, bson.E{Key: "limit", Value: limit})
 			}
@@ -1564,6 +1568,10 @@ func TestExplainPlan_CountHintedFetch(t *testing.T) {
 		{"elem_match", count(bson.D{{Key: "arr", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$gt", Value: int32(1)}}}}}}, "arr_1", 0)},
 		{"size_zero", count(bson.D{{Key: "arr", Value: bson.D{{Key: "$size", Value: int32(0)}}}}, "arr_1", 0)},
 		{"empty_array", count(bson.D{{Key: "arr", Value: bson.A{}}}, "arr_1", 0)},
+		{"unhinted_elem_match", count(bson.D{{Key: "arr", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$gt", Value: int32(1)}}}}}}, "", 0)},
+		{"unhinted_empty_array", count(bson.D{{Key: "arr", Value: bson.A{}}}, "", 0)},
+		{"compound_leading_equality_limit", count(bson.D{{Key: "b", Value: int32(3)}}, "b_1_a_1", 2)},
+		{"compound_leading_range_limit", count(bson.D{{Key: "b", Value: bson.D{{Key: "$gt", Value: int32(3)}}}}, "b_1_a_1", 4)},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
