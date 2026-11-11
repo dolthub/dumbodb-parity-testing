@@ -1613,3 +1613,52 @@ func TestExplainPlan_SourceStages(t *testing.T) {
 		})
 	}
 }
+
+// TestAggregate_ViewMatchPushdown: an aggregate on a view filters the view's
+// output, so a $match the user leads with, or one moved ahead of a rename,
+// sees the documents after the view's own stages.
+func TestAggregate_ViewMatchPushdown(t *testing.T) {
+	views := map[string]mongo.Pipeline{
+		"rename": {{{Key: "$set", Value: bson.D{{Key: "a", Value: "$b"}}}}},
+		"match":  {{{Key: "$match", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: 4}}}}}}},
+		"limit":  {{{Key: "$sort", Value: bson.D{{Key: "_id", Value: -1}}}}, {{Key: "$limit", Value: 2}}},
+	}
+	match := func(f bson.D) bson.D { return bson.D{{Key: "$match", Value: f}} }
+	cases := []struct {
+		name, view string
+		pipeline   mongo.Pipeline
+	}{
+		{"moved_past_rename", "rename", mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "y", Value: "$a"}}}}, match(bson.D{{Key: "y", Value: 9}})}},
+		{"leading_on_renamed", "rename", mongo.Pipeline{match(bson.D{{Key: "a", Value: 9}})}},
+		{"on_match_view", "match", mongo.Pipeline{match(bson.D{{Key: "b", Value: bson.D{{Key: "$gte", Value: 4}}}})}},
+		{"limit_after_view_limit", "limit", mongo.Pipeline{match(bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: 1}}}}), {{Key: "$limit", Value: 1}}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Aggregate_ViewMatchPushdown_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					if _, err := col.InsertMany(ctx, []interface{}{
+						bson.D{{Key: "_id", Value: 4}, {Key: "a", Value: 4}, {Key: "b", Value: 9}},
+						bson.D{{Key: "_id", Value: 5}, {Key: "a", Value: 9}, {Key: "b", Value: 4}},
+						bson.D{{Key: "_id", Value: 6}, {Key: "a", Value: 1}, {Key: "b", Value: 1}},
+					}); err != nil {
+						return err
+					}
+					return col.Database().CreateView(ctx, col.Name()+"_v", col.Name(), views[tc.view])
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					cur, err := col.Database().Collection(col.Name()+"_v").Aggregate(ctx, tc.pipeline)
+					if err != nil {
+						return nil, err
+					}
+					var docs []bson.D
+					err = cur.All(ctx, &docs)
+					return docs, err
+				},
+			})
+		})
+	}
+}
