@@ -18,7 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
+	"strings"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -334,8 +334,7 @@ func TestIndex_SixtyFourIndexLimit(t *testing.T) {
 					err := col.Database().RunCommand(ctx, bson.D{{Key: "createIndexes", Value: col.Name()}, {Key: "indexes", Value: tc.second}}).Decode(&res)
 					var ce mongo.CommandError
 					if errors.As(err, &ce) {
-						msg := regexp.MustCompile(`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`).ReplaceAllString(ce.Message, "UUID")
-						return bson.D{{Key: "code", Value: ce.Code}, {Key: "errmsg", Value: msg}}, nil
+						return bson.D{{Key: "code", Value: ce.Code}, {Key: "cause", Value: causedBy(ce.Message)}}, nil
 					}
 					if err != nil {
 						return nil, err
@@ -345,4 +344,14 @@ func TestIndex_SixtyFourIndexLimit(t *testing.T) {
 			})
 		})
 	}
+}
+
+// causedBy is the last cause in a mongod error message, the part after its
+// final " :: caused by :: ": the wrapping before it can change between mongod
+// versions.
+func causedBy(msg string) string {
+	if i := strings.LastIndex(msg, " :: caused by :: "); i >= 0 {
+		return msg[i+len(" :: caused by :: "):]
+	}
+	return msg
 }

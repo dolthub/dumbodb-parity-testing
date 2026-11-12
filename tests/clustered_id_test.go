@@ -2591,6 +2591,11 @@ func twoCreates(create func(...bson.E) func(context.Context, *mongo.Collection) 
 	}
 }
 
+var (
+	createUUIDRE       = regexp.MustCompile(`UUID\("[^"]+"\)`)
+	collationVersionRE = regexp.MustCompile(`version: "[^"]+"`)
+)
+
 // createOutcome is a create's error code and message, without the
 // collection's UUID, the collation version or the database name, or ok.
 func createOutcome(err error, dbName string) interface{} {
@@ -2598,8 +2603,8 @@ func createOutcome(err error, dbName string) interface{} {
 	if !errors.As(err, &ce) {
 		return bson.D{{Key: "ok", Value: err == nil}}
 	}
-	msg := regexp.MustCompile(`UUID\("[^"]+"\)`).ReplaceAllString(ce.Message, "UUID(...)")
-	msg = regexp.MustCompile(`version: "[^"]+"`).ReplaceAllString(msg, "version")
+	msg := createUUIDRE.ReplaceAllString(ce.Message, "UUID(...)")
+	msg = collationVersionRE.ReplaceAllString(msg, "version")
 	msg = strings.ReplaceAll(msg, dbName+".", "<db>.")
 	msg = strings.ReplaceAll(msg, dbName, "<db>")
 	return bson.D{{Key: "code", Value: ce.Code}, {Key: "message", Value: msg}}

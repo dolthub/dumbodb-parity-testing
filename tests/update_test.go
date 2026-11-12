@@ -2592,7 +2592,7 @@ func TestUpdate_InvalidUpdateDocumentScope(t *testing.T) {
 		raw, err := sr.Raw()
 		var ce mongo.CommandError
 		if errors.As(err, &ce) {
-			return bson.D{{Key: "code", Value: ce.Code}, {Key: "errmsg", Value: ce.Message}}, nil
+			return bson.D{{Key: "code", Value: ce.Code}, {Key: "cause", Value: causedBy(ce.Message)}}, nil
 		}
 		var we mongo.WriteException
 		if err != nil && !errors.As(err, &we) {
@@ -2603,7 +2603,15 @@ func TestUpdate_InvalidUpdateDocumentScope(t *testing.T) {
 			return nil, err
 		}
 		if cur, ok := res["cursor"].(bson.M); ok {
-			res = bson.M{"nErrors": res["nErrors"], "nModified": res["nModified"], "firstBatch": cur["firstBatch"]}
+			batch, _ := cur["firstBatch"].(bson.A)
+			for _, r := range batch {
+				if rm, ok := r.(bson.M); ok {
+					if msg, ok := rm["errmsg"].(string); ok {
+						rm["errmsg"] = causedBy(msg)
+					}
+				}
+			}
+			res = bson.M{"nErrors": res["nErrors"], "nModified": res["nModified"], "firstBatch": batch}
 		}
 		for _, k := range []string{"$clusterTime", "operationTime", "electionId", "opTime"} {
 			delete(res, k)
