@@ -65,7 +65,7 @@ func tsScopeSummary(res bson.D) bson.D {
 	out := bson.D{}
 	for _, e := range res {
 		switch e.Key {
-		case "numIndexesBefore", "numIndexesAfter", "note", "nIndexesWas", "nindexes":
+		case "numIndexesBefore", "numIndexesAfter", "note", "nIndexesWas", "nindexes", "nIndexes", "keysPerIndex":
 			out = append(out, e)
 		case "cursor":
 			for _, ce := range e.Value.(bson.D) {
@@ -116,6 +116,11 @@ func TestTimeSeriesIndexScope(t *testing.T) {
 		{"DropIDName", []bson.D{drop("_id_"), drop(bson.A{"_id_"})}},
 		{"DropIDKey", []bson.D{drop(bson.D{{Key: "_id", Value: 1}}), createID, drop(bson.D{{Key: "_id", Value: 1}}), listIndexes}},
 		{"DropKeyPrefix", []bson.D{drop(bson.D{{Key: "m", Value: 1}})}},
+		{"Validate", []bson.D{{{Key: "validate"}}, createID, {{Key: "validate"}}}},
+		{"FindHintIDKey", []bson.D{{{Key: "find"}, {Key: "hint", Value: bson.D{{Key: "_id", Value: 1}}}}}},
+		{"FindHintIDName", []bson.D{{{Key: "find"}, {Key: "hint", Value: "_id_"}}}},
+		{"FindHintMetaTime", []bson.D{{{Key: "find"}, {Key: "hint", Value: bson.D{{Key: "m", Value: 1}, {Key: "t", Value: 1}}}}}},
+		{"FindHintUserIDIndex", []bson.D{createID, {{Key: "find"}, {Key: "hint", Value: bson.D{{Key: "_id", Value: 1}}}}}},
 	}
 	for _, c := range cases {
 		harness.PairTest(t, harness.TestCase{
