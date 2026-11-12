@@ -126,3 +126,23 @@ func TestTimeSeriesDecimalBucketSpan(t *testing.T) {
 		})
 	}
 }
+
+// $unionWith starts its sub-pipeline once its input is exhausted, so an error
+// reading the input comes first.
+func TestUnionWithStartsAfterInput(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "UnionWithStartsAfterInput",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "r", Value: "s"}, {Key: "arr", Value: bson.A{int32(1)}}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsAgg(ctx, col,
+				bson.D{{Key: "$project", Value: bson.D{{Key: "x", Value: bson.D{{Key: "$add", Value: bson.A{"$r", int32(1)}}}}}}},
+				bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: col.Name()}, {Key: "pipeline", Value: bson.A{
+					bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "t", Value: bson.D{{Key: "$sum", Value: bson.D{{Key: "$divide", Value: bson.A{int32(1), "$arr"}}}}}}}}},
+				}}}}})
+		},
+	})
+}
