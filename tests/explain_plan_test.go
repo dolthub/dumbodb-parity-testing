@@ -2401,3 +2401,62 @@ func TestExplainPlan_CursorPulledBeforeLimit(t *testing.T) {
 		})
 	}
 }
+
+// TestExplainPlan_AggregateProjection: a pipeline's trailing $project or
+// $unset that only includes or excludes fields runs in the query plan, under
+// its skip and limit, under a sort with no limit, and over one with a limit,
+// covered when the index holds every field it returns.
+func TestExplainPlan_AggregateProjection(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 10)
+		for i := range docs {
+			docs[i] = bson.D{{Key: "_id", Value: int32(i)}, {Key: "a", Value: int32(i)}, {Key: "b", Value: int32(i % 3)}}
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		return createIndex(ctx, col, bson.D{{Key: "a", Value: 1}})
+	}
+	match := bson.D{{Key: "$match", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 2}}}}}}
+	sortB := bson.D{{Key: "$sort", Value: bson.D{{Key: "b", Value: 1}}}}
+	limit := func(n int) bson.D { return bson.D{{Key: "$limit", Value: n}} }
+	project := func(spec bson.D) bson.D { return bson.D{{Key: "$project", Value: spec}} }
+	cases := []struct {
+		name     string
+		pipeline bson.A
+	}{
+		{"sort_limit_project", bson.A{sortB, limit(3), project(bson.D{{Key: "b", Value: 1}})}},
+		{"sort_project", bson.A{sortB, project(bson.D{{Key: "b", Value: 1}})}},
+		{"match_project", bson.A{match, project(bson.D{{Key: "a", Value: 1}})}},
+		{"project_only", bson.A{project(bson.D{{Key: "b", Value: 1}, {Key: "_id", Value: 0}})}},
+		{"sort_limit_exclusion", bson.A{sortB, limit(3), project(bson.D{{Key: "b", Value: 0}})}},
+		{"match_skip_project", bson.A{match, bson.D{{Key: "$skip", Value: 2}}, project(bson.D{{Key: "a", Value: 1}})}},
+		{"match_limit_covered", bson.A{match, limit(2), project(bson.D{{Key: "a", Value: 1}, {Key: "_id", Value: 0}})}},
+		{"unset_only", bson.A{bson.D{{Key: "$unset", Value: "b"}}}},
+		{"match_sort_limit_covered", bson.A{match, bson.D{{Key: "$sort", Value: bson.D{{Key: "a", Value: 1}}}}, limit(3), project(bson.D{{Key: "a", Value: 1}, {Key: "_id", Value: 0}})}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "ExplainPlan_AggregateProjection_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					var res bson.D
+					cmd := bson.D{{Key: "aggregate", Value: col.Name()}, {Key: "pipeline", Value: tc.pipeline}, {Key: "cursor", Value: bson.D{}}}
+					if err := col.Database().RunCommand(ctx, bson.D{{Key: "explain", Value: cmd}, {Key: "verbosity", Value: "executionStats"}}).Decode(&res); err != nil {
+						return nil, err
+					}
+					if stages, ok := lookupBSONField(res, "stages"); ok {
+						return bson.D{{Key: "stages", Value: topLevelStages(res)}, {Key: "count", Value: len(stages.(bson.A))}}, nil
+					}
+					qp, _ := lookupBSONField(res, "queryPlanner")
+					wp, _ := lookupBSONField(qp.(bson.D), "winningPlan")
+					stats, _ := lookupBSONField(res, "executionStats")
+					n, _ := lookupBSONField(stats.(bson.D), "nReturned")
+					return bson.D{{Key: "plan", Value: planStages(wp)}, {Key: "nReturned", Value: n}}, nil
+				},
+			})
+		})
+	}
+}
