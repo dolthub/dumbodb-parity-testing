@@ -3570,3 +3570,62 @@ func TestHint_DottedMultikeyRangeBound(t *testing.T) {
 		}
 	}
 }
+
+// TestHint_SparseOrPartialArrayOrder: a hinted read or write on a sparse or
+// partial index reaches an array document at its key in the filter's bounds,
+// as on an index that is neither.
+func TestHint_SparseOrPartialArrayOrder(t *testing.T) {
+	docs := []interface{}{
+		bson.D{{Key: "_id", Value: 12}, {Key: "a", Value: false}},
+		bson.D{{Key: "_id", Value: 38}, {Key: "a", Value: bson.A{2, primitive.MaxKey{}}}},
+		bson.D{{Key: "_id", Value: 40}, {Key: "a", Value: bson.A{"b", 1}}},
+	}
+	filters := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"in", bson.D{{Key: "a", Value: bson.D{{Key: "$in", Value: bson.A{false, primitive.MaxKey{}}}}}}},
+		{"gte_string", bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: "a"}}}}},
+		{"gt_number", bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 1}}}}},
+	}
+	partial := bson.D{{Key: "a", Value: bson.D{{Key: "$exists", Value: true}}}}
+	indexes := []struct {
+		name string
+		keys bson.D
+		opts *options.IndexOptions
+	}{
+		{"sparse_compound", bson.D{{Key: "a", Value: 1}, {Key: "_id", Value: 1}}, options.Index().SetSparse(true)},
+		{"sparse", bson.D{{Key: "a", Value: 1}}, options.Index().SetSparse(true)},
+		{"partial", bson.D{{Key: "a", Value: 1}}, options.Index().SetPartialFilterExpression(partial)},
+		{"plain_compound", bson.D{{Key: "a", Value: 1}, {Key: "_id", Value: 1}}, options.Index()},
+	}
+	for _, idx := range indexes {
+		for _, f := range filters {
+			for _, op := range []string{"find_and_modify", "find"} {
+				name := idx.name + "_" + f.name + "_" + op
+				t.Run(name, func(t *testing.T) {
+					harness.PairTest(t, harness.TestCase{
+						Name:    "Hint_SparseOrPartialArrayOrder_" + name,
+						Support: harness.DumboDBFull,
+						Setup: func(ctx context.Context, col *mongo.Collection) error {
+							if _, err := col.InsertMany(ctx, docs); err != nil {
+								return err
+							}
+							_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: idx.keys, Options: idx.opts})
+							return err
+						},
+						Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+							if op == "find" {
+								return cluFindIDs(f.filter, options.Find().SetHint(idx.keys))(ctx, col)
+							}
+							var doc bson.D
+							err := col.FindOneAndUpdate(ctx, f.filter, bson.D{{Key: "$set", Value: bson.D{{Key: "hit", Value: 1}}}},
+								options.FindOneAndUpdate().SetHint(idx.keys)).Decode(&doc)
+							return doc, err
+						},
+					})
+				})
+			}
+		}
+	}
+}
