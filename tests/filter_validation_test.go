@@ -48,8 +48,15 @@ func TestFilter_Validation(t *testing.T) {
 		{"InsideOr", bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "a", Value: int32(2)}}, bson.D{{Key: "f", Value: bson.D{{Key: "$type", Value: "nope"}}}}}}}},
 		{"InsideNot", bson.D{{Key: "a", Value: int32(1)}, {Key: "f", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$in", Value: int32(1)}}}}}}},
 		{"InsideElemMatch", bson.D{{Key: "a", Value: int32(1)}, {Key: "f", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$in", Value: int32(1)}}}}}}},
+		{"SizeNotNumber", bson.D{{Key: "f", Value: bson.D{{Key: "$size", Value: "x"}}}}},
 		{"InvalidRegex", bson.D{{Key: "a", Value: int32(1)}, {Key: "f", Value: bson.D{{Key: "$regex", Value: "("}}}}},
 		{"UnknownOperator", bson.D{{Key: "a", Value: int32(1)}, {Key: "f", Value: bson.D{{Key: "$nope", Value: int32(1)}}}}},
+		{"NotEmptyOperand", bson.D{{Key: "f", Value: bson.D{{Key: "$not", Value: bson.D{}}}}}},
+		{"NotPlainDocument", bson.D{{Key: "f", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "a", Value: int32(1)}}}}}}},
+		{"NotOperatorThenField", bson.D{{Key: "f", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$gt", Value: int32(1)}, {Key: "a", Value: int32(1)}}}}}}},
+		{"NotDBRef", bson.D{{Key: "f", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$ref", Value: "x"}, {Key: "$id", Value: int32(1)}}}}}}},
+		{"NotIncompleteDBRef", bson.D{{Key: "f", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$id", Value: int32(1)}}}}}}},
+		{"NotScalar", bson.D{{Key: "f", Value: bson.D{{Key: "$not", Value: int32(1)}}}}},
 		{"Valid", bson.D{{Key: "a", Value: int32(1)}, {Key: "f", Value: bson.D{{Key: "$in", Value: bson.A{int32(1)}}}}}},
 	}
 	commands := []struct {
@@ -74,6 +81,20 @@ func TestFilter_Validation(t *testing.T) {
 		}},
 		{"Aggregate", func(ctx context.Context, col *mongo.Collection, filter bson.D) (interface{}, error) {
 			cursor, err := col.Aggregate(ctx, bson.A{bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}}, bson.D{{Key: "$match", Value: filter}}})
+			if err != nil {
+				return nil, err
+			}
+			var results []bson.D
+			return results, cursor.All(ctx, &results)
+		}},
+		{"CountDocuments", func(ctx context.Context, col *mongo.Collection, filter bson.D) (interface{}, error) {
+			return col.CountDocuments(ctx, filter)
+		}},
+		{"AggregateCount", func(ctx context.Context, col *mongo.Collection, filter bson.D) (interface{}, error) {
+			cursor, err := col.Aggregate(ctx, bson.A{
+				bson.D{{Key: "$match", Value: filter}},
+				bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: int32(1)}, {Key: "n", Value: bson.D{{Key: "$sum", Value: int32(1)}}}}}},
+			})
 			if err != nil {
 				return nil, err
 			}

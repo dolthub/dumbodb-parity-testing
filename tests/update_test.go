@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -938,6 +939,215 @@ func TestPull_by_in_condition(t *testing.T) {
 			return readOne(ctx, col, "u3")
 		},
 	})
+}
+
+// mongod applies a $pull condition to each element only when its first key
+// is a field operator; a condition starting with $not is parsed as a query
+// and rejected, whether or not a document matches.
+func TestPull_not_condition(t *testing.T) {
+	conditions := []struct {
+		name      string
+		condition bson.D
+	}{
+		{"not_eq", bson.D{{Key: "$not", Value: bson.D{{Key: "$eq", Value: int32(5)}}}}},
+		{"not_regex", bson.D{{Key: "$not", Value: primitive.Regex{Pattern: "^s"}}}},
+		{"not_empty", bson.D{{Key: "$not", Value: bson.D{}}}},
+		{"operator_then_not", bson.D{{Key: "$gte", Value: int32(5)}, {Key: "$not", Value: bson.D{{Key: "$eq", Value: int32(5)}}}}},
+		{"ne", bson.D{{Key: "$ne", Value: int32(5)}}},
+	}
+	for _, c := range conditions {
+		for _, target := range []string{"match", "no_match"} {
+			for _, command := range []string{"update", "find_and_modify"} {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "Pull_not_condition_" + c.name + "_" + target + "_" + command,
+					Support: harness.DumboDBFull,
+					Setup: func(ctx context.Context, col *mongo.Collection) error {
+						_, err := col.InsertOne(ctx, bson.D{
+							{Key: "_id", Value: "pull-not"},
+							{Key: "arr", Value: bson.A{bson.D{}, int32(5), "str", int32(7)}},
+						})
+						return err
+					},
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						filter := bson.D{{Key: "_id", Value: "pull-not"}}
+						if target == "no_match" {
+							filter = bson.D{{Key: "_id", Value: "missing"}}
+						}
+						update := bson.D{{Key: "$pull", Value: bson.D{{Key: "arr", Value: c.condition}}}}
+						var err error
+						if command == "update" {
+							_, err = col.UpdateOne(ctx, filter, update)
+						} else {
+							err = col.FindOneAndUpdate(ctx, filter, update).Err()
+							if err == mongo.ErrNoDocuments {
+								err = nil
+							}
+						}
+						doc, readErr := readOne(ctx, col, "pull-not")
+						if readErr != nil {
+							return nil, readErr
+						}
+						return doc, err
+					},
+				})
+			}
+		}
+	}
+}
+
+// mongod runs a $pull condition that does not start with a field operator as
+// a query against each embedded document; scalars never match it.
+func TestPull_embedded_document_condition(t *testing.T) {
+	conditions := []struct {
+		name      string
+		condition bson.D
+	}{
+		{"field_gt", bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: int32(1)}}}}},
+		{"field_not", bson.D{{Key: "a", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$gt", Value: int32(1)}}}}}}},
+		{"field_ne", bson.D{{Key: "a", Value: bson.D{{Key: "$ne", Value: int32(1)}}}}},
+		{"field_in", bson.D{{Key: "a", Value: bson.D{{Key: "$in", Value: bson.A{int32(0), int32(3)}}}}}},
+		{"field_literal", bson.D{{Key: "a", Value: int32(1)}}},
+		{"two_fields", bson.D{{Key: "a", Value: int32(1)}, {Key: "b", Value: int32(2)}}},
+		{"nor", bson.D{{Key: "$nor", Value: bson.A{bson.D{{Key: "a", Value: int32(1)}}}}}},
+		{"or", bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "a", Value: int32(0)}}, bson.D{{Key: "b", Value: int32(1)}}}}}},
+		{"empty", bson.D{}},
+	}
+	for _, c := range conditions {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "Pull_embedded_document_condition_" + c.name,
+			Support: harness.DumboDBFull,
+			Setup: func(ctx context.Context, col *mongo.Collection) error {
+				_, err := col.InsertOne(ctx, bson.D{
+					{Key: "_id", Value: "pull-docs"},
+					{Key: "docs", Value: bson.A{
+						bson.D{{Key: "a", Value: int32(0)}},
+						bson.D{{Key: "a", Value: int32(3)}},
+						bson.D{{Key: "a", Value: int32(1)}, {Key: "b", Value: int32(2)}},
+						bson.D{{Key: "b", Value: int32(1)}},
+						bson.D{},
+						int32(5),
+						"s",
+					}},
+				})
+				return err
+			},
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				_, err := col.UpdateOne(ctx,
+					bson.D{{Key: "_id", Value: "pull-docs"}},
+					bson.D{{Key: "$pull", Value: bson.D{{Key: "docs", Value: c.condition}}}},
+				)
+				doc, readErr := readOne(ctx, col, "pull-docs")
+				if readErr != nil {
+					return nil, readErr
+				}
+				return doc, err
+			},
+		})
+	}
+}
+
+// mongod validates a $pull condition when it parses the update, so the error
+// does not depend on the array's contents. $expr, $text, $where and $near are
+// not allowed in a query-form condition.
+func TestPull_invalid_condition(t *testing.T) {
+	conditions := []struct {
+		name      string
+		condition bson.D
+	}{
+		{"expr", bson.D{{Key: "$expr", Value: true}}},
+		{"expr_field", bson.D{{Key: "$expr", Value: bson.D{{Key: "$gt", Value: bson.A{"$a", int32(1)}}}}}},
+		{"expr_in_or", bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "a", Value: int32(1)}}, bson.D{{Key: "$expr", Value: true}}}}}},
+		{"text", bson.D{{Key: "$text", Value: bson.D{{Key: "$search", Value: "x"}}}}},
+		{"where", bson.D{{Key: "$where", Value: "true"}}},
+		{"near", bson.D{{Key: "loc", Value: bson.D{{Key: "$near", Value: bson.A{int32(0), int32(0)}}}}}},
+		{"unknown_field_operator", bson.D{{Key: "$nope", Value: int32(1)}}},
+		{"in_not_array", bson.D{{Key: "$in", Value: int32(1)}}},
+		{"subfield_in_not_array", bson.D{{Key: "a", Value: bson.D{{Key: "$in", Value: int32(1)}}}}},
+	}
+	arrays := map[string]bson.A{
+		"documents": {bson.D{{Key: "a", Value: "x"}}, bson.D{{Key: "a", Value: int32(3)}}, int32(4)},
+		"scalars":   {int32(1), int32(4)},
+	}
+	commands := map[string]func(context.Context, *mongo.Collection, bson.D) error{
+		"update": func(ctx context.Context, col *mongo.Collection, update bson.D) error {
+			_, err := col.UpdateOne(ctx, bson.D{{Key: "_id", Value: "pull-invalid"}}, update)
+			return err
+		},
+		"find_and_modify": func(ctx context.Context, col *mongo.Collection, update bson.D) error {
+			return col.FindOneAndUpdate(ctx, bson.D{{Key: "_id", Value: "pull-invalid"}}, update).Err()
+		},
+		"bulk_write": func(ctx context.Context, col *mongo.Collection, update bson.D) error {
+			res, err := runBulkWriteOp(ctx, col, bson.D{{Key: "update", Value: int32(0)},
+				{Key: "filter", Value: bson.D{{Key: "_id", Value: "pull-invalid"}}}, {Key: "updateMods", Value: update}})
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("bulkWrite: %v", res)
+		},
+	}
+	for _, c := range conditions {
+		for arrayName, array := range arrays {
+			for commandName, run := range commands {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "Pull_invalid_condition_" + c.name + "_" + arrayName + "_" + commandName,
+					Support: harness.DumboDBFull,
+					Setup: func(ctx context.Context, col *mongo.Collection) error {
+						_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "pull-invalid"}, {Key: "arr", Value: array}})
+						return err
+					},
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						err := run(ctx, col, bson.D{{Key: "$pull", Value: bson.D{{Key: "arr", Value: c.condition}}}})
+						doc, readErr := readOne(ctx, col, "pull-invalid")
+						if readErr != nil {
+							return nil, readErr
+						}
+						return doc, err
+					},
+				})
+			}
+		}
+	}
+}
+
+// Embedded documents are stored with sorted keys; $pull and $pullAll still
+// match a document operand written in any key order, including a DBRef.
+func TestPull_document_operand_key_order(t *testing.T) {
+	unsorted := bson.D{{Key: "b", Value: int32(1)}, {Key: "a", Value: int32(2)}}
+	dbRef := bson.D{{Key: "$ref", Value: "x"}, {Key: "$id", Value: int32(1)}}
+	updates := []struct {
+		name   string
+		update bson.D
+	}{
+		{"pull_document", bson.D{{Key: "$pull", Value: bson.D{{Key: "arr", Value: unsorted}}}}},
+		{"pull_eq_document", bson.D{{Key: "$pull", Value: bson.D{{Key: "arr", Value: bson.D{{Key: "$eq", Value: unsorted}}}}}}},
+		{"pull_in_document", bson.D{{Key: "$pull", Value: bson.D{{Key: "arr", Value: bson.D{{Key: "$in", Value: bson.A{unsorted}}}}}}}},
+		{"pull_all_document", bson.D{{Key: "$pullAll", Value: bson.D{{Key: "arr", Value: bson.A{unsorted}}}}}},
+		{"pull_dbref", bson.D{{Key: "$pull", Value: bson.D{{Key: "arr", Value: dbRef}}}}},
+		{"pull_eq_dbref", bson.D{{Key: "$pull", Value: bson.D{{Key: "arr", Value: bson.D{{Key: "$eq", Value: dbRef}}}}}}},
+		{"pull_in_dbref", bson.D{{Key: "$pull", Value: bson.D{{Key: "arr", Value: bson.D{{Key: "$in", Value: bson.A{dbRef}}}}}}}},
+		{"pull_all_dbref", bson.D{{Key: "$pullAll", Value: bson.D{{Key: "arr", Value: bson.A{dbRef}}}}}},
+	}
+	for _, u := range updates {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "Pull_document_operand_key_order_" + u.name,
+			Support: harness.DumboDBFull,
+			Setup: func(ctx context.Context, col *mongo.Collection) error {
+				_, err := col.InsertOne(ctx, bson.D{
+					{Key: "_id", Value: "pull-order"},
+					{Key: "arr", Value: bson.A{unsorted, dbRef, bson.D{{Key: "a", Value: int32(2)}}, int32(5)}},
+				})
+				return err
+			},
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				_, err := col.UpdateOne(ctx, bson.D{{Key: "_id", Value: "pull-order"}}, u.update)
+				doc, readErr := readOne(ctx, col, "pull-order")
+				if readErr != nil {
+					return nil, readErr
+				}
+				return doc, err
+			},
+		})
+	}
 }
 
 func TestPull_no_match(t *testing.T) {

@@ -149,6 +149,42 @@ func TestBSON_id_doc_dbref_with_db_allowed(t *testing.T) {
 	})
 }
 
+// mongod treats the values of a DBRef's $id and $db as opaque: $-prefixed
+// fields inside them do not make the _id invalid.
+func TestBSON_id_doc_dbref_dollar_inside_id_allowed(t *testing.T) {
+	ids := map[string]bson.D{
+		"operator_shaped": {{Key: "$ref", Value: "x"}, {Key: "$id", Value: bson.D{{Key: "$gt", Value: int32(1)}}}},
+		"nested":          {{Key: "$ref", Value: "x"}, {Key: "$id", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$b", Value: int32(1)}}}}}},
+		"with_db":         {{Key: "$ref", Value: "x"}, {Key: "$id", Value: bson.D{{Key: "$gt", Value: int32(2)}}}, {Key: "$db", Value: "d"}},
+		"array":           {{Key: "$ref", Value: "x"}, {Key: "$id", Value: bson.A{bson.D{{Key: "$x", Value: int32(1)}}}}},
+		"extra_field":     {{Key: "$ref", Value: "x"}, {Key: "$id", Value: int32(1)}, {Key: "meta", Value: int32(1)}},
+		"nested_dbref":    {{Key: "a", Value: bson.D{{Key: "$ref", Value: "x"}, {Key: "$id", Value: bson.D{{Key: "$gt", Value: int32(1)}}}}}},
+	}
+	for name, id := range ids {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "BSON_id_doc_dbref_dollar_inside_id_allowed_" + name,
+			Support: harness.DumboDBFull,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: id}, {Key: "v", Value: int32(1)}}); err != nil {
+					return nil, err
+				}
+				var found bson.D
+				err := col.FindOne(ctx, bson.D{{Key: "_id", Value: bson.D{{Key: "$eq", Value: id}}}}).Decode(&found)
+				return found, err
+			},
+		})
+	}
+}
+
+// A DBRef's extra non-$ fields are still checked for $-prefixed fields.
+func TestBSON_id_doc_dbref_dollar_in_extra_field_rejected(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "BSON_id_doc_dbref_dollar_in_extra_field_rejected",
+		Support: harness.DumboDBFull,
+		Run:     insertIDCode(bson.D{{Key: "$ref", Value: "x"}, {Key: "$id", Value: int32(1)}, {Key: "meta", Value: bson.D{{Key: "$y", Value: int32(1)}}}}),
+	})
+}
+
 func TestBSON_id_doc_dbref_extra_dollar_rejected(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BSON_id_doc_dbref_extra_dollar_rejected",
