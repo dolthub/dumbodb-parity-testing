@@ -2896,3 +2896,73 @@ func TestHint_TypeRegexFirstInBounds(t *testing.T) {
 		}
 	}
 }
+
+// TestHint_NaturalByCommand: an aggregate led by $match overlooks a bad
+// $natural value, as distinct does on a missing collection; both refuse a
+// compound $natural hint with their own message, as find does with another.
+func TestHint_NaturalByCommand(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 1}},
+			bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: 2}},
+		}); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}}})
+		return err
+	}
+	hints := []struct {
+		name string
+		hint bson.D
+	}{
+		{"two", bson.D{{Key: "$natural", Value: 2}}},
+		{"zero", bson.D{{Key: "$natural", Value: 0}}},
+		{"string", bson.D{{Key: "$natural", Value: "1"}}},
+		{"compound", bson.D{{Key: "$natural", Value: 1}, {Key: "a", Value: 1}}},
+	}
+	cmds := []struct {
+		name string
+		cmd  func(coll string, hint bson.D) bson.D
+	}{
+		{"aggregate_match", func(c string, h bson.D) bson.D {
+			return bson.D{{Key: "aggregate", Value: c}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: 1}}}}}}}},
+				{Key: "hint", Value: h}, {Key: "cursor", Value: bson.D{}}}
+		}},
+		{"aggregate_project", func(c string, h bson.D) bson.D {
+			return bson.D{{Key: "aggregate", Value: c}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$project", Value: bson.D{{Key: "a", Value: 1}}}}}},
+				{Key: "hint", Value: h}, {Key: "cursor", Value: bson.D{}}}
+		}},
+		{"distinct", func(c string, h bson.D) bson.D {
+			return bson.D{{Key: "distinct", Value: c}, {Key: "key", Value: "a"}, {Key: "hint", Value: h}}
+		}},
+		{"find", func(c string, h bson.D) bson.D { return bson.D{{Key: "find", Value: c}, {Key: "hint", Value: h}} }},
+	}
+	for _, h := range hints {
+		for _, c := range cmds {
+			for _, missing := range []bool{false, true} {
+				name := fmt.Sprintf("%s_%s_missing_%t", c.name, h.name, missing)
+				t.Run(name, func(t *testing.T) {
+					harness.PairTest(t, harness.TestCase{
+						Name:    "Hint_NaturalByCommand_" + name,
+						Support: harness.DumboDBFull,
+						Setup:   setup,
+						Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+							coll := col.Name()
+							if missing {
+								coll += "_missing"
+							}
+							var res bson.M
+							if err := col.Database().RunCommand(ctx, c.cmd(coll, h.hint)).Decode(&res); err != nil {
+								return nil, err
+							}
+							if cur, ok := res["cursor"].(bson.M); ok {
+								return cur["firstBatch"], nil
+							}
+							return res["values"], nil
+						},
+					})
+				})
+			}
+		}
+	}
+}
