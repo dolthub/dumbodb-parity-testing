@@ -145,3 +145,52 @@ func TestQueryStatsStage(t *testing.T) {
 		})
 	}
 }
+
+// Stages a standalone mongod refuses, or runs only on {aggregate: 1}, fail
+// with mongod's codes rather than as unknown stages.
+func TestStandaloneStageErrors(t *testing.T) {
+	names := []string{
+		"$querySettings", "$changeStreamSplitLargeEvent", "$listSampledQueries", "$setVariableFromSubPipeline",
+		"$listCachedAndActiveUsers", "$_internalInhibitOptimization", "$listClusterCatalog",
+	}
+	for _, name := range names {
+		for _, first := range []bool{true, false} {
+			for _, onCollection := range []bool{true, false} {
+				name, first, onCollection := name, first, onCollection
+				if name == "$listClusterCatalog" && first && !onCollection {
+					continue
+				}
+				label := "StandaloneStageErrors_" + strings.TrimPrefix(name, "$")
+				if !first {
+					label += "_AfterMatch"
+				}
+				if !onCollection {
+					label += "_Database"
+				}
+				harness.PairTest(t, harness.TestCase{
+					Name:    label,
+					Support: harness.DumboDBFull,
+					Setup: func(ctx context.Context, col *mongo.Collection) error {
+						_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}})
+						return err
+					},
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						pipeline := bson.A{bson.D{{Key: name, Value: bson.D{}}}}
+						if !first {
+							pipeline = append(bson.A{bson.D{{Key: "$match", Value: bson.D{}}}}, pipeline...)
+						}
+						var target interface{} = col.Name()
+						if !onCollection {
+							target = 1
+						}
+						var res bson.M
+						if err := col.Database().RunCommand(ctx, bson.D{{Key: "aggregate", Value: target}, {Key: "pipeline", Value: pipeline}, {Key: "cursor", Value: bson.D{}}}).Decode(&res); err != nil {
+							return nil, err
+						}
+						return res["cursor"].(bson.M)["firstBatch"], nil
+					},
+				})
+			}
+		}
+	}
+}
