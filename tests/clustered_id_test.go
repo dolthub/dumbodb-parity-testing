@@ -2824,3 +2824,75 @@ func TestClustered_HintPartialIndex(t *testing.T) {
 		})
 	}
 }
+
+// TestHint_TypeRegexFirstInBounds: a single write hinted to a multikey index
+// under $type or $regex picks the document whose first key inside the bounds
+// comes first, not the one with the least element.
+func TestHint_TypeRegexFirstInBounds(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: ""}},
+			bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: bson.A{2.5, ""}}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "a", Value: "x"}},
+			bson.D{{Key: "_id", Value: 4}, {Key: "a", Value: bson.A{primitive.MinKey{}, "q"}}},
+		}); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}}})
+		return err
+	}
+	hint := bson.D{{Key: "a", Value: 1}}
+	set := bson.D{{Key: "$set", Value: bson.D{{Key: "hit", Value: 1}}}}
+	filters := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"type_string", bson.D{{Key: "a", Value: bson.D{{Key: "$type", Value: "string"}}}}},
+		{"regex_empty", bson.D{{Key: "a", Value: bson.D{{Key: "$regex", Value: "^$"}}}}},
+		{"regex_literal", bson.D{{Key: "a", Value: primitive.Regex{Pattern: "^$"}}}},
+		{"type_double", bson.D{{Key: "a", Value: bson.D{{Key: "$type", Value: "double"}}}}},
+	}
+	ops := []struct {
+		name string
+		run  func(bson.D) func(context.Context, *mongo.Collection) (interface{}, error)
+	}{
+		{"find_and_modify", func(f bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
+			return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				var doc bson.D
+				err := col.FindOneAndUpdate(ctx, f, set, options.FindOneAndUpdate().SetHint(hint)).Decode(&doc)
+				return doc, err
+			}
+		}},
+		{"update_one", func(f bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
+			return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				if _, err := col.UpdateOne(ctx, f, set, options.Update().SetHint(hint)); err != nil {
+					return nil, err
+				}
+				return cluFindIDs(bson.D{{Key: "hit", Value: 1}})(ctx, col)
+			}
+		}},
+		{"delete_one", func(f bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
+			return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				if _, err := col.DeleteOne(ctx, f, options.Delete().SetHint(hint)); err != nil {
+					return nil, err
+				}
+				return cluFindIDs(bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))(ctx, col)
+			}
+		}},
+		{"find", func(f bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
+			return cluFindIDs(f, options.Find().SetHint(hint))
+		}},
+	}
+	for _, f := range filters {
+		for _, op := range ops {
+			t.Run(f.name+"_"+op.name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "Hint_TypeRegexFirstInBounds_" + f.name + "_" + op.name,
+					Support: harness.DumboDBFull,
+					Setup:   setup,
+					Run:     op.run(f.filter),
+				})
+			})
+		}
+	}
+}
