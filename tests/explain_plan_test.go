@@ -1221,16 +1221,10 @@ func TestExplainPlan_SkipAndOrWalk(t *testing.T) {
 		}},
 	}
 	for _, tc := range cases {
-		support := harness.DumboDBFull
-		if tc.name == "skip_limit" {
-			// mongod skips index keys before fetching (FETCH > SKIP > IXSCAN);
-			// DumboDB fetches the skipped documents too.
-			support = harness.DumboDBXFail
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:      "ExplainPlan_SkipAndOrWalk_" + tc.name,
-				Support:   support,
+				Support:   harness.DumboDBFull,
 				Clustered: true,
 				Setup:     setup,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
@@ -2158,6 +2152,74 @@ func TestExplainPlan_StageEntryShapes(t *testing.T) {
 						shapes = append(shapes, shape)
 					}
 					return bson.D{{Key: "queryPlanner", Value: hasPlanner}, {Key: "stages", Value: shapes}}, nil
+				},
+			})
+		})
+	}
+}
+
+// TestExplainPlan_SkipUnderFetch: a skip over an index scan that answers the
+// whole filter drops keys before their documents are fetched; one with a
+// filter the index cannot decide skips fetched documents.
+func TestExplainPlan_SkipUnderFetch(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 20)
+		for i := range docs {
+			docs[i] = bson.D{{Key: "_id", Value: int32(i)}, {Key: "g", Value: int32(i % 4)}, {Key: "h", Value: int32(i)}}
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		return createIndex(ctx, col, bson.D{{Key: "g", Value: 1}})
+	}
+	g := bson.D{{Key: "g", Value: 1}}
+	gh := bson.D{{Key: "g", Value: 1}, {Key: "h", Value: 5}}
+	cases := []struct {
+		name string
+		cmd  func(coll string) bson.D
+	}{
+		{"aggregate_skip_limit", func(c string) bson.D {
+			return bson.D{{Key: "aggregate", Value: c}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: g}}, bson.D{{Key: "$skip", Value: 1}}, bson.D{{Key: "$limit", Value: 1}}}}, {Key: "cursor", Value: bson.D{}}}
+		}},
+		{"aggregate_skip", func(c string) bson.D {
+			return bson.D{{Key: "aggregate", Value: c}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: g}}, bson.D{{Key: "$skip", Value: 1}}}}, {Key: "cursor", Value: bson.D{}}}
+		}},
+		{"aggregate_skip_residual", func(c string) bson.D {
+			return bson.D{{Key: "aggregate", Value: c}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: gh}}, bson.D{{Key: "$skip", Value: 1}}}}, {Key: "cursor", Value: bson.D{}}}
+		}},
+		{"find_skip_limit", func(c string) bson.D {
+			return bson.D{{Key: "find", Value: c}, {Key: "filter", Value: g}, {Key: "skip", Value: 1}, {Key: "limit", Value: 1}}
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "ExplainPlan_SkipUnderFetch_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					var res bson.D
+					if err := col.Database().RunCommand(ctx, bson.D{{Key: "explain", Value: tc.cmd(col.Name())}, {Key: "verbosity", Value: "executionStats"}}).Decode(&res); err != nil {
+						return nil, err
+					}
+					qp, _ := lookupBSONField(res, "queryPlanner")
+					wp, _ := lookupBSONField(qp.(bson.D), "winningPlan")
+					stats, _ := lookupBSONField(res, "executionStats")
+					n, _ := lookupBSONField(stats.(bson.D), "nReturned")
+					var exec bson.A
+					es, _ := lookupBSONField(stats.(bson.D), "executionStages")
+					for node, _ := es.(bson.D); node != nil; {
+						entry := bson.D{}
+						for _, k := range []string{"stage", "nReturned", "keysExamined", "docsExamined"} {
+							if v, ok := lookupBSONField(node, k); ok {
+								entry = append(entry, bson.E{Key: k, Value: v})
+							}
+						}
+						exec = append(exec, entry)
+						next, _ := lookupBSONField(node, "inputStage")
+						node, _ = next.(bson.D)
+					}
+					return bson.D{{Key: "plan", Value: planStages(wp)}, {Key: "nReturned", Value: n}, {Key: "executionStages", Value: exec}}, nil
 				},
 			})
 		})
