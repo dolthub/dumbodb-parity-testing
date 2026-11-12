@@ -16,7 +16,12 @@ package tests
 
 import (
 	"context"
+	"fmt"
+	"math/rand"
+	"slices"
 	"testing"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -251,6 +256,89 @@ func TestNArgumentCodes(t *testing.T) {
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return fieldOpsAgg(ctx, col.Database().Collection(col.Name()+"_none"),
 				bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "r", Value: bson.D{{Key: "$firstN", Value: bson.D{{Key: "input", Value: "$v"}, {Key: "n", Value: int32(0)}}}}}}}})
+		},
+	})
+}
+
+// Which tied values the N accumulators keep, and their order, depends on how
+// mongod computes them: in SBE a $group keeps a binary heap, a window with a
+// bounded lower edge keeps every value, and the expression $maxN refuses ties.
+func TestNTiesBySBEAndWindows(t *testing.T) {
+	rng := rand.New(rand.NewSource(7))
+	type tiesCase struct {
+		name   string
+		values []int32
+		stages []bson.D
+	}
+	var cases []tiesCase
+	for i := range 30 {
+		values := make([]int32, 3+rng.Intn(6))
+		for j := range values {
+			values[j] = int32(1 + rng.Intn(3))
+		}
+		n := int32(1 + rng.Intn(4))
+		ops := []string{"$topN", "$bottomN", "$minN", "$maxN"}
+		op := ops[rng.Intn(len(ops))]
+		acc := bson.D{{Key: op, Value: bson.D{{Key: "input", Value: "$v"}, {Key: "n", Value: n}}}}
+		if op == "$topN" || op == "$bottomN" {
+			acc = bson.D{{Key: op, Value: bson.D{{Key: "output", Value: "$_id"}, {Key: "sortBy", Value: bson.D{{Key: "s", Value: 1}}}, {Key: "n", Value: n}}}}
+		}
+		group := []bson.D{
+			{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+			{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "r", Value: acc}}}},
+			{{Key: "$project", Value: bson.D{{Key: "r", Value: bson.D{{Key: "$map", Value: bson.D{{Key: "input", Value: "$r"}, {Key: "in", Value: bson.A{"$$this", bson.D{{Key: "$type", Value: "$$this"}}}}}}}}}}},
+		}
+		cases = append(cases, tiesCase{fmt.Sprintf("SBEGroup%d", i), values, group})
+
+		windows := []bson.D{
+			{{Key: "documents", Value: bson.A{int32(-2), int32(2)}}},
+			{{Key: "documents", Value: bson.A{"current", "unbounded"}}},
+			{{Key: "documents", Value: bson.A{int32(-1), int32(0)}}},
+			{{Key: "range", Value: bson.A{int32(-2), int32(1)}}},
+		}
+		windowAcc := append(slices.Clone(acc), bson.E{Key: "window", Value: windows[rng.Intn(len(windows))]})
+		window := []bson.D{
+			{{Key: "$setWindowFields", Value: bson.D{{Key: "sortBy", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "output", Value: bson.D{{Key: "r", Value: windowAcc}}}}}},
+			{{Key: "$project", Value: bson.D{{Key: "r", Value: bson.D{{Key: "$map", Value: bson.D{{Key: "input", Value: "$r"}, {Key: "in", Value: bson.A{"$$this", bson.D{{Key: "$type", Value: "$$this"}}}}}}}}}}},
+			{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+		}
+		cases = append(cases, tiesCase{fmt.Sprintf("BoundedWindow%d", i), values, window})
+	}
+	for _, c := range cases {
+		c := c
+		harness.PairTest(t, harness.TestCase{
+			Name:    "NTiesBySBEAndWindows_" + c.name,
+			Support: harness.DumboDBFull,
+			Setup: func(ctx context.Context, col *mongo.Collection) error {
+				docs := make([]interface{}, len(c.values))
+				for i, v := range c.values {
+					var typed interface{} = v
+					if i%2 == 1 {
+						typed = float64(v)
+					}
+					docs[i] = bson.D{{Key: "_id", Value: int32(i + 1)}, {Key: "s", Value: v}, {Key: "v", Value: typed}}
+				}
+				_, err := col.InsertMany(ctx, docs)
+				return err
+			},
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return fieldOpsAgg(ctx, col, c.stages...)
+			},
+		})
+	}
+	harness.PairTest(t, harness.TestCase{
+		Name:    "NTiesBySBEAndWindows_ExpressionMaxN",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			input := bson.A{int32(2), int64(2), 2.0, primitive.NewDecimal128(0, 2)}
+			return fieldOpsAgg(ctx, col, bson.D{{Key: "$project", Value: bson.D{
+				{Key: "max", Value: bson.D{{Key: "$map", Value: bson.D{{Key: "input", Value: bson.D{{Key: "$maxN", Value: bson.D{{Key: "input", Value: input}, {Key: "n", Value: int32(2)}}}}}, {Key: "in", Value: bson.D{{Key: "$type", Value: "$$this"}}}}}}},
+				{Key: "min", Value: bson.D{{Key: "$map", Value: bson.D{{Key: "input", Value: bson.D{{Key: "$minN", Value: bson.D{{Key: "input", Value: input}, {Key: "n", Value: int32(2)}}}}}, {Key: "in", Value: bson.D{{Key: "$type", Value: "$$this"}}}}}}},
+			}}})
 		},
 	})
 }
