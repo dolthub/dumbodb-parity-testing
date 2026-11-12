@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -2409,5 +2410,75 @@ func TestUpdate_missing_collection(t *testing.T) {
 				},
 			})
 		})
+	}
+}
+
+// TestUpdate_FailedStatementKeepsBatch: a statement whose write fails is that
+// statement's write error; the statements before it stay applied, and an
+// unordered update runs the ones after it.
+func TestUpdate_FailedStatementKeepsBatch(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 1}, {Key: "s", Value: "x"}},
+			bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: 2}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "a", Value: 3}},
+		}); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "u", Value: 1}},
+			Options: options.Index().SetUnique(true).SetSparse(true)})
+		return err
+	}
+	stmt := func(id int, u bson.D, upsert bool) mongo.WriteModel {
+		return mongo.NewUpdateOneModel().SetFilter(bson.D{{Key: "_id", Value: id}}).SetUpdate(u).SetUpsert(upsert)
+	}
+	failing := []struct {
+		name string
+		stmt mongo.WriteModel
+	}{
+		{"inc_string", stmt(1, bson.D{{Key: "$inc", Value: bson.D{{Key: "s", Value: 1}}}}, false)},
+		{"duplicate_key", stmt(3, bson.D{{Key: "$set", Value: bson.D{{Key: "u", Value: 1}}}}, false)},
+		{"nested_pull_expr", stmt(1, bson.D{{Key: "$pull", Value: bson.D{{Key: "a", Value: bson.D{{Key: "k", Value: bson.D{{Key: "$expr", Value: 1}}}}}}}}, false)},
+	}
+	for _, f := range failing {
+		for _, ordered := range []bool{true, false} {
+			name := fmt.Sprintf("%s_ordered_%t", f.name, ordered)
+			t.Run(name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "Update_FailedStatementKeepsBatch_" + name,
+					Support: harness.DumboDBFull,
+					Setup:   setup,
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						models := []mongo.WriteModel{
+							stmt(2, bson.D{{Key: "$set", Value: bson.D{{Key: "u", Value: 1}}}}, false),
+							stmt(9, bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: 1}}}}, true),
+							f.stmt,
+							stmt(10, bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: 2}}}}, true),
+						}
+						res, err := col.BulkWrite(ctx, models, options.BulkWrite().SetOrdered(ordered))
+						var bwe mongo.BulkWriteException
+						if err != nil && !errors.As(err, &bwe) {
+							return nil, err
+						}
+						var errs bson.A
+						for _, we := range bwe.WriteErrors {
+							errs = append(errs, bson.D{{Key: "index", Value: we.Index}, {Key: "code", Value: we.Code}, {Key: "errmsg", Value: we.Message}})
+						}
+						ids, err := cluFindIDs(bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))(ctx, col)
+						if err != nil {
+							return nil, err
+						}
+						upserted := bson.D{}
+						for i := int64(0); i < int64(len(models)); i++ {
+							if id, ok := res.UpsertedIDs[i]; ok {
+								upserted = append(upserted, bson.E{Key: fmt.Sprint(i), Value: id})
+							}
+						}
+						return bson.D{{Key: "matched", Value: res.MatchedCount}, {Key: "modified", Value: res.ModifiedCount},
+							{Key: "upserted", Value: upserted}, {Key: "writeErrors", Value: errs}, {Key: "ids", Value: ids}}, nil
+					},
+				})
+			})
+		}
 	}
 }
