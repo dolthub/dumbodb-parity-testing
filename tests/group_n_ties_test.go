@@ -177,3 +177,33 @@ func TestGroupNCollection(t *testing.T) {
 		})
 	}
 }
+
+// $group and $bucket stop evaluating $firstN's input once they hold n
+// values; windows and $bucketAuto evaluate it for every document.
+func TestFirstNEvaluation(t *testing.T) {
+	firstN := bson.D{{Key: "$firstN", Value: bson.D{{Key: "input", Value: bson.D{{Key: "$divide", Value: bson.A{int32(1), "$z"}}}}, {Key: "n", Value: int32(1)}}}}
+	cases := map[string][]bson.D{
+		"Group":      {{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}}, {{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "r", Value: firstN}}}}},
+		"Bucket":     {{{Key: "$bucket", Value: bson.D{{Key: "groupBy", Value: "$_id"}, {Key: "boundaries", Value: bson.A{int32(0), int32(10)}}, {Key: "output", Value: bson.D{{Key: "r", Value: firstN}}}}}}},
+		"BucketAuto": {{{Key: "$bucketAuto", Value: bson.D{{Key: "groupBy", Value: "$_id"}, {Key: "buckets", Value: int32(1)}, {Key: "output", Value: bson.D{{Key: "r", Value: firstN}}}}}}},
+		"Window":     {{{Key: "$setWindowFields", Value: bson.D{{Key: "sortBy", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "output", Value: bson.D{{Key: "r", Value: firstN}}}}}}},
+	}
+	for name, stages := range cases {
+		stages := stages
+		harness.PairTest(t, harness.TestCase{
+			Name:    "FirstNEvaluation_" + name,
+			Support: harness.DumboDBFull,
+			Setup: func(ctx context.Context, col *mongo.Collection) error {
+				_, err := col.InsertMany(ctx, []interface{}{
+					bson.D{{Key: "_id", Value: int32(1)}, {Key: "z", Value: int32(1)}},
+					bson.D{{Key: "_id", Value: int32(2)}, {Key: "z", Value: int32(1)}},
+					bson.D{{Key: "_id", Value: int32(3)}, {Key: "z", Value: int32(0)}},
+				})
+				return err
+			},
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return fieldOpsAgg(ctx, col, stages...)
+			},
+		})
+	}
+}
