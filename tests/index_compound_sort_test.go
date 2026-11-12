@@ -189,3 +189,75 @@ func TestIndex_KeyFieldLimit(t *testing.T) {
 		})
 	}
 }
+
+// TestIndex_CreateConflicts: an index request beside an existing index on the
+// same key is identical, a new index, or refused as mongod refuses it: a name
+// in use with other options, or an equivalent index under another name.
+// Indexes on one key differ by unique, sparse, partialFilterExpression and
+// collation; hidden alone does not make another index.
+func TestIndex_CreateConflicts(t *testing.T) {
+	spec := func(name string, opts ...bson.E) bson.D {
+		return append(bson.D{{Key: "key", Value: bson.D{{Key: "b", Value: 1}}}, {Key: "name", Value: name}}, opts...)
+	}
+	sparse := bson.E{Key: "sparse", Value: true}
+	cases := []struct {
+		name string
+		spec bson.D
+	}{
+		{"same_name_sparse", spec("b1", sparse)},
+		{"same_name_unique", spec("b1", bson.E{Key: "unique", Value: true})},
+		{"same_name_partial", spec("b1", bson.E{Key: "partialFilterExpression", Value: bson.D{{Key: "b", Value: 1}}})},
+		{"same_name_hidden", spec("b1", bson.E{Key: "hidden", Value: true})},
+		{"same_name_other_key", bson.D{{Key: "key", Value: bson.D{{Key: "c", Value: 1}}}, {Key: "name", Value: "b1"}}},
+		{"other_name", spec("b2")},
+		{"other_name_sparse", spec("b2", sparse)},
+		{"other_name_unique", spec("b2", bson.E{Key: "unique", Value: true})},
+		{"other_name_hidden", spec("b2", bson.E{Key: "hidden", Value: true})},
+		{"identical", spec("b1")},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Index_CreateConflicts_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: 1}}); err != nil {
+						return err
+					}
+					_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "b", Value: 1}}, Options: options.Index().SetName("b1")})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					var res bson.M
+					err := col.Database().RunCommand(ctx, bson.D{{Key: "createIndexes", Value: col.Name()}, {Key: "indexes", Value: bson.A{tc.spec}}}).Decode(&res)
+					var ce mongo.CommandError
+					if errors.As(err, &ce) {
+						return bson.D{{Key: "code", Value: ce.Code}, {Key: "message", Value: ce.Message}}, nil
+					}
+					if err != nil {
+						return nil, err
+					}
+					return bson.D{{Key: "note", Value: res["note"]}, {Key: "after", Value: res["numIndexesAfter"]}}, nil
+				},
+			})
+		})
+	}
+	t.Run("wide_without_name", func(t *testing.T) {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "Index_CreateConflicts_wide_without_name",
+			Support: harness.DumboDBFull,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				key := bson.D{}
+				for i := range 33 {
+					key = append(key, bson.E{Key: fmt.Sprintf("f%d", i), Value: 1})
+				}
+				err := col.Database().RunCommand(ctx, bson.D{{Key: "createIndexes", Value: col.Name()}, {Key: "indexes", Value: bson.A{bson.D{{Key: "key", Value: key}}}}}).Err()
+				var ce mongo.CommandError
+				if errors.As(err, &ce) {
+					return bson.D{{Key: "code", Value: ce.Code}}, nil
+				}
+				return bson.D{{Key: "ok", Value: err == nil}}, nil
+			},
+		})
+	})
+}
