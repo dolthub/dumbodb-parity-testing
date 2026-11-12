@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
@@ -222,4 +223,56 @@ func TestParseChecksQ11(t *testing.T) {
 			},
 		})
 	}
+}
+
+// $tsSecond and $tsIncrement fail on a value that is not a timestamp with
+// their own codes and give null for null or missing; $const is $literal; a
+// filter checks $expr after its other conditions.
+func TestExpressionsQ12(t *testing.T) {
+	seed := func(ctx context.Context, col *mongo.Collection) error {
+		_, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: bson.A{int32(1), int32(2)}}, {Key: "v", Value: int32(9)},
+				{Key: "t", Value: primitive.Timestamp{T: 5, I: 7}}, {Key: "n", Value: nil}},
+			bson.D{{Key: "_id", Value: int32(2)}, {Key: "v", Value: int32(9)}},
+		})
+		return err
+	}
+	pipelines := map[string]string{
+		"TsSecondConstant":     `[{"$project":{"t":{"$tsSecond":{"$literal":1}}}}]`,
+		"TsIncrementString":    `[{"$project":{"t":{"$tsIncrement":"x"}}}]`,
+		"TsValues":             `[{"$project":{"s":{"$tsSecond":"$t"},"i":{"$tsIncrement":"$t"},"m":{"$tsSecond":"$n"},"z":{"$tsSecond":"$zz"}}}]`,
+		"TsSecondField":        `[{"$project":{"s":{"$tsSecond":"$v"}}}]`,
+		"Const":                `[{"$project":{"t":{"$const":5}}}]`,
+		"ConstFieldPath":       `[{"$project":{"t":{"$const":"$a"}}}]`,
+		"MatchOrExprFirst":     `[{"$match":{"$or":[{"$expr":{"$eq":[{"$size":"$a"},2]}},{"v":9}]}},{"$project":{"_id":1}}]`,
+		"MatchAndExprFirst":    `[{"$match":{"$and":[{"$expr":{"$eq":[{"$size":"$a"},2]}},{"v":8}]}}]`,
+		"MatchExprBeforeField": `[{"$match":{"$expr":{"$eq":[{"$size":"$a"},2]},"v":8}}]`,
+		"MatchNorExprFirst":    `[{"$match":{"$nor":[{"$expr":{"$eq":[{"$size":"$a"},2]}},{"v":9}]}}]`,
+		"MatchOrExprFails":     `[{"$match":{"$or":[{"$expr":{"$eq":[{"$size":"$a"},2]}},{"v":8}]}}]`,
+	}
+	for name, js := range pipelines {
+		var stages []bson.D
+		if err := bson.UnmarshalExtJSON([]byte(`{"p":`+js+`}`), false, &struct{ P *[]bson.D }{&stages}); err != nil {
+			t.Fatal(name, err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "ExpressionsQ12_" + name,
+			Support: harness.DumboDBFull,
+			Setup:   seed,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return fieldOpsAgg(ctx, col, append(stages, bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}})...)
+			},
+		})
+	}
+	harness.PairTest(t, harness.TestCase{
+		Name:    "ExpressionsQ12_FindOrExprFirst",
+		Support: harness.DumboDBFull,
+		Setup:   seed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return findWithProjection(ctx, col, bson.D{{Key: "$or", Value: bson.A{
+				bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{bson.D{{Key: "$size", Value: "$a"}}, int32(2)}}}}},
+				bson.D{{Key: "v", Value: int32(9)}},
+			}}}, bson.D{{Key: "_id", Value: 1}})
+		},
+	})
 }
