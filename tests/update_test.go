@@ -2441,6 +2441,11 @@ func TestUpdate_FailedStatementKeepsBatch(t *testing.T) {
 		{"empty_set_path", stmt(1, bson.D{{Key: "$set", Value: bson.D{{Key: "", Value: 1}}}}, false)},
 		{"conflicting_paths", stmt(1, bson.D{{Key: "$set", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "$inc", Value: bson.D{{Key: "a", Value: 1}}}}, false)},
 		{"nested_pull_expr", stmt(1, bson.D{{Key: "$pull", Value: bson.D{{Key: "a", Value: bson.D{{Key: "k", Value: bson.D{{Key: "$expr", Value: 1}}}}}}}}, false)},
+		{"unknown_modifier", stmt(1, bson.D{{Key: "$bogus", Value: bson.D{{Key: "a", Value: 1}}}}, false)},
+		{"field_beside_modifier", stmt(1, bson.D{{Key: "$set", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "b", Value: 1}}, false)},
+		{"replacement_dollar_field", mongo.NewReplaceOneModel().SetFilter(bson.D{{Key: "_id", Value: 1}}).
+			SetReplacement(bson.D{{Key: "b", Value: 1}, {Key: "$set", Value: bson.D{{Key: "a", Value: 1}}}})},
+		{"set_stage_number", mongo.NewUpdateOneModel().SetFilter(bson.D{{Key: "_id", Value: 1}}).SetUpdate(bson.A{bson.D{{Key: "$set", Value: 1}}})},
 	}
 	for _, f := range failing {
 		for _, ordered := range []bool{true, false} {
@@ -2551,6 +2556,105 @@ func TestUpdate_MultiFailingPartway(t *testing.T) {
 						return nil, err
 					}
 					return bson.D{{Key: "n", Value: res["n"]}, {Key: "nModified", Value: res["nModified"]}, {Key: "writeErrors", Value: codes}, {Key: "docs", Value: docs}}, nil
+				},
+			})
+		})
+	}
+}
+
+// TestUpdate_InvalidUpdateDocumentScope: an unknown modifier, a multi
+// replacement and a disallowed stage fail their statement; a replacement's
+// $-prefixed field fails only when it is applied; a pipeline element that is
+// not a document, or an unknown stage, fails the command. findAndModify and
+// bulkWrite report the same errors.
+func TestUpdate_InvalidUpdateDocumentScope(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		_, err := col.InsertMany(ctx, []interface{}{bson.D{{Key: "_id", Value: 1}}, bson.D{{Key: "_id", Value: 2}}})
+		return err
+	}
+	set := bson.D{{Key: "$set", Value: bson.D{{Key: "x", Value: 1}}}}
+	dollarReplacement := bson.D{{Key: "b", Value: 1}, {Key: "$set", Value: bson.D{{Key: "a", Value: 1}}}}
+	invalid := []struct {
+		name string
+		stmt bson.D
+	}{
+		{"unknown_modifier", bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "u", Value: bson.D{{Key: "$bogus", Value: 1}}}}},
+		{"multi_replacement", bson.D{{Key: "q", Value: bson.D{}}, {Key: "u", Value: bson.D{{Key: "b", Value: 1}}}, {Key: "multi", Value: true}}},
+		{"replacement_dollar_field", bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "u", Value: dollarReplacement}}},
+		{"replacement_dollar_field_no_match", bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 9}}}, {Key: "u", Value: dollarReplacement}}},
+		{"disallowed_stage", bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "u", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{}}}}}}},
+		{"unknown_stage", bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "u", Value: bson.A{bson.D{{Key: "$bogus", Value: bson.D{}}}}}}},
+		{"non_document_stage", bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "u", Value: bson.A{1}}}},
+	}
+	// reply is the whole reply, which the driver turns into a WriteException
+	// when it holds write errors, or the command error.
+	reply := func(sr *mongo.SingleResult) (interface{}, error) {
+		raw, err := sr.Raw()
+		var ce mongo.CommandError
+		if errors.As(err, &ce) {
+			return bson.D{{Key: "code", Value: ce.Code}, {Key: "errmsg", Value: ce.Message}}, nil
+		}
+		var we mongo.WriteException
+		if err != nil && !errors.As(err, &we) {
+			return nil, err
+		}
+		var res bson.M
+		if err := bson.Unmarshal(raw, &res); err != nil {
+			return nil, err
+		}
+		if cur, ok := res["cursor"].(bson.M); ok {
+			res = bson.M{"nErrors": res["nErrors"], "nModified": res["nModified"], "firstBatch": cur["firstBatch"]}
+		}
+		for _, k := range []string{"$clusterTime", "operationTime", "electionId", "opTime"} {
+			delete(res, k)
+		}
+		return res, nil
+	}
+	for _, tc := range invalid {
+		for _, ordered := range []bool{true, false} {
+			name := fmt.Sprintf("%s_ordered_%t", tc.name, ordered)
+			t.Run("update_"+name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "Update_InvalidUpdateDocumentScope_update_" + name,
+					Support: harness.DumboDBFull,
+					Setup:   setup,
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						return reply(col.Database().RunCommand(ctx, bson.D{{Key: "update", Value: col.Name()}, {Key: "ordered", Value: ordered}, {Key: "updates", Value: bson.A{
+							bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 2}}}, {Key: "u", Value: set}},
+							tc.stmt,
+							bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "u", Value: set}},
+						}}}))
+					},
+				})
+			})
+		}
+		if tc.name == "multi_replacement" {
+			continue
+		}
+		t.Run("findAndModify_"+tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Update_InvalidUpdateDocumentScope_findAndModify_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return reply(col.Database().RunCommand(ctx, bson.D{{Key: "findAndModify", Value: col.Name()},
+						{Key: "query", Value: tc.stmt.Map()["q"]}, {Key: "update", Value: tc.stmt.Map()["u"]}}))
+				},
+			})
+		})
+		t.Run("bulkWrite_"+tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Update_InvalidUpdateDocumentScope_bulkWrite_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					ns := col.Database().Name() + "." + col.Name()
+					return reply(col.Database().Client().Database("admin").RunCommand(ctx, bson.D{{Key: "bulkWrite", Value: 1}, {Key: "ordered", Value: false},
+						{Key: "ops", Value: bson.A{
+							bson.D{{Key: "update", Value: 0}, {Key: "filter", Value: tc.stmt.Map()["q"]}, {Key: "updateMods", Value: tc.stmt.Map()["u"]}},
+							bson.D{{Key: "update", Value: 0}, {Key: "filter", Value: bson.D{{Key: "_id", Value: 2}}}, {Key: "updateMods", Value: set}},
+						}},
+						{Key: "nsInfo", Value: bson.A{bson.D{{Key: "ns", Value: ns}}}}}))
 				},
 			})
 		})
