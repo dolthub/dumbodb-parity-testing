@@ -2484,3 +2484,75 @@ func TestUpdate_FailedStatementKeepsBatch(t *testing.T) {
 		}
 	}
 }
+
+// TestUpdate_MultiFailingPartway: a multi update that fails at one document
+// keeps the documents it updated before it, reports none for the statement,
+// and an unordered batch runs the statements after it.
+func TestUpdate_MultiFailingPartway(t *testing.T) {
+	cases := []struct {
+		name    string
+		unique  bool
+		docs    []interface{}
+		updates bson.A
+		ordered bool
+	}{
+		{"inc_string", false, []interface{}{bson.D{{Key: "_id", Value: 1}, {Key: "v", Value: 1}}, bson.D{{Key: "_id", Value: 2}, {Key: "v", Value: 2}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "v", Value: "s"}}, bson.D{{Key: "_id", Value: 4}, {Key: "v", Value: 4}}},
+			bson.A{bson.D{{Key: "q", Value: bson.D{}}, {Key: "u", Value: bson.D{{Key: "$inc", Value: bson.D{{Key: "v", Value: 1}}}}}, {Key: "multi", Value: true}},
+				bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: 1}}}}}}}, false},
+		{"pipeline_type_error", false, []interface{}{bson.D{{Key: "_id", Value: 1}, {Key: "v", Value: 1}}, bson.D{{Key: "_id", Value: 2}, {Key: "v", Value: "s"}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "v", Value: 3}}},
+			bson.A{bson.D{{Key: "q", Value: bson.D{}}, {Key: "u", Value: bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "v", Value: bson.D{{Key: "$add", Value: bson.A{"$v", 1}}}}}}}}}, {Key: "multi", Value: true}}}, true},
+		{"duplicate_key", true, []interface{}{bson.D{{Key: "_id", Value: 1}, {Key: "v", Value: 1}}, bson.D{{Key: "_id", Value: 2}, {Key: "v", Value: 2}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "v", Value: 3}}},
+			bson.A{bson.D{{Key: "q", Value: bson.D{}}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "u", Value: 7}}}}}, {Key: "multi", Value: true}},
+				bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 3}}}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "w", Value: 1}}}}}}}, false},
+		{"distinct_unique_values", true, []interface{}{bson.D{{Key: "_id", Value: 1}, {Key: "u", Value: 1}}, bson.D{{Key: "_id", Value: 2}, {Key: "u", Value: 2}}},
+			bson.A{bson.D{{Key: "q", Value: bson.D{}}, {Key: "u", Value: bson.D{{Key: "$inc", Value: bson.D{{Key: "u", Value: 10}}}}}, {Key: "multi", Value: true}}}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Update_MultiFailingPartway_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					if _, err := col.InsertMany(ctx, tc.docs); err != nil {
+						return err
+					}
+					if !tc.unique {
+						return nil
+					}
+					_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "u", Value: 1}}, Options: options.Index().SetUnique(true).SetSparse(true)})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					var res bson.M
+					cmd := bson.D{{Key: "update", Value: col.Name()}, {Key: "updates", Value: tc.updates}, {Key: "ordered", Value: tc.ordered}}
+					raw, err := col.Database().RunCommand(ctx, cmd).Raw()
+					if err != nil && raw == nil {
+						return nil, err
+					}
+					if err := bson.Unmarshal(raw, &res); err != nil {
+						return nil, err
+					}
+					var codes bson.A
+					if we, ok := res["writeErrors"].(bson.A); ok {
+						for _, e := range we {
+							m := e.(bson.M)
+							codes = append(codes, bson.D{{Key: "index", Value: m["index"]}, {Key: "code", Value: m["code"]}})
+						}
+					}
+					cur, err := col.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+					if err != nil {
+						return nil, err
+					}
+					var docs []bson.M
+					if err := cur.All(ctx, &docs); err != nil {
+						return nil, err
+					}
+					return bson.D{{Key: "n", Value: res["n"]}, {Key: "nModified", Value: res["nModified"]}, {Key: "writeErrors", Value: codes}, {Key: "docs", Value: docs}}, nil
+				},
+			})
+		})
+	}
+}
