@@ -3096,6 +3096,12 @@ func TestHint_FirstInBoundsEdges(t *testing.T) {
 			bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 1}, {Key: "$lt", Value: 5}, {Key: "$type", Value: bson.A{"array", "number"}}}}}},
 		{"multikey_gte_lte", []interface{}{d(1, bson.A{1, 9}), d(2, 5), d(3, bson.A{0, 4})}, bson.D{{Key: "a", Value: 1}},
 			bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: 2}, {Key: "$lte", Value: 6}}}}},
+		{"multikey_range_under_and", []interface{}{d(7, bson.A{3, 2}), d(8, bson.A{primitive.MaxKey{}, 2, "b"}), d(10, 2.5)}, bson.D{{Key: "a", Value: -1}},
+			bson.D{{Key: "$and", Value: bson.A{bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 0}, {Key: "$lt", Value: primitive.MaxKey{}}}}}}}}},
+		{"multikey_range_split_under_and", []interface{}{d(7, bson.A{3, 2}), d(8, bson.A{primitive.MaxKey{}, 2, "b"}), d(10, 2.5)}, bson.D{{Key: "a", Value: -1}},
+			bson.D{{Key: "$and", Value: bson.A{bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 0}}}}, bson.D{{Key: "a", Value: bson.D{{Key: "$lt", Value: primitive.MaxKey{}}}}}}}}},
+		{"multikey_range_under_and_beside_other", []interface{}{d(7, bson.A{3, 2}), d(8, bson.A{primitive.MaxKey{}, 2, "b"}), d(10, 2.5)}, bson.D{{Key: "a", Value: -1}},
+			bson.D{{Key: "$and", Value: bson.A{bson.D{{Key: "_id", Value: bson.D{{Key: "$gt", Value: 0}}}}, bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 0}, {Key: "$lt", Value: primitive.MaxKey{}}}}}}}}},
 		{"or_regex_options_leaf", []interface{}{d(1, "a"), d(2, false)}, bson.D{{Key: "a", Value: -1}},
 			bson.D{{Key: "$or", Value: bson.A{
 				bson.D{{Key: "a", Value: bson.D{{Key: "$regex", Value: "a$"}, {Key: "$options", Value: "i"}}}},
