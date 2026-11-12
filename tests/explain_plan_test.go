@@ -1965,6 +1965,13 @@ func TestExplainPlan_SkipLimitWindow(t *testing.T) {
 		{"lookup_skip", func(c *mongo.Collection) bson.A { return bson.A{lookup(c), skip} }},
 		{"lookup_skip_limit", func(c *mongo.Collection) bson.A { return bson.A{lookup(c), skip, limit} }},
 		{"skip_limit_lookup", func(c *mongo.Collection) bson.A { return bson.A{skip, limit, lookup(c)} }},
+		{"match_limit_skip", func(*mongo.Collection) bson.A { return bson.A{match, bson.D{{Key: "$limit", Value: 3}}, skip} }},
+		{"skip_skip", func(*mongo.Collection) bson.A { return bson.A{skip, skip} }},
+		{"limit_limit", func(*mongo.Collection) bson.A { return bson.A{bson.D{{Key: "$limit", Value: 4}}, limit} }},
+		{"skip_limit_skip", func(*mongo.Collection) bson.A { return bson.A{skip, bson.D{{Key: "$limit", Value: 3}}, skip} }},
+		{"limit_skip_limit", func(*mongo.Collection) bson.A { return bson.A{bson.D{{Key: "$limit", Value: 4}}, skip, limit} }},
+		{"lookup_limit_skip", func(c *mongo.Collection) bson.A { return bson.A{lookup(c), limit, skip} }},
+		{"lookup_skip_skip", func(c *mongo.Collection) bson.A { return bson.A{lookup(c), skip, skip} }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -2343,6 +2350,52 @@ func TestExplainPlan_HintWithCollation(t *testing.T) {
 					keys, _ := lookupBSONField(stats.(bson.D), "totalKeysExamined")
 					docs, _ := lookupBSONField(stats.(bson.D), "totalDocsExamined")
 					return bson.D{{Key: "plan", Value: planStages(wp)}, {Key: "keys", Value: keys}, {Key: "docs", Value: docs}}, nil
+				},
+			})
+		})
+	}
+}
+
+// TestExplainPlan_CursorPulledBeforeLimit: a $limit after a $lookup and the
+// $unwind of its join pulls from the query only until it has its documents,
+// so $cursor reports how many it pulled, more when matches come late.
+func TestExplainPlan_CursorPulledBeforeLimit(t *testing.T) {
+	for _, late := range []bool{false, true} {
+		name := "early_matches"
+		if late {
+			name = "late_matches"
+		}
+		t.Run(name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "ExplainPlan_CursorPulledBeforeLimit_" + name,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					docs := make([]interface{}, 5)
+					for i := range docs {
+						docs[i] = bson.D{{Key: "_id", Value: int32(i + 1)}, {Key: "a", Value: int32(i + 1)}}
+					}
+					if _, err := col.InsertMany(ctx, docs); err != nil {
+						return err
+					}
+					foreign := docs
+					if late {
+						foreign = docs[3:]
+					}
+					_, err := col.Database().Collection(col.Name()+"_f").InsertMany(ctx, foreign)
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					pipeline := bson.A{
+						bson.D{{Key: "$lookup", Value: bson.D{{Key: "from", Value: col.Name() + "_f"}, {Key: "localField", Value: "a"}, {Key: "foreignField", Value: "a"}, {Key: "as", Value: "j"}}}},
+						bson.D{{Key: "$unwind", Value: "$j"}},
+						bson.D{{Key: "$limit", Value: 2}},
+					}
+					var doc bson.D
+					cmd := bson.D{{Key: "aggregate", Value: col.Name()}, {Key: "pipeline", Value: pipeline}, {Key: "cursor", Value: bson.D{}}}
+					if err := col.Database().RunCommand(ctx, bson.D{{Key: "explain", Value: cmd}, {Key: "verbosity", Value: "executionStats"}}).Decode(&doc); err != nil {
+						return nil, err
+					}
+					return topLevelStages(doc), nil
 				},
 			})
 		})
