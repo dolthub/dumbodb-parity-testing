@@ -2225,3 +2225,57 @@ func TestExplainPlan_SkipUnderFetch(t *testing.T) {
 		})
 	}
 }
+
+// TestCount_EqualityWithContradictingRange: a count of an equality beside a
+// range or $in on an indexed field counts what find returns, on a single and
+// a compound index.
+func TestCount_EqualityWithContradictingRange(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 20)
+		for i := range docs {
+			docs[i] = bson.D{{Key: "_id", Value: int32(i)}, {Key: "a", Value: int32(1)}, {Key: "b", Value: int32(i)}}
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		if err := createIndex(ctx, col, bson.D{{Key: "b", Value: 1}}); err != nil {
+			return err
+		}
+		return createIndex(ctx, col, bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}})
+	}
+	eq := func(more ...bson.E) bson.D { return append(bson.D{{Key: "$eq", Value: 5}}, more...) }
+	cases := []struct {
+		name   string
+		filter bson.D
+		hint   string
+	}{
+		{"single_eq_gt", bson.D{{Key: "b", Value: eq(bson.E{Key: "$gt", Value: 10})}}, "b_1"},
+		{"single_eq_lt", bson.D{{Key: "b", Value: eq(bson.E{Key: "$lt", Value: 3})}}, "b_1"},
+		{"single_eq_in", bson.D{{Key: "b", Value: eq(bson.E{Key: "$in", Value: bson.A{5, 6}})}}, "b_1"},
+		{"single_eq_ne", bson.D{{Key: "b", Value: eq(bson.E{Key: "$ne", Value: 5})}}, "b_1"},
+		{"compound_eq_gt", bson.D{{Key: "a", Value: 1}, {Key: "b", Value: eq(bson.E{Key: "$gt", Value: 10})}}, "a_1_b_1"},
+		{"compound_eq_lt", bson.D{{Key: "a", Value: 1}, {Key: "b", Value: eq(bson.E{Key: "$lt", Value: 3})}}, "a_1_b_1"},
+		{"compound_eq_in", bson.D{{Key: "a", Value: 1}, {Key: "b", Value: eq(bson.E{Key: "$in", Value: bson.A{5, 6}})}}, "a_1_b_1"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Count_EqualityWithContradictingRange_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					docs, err := col.CountDocuments(ctx, tc.filter, options.Count().SetHint(tc.hint))
+					if err != nil {
+						return nil, err
+					}
+					var res bson.D
+					if err := col.Database().RunCommand(ctx, bson.D{{Key: "count", Value: col.Name()}, {Key: "query", Value: tc.filter}, {Key: "hint", Value: tc.hint}}).Decode(&res); err != nil {
+						return nil, err
+					}
+					n, _ := lookupBSONField(res, "n")
+					return bson.D{{Key: "countDocuments", Value: docs}, {Key: "count", Value: n}}, nil
+				},
+			})
+		})
+	}
+}
