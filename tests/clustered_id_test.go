@@ -3083,3 +3083,89 @@ func TestHint_FirstInBoundsEdges(t *testing.T) {
 		}
 	}
 }
+
+// TestCreate_OverExistingComparesStoredOptions: a create over an existing
+// namespace succeeds only when it gives the options the namespace was created
+// with, as stored: validationLevel and validationAction count even at their
+// defaults, validator fields count in order and numbers by value, a collation
+// is compared resolved, and a view compares its source and pipeline.
+func TestCreate_OverExistingComparesStoredOptions(t *testing.T) {
+	validator := func(pairs ...bson.E) bson.E { return bson.E{Key: "validator", Value: bson.D(pairs)} }
+	a1b2 := validator(bson.E{Key: "a", Value: 1}, bson.E{Key: "b", Value: 2})
+	collation := func(locale string, strength int) bson.E {
+		return bson.E{Key: "collation", Value: bson.D{{Key: "locale", Value: locale}, {Key: "strength", Value: strength}}}
+	}
+	cases := []struct {
+		name          string
+		first, second bson.D
+	}{
+		{"validator_same", bson.D{a1b2}, bson.D{a1b2}},
+		{"validator_plus_moderate", bson.D{a1b2}, bson.D{a1b2, {Key: "validationLevel", Value: "moderate"}}},
+		{"validator_plus_strict", bson.D{a1b2}, bson.D{a1b2, {Key: "validationLevel", Value: "strict"}}},
+		{"validator_long_vs_int", bson.D{a1b2}, bson.D{validator(bson.E{Key: "a", Value: int64(1)}, bson.E{Key: "b", Value: 2})}},
+		{"action_dropped", bson.D{validator(bson.E{Key: "a", Value: 1}), {Key: "validationAction", Value: "warn"}}, bson.D{validator(bson.E{Key: "a", Value: 1})}},
+		{"action_same", bson.D{validator(bson.E{Key: "a", Value: 1}), {Key: "validationAction", Value: "warn"}},
+			bson.D{validator(bson.E{Key: "a", Value: 1}), {Key: "validationAction", Value: "warn"}}},
+		{"action_only", bson.D{validator(bson.E{Key: "a", Value: 1}), {Key: "validationAction", Value: "warn"}}, bson.D{{Key: "validationAction", Value: "warn"}}},
+		{"collation_same", bson.D{collation("en", 2)}, bson.D{collation("en", 2)}},
+		{"plain_over_collated", bson.D{collation("en", 2)}, bson.D{}},
+		{"collation_differs", bson.D{collation("en", 2)}, bson.D{collation("en", 1)}},
+		{"collated_over_plain", bson.D{}, bson.D{collation("en", 2)}},
+	}
+	clean := func(err error) interface{} {
+		var ce mongo.CommandError
+		if errors.As(err, &ce) {
+			msg := regexp.MustCompile(`UUID\("[^"]+"\)`).ReplaceAllString(ce.Message, "UUID(...)")
+			msg = regexp.MustCompile(`version: "[^"]+"`).ReplaceAllString(msg, "version")
+			return bson.D{{Key: "code", Value: ce.Code}, {Key: "message", Value: msg}}
+		}
+		return bson.D{{Key: "ok", Value: err == nil}}
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Create_OverExistingComparesStoredOptions_" + tc.name,
+				Support: harness.DumboDBFull,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					name := col.Name() + "_c"
+					if err := col.Database().RunCommand(ctx, append(bson.D{{Key: "create", Value: name}}, tc.first...)).Err(); err != nil {
+						return nil, err
+					}
+					err := col.Database().RunCommand(ctx, append(bson.D{{Key: "create", Value: name}}, tc.second...)).Err()
+					return clean(err), nil
+				},
+			})
+		})
+	}
+	views := []struct {
+		name   string
+		second bson.D
+	}{
+		{"view_same", bson.D{{Key: "viewOn", Value: "base"}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "a", Value: 1}}}}}}}},
+		{"view_pipeline_differs", bson.D{{Key: "viewOn", Value: "base"}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "a", Value: 2}}}}}}}},
+		{"view_source_differs", bson.D{{Key: "viewOn", Value: "other"}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "a", Value: 1}}}}}}}},
+		{"plain_over_view", bson.D{}},
+	}
+	for _, tc := range views {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Create_OverExistingComparesStoredOptions_" + tc.name,
+				Support: harness.DumboDBFull,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					name := col.Name() + "_v"
+					first := bson.D{{Key: "create", Value: name}, {Key: "viewOn", Value: "base"}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "a", Value: 1}}}}}}}
+					if err := col.Database().RunCommand(ctx, first).Err(); err != nil {
+						return nil, err
+					}
+					err := col.Database().RunCommand(ctx, append(bson.D{{Key: "create", Value: name}}, tc.second...)).Err()
+					res := clean(err)
+					if d, ok := res.(bson.D); ok && len(d) == 2 {
+						d[1].Value = strings.ReplaceAll(d[1].Value.(string), col.Database().Name()+".", "<db>.")
+						d[1].Value = strings.ReplaceAll(d[1].Value.(string), col.Database().Name(), "<db>")
+					}
+					return res, nil
+				},
+			})
+		})
+	}
+}
