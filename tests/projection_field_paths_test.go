@@ -21,6 +21,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
@@ -63,6 +64,11 @@ func TestProjectionFieldPaths(t *testing.T) {
 		{"IDOperatorThenExclusion", project(bson.D{{Key: "_id", Value: bson.D{{Key: "$add", Value: bson.A{int32(1), int32(1)}}}}, {Key: "b", Value: int32(0)}})},
 		{"IDLiteralThenExclusion", project(bson.D{{Key: "_id", Value: "x"}, {Key: "b", Value: int32(0)}})},
 		{"IDNumberThenExclusion", project(bson.D{{Key: "_id", Value: int32(5)}, {Key: "b", Value: int32(0)}})},
+		{"ExclusionThenDottedIDExpression", project(bson.D{{Key: "b", Value: int32(0)}, {Key: "_id.x", Value: "$a"}})},
+		{"ExclusionThenNestedIDExpression", project(bson.D{{Key: "b", Value: int32(0)}, {Key: "_id", Value: bson.D{{Key: "x", Value: "$a"}}}})},
+		{"ExclusionThenFieldExpression", project(bson.D{{Key: "b", Value: int32(0)}, {Key: "c.x", Value: "$a"}})},
+		{"ConstantConversionThenExclusion", project(bson.D{{Key: "_id", Value: bson.D{{Key: "$toDate", Value: int32(0)}}}, {Key: "b", Value: int32(0)}})},
+		{"ConstantConversionAlone", project(bson.D{{Key: "x", Value: bson.D{{Key: "$toDate", Value: int32(0)}}}, {Key: "a", Value: int32(1)}})},
 		{"IDExpressionThenInclusion", project(bson.D{{Key: "_id", Value: bson.D{{Key: "$concat", Value: bson.A{"x", bson.D{{Key: "$toString", Value: "$_id"}}}}}}, {Key: "a", Value: int32(1)}})},
 	}
 	for _, c := range cases {
@@ -83,6 +89,8 @@ func TestProjectionFieldPaths(t *testing.T) {
 	}{
 		{"FindIDExpressionThenExclusion", bson.D{{Key: "_id", Value: "$a"}, {Key: "b", Value: int32(0)}}},
 		{"FindExclusionThenIDExpression", bson.D{{Key: "b", Value: int32(0)}, {Key: "_id", Value: "$a"}}},
+		{"FindConstantConversionThenExclusion", bson.D{{Key: "_id", Value: bson.D{{Key: "$toDate", Value: int32(0)}}}, {Key: "b", Value: int32(0)}}},
+		{"FindExclusionThenDottedIDExpression", bson.D{{Key: "b", Value: int32(0)}, {Key: "_id.x", Value: "$a"}}},
 		{"FindEmptyComponent", bson.D{{Key: "c", Value: "$a..b"}}},
 		{"FindDollarComponent", bson.D{{Key: "c", Value: "$a.$b"}}},
 	}
@@ -110,7 +118,9 @@ func TestProjectionFieldPaths(t *testing.T) {
 }
 
 func TestWrittenIDs(t *testing.T) {
-	id := func(expr interface{}) bson.D { return bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: expr}}}} }
+	id := func(expr interface{}) bson.D {
+		return bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: expr}}}}
+	}
 	cases := []struct {
 		name  string
 		id    bson.D
@@ -140,5 +150,52 @@ func TestWrittenIDs(t *testing.T) {
 				},
 			})
 		}
+	}
+}
+
+// Flags on paths within _id include or exclude those paths of a document
+// _id; an inclusion drops an _id that is not a document.
+func TestProjectionIDSubpaths(t *testing.T) {
+	seed := func(ctx context.Context, col *mongo.Collection) error {
+		_, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: bson.D{{Key: "x", Value: int32(1)}, {Key: "y", Value: int32(2)}}}, {Key: "a", Value: int32(1)}, {Key: "b", Value: int32(2)}},
+			bson.D{{Key: "_id", Value: int32(5)}, {Key: "a", Value: int32(2)}},
+		})
+		return err
+	}
+	projections := map[string]bson.D{
+		"ExcludeSubpath":            {{Key: "_id.x", Value: int32(0)}},
+		"ExcludeSubpathAndField":    {{Key: "_id.x", Value: int32(0)}, {Key: "a", Value: int32(0)}},
+		"ExcludeFieldThenSubpath":   {{Key: "b", Value: int32(0)}, {Key: "_id.x", Value: int32(0)}},
+		"IncludeSubpath":            {{Key: "_id.x", Value: int32(1)}},
+		"IncludeSubpathAndField":    {{Key: "_id.x", Value: int32(1)}, {Key: "a", Value: int32(1)}},
+		"IncludeSubpaths":           {{Key: "_id.x", Value: int32(1)}, {Key: "_id.y", Value: int32(1)}},
+		"IncludeMissingSubpath":     {{Key: "_id.z", Value: int32(1)}},
+		"IncludeSubpathAndComputed": {{Key: "_id.x", Value: int32(1)}, {Key: "c", Value: "$a"}},
+	}
+	for name, proj := range projections {
+		proj := proj
+		harness.PairTest(t, harness.TestCase{
+			Name:    "ProjectionIDSubpaths_Find" + name,
+			Support: harness.DumboDBFull,
+			Setup:   seed,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				cursor, err := col.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "a", Value: 1}}).SetProjection(proj))
+				if err != nil {
+					return nil, err
+				}
+				var docs []bson.D
+				err = cursor.All(ctx, &docs)
+				return docs, err
+			},
+		})
+		harness.PairTest(t, harness.TestCase{
+			Name:    "ProjectionIDSubpaths_Project" + name,
+			Support: harness.DumboDBFull,
+			Setup:   seed,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return fieldOpsAgg(ctx, col, bson.D{{Key: "$sort", Value: bson.D{{Key: "a", Value: 1}}}}, bson.D{{Key: "$project", Value: proj}})
+			},
+		})
 	}
 }
