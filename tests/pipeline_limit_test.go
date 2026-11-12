@@ -286,6 +286,15 @@ func TestPipeline_LengthLimitThroughViews(t *testing.T) {
 		{"count_v997_skip_limit", func(n string) bson.D {
 			return bson.D{{Key: "count", Value: n + "_v997"}, {Key: "skip", Value: 1}, {Key: "limit", Value: 5}}
 		}},
+		{"explain_count_v998", func(n string) bson.D {
+			return bson.D{{Key: "explain", Value: bson.D{{Key: "count", Value: n + "_v998"}}}}
+		}},
+		{"explain_count_v999", func(n string) bson.D {
+			return bson.D{{Key: "explain", Value: bson.D{{Key: "count", Value: n + "_v999"}}}}
+		}},
+		{"explain_count_v998_query", func(n string) bson.D {
+			return bson.D{{Key: "explain", Value: bson.D{{Key: "count", Value: n + "_v998"}, {Key: "query", Value: bson.D{{Key: "a", Value: 1}}}}}}
+		}},
 		{"explain_update_1000", explainUpdate(1000)},
 		{"explain_update_1001", explainUpdate(1001)},
 		{"explain_find_and_modify_1000", explainFindAndModify(1000)},
