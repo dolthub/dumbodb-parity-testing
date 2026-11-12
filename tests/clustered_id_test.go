@@ -3055,6 +3055,7 @@ func TestHint_DottedDescendingAggregate(t *testing.T) {
 // the one holding fewer keys.
 func TestHint_FirstInBoundsEdges(t *testing.T) {
 	d := func(id int, v interface{}) bson.D { return bson.D{{Key: "_id", Value: id}, {Key: "a", Value: v}} }
+	e := func(id int, v interface{}) bson.D { return bson.D{{Key: "_id", Value: id}, {Key: "e", Value: v}} }
 	cases := []struct {
 		name   string
 		docs   []interface{}
@@ -3101,6 +3102,14 @@ func TestHint_FirstInBoundsEdges(t *testing.T) {
 			bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 1}, {Key: "$lt", Value: 5}, {Key: "$type", Value: bson.A{"array", "number"}}}}}},
 		{"multikey_gte_lte", []interface{}{d(1, bson.A{1, 9}), d(2, 5), d(3, bson.A{0, 4})}, bson.D{{Key: "a", Value: 1}},
 			bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: 2}, {Key: "$lte", Value: 6}}}}},
+		{"dotted_array_gte_lte", []interface{}{e(1, bson.D{{Key: "f", Value: bson.A{1, 9}}}), e(2, bson.D{{Key: "f", Value: 5}}), e(3, bson.D{{Key: "f", Value: bson.A{0, 4}}})},
+			bson.D{{Key: "e.f", Value: 1}}, bson.D{{Key: "e.f", Value: bson.D{{Key: "$gte", Value: 2}, {Key: "$lte", Value: 6}}}}},
+		{"dotted_subdocs_gte_lte", []interface{}{e(1, bson.A{bson.D{{Key: "f", Value: 1}}, bson.D{{Key: "f", Value: 9}}}), e(2, bson.D{{Key: "f", Value: 5}}),
+			e(3, bson.A{bson.D{{Key: "f", Value: 0}}, bson.D{{Key: "f", Value: 4}}})},
+			bson.D{{Key: "e.f", Value: 1}}, bson.D{{Key: "e.f", Value: bson.D{{Key: "$gte", Value: 2}, {Key: "$lte", Value: 6}}}}},
+		{"dotted_subdocs_strings", []interface{}{e(11, bson.A{bson.D{{Key: "f", Value: "b"}}, bson.D{{Key: "f", Value: "z"}}}), e(29, bson.D{{Key: "f", Value: "m"}}),
+			e(40, bson.A{bson.D{{Key: "f", Value: "0"}}, bson.D{{Key: "f", Value: "w"}}})},
+			bson.D{{Key: "e.f", Value: 1}}, bson.D{{Key: "e.f", Value: bson.D{{Key: "$gt", Value: "a"}, {Key: "$lt", Value: "x"}}}}},
 		{"multikey_range_under_and", []interface{}{d(7, bson.A{3, 2}), d(8, bson.A{primitive.MaxKey{}, 2, "b"}), d(10, 2.5)}, bson.D{{Key: "a", Value: -1}},
 			bson.D{{Key: "$and", Value: bson.A{bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 0}, {Key: "$lt", Value: primitive.MaxKey{}}}}}}}}},
 		{"multikey_range_split_under_and", []interface{}{d(7, bson.A{3, 2}), d(8, bson.A{primitive.MaxKey{}, 2, "b"}), d(10, 2.5)}, bson.D{{Key: "a", Value: -1}},
@@ -3511,6 +3520,51 @@ func TestHint_OneScanOrMultikey(t *testing.T) {
 						return err
 					},
 					Run: cluFindIDs(f.filter, options.Find().SetHint(idx.keys)),
+				})
+			})
+		}
+	}
+}
+
+// TestHint_DottedMultikeyRangeBound: a hinted write with a two-sided range on
+// a multikey dotted path keeps the bound mongod's plan trial keeps, counting
+// every key in each bound's range across the index, each distinct key once
+// per document.
+func TestHint_DottedMultikeyRangeBound(t *testing.T) {
+	datasets := []struct {
+		name, docs string
+	}{
+		{"whole_index_count", "[{\"_id\":2,\"e\":[{\"f\":[\"a\",\"z\"]},{\"f\":[1,\"b\"]}]},{\"_id\":3,\"e\":[{\"f\":2},{\"g\":1}]},{\"_id\":4,\"e\":[{\"f\":[null,false]},{\"f\":null}]},{\"_id\":5,\"e\":{\"f\":[1,true,1]}},{\"_id\":7,\"e\":[null,{\"f\":[]}]},{\"_id\":8,\"e\":[{\"x\":1},{\"f\":{\"$date\":\"2020-01-01T00:00:00Z\"}}]},{\"_id\":9,\"e\":{\"f\":\"x\"}},{\"_id\":10,\"e\":[[{\"f\":[\"c\",\"q\"]}],{}]},{\"_id\":12,\"e\":{\"f\":\"z\"}},{\"_id\":14,\"e\":[{\"f\":\"c\"},{\"f\":\"\"}]},{\"_id\":15,\"e\":[[{\"f\":\"\"}],{\"f\":2}]},{\"_id\":16,\"e\":[{\"$oid\":\"000000000000000000000001\"},{\"f\":3.5}]},{\"_id\":21,\"e\":[]},{\"_id\":24,\"e\":{\"f\":[[1,\"b\"],0,{\"$date\":\"2020-01-01T00:00:00Z\"}]}},{\"_id\":25,\"e\":[\"c\",\"q\"]},{\"_id\":26,\"e\":[{\"f\":[\"y\",{\"$date\":\"2020-01-01T00:00:00Z\"}]},{\"f\":{\"x\":1}}]},{\"_id\":27,\"e\":[[{\"f\":\"z\"}],{\"f\":\"\"}]},{\"_id\":28,\"e\":[]},{\"_id\":30,\"e\":[[],{\"f\":false}]},{\"_id\":31,\"e\":[]},{\"_id\":34,\"e\":[3.5,{\"f\":\"z\"}]},{\"_id\":35,\"e\":{\"f\":[[],\"c\",3.5]}},{\"_id\":36,\"e\":[]},{\"_id\":37,\"e\":{\"f\":\"c\"}},{\"_id\":38,\"e\":[3.5,{\"f\":{\"f\":\"m\"}}]},{\"_id\":39,\"e\":[-1,{\"f\":\"a\"}]},{\"_id\":40,\"e\":[{\"f\":\"m\"},{\"g\":1}]}]"},
+		{"distinct_keys", "[{\"_id\":1,\"e\":null},{\"_id\":5,\"e\":[0,{\"f\":null}]},{\"_id\":7,\"e\":[[{\"f\":[\"c\",\"q\"]}],{\"f\":\"m\"}]},{\"_id\":8,\"e\":[]},{\"_id\":9,\"e\":{\"f\":[[1,\"b\"],\"x\",\"\"]}},{\"_id\":11,\"e\":[]},{\"_id\":13,\"e\":[[{\"f\":[\"c\",\"q\"]}],{\"f\":[1,\"b\"]}]},{\"_id\":14,\"e\":[]},{\"_id\":16,\"e\":[{\"f\":[{\"x\":1},\"m\"]},{\"f\":-1}]},{\"_id\":17,\"e\":[{\"f\":-1},{\"f\":3.5}]},{\"_id\":18,\"e\":-1},{\"_id\":19,\"e\":[]},{\"_id\":21,\"e\":null},{\"_id\":23,\"e\":[{\"f\":[false,{\"x\":1}]},{\"f\":[1,\"b\"]}]},{\"_id\":24,\"e\":[true,{\"f\":false}]},{\"_id\":25,\"e\":{\"f\":[[],null,1]}},{\"_id\":26,\"e\":[{\"f\":[\"c\",1]},{\"f\":\"b\"}]},{\"_id\":29,\"e\":[\"c\",{\"f\":-1}]},{\"_id\":30,\"e\":{\"f\":[\"x\",\"a\",\"a\"]}},{\"_id\":31,\"e\":{\"f\":null}},{\"_id\":33,\"e\":[{\"f\":[false,null]},{\"f\":1}]},{\"_id\":35,\"e\":[{\"f\":null},{\"f\":true}]},{\"_id\":36,\"e\":[{\"x\":1},{\"f\":3.5}]},{\"_id\":38,\"e\":[[{\"f\":\"z\"}],{\"f\":2}]},{\"_id\":39,\"e\":[[{\"f\":0}],{\"f\":{\"f\":\"m\"}}]}]"},
+	}
+	filter := bson.D{{Key: "e.f", Value: bson.D{{Key: "$gt", Value: "a"}, {Key: "$lt", Value: "x"}}}}
+	for _, ds := range datasets {
+		var docs []interface{}
+		if err := bson.UnmarshalExtJSON([]byte(ds.docs), false, &docs); err != nil {
+			t.Fatal(err)
+		}
+		for _, op := range []string{"update", "find"} {
+			name := ds.name + "_" + op
+			t.Run(name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "Hint_DottedMultikeyRangeBound_" + name,
+					Support: harness.DumboDBFull,
+					Setup: func(ctx context.Context, col *mongo.Collection) error {
+						if _, err := col.InsertMany(ctx, docs); err != nil {
+							return err
+						}
+						_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "e.f", Value: 1}}, Options: options.Index().SetName("ef")})
+						return err
+					},
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						if op == "find" {
+							return cluFindIDs(filter, options.Find().SetHint("ef"))(ctx, col)
+						}
+						if _, err := col.UpdateOne(ctx, filter, bson.D{{Key: "$set", Value: bson.D{{Key: "hit", Value: 1}}}}, options.Update().SetHint("ef")); err != nil {
+							return nil, err
+						}
+						return cluFindIDs(bson.D{{Key: "hit", Value: 1}}, options.Find())(ctx, col)
+					},
 				})
 			})
 		}
