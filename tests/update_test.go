@@ -2438,6 +2438,8 @@ func TestUpdate_FailedStatementKeepsBatch(t *testing.T) {
 	}{
 		{"inc_string", stmt(1, bson.D{{Key: "$inc", Value: bson.D{{Key: "s", Value: 1}}}}, false)},
 		{"duplicate_key", stmt(3, bson.D{{Key: "$set", Value: bson.D{{Key: "u", Value: 1}}}}, false)},
+		{"empty_set_path", stmt(1, bson.D{{Key: "$set", Value: bson.D{{Key: "", Value: 1}}}}, false)},
+		{"conflicting_paths", stmt(1, bson.D{{Key: "$set", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "$inc", Value: bson.D{{Key: "a", Value: 1}}}}, false)},
 		{"nested_pull_expr", stmt(1, bson.D{{Key: "$pull", Value: bson.D{{Key: "a", Value: bson.D{{Key: "k", Value: bson.D{{Key: "$expr", Value: 1}}}}}}}}, false)},
 	}
 	for _, f := range failing {
