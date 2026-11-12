@@ -3020,3 +3020,66 @@ func TestHint_DottedDescendingAggregate(t *testing.T) {
 		}
 	}
 }
+
+// TestHint_FirstInBoundsEdges: a hinted single write and find take documents
+// in mongod's order when an element is a nested array, under $type "array"
+// or a list of types, across $or branches mongod runs one at a time, and when
+// a multikey field has two comparisons, of which mongod bounds the walk by
+// the one holding fewer keys.
+func TestHint_FirstInBoundsEdges(t *testing.T) {
+	d := func(id int, v interface{}) bson.D { return bson.D{{Key: "_id", Value: id}, {Key: "a", Value: v}} }
+	cases := []struct {
+		name   string
+		docs   []interface{}
+		index  bson.D
+		filter bson.D
+	}{
+		{"nested_type_desc", []interface{}{d(3, bson.A{"b", bson.A{"z"}}), d(4, "c")}, bson.D{{Key: "a", Value: -1}},
+			bson.D{{Key: "a", Value: bson.D{{Key: "$type", Value: "string"}}}}},
+		{"nested_regex_desc", []interface{}{d(3, bson.A{"b", bson.A{"z"}}), d(4, "c")}, bson.D{{Key: "a", Value: -1}},
+			bson.D{{Key: "a", Value: bson.D{{Key: "$regex", Value: "^[a-z]"}}}}},
+		{"nested_gt_desc", []interface{}{d(3, bson.A{"b", bson.A{"z"}}), d(4, "c")}, bson.D{{Key: "a", Value: -1}},
+			bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: "a"}}}}},
+		{"or_two_predicate_branch", []interface{}{d(1, 0), d(2, 2)}, bson.D{{Key: "a", Value: 1}},
+			bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "a", Value: 0}}, bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 1}, {Key: "$lt", Value: 3}}}}}}}},
+		{"or_lt_gt", []interface{}{d(1, 0), d(2, 9), d(3, 5)}, bson.D{{Key: "a", Value: 1}},
+			bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 7}}}}, bson.D{{Key: "a", Value: bson.D{{Key: "$lt", Value: 1}}}}}}}},
+		{"type_array", []interface{}{d(2, bson.A{3, 1}), d(4, bson.A{0, 9}), d(5, bson.A{5, 2})}, bson.D{{Key: "a", Value: 1}},
+			bson.D{{Key: "a", Value: bson.D{{Key: "$type", Value: "array"}}}}},
+		{"type_list", []interface{}{d(1, ""), d(2, bson.A{2.5, ""}), d(3, "x"), d(4, bson.A{primitive.MinKey{}, "q"}), d(5, bson.A{bson.A{1}, "z"})},
+			bson.D{{Key: "a", Value: 1}}, bson.D{{Key: "a", Value: bson.D{{Key: "$type", Value: bson.A{"string", "double"}}}}}},
+		{"multikey_gt_lt", []interface{}{d(1, bson.A{"ab", 0}), d(2, "ab"), d(3, bson.A{"", "b"})}, bson.D{{Key: "a", Value: 1}},
+			bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: "a"}, {Key: "$lt", Value: "b"}}}}},
+		{"multikey_gt_lt_desc", []interface{}{d(1, bson.A{"ab", 0}), d(2, "ab"), d(3, bson.A{"", "b"})}, bson.D{{Key: "a", Value: -1}},
+			bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: "a"}, {Key: "$lt", Value: "b"}}}}},
+		{"multikey_gte_lte", []interface{}{d(1, bson.A{1, 9}), d(2, 5), d(3, bson.A{0, 4})}, bson.D{{Key: "a", Value: 1}},
+			bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: 2}, {Key: "$lte", Value: 6}}}}},
+	}
+	for _, tc := range cases {
+		setup := func(ctx context.Context, col *mongo.Collection) error {
+			if _, err := col.InsertMany(ctx, tc.docs); err != nil {
+				return err
+			}
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: tc.index})
+			return err
+		}
+		for _, op := range []string{"find_and_modify", "find"} {
+			t.Run(tc.name+"_"+op, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "Hint_FirstInBoundsEdges_" + tc.name + "_" + op,
+					Support: harness.DumboDBFull,
+					Setup:   setup,
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						if op == "find" {
+							return cluFindIDs(tc.filter, options.Find().SetHint(tc.index))(ctx, col)
+						}
+						var doc bson.D
+						err := col.FindOneAndUpdate(ctx, tc.filter, bson.D{{Key: "$set", Value: bson.D{{Key: "hit", Value: 1}}}},
+							options.FindOneAndUpdate().SetHint(tc.index)).Decode(&doc)
+						return doc, err
+					},
+				})
+			})
+		}
+	}
+}
