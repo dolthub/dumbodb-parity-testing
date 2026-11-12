@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -242,24 +243,26 @@ func TestIndex_CreateConflicts(t *testing.T) {
 			})
 		})
 	}
-	t.Run("wide_named_id", func(t *testing.T) {
-		harness.PairTest(t, harness.TestCase{
-			Name:    "Index_CreateConflicts_wide_named_id",
-			Support: harness.DumboDBFull,
-			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-				key := bson.D{}
-				for i := range 33 {
-					key = append(key, bson.E{Key: fmt.Sprintf("f%d", i), Value: 1})
-				}
-				err := col.Database().RunCommand(ctx, bson.D{{Key: "createIndexes", Value: col.Name()}, {Key: "indexes", Value: bson.A{bson.D{{Key: "key", Value: key}, {Key: "name", Value: "_id_"}}}}}).Err()
-				var ce mongo.CommandError
-				if errors.As(err, &ce) {
-					return bson.D{{Key: "code", Value: ce.Code}}, nil
-				}
-				return bson.D{{Key: "ok", Value: err == nil}}, nil
-			},
+	for _, name := range []string{"_id_", "*", "a\x00b"} {
+		t.Run(fmt.Sprintf("wide_named_%q", name), func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    fmt.Sprintf("Index_CreateConflicts_wide_named_%q", name),
+				Support: harness.DumboDBFull,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					key := bson.D{}
+					for i := range 33 {
+						key = append(key, bson.E{Key: fmt.Sprintf("f%d", i), Value: 1})
+					}
+					err := col.Database().RunCommand(ctx, bson.D{{Key: "createIndexes", Value: col.Name()}, {Key: "indexes", Value: bson.A{bson.D{{Key: "key", Value: key}, {Key: "name", Value: name}}}}}).Err()
+					var ce mongo.CommandError
+					if errors.As(err, &ce) {
+						return bson.D{{Key: "code", Value: ce.Code}, {Key: "errmsg", Value: ce.Message}}, nil
+					}
+					return bson.D{{Key: "ok", Value: err == nil}}, nil
+				},
+			})
 		})
-	})
+	}
 	t.Run("wide_without_name", func(t *testing.T) {
 		harness.PairTest(t, harness.TestCase{
 			Name:    "Index_CreateConflicts_wide_without_name",
@@ -303,6 +306,8 @@ func TestIndex_SixtyFourIndexLimit(t *testing.T) {
 		{"clustered_sixty_fourth", specs(0, 63), specs(63, 64), true},
 		{"clustered_one_past", specs(0, 64), specs(64, 65), true},
 		{"clustered_many_at_once", specs(0, 10), specs(0, 65), true},
+		{"build_past", specs(0, 62), specs(62, 65), false},
+		{"clustered_build_past", specs(0, 63), specs(63, 66), true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -329,7 +334,8 @@ func TestIndex_SixtyFourIndexLimit(t *testing.T) {
 					err := col.Database().RunCommand(ctx, bson.D{{Key: "createIndexes", Value: col.Name()}, {Key: "indexes", Value: tc.second}}).Decode(&res)
 					var ce mongo.CommandError
 					if errors.As(err, &ce) {
-						return bson.D{{Key: "code", Value: ce.Code}}, nil
+						msg := regexp.MustCompile(`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`).ReplaceAllString(ce.Message, "UUID")
+						return bson.D{{Key: "code", Value: ce.Code}, {Key: "errmsg", Value: msg}}, nil
 					}
 					if err != nil {
 						return nil, err

@@ -3367,6 +3367,7 @@ func TestCreate_OverExistingCollations(t *testing.T) {
 		{"view_other_collation", view(en), view(fr)},
 		{"view_adds_collation", view(), view(en)},
 		{"view_simple_collation", view(), view(simple)},
+		{"collated_view_simple_collation", view(en), view(simple)},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
