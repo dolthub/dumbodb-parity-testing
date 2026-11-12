@@ -156,3 +156,73 @@ func TestDensifyPartitions_NumericBoundsWithUnit(t *testing.T) {
 		})
 	}
 }
+
+// $densify emits documents in the order mongod streams them: partitions
+// sorted with null and missing tying, generated documents before the one that
+// ends their gap, and partition values copied from that document. Under full
+// bounds a partition's first value is generated again only when it is one
+// step above the minimum. A memory-heavy partition value is shared.
+func TestDensifyStreamOrder(t *testing.T) {
+	cases := []struct {
+		name, docs, stages string
+	}{
+		{"FullLateStarts", `[{"p":"a","x":0},{"p":"b","x":2},{"p":"c","x":1}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":1,"bounds":"full"}}},{"$sort":{"p":1,"x":1}}]`},
+		{"FullGap", `[{"p":"a","x":0},{"p":"b","x":3},{"p":"a","x":5}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":1,"bounds":"full"}}},{"$sort":{"p":1,"x":1}}]`},
+		{"FullSameMax", `[{"p":"a","x":0},{"p":"a","x":2},{"p":"b","x":2}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":1,"bounds":"full"}}},{"$sort":{"p":1,"x":1}}]`},
+		{"FullLater", `[{"p":"a","x":0},{"p":"a","x":3},{"p":"b","x":2}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":1,"bounds":"full"}}},{"$sort":{"p":1,"x":1}}]`},
+		{"FullStaircase", `[{"p":"a","x":0},{"p":"b","x":1},{"p":"c","x":2},{"p":"d","x":3}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":1,"bounds":"full"}}},{"$sort":{"p":1,"x":1}}]`},
+		{"PartitionUnsorted", `[{"p":"a","x":0},{"p":"b","x":3},{"p":"a","x":5},{"p":"b","x":5}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":1,"bounds":"partition"}}}]`},
+		{"ExplicitUnsorted", `[{"p":"a","x":0},{"p":"b","x":3},{"p":"a","x":5}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":1,"bounds":[1,4]}}}]`},
+		{"ExplicitNoPartitions", `[{"p":"a","x":0},{"p":"b","x":3},{"p":"a","x":5}]`, `[{"$densify":{"field":"x","range":{"step":2,"bounds":[-3,9]}}}]`},
+		{"FullNoPartitions", `[{"p":null,"x":2},{"x":3},{"p":null,"x":5},{"x":6}]`, `[{"$densify":{"field":"x","range":{"step":1,"bounds":"full"}}}]`},
+		{"NullAndMissingInterleave", `[{"p":null,"x":2},{"x":3},{"p":null,"x":5},{"x":6}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":1,"bounds":"partition"}}}]`},
+		{"PartitionValueType", `[{"p":1,"x":1},{"p":1.0,"x":4},{"p":{"$numberLong":"1"},"x":6}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":1,"bounds":"partition"}}},{"$project":{"x":1,"t":{"$type":"$p"}}}]`},
+		{"PartitionValueTypeExplicit", `[{"p":1,"x":1},{"p":1.0,"x":4},{"p":{"$numberLong":"1"},"x":6}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":1,"bounds":[0,9]}}},{"$project":{"x":1,"t":{"$type":"$p"}}}]`},
+		{"SharedPartitionSet", `[{"p":{"q":1},"x":1},{"p":{"q":1},"x":4}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":1,"bounds":"partition"}}},{"$set":{"p.r":"$x"}},{"$unset":"p.q"}]`},
+	}
+	for _, c := range cases {
+		var docs []bson.D
+		if err := bson.UnmarshalExtJSON([]byte(`{"d":`+c.docs+`}`), false, &struct{ D *[]bson.D }{&docs}); err != nil {
+			t.Fatal(c.name, err)
+		}
+		var stages []bson.D
+		if err := bson.UnmarshalExtJSON([]byte(`{"s":`+c.stages+`}`), false, &struct{ S *[]bson.D }{&stages}); err != nil {
+			t.Fatal(c.name, err)
+		}
+		stages = append(stages, bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}}}})
+		harness.PairTest(t, harness.TestCase{
+			Name:    "DensifyStreamOrder_" + c.name,
+			Support: harness.DumboDBFull,
+			Setup: func(ctx context.Context, col *mongo.Collection) error {
+				var ins []interface{}
+				for i, d := range docs {
+					ins = append(ins, append(bson.D{{Key: "_id", Value: int32(i + 1)}}, d...))
+				}
+				_, err := col.InsertMany(ctx, ins)
+				return err
+			},
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return fieldOpsAgg(ctx, col, stages...)
+			},
+		})
+	}
+
+	harness.PairTest(t, harness.TestCase{
+		Name:    "DensifyStreamOrder_LargePartitionValue",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			part := make(bson.A, 100000)
+			for i := range part {
+				part[i] = int32(i)
+			}
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "part", Value: part}, {Key: "v", Value: int32(0)}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsAgg(ctx, col,
+				bson.D{{Key: "$densify", Value: bson.D{{Key: "field", Value: "v"}, {Key: "partitionByFields", Value: bson.A{"part"}},
+					{Key: "range", Value: bson.D{{Key: "step", Value: int32(1)}, {Key: "bounds", Value: bson.A{int32(0), int32(499999)}}}}}}},
+				bson.D{{Key: "$count", Value: "n"}})
+		},
+	})
+}
