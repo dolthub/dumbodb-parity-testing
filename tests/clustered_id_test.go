@@ -788,6 +788,13 @@ func TestClustered_CreateOptions(t *testing.T) {
 		{"plain_then_clustered", twoCreates(create, nil, []bson.E{{Key: "clusteredIndex", Value: bson.D{idKey, unique}}})},
 		{"clustered_then_plain", twoCreates(create, []bson.E{{Key: "clusteredIndex", Value: bson.D{idKey, unique}}}, nil)},
 		{"existing_bad_version", twoCreates(create, nil, []bson.E{{Key: "clusteredIndex", Value: bson.D{idKey, unique, {Key: "v", Value: int32(3)}}}})},
+		{"existing_not_unique", twoCreates(create, nil, []bson.E{{Key: "clusteredIndex", Value: bson.D{idKey, {Key: "unique", Value: false}}}})},
+		{"existing_key_not_id", twoCreates(create, nil, []bson.E{{Key: "clusteredIndex", Value: bson.D{{Key: "key", Value: bson.D{{Key: "a", Value: int32(1)}}}, unique}}})},
+		{"existing_legacy_bool", twoCreates(create, nil, []bson.E{{Key: "clusteredIndex", Value: true}})},
+		{"validator_differs", twoCreates(create, []bson.E{{Key: "validator", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 1}}}}}}, []bson.E{{Key: "validator", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 2}}}}}})},
+		{"validator_same", twoCreates(create, []bson.E{{Key: "validator", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 1}}}}}}, []bson.E{{Key: "validator", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 1}}}}}})},
+		{"plain_over_validator", twoCreates(create, []bson.E{{Key: "validator", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 1}}}}}}, nil)},
+		{"validator_over_plain", twoCreates(create, nil, []bson.E{{Key: "validator", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 1}}}}}})},
 		{"existing_clustered_validator", twoCreates(create, []bson.E{{Key: "clusteredIndex", Value: bson.D{idKey, unique}}},
 			[]bson.E{{Key: "clusteredIndex", Value: bson.D{idKey, unique}}, {Key: "validator", Value: bson.D{{Key: "a", Value: 1}}}})},
 		{"named_then_index_same_name", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
