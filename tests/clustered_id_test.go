@@ -2784,6 +2784,14 @@ func TestClustered_HintPartialIndex(t *testing.T) {
 		{"count", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return col.CountDocuments(ctx, q, options.Count().SetHint("a_part"))
 		}},
+		{"distinct", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			var res bson.M
+			err := col.Database().RunCommand(ctx, bson.D{{Key: "distinct", Value: col.Name()}, {Key: "key", Value: "_id"}, {Key: "query", Value: q}, {Key: "hint", Value: "a_part"}}).Decode(&res)
+			return res["values"], err
+		}},
+		{"aggregate", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return runPipeline(ctx, col, mongo.Pipeline{{{Key: "$match", Value: q}}, {{Key: "$project", Value: bson.D{{Key: "_id", Value: 1}}}}}, options.Aggregate().SetHint("a_part"))
+		}},
 		{"find_and_modify", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			var doc bson.D
 			err := col.FindOneAndUpdate(ctx, q, set, options.FindOneAndUpdate().SetHint("a_part")).Decode(&doc)
@@ -2815,15 +2823,21 @@ func TestClustered_HintPartialIndex(t *testing.T) {
 		}},
 	}
 	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			harness.PairTest(t, harness.TestCase{
-				Name:      "Clustered_HintPartialIndex_" + tc.name,
-				Support:   harness.DumboDBFull,
-				Clustered: true,
-				Setup:     setup,
-				Run:       tc.run,
+		for _, clustered := range []bool{true, false} {
+			name := tc.name
+			if !clustered {
+				name += "_unclustered"
+			}
+			t.Run(name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:      "Clustered_HintPartialIndex_" + name,
+					Support:   harness.DumboDBFull,
+					Clustered: clustered,
+					Setup:     setup,
+					Run:       tc.run,
+				})
 			})
-		})
+		}
 	}
 }
 
@@ -2948,7 +2962,7 @@ func TestHint_NaturalByCommand(t *testing.T) {
 						Name:    "Hint_NaturalByCommand_" + name,
 						Support: harness.DumboDBFull,
 						Setup:   setup,
-						Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						Run: errorMessage(func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 							coll := col.Name()
 							if missing {
 								coll += "_missing"
@@ -2961,7 +2975,7 @@ func TestHint_NaturalByCommand(t *testing.T) {
 								return cur["firstBatch"], nil
 							}
 							return res["values"], nil
-						},
+						}),
 					})
 				})
 			}
