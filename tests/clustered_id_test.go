@@ -3469,3 +3469,50 @@ func TestHint_SparseOrBranchMatchingMissing(t *testing.T) {
 		}
 	}
 }
+
+// TestHint_OneScanOrMultikey: a hinted sparse or partial index read in one
+// scan for an $or that can match a missing field reaches an array at its
+// least element, not at one in a branch's bounds.
+func TestHint_OneScanOrMultikey(t *testing.T) {
+	docs := []interface{}{
+		bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: bson.A{0, 5}}, {Key: "c", Value: 1}},
+		bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: 3}, {Key: "c", Value: 1}},
+		bson.D{{Key: "_id", Value: 3}, {Key: "c", Value: 1}},
+	}
+	gt := bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 1}}}}
+	filters := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"null", bson.D{{Key: "$or", Value: bson.A{gt, bson.D{{Key: "a", Value: nil}}}}}},
+		{"not_exists", bson.D{{Key: "$or", Value: bson.A{gt, bson.D{{Key: "a", Value: bson.D{{Key: "$exists", Value: false}}}}}}}},
+	}
+	indexes := []struct {
+		name string
+		keys bson.D
+		opts *options.IndexOptions
+	}{
+		{"sparse", bson.D{{Key: "a", Value: 1}}, options.Index().SetSparse(true)},
+		{"partial", bson.D{{Key: "a", Value: 1}, {Key: "c", Value: 1}},
+			options.Index().SetPartialFilterExpression(bson.D{{Key: "c", Value: bson.D{{Key: "$exists", Value: true}}}})},
+	}
+	for _, idx := range indexes {
+		for _, f := range filters {
+			name := idx.name + "_" + f.name
+			t.Run(name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "Hint_OneScanOrMultikey_" + name,
+					Support: harness.DumboDBFull,
+					Setup: func(ctx context.Context, col *mongo.Collection) error {
+						if _, err := col.InsertMany(ctx, docs); err != nil {
+							return err
+						}
+						_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: idx.keys, Options: idx.opts})
+						return err
+					},
+					Run: cluFindIDs(f.filter, options.Find().SetHint(idx.keys)),
+				})
+			})
+		}
+	}
+}
