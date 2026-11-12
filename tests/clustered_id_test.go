@@ -2966,3 +2966,61 @@ func TestHint_NaturalByCommand(t *testing.T) {
 		}
 	}
 }
+
+// TestHint_DottedDescendingAggregate: an aggregate hinted to an index with a
+// dotted descending key returns that index's order even when its stages do
+// not use the dotted field.
+func TestHint_DottedDescendingAggregate(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 1}, {Key: "c", Value: bson.D{{Key: "d", Value: 3}}}},
+			bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: 1}, {Key: "c", Value: bson.D{{Key: "d", Value: 1}}}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "a", Value: 2}, {Key: "c", Value: bson.D{{Key: "d", Value: 2}}}},
+			bson.D{{Key: "_id", Value: 4}, {Key: "a", Value: 2}, {Key: "c", Value: bson.D{{Key: "d", Value: 5}}}},
+			bson.D{{Key: "_id", Value: 5}, {Key: "a", Value: 3}},
+		}); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateMany(ctx, []mongo.IndexModel{
+			{Keys: bson.D{{Key: "c.d", Value: -1}}},
+			{Keys: bson.D{{Key: "a", Value: -1}, {Key: "c.d", Value: 1}}},
+		})
+		return err
+	}
+	hints := []struct {
+		name string
+		hint bson.D
+	}{
+		{"dotted_descending", bson.D{{Key: "c.d", Value: -1}}},
+		{"compound_dotted", bson.D{{Key: "a", Value: -1}, {Key: "c.d", Value: 1}}},
+	}
+	pipelines := []struct {
+		name     string
+		pipeline bson.A
+	}{
+		{"empty", bson.A{}},
+		{"project_other", bson.A{bson.D{{Key: "$project", Value: bson.D{{Key: "a", Value: 1}}}}}},
+		{"project_dotted", bson.A{bson.D{{Key: "$project", Value: bson.D{{Key: "c.d", Value: 1}}}}}},
+	}
+	for _, h := range hints {
+		for _, p := range pipelines {
+			name := h.name + "_" + p.name
+			t.Run(name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "Hint_DottedDescendingAggregate_" + name,
+					Support: harness.DumboDBFull,
+					Setup:   setup,
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						cur, err := col.Aggregate(ctx, p.pipeline, options.Aggregate().SetHint(h.hint))
+						if err != nil {
+							return nil, err
+						}
+						var docs []bson.D
+						err = cur.All(ctx, &docs)
+						return docs, err
+					},
+				})
+			})
+		}
+	}
+}
