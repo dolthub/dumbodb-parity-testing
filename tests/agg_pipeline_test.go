@@ -61,8 +61,8 @@ func insertAggSeed(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
-func runPipeline(ctx context.Context, col *mongo.Collection, pipeline []bson.D) ([]bson.D, error) {
-	cursor, err := col.Aggregate(ctx, pipeline)
+func runPipeline(ctx context.Context, col *mongo.Collection, pipeline []bson.D, opts ...*options.AggregateOptions) ([]bson.D, error) {
+	cursor, err := col.Aggregate(ctx, pipeline, opts...)
 	if err != nil {
 		return nil, err
 	}

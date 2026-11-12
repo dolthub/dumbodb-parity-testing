@@ -1794,14 +1794,14 @@ func TestExplainPlan_StagesAfterEqLookup(t *testing.T) {
 						return nil, err
 					}
 					ver, _ := lookup(doc, "explainVersion")
-					var plan bson.D
+					var plan []string
 					if qp := findQueryPlanner(doc); qp != nil {
 						if wp, ok := lookupBSONField(qp, "winningPlan"); ok {
 							if w, ok := wp.(bson.D); ok {
 								if inner, ok := lookupBSONField(w, "queryPlan"); ok {
 									w, _ = inner.(bson.D)
 								}
-								plan = planStageNames(w)
+								plan = planStages(w)
 							}
 						}
 					}
@@ -1810,24 +1810,6 @@ func TestExplainPlan_StagesAfterEqLookup(t *testing.T) {
 			})
 		})
 	}
-}
-
-// planStageNames lists a plan's stages from the root down its first input.
-func planStageNames(plan bson.D) bson.D {
-	out := bson.D{}
-	for plan != nil {
-		name, _ := lookupBSONField(plan, "stage")
-		out = append(out, bson.E{Key: fmt.Sprint(len(out)), Value: name})
-		var next bson.D
-		for _, k := range []string{"inputStage", "outerStage"} {
-			if v, ok := lookupBSONField(plan, k); ok {
-				next, _ = v.(bson.D)
-				break
-			}
-		}
-		plan = next
-	}
-	return out
 }
 
 // TestExplainPlan_CountScanEndKey: a COUNT_SCAN that reaches the end of its
@@ -2097,7 +2079,7 @@ func TestExplainPlan_CountFromCompoundAndSparse(t *testing.T) {
 					stats, _ := lookupBSONField(res, "executionStats")
 					keys, _ := lookupBSONField(stats.(bson.D), "totalKeysExamined")
 					docs, _ := lookupBSONField(stats.(bson.D), "totalDocsExamined")
-					return bson.D{{Key: "n", Value: n}, {Key: "plan", Value: planStageNames(wp.(bson.D))}, {Key: "keys", Value: keys}, {Key: "docs", Value: docs}}, nil
+					return bson.D{{Key: "n", Value: n}, {Key: "plan", Value: planStages(wp)}, {Key: "keys", Value: keys}, {Key: "docs", Value: docs}}, nil
 				},
 			})
 		})

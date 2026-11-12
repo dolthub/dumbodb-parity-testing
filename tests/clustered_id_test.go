@@ -886,15 +886,7 @@ func TestClustered_IDRegex(t *testing.T) {
 		{"find_beside_field", cluFindIDs(bson.D{{Key: "_id", Value: re}, {Key: "q", Value: bson.D{{Key: "$exists", Value: false}}}})},
 		{"find_in", cluFindIDs(bson.D{{Key: "_id", Value: bson.D{{Key: "$in", Value: bson.A{re, "b"}}}}})},
 		{"count", count(bson.D{{Key: "_id", Value: re}})},
-		{"aggregate", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			cur, err := col.Aggregate(ctx, mongo.Pipeline{{{Key: "$match", Value: bson.D{{Key: "_id", Value: re}}}}, {{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}}})
-			if err != nil {
-				return nil, err
-			}
-			var docs []bson.D
-			err = cur.All(ctx, &docs)
-			return docs, err
-		}},
+		{"aggregate", cluAggregateDocs(bson.D{{Key: "$match", Value: bson.D{{Key: "_id", Value: re}}}}, bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}})},
 		{"distinct", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return col.Distinct(ctx, "_id", bson.D{{Key: "_id", Value: re}})
 		}},
@@ -1889,17 +1881,11 @@ func TestClustered_RecordIDPaths(t *testing.T) {
 	// and returns each document's joined array.
 	joined := func(sub bson.A) func(context.Context, *mongo.Collection) (interface{}, error) {
 		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			cur, err := col.Aggregate(ctx, mongo.Pipeline{
+			return runPipeline(ctx, col, mongo.Pipeline{
 				{{Key: "$lookup", Value: bson.D{{Key: "from", Value: col.Name()}, {Key: "as", Value: "j"}, {Key: "pipeline", Value: sub}}}},
 				{{Key: "$project", Value: bson.D{{Key: "j", Value: 1}}}},
 				{{Key: "$limit", Value: 1}},
 			})
-			if err != nil {
-				return nil, err
-			}
-			var docs []bson.D
-			err = cur.All(ctx, &docs)
-			return docs, err
 		}
 	}
 	cases := []struct {
@@ -2080,12 +2066,8 @@ func TestClustered_HintDescendingAggregate(t *testing.T) {
 	}
 	ids := func(pipeline mongo.Pipeline, hint string) func(context.Context, *mongo.Collection) (interface{}, error) {
 		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			cur, err := col.Aggregate(ctx, pipeline, options.Aggregate().SetHint(hint))
+			docs, err := runPipeline(ctx, col, pipeline, options.Aggregate().SetHint(hint))
 			if err != nil {
-				return nil, err
-			}
-			var docs []bson.D
-			if err := cur.All(ctx, &docs); err != nil {
 				return nil, err
 			}
 			out := bson.A{}
@@ -2108,13 +2090,7 @@ func TestClustered_HintDescendingAggregate(t *testing.T) {
 		{"project_id_only", ids(mongo.Pipeline{{{Key: "$project", Value: bson.D{{Key: "_id", Value: 1}}}}}, "bd")},
 		{"project_other_field", ids(mongo.Pipeline{{{Key: "$project", Value: bson.D{{Key: "a", Value: 1}}}}}, "bd")},
 		{"group_push", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-			cur, err := col.Aggregate(ctx, mongo.Pipeline{{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "x", Value: bson.D{{Key: "$push", Value: "$_id"}}}}}}}, options.Aggregate().SetHint("bd"))
-			if err != nil {
-				return nil, err
-			}
-			var docs []bson.D
-			err = cur.All(ctx, &docs)
-			return docs, err
+			return runPipeline(ctx, col, mongo.Pipeline{{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "x", Value: bson.D{{Key: "$push", Value: "$_id"}}}}}}}, options.Aggregate().SetHint("bd"))
 		}},
 	}
 	for _, tc := range cases {
@@ -2342,8 +2318,9 @@ func TestClustered_RecordIDOutsideProjection(t *testing.T) {
 }
 
 // TestHint_Invalid: hints of the wrong type, $natural values other than 1 and
-// -1, an empty name, a $natural sort against the hint, and an index hint on an
-// upsert into a missing collection are refused as mongod refuses them.
+// -1, empty or unknown names, a $natural sort against the hint, an unknown
+// index hinted on an upsert into a missing collection, and a bad hint in a
+// later or unordered update statement are refused as mongod refuses them.
 func TestHint_Invalid(t *testing.T) {
 	setup := func(ctx context.Context, col *mongo.Collection) error {
 		if _, err := col.InsertMany(ctx, []interface{}{bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 1}}, bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: 2}}}); err != nil {
@@ -2638,19 +2615,22 @@ func TestClustered_HintTopLevelOperator(t *testing.T) {
 		return err
 	}
 	or := bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "b", Value: 1}}, bson.D{{Key: "b", Value: 2}}}}}
-	filters := map[string]bson.D{
-		"or":   or,
-		"and":  {{Key: "$and", Value: bson.A{bson.D{{Key: "b", Value: bson.D{{Key: "$gte", Value: 1}}}}}}},
-		"nor":  {{Key: "$nor", Value: bson.A{bson.D{{Key: "b", Value: 3}}}}},
-		"expr": {{Key: "$expr", Value: bson.D{{Key: "$gte", Value: bson.A{"$b", 2}}}}},
+	filters := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"or", or},
+		{"and", bson.D{{Key: "$and", Value: bson.A{bson.D{{Key: "b", Value: bson.D{{Key: "$gte", Value: 1}}}}}}}},
+		{"nor", bson.D{{Key: "$nor", Value: bson.A{bson.D{{Key: "b", Value: 3}}}}}},
+		{"expr", bson.D{{Key: "$expr", Value: bson.D{{Key: "$gte", Value: bson.A{"$b", 2}}}}}},
 	}
 	type tcase struct {
 		name string
 		run  func(context.Context, *mongo.Collection) (interface{}, error)
 	}
 	var cases []tcase
-	for name, f := range filters {
-		cases = append(cases, tcase{"find_" + name, cluFindIDs(f, options.Find().SetHint("a1"))})
+	for _, f := range filters {
+		cases = append(cases, tcase{"find_" + f.name, cluFindIDs(f.filter, options.Find().SetHint("a1"))})
 	}
 	cases = append(cases,
 		tcase{"find_and_modify_or", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
@@ -3018,11 +2998,11 @@ func TestHint_DottedDescendingAggregate(t *testing.T) {
 	}
 	pipelines := []struct {
 		name     string
-		pipeline bson.A
+		pipeline mongo.Pipeline
 	}{
-		{"empty", bson.A{}},
-		{"project_other", bson.A{bson.D{{Key: "$project", Value: bson.D{{Key: "a", Value: 1}}}}}},
-		{"project_dotted", bson.A{bson.D{{Key: "$project", Value: bson.D{{Key: "c.d", Value: 1}}}}}},
+		{"empty", mongo.Pipeline{}},
+		{"project_other", mongo.Pipeline{{{Key: "$project", Value: bson.D{{Key: "a", Value: 1}}}}}},
+		{"project_dotted", mongo.Pipeline{{{Key: "$project", Value: bson.D{{Key: "c.d", Value: 1}}}}}},
 	}
 	for _, h := range hints {
 		for _, p := range pipelines {
@@ -3033,13 +3013,7 @@ func TestHint_DottedDescendingAggregate(t *testing.T) {
 					Support: harness.DumboDBFull,
 					Setup:   setup,
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-						cur, err := col.Aggregate(ctx, p.pipeline, options.Aggregate().SetHint(h.hint))
-						if err != nil {
-							return nil, err
-						}
-						var docs []bson.D
-						err = cur.All(ctx, &docs)
-						return docs, err
+						return runPipeline(ctx, col, p.pipeline, options.Aggregate().SetHint(h.hint))
 					},
 				})
 			})
