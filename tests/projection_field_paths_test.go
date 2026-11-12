@@ -45,6 +45,9 @@ func TestProjectionFieldPaths(t *testing.T) {
 		stages []bson.D
 	}{
 		{"IDEmptyComponent", project(bson.D{{Key: "_id", Value: "$a..b"}})},
+		{"IDRemove", append([]bson.D{{{Key: "$match", Value: bson.D{{Key: "_id", Value: int32(1)}}}}},
+			project(bson.D{{Key: "_id", Value: "$$REMOVE"}, {Key: "a", Value: int32(1)}})...)},
+		{"IDArrayExpression", project(bson.D{{Key: "_id", Value: bson.A{"$a.b", int32(1)}}, {Key: "k", Value: "$_id"}})},
 		{"IDDollarComponent", project(bson.D{{Key: "_id", Value: "$a.$b"}})},
 		{"FieldEmptyComponent", project(bson.D{{Key: "c", Value: "$a..b"}})},
 		{"FieldDollarComponent", project(bson.D{{Key: "c", Value: "$a.$b"}})},
