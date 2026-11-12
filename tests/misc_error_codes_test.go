@@ -276,3 +276,38 @@ func TestExpressionsQ12(t *testing.T) {
 		},
 	})
 }
+
+// A dotted includeArrayIndex names a path; $collStats reports latencyStats in
+// mongod's shape and checks its specification.
+func TestUnwindIndexPathAndLatencyStats(t *testing.T) {
+	shape := bson.D{{Key: "$project", Value: bson.D{{Key: "k", Value: bson.D{{Key: "$map", Value: bson.D{
+		{Key: "input", Value: bson.D{{Key: "$objectToArray", Value: "$latencyStats"}}},
+		{Key: "in", Value: bson.D{{Key: "k", Value: "$$this.k"}, {Key: "t", Value: bson.D{{Key: "$map", Value: bson.D{
+			{Key: "input", Value: bson.D{{Key: "$objectToArray", Value: "$$this.v"}}}, {Key: "as", Value: "f"},
+			{Key: "in", Value: bson.A{"$$f.k", bson.D{{Key: "$type", Value: "$$f.v"}}}},
+		}}}}}},
+	}}}}}}}
+	cases := map[string][]bson.D{
+		"UnwindIndexDottedScalar": {{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$k"}, {Key: "includeArrayIndex", Value: "a.b"}}}}},
+		"UnwindIndexDottedArray": {{{Key: "$set", Value: bson.D{{Key: "arr", Value: bson.A{int32(5), int32(6)}}}}},
+			{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$arr"}, {Key: "includeArrayIndex", Value: "a.b"}}}}},
+		"LatencyStats":           {{{Key: "$collStats", Value: bson.D{{Key: "latencyStats", Value: bson.D{}}}}}, shape},
+		"LatencyStatsHistograms": {{{Key: "$collStats", Value: bson.D{{Key: "latencyStats", Value: bson.D{{Key: "histograms", Value: true}}}}}}, shape},
+		"LatencyStatsUnknown":    {{{Key: "$collStats", Value: bson.D{{Key: "latencyStats", Value: bson.D{{Key: "zz", Value: int32(1)}}}}}}},
+		"LatencyStatsNotObject":  {{{Key: "$collStats", Value: bson.D{{Key: "latencyStats", Value: int32(5)}}}}},
+	}
+	for name, stages := range cases {
+		stages := stages
+		harness.PairTest(t, harness.TestCase{
+			Name:    "UnwindIndexPathAndLatencyStats_" + name,
+			Support: harness.DumboDBFull,
+			Setup: func(ctx context.Context, col *mongo.Collection) error {
+				_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "k", Value: int32(1)}})
+				return err
+			},
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return fieldOpsAgg(ctx, col, stages...)
+			},
+		})
+	}
+}
