@@ -2173,7 +2173,7 @@ func TestExplainPlan_StageEntryShapes(t *testing.T) {
 }
 
 // TestExplainPlan_SkipUnderFetch: a skip over an index scan that answers the
-// whole filter drops keys before their documents are fetched; one with a
+// whole filter, or of no filter, drops keys before their documents are fetched; one with a
 // filter the index cannot decide skips fetched documents.
 func TestExplainPlan_SkipUnderFetch(t *testing.T) {
 	setup := func(ctx context.Context, col *mongo.Collection) error {
@@ -2203,6 +2203,15 @@ func TestExplainPlan_SkipUnderFetch(t *testing.T) {
 		}},
 		{"find_skip_limit", func(c string) bson.D {
 			return bson.D{{Key: "find", Value: c}, {Key: "filter", Value: g}, {Key: "skip", Value: 1}, {Key: "limit", Value: 1}}
+		}},
+		{"find_sorted_skip_limit", func(c string) bson.D {
+			return bson.D{{Key: "find", Value: c}, {Key: "filter", Value: bson.D{}}, {Key: "sort", Value: g}, {Key: "skip", Value: 1}, {Key: "limit", Value: 3}}
+		}},
+		{"aggregate_sorted_limit_skip", func(c string) bson.D {
+			return bson.D{{Key: "aggregate", Value: c}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$sort", Value: g}}, bson.D{{Key: "$limit", Value: 3}}, bson.D{{Key: "$skip", Value: 1}}}}, {Key: "cursor", Value: bson.D{}}}
+		}},
+		{"find_hinted_skip", func(c string) bson.D {
+			return bson.D{{Key: "find", Value: c}, {Key: "filter", Value: bson.D{}}, {Key: "hint", Value: g}, {Key: "skip", Value: 1}}
 		}},
 	}
 	for _, tc := range cases {
