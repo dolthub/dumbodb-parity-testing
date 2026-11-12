@@ -141,3 +141,52 @@ func TestFillOptions_Specs(t *testing.T) {
 		})
 	}
 }
+
+// Output paths that conflict, one within another, are refused: 40176 in $set
+// and $addFields (and $fill by value), 6307900 in $setWindowFields (and $fill
+// by method). An output name component cannot start with '$'.
+func TestOutputPathConflicts(t *testing.T) {
+	pipelines := map[string]string{
+		"AddFieldsPathThenSub":  `[{"$addFields":{"y":1,"y.z":2}}]`,
+		"AddFieldsSubThenPath":  `[{"$addFields":{"y.z":2,"y":1}}]`,
+		"SetObjectThenSub":      `[{"$set":{"y":{"z":1},"y.z":2}}]`,
+		"SetSiblings":           `[{"$set":{"y.a":1,"y.b":2}}]`,
+		"SetOperatorThenSub":    `[{"$set":{"y":{"$add":[1,1]},"y.b":2}}]`,
+		"SetEmptyObjectThenSub": `[{"$set":{"y":{},"y.z":2}}]`,
+		"WindowPathThenSub":     `[{"$setWindowFields":{"output":{"y":{"$sum":1},"y.z":{"$sum":1}}}}]`,
+		"WindowSubThenPath":     `[{"$setWindowFields":{"output":{"y.z":{"$sum":1},"y":{"$sum":1}}}}]`,
+		"WindowDollarComponent": `[{"$setWindowFields":{"output":{"y.$z":{"$sum":1}}}}]`,
+		"WindowSiblings":        `[{"$setWindowFields":{"output":{"y.a":{"$sum":1},"y.b":{"$sum":1}}}}]`,
+		"FillMethodPathThenSub": `[{"$fill":{"sortBy":{"x":1},"output":{"y":{"method":"locf"},"y.z":{"method":"locf"}}}}]`,
+		"FillValuePathThenSub":  `[{"$fill":{"output":{"y":{"value":1},"y.z":{"value":2}}}}]`,
+	}
+	for name, js := range pipelines {
+		var stages []bson.D
+		if err := bson.UnmarshalExtJSON([]byte(`{"s":`+js+`}`), false, &struct{ S *[]bson.D }{&stages}); err != nil {
+			t.Fatal(name, err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "OutputPathConflicts_" + name,
+			Support: harness.DumboDBFull,
+			Setup: func(ctx context.Context, col *mongo.Collection) error {
+				_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "x", Value: int32(1)}})
+				return err
+			},
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return fieldOpsAgg(ctx, col, stages...)
+			},
+		})
+	}
+	harness.PairTest(t, harness.TestCase{
+		Name:    "OutputPathConflicts_UpdatePipelineSet",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			_, err := col.UpdateOne(ctx, bson.D{}, mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "y", Value: int32(1)}, {Key: "y.z", Value: int32(2)}}}}})
+			return nil, err
+		},
+	})
+}
