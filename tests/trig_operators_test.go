@@ -125,12 +125,6 @@ func runMathCases(t *testing.T, prefix string, support harness.DumboDBSupport, c
 
 // runMathContexts checks op over every document in $addFields, inside a
 // $match $expr, and under a $group accumulator.
-// sbeGroupDivergences are cases where MongoDB evaluates $group in its SBE
-// engine, whose out-of-bounds error code differs.
-var sbeGroupDivergences = map[string]bool{
-	"Trig_acosh_GroupSum": true,
-}
-
 func runMathContexts(t *testing.T, prefix, op string, support harness.DumboDBSupport) {
 	expr := bson.D{{Key: op, Value: "$d"}}
 	pipelines := []struct {
@@ -155,14 +149,10 @@ func runMathContexts(t *testing.T, prefix, op string, support harness.DumboDBSup
 	}
 	for _, p := range pipelines {
 		name := prefix + "_" + p.name
-		caseSupport := support
-		if sbeGroupDivergences[name] {
-			caseSupport = harness.DumboDBXFail
-		}
 		t.Run(p.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    name,
-				Support: caseSupport,
+				Support: support,
 				Setup:   insertTrigDocs,
 				Run:     pipelineRun(p.pipeline),
 			})
