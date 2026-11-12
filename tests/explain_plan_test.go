@@ -2024,3 +2024,76 @@ func TestExplainPlan_SkipLimitWindow(t *testing.T) {
 		})
 	}
 }
+
+// TestExplainPlan_CountFromCompoundAndSparse: a count binding a compound
+// index's leading fields by equality and its next by a range, or an
+// $exists: true on a sparse index, counts from the index without fetching.
+func TestExplainPlan_CountFromCompoundAndSparse(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 20)
+		for i := range docs {
+			d := bson.D{{Key: "_id", Value: int32(i)}, {Key: "a", Value: int32(i % 7)}, {Key: "b", Value: int32(i % 3)}, {Key: "c", Value: int32(i % 2)}}
+			if i%4 != 0 {
+				d = append(d, bson.E{Key: "s", Value: int32(i)})
+			}
+			if i == 19 {
+				d = append(d, bson.E{Key: "m", Value: bson.A{1, 2}})
+			}
+			docs[i] = d
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateMany(ctx, []mongo.IndexModel{
+			{Keys: bson.D{{Key: "b", Value: 1}, {Key: "a", Value: 1}}, Options: options.Index().SetName("b_a")},
+			{Keys: bson.D{{Key: "s", Value: 1}}, Options: options.Index().SetName("s_sp").SetSparse(true)},
+			{Keys: bson.D{{Key: "c", Value: 1}, {Key: "m", Value: 1}}, Options: options.Index().SetName("c_m")},
+		})
+		return err
+	}
+	cases := []struct {
+		name   string
+		filter bson.D
+		hint   interface{}
+	}{
+		{"eq_range_hinted", bson.D{{Key: "b", Value: 2}, {Key: "a", Value: bson.D{{Key: "$gt", Value: 3}}}}, "b_a"},
+		{"eq_range", bson.D{{Key: "b", Value: 2}, {Key: "a", Value: bson.D{{Key: "$gt", Value: 3}}}}, nil},
+		{"eq_eq", bson.D{{Key: "b", Value: 2}, {Key: "a", Value: 5}}, nil},
+		{"extra_field", bson.D{{Key: "b", Value: 2}, {Key: "a", Value: 5}, {Key: "c", Value: 1}}, "b_a"},
+		{"multikey_trailing", bson.D{{Key: "c", Value: 1}, {Key: "m", Value: 2}}, "c_m"},
+		{"multikey_trailing_range", bson.D{{Key: "c", Value: 1}, {Key: "m", Value: bson.D{{Key: "$gte", Value: 2}}}}, "c_m"},
+		{"multikey_trailing_two_sided", bson.D{{Key: "c", Value: 1}, {Key: "m", Value: bson.D{{Key: "$gt", Value: 1}, {Key: "$lt", Value: 2}}}}, "c_m"},
+		{"sparse_exists_hinted", bson.D{{Key: "s", Value: bson.D{{Key: "$exists", Value: true}}}}, "s_sp"},
+		{"sparse_exists", bson.D{{Key: "s", Value: bson.D{{Key: "$exists", Value: true}}}}, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "ExplainPlan_CountFromCompoundAndSparse_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					count := bson.D{{Key: "count", Value: col.Name()}, {Key: "query", Value: tc.filter}}
+					if tc.hint != nil {
+						count = append(count, bson.E{Key: "hint", Value: tc.hint})
+					}
+					var counted bson.D
+					if err := col.Database().RunCommand(ctx, count).Decode(&counted); err != nil {
+						return nil, err
+					}
+					n, _ := lookupBSONField(counted, "n")
+					var res bson.D
+					if err := col.Database().RunCommand(ctx, bson.D{{Key: "explain", Value: count}, {Key: "verbosity", Value: "executionStats"}}).Decode(&res); err != nil {
+						return nil, err
+					}
+					qp, _ := lookupBSONField(res, "queryPlanner")
+					wp, _ := lookupBSONField(qp.(bson.D), "winningPlan")
+					stats, _ := lookupBSONField(res, "executionStats")
+					keys, _ := lookupBSONField(stats.(bson.D), "totalKeysExamined")
+					docs, _ := lookupBSONField(stats.(bson.D), "totalDocsExamined")
+					return bson.D{{Key: "n", Value: n}, {Key: "plan", Value: planStageNames(wp.(bson.D))}, {Key: "keys", Value: keys}, {Key: "docs", Value: docs}}, nil
+				},
+			})
+		})
+	}
+}
