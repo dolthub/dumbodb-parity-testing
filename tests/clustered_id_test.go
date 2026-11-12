@@ -2754,3 +2754,73 @@ func TestClustered_NamedClusteredIndex(t *testing.T) {
 		})
 	}
 }
+
+// TestClustered_HintPartialIndex: a read or write hinted to a partial index
+// sees only the documents the index holds, even ones matching the filter.
+func TestClustered_HintPartialIndex(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 1}},
+			bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: 2}, {Key: "c", Value: 1}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "a", Value: 3}, {Key: "c", Value: 1}},
+		}); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}},
+			Options: options.Index().SetName("a_part").SetPartialFilterExpression(bson.D{{Key: "c", Value: bson.D{{Key: "$exists", Value: true}}}})})
+		return err
+	}
+	q := bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: 1}}}}
+	set := bson.D{{Key: "$set", Value: bson.D{{Key: "hit", Value: 1}}}}
+	all := cluFindIDs(bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+	hit := cluFindIDs(bson.D{{Key: "hit", Value: 1}}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+	cases := []struct {
+		name string
+		run  func(context.Context, *mongo.Collection) (interface{}, error)
+	}{
+		{"find", cluFindIDs(q, options.Find().SetHint("a_part"))},
+		{"count", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return col.CountDocuments(ctx, q, options.Count().SetHint("a_part"))
+		}},
+		{"find_and_modify", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			var doc bson.D
+			err := col.FindOneAndUpdate(ctx, q, set, options.FindOneAndUpdate().SetHint("a_part")).Decode(&doc)
+			return doc, err
+		}},
+		{"update_one", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := col.UpdateOne(ctx, q, set, options.Update().SetHint("a_part")); err != nil {
+				return nil, err
+			}
+			return hit(ctx, col)
+		}},
+		{"update_many", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := col.UpdateMany(ctx, q, set, options.Update().SetHint("a_part")); err != nil {
+				return nil, err
+			}
+			return hit(ctx, col)
+		}},
+		{"delete_one", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := col.DeleteOne(ctx, q, options.Delete().SetHint("a_part")); err != nil {
+				return nil, err
+			}
+			return all(ctx, col)
+		}},
+		{"delete_many", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := col.DeleteMany(ctx, q, options.Delete().SetHint("a_part")); err != nil {
+				return nil, err
+			}
+			return all(ctx, col)
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Clustered_HintPartialIndex_" + tc.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Setup:     setup,
+				Run:       tc.run,
+			})
+		})
+	}
+}
