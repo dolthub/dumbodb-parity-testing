@@ -2722,6 +2722,13 @@ func TestClustered_NamedClusteredIndex(t *testing.T) {
 			return bson.D{{Key: "dropIndexes", Value: n}, {Key: "index", Value: bson.D{{Key: "_id", Value: 1}}}}
 		}},
 		{"drop_default_name", func(n string) bson.D { return bson.D{{Key: "dropIndexes", Value: n}, {Key: "index", Value: "_id_"}} }},
+		{"create_name_clash_unique_sparse", createIndexSpec(bson.D{{Key: "key", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "name", Value: "foo"},
+			{Key: "unique", Value: true}, {Key: "sparse", Value: true}})},
+		{"create_name_clash_partial", createIndexSpec(bson.D{{Key: "key", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "name", Value: "foo"},
+			{Key: "partialFilterExpression", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 1}}}}}})},
+		{"create_id_sparse", createIndexSpec(bson.D{{Key: "key", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "name", Value: "foo"}, {Key: "sparse", Value: true}})},
+		{"create_id_partial", createIndexSpec(bson.D{{Key: "key", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "name", Value: "p"},
+			{Key: "partialFilterExpression", Value: bson.D{{Key: "a", Value: 1}}}})},
 	}
 	for _, c := range cmds {
 		t.Run(c.name, func(t *testing.T) {
@@ -2759,6 +2766,14 @@ func TestClustered_NamedClusteredIndex(t *testing.T) {
 				},
 			})
 		})
+	}
+}
+
+// createIndexSpec returns a createIndexes command of spec on the named
+// collection.
+func createIndexSpec(spec bson.D) func(n string) bson.D {
+	return func(n string) bson.D {
+		return bson.D{{Key: "createIndexes", Value: n}, {Key: "indexes", Value: bson.A{spec}}}
 	}
 }
 
