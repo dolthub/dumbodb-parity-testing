@@ -2279,3 +2279,72 @@ func TestCount_EqualityWithContradictingRange(t *testing.T) {
 		})
 	}
 }
+
+// TestExplainPlan_HintWithCollation: under a non-simple collation an index
+// of the simple collation serves bounds that hold no string, hinted or not,
+// and a hinted one is scanned whole for string bounds.
+func TestExplainPlan_HintWithCollation(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 10)
+		for i := range docs {
+			docs[i] = bson.D{{Key: "_id", Value: int32(i)}, {Key: "a", Value: int32(i)}, {Key: "s", Value: fmt.Sprintf("x%d", i)}}
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		if err := createIndex(ctx, col, bson.D{{Key: "a", Value: 1}}); err != nil {
+			return err
+		}
+		return createIndex(ctx, col, bson.D{{Key: "s", Value: 1}})
+	}
+	coll := bson.D{{Key: "locale", Value: "en"}, {Key: "strength", Value: 2}}
+	gt := func(field string, v interface{}) bson.D {
+		return bson.D{{Key: field, Value: bson.D{{Key: "$gt", Value: v}}}}
+	}
+	cases := []struct {
+		name string
+		cmd  func(c string) bson.D
+	}{
+		{"find_hinted", func(c string) bson.D {
+			return bson.D{{Key: "find", Value: c}, {Key: "filter", Value: gt("a", 0)}, {Key: "hint", Value: "a_1"}, {Key: "collation", Value: coll}}
+		}},
+		{"find_unhinted", func(c string) bson.D {
+			return bson.D{{Key: "find", Value: c}, {Key: "filter", Value: gt("a", 0)}, {Key: "collation", Value: coll}}
+		}},
+		{"find_hinted_string", func(c string) bson.D {
+			return bson.D{{Key: "find", Value: c}, {Key: "filter", Value: gt("s", "x")}, {Key: "hint", Value: "s_1"}, {Key: "collation", Value: coll}}
+		}},
+		{"aggregate_hinted", func(c string) bson.D {
+			return bson.D{{Key: "aggregate", Value: c}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: gt("a", 0)}}}},
+				{Key: "hint", Value: "a_1"}, {Key: "collation", Value: coll}, {Key: "cursor", Value: bson.D{}}}
+		}},
+		{"count_hinted", func(c string) bson.D {
+			return bson.D{{Key: "count", Value: c}, {Key: "query", Value: gt("a", 0)}, {Key: "hint", Value: "a_1"}, {Key: "collation", Value: coll}}
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "ExplainPlan_HintWithCollation_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					var res bson.D
+					if err := col.Database().RunCommand(ctx, bson.D{{Key: "explain", Value: tc.cmd(col.Name())}, {Key: "verbosity", Value: "executionStats"}}).Decode(&res); err != nil {
+						return nil, err
+					}
+					if stages, ok := lookupBSONField(res, "stages"); ok {
+						cursor, _ := lookupBSONField(stages.(bson.A)[0].(bson.D), "$cursor")
+						res = cursor.(bson.D)
+					}
+					qp, _ := lookupBSONField(res, "queryPlanner")
+					wp, _ := lookupBSONField(qp.(bson.D), "winningPlan")
+					stats, _ := lookupBSONField(res, "executionStats")
+					keys, _ := lookupBSONField(stats.(bson.D), "totalKeysExamined")
+					docs, _ := lookupBSONField(stats.(bson.D), "totalDocsExamined")
+					return bson.D{{Key: "plan", Value: planStages(wp)}, {Key: "keys", Value: keys}, {Key: "docs", Value: docs}}, nil
+				},
+			})
+		})
+	}
+}
