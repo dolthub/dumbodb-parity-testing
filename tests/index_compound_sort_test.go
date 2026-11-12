@@ -281,7 +281,8 @@ func TestIndex_CreateConflicts(t *testing.T) {
 }
 
 // TestIndex_SixtyFourIndexLimit: a collection holds at most 64 indexes, its
-// _id index included; re-requesting existing indexes stays within it.
+// _id index included, or 64 beside a clustered collection's clustered index;
+// re-requesting existing indexes stays within it.
 func TestIndex_SixtyFourIndexLimit(t *testing.T) {
 	specs := func(from, to int) bson.A {
 		out := bson.A{}
@@ -293,11 +294,15 @@ func TestIndex_SixtyFourIndexLimit(t *testing.T) {
 	cases := []struct {
 		name          string
 		first, second bson.A
+		clustered     bool
 	}{
-		{"one_past", specs(0, 63), specs(63, 64)},
-		{"existing_plus_one", specs(0, 63), specs(0, 64)},
-		{"existing_again", specs(0, 63), specs(0, 63)},
-		{"many_at_once", specs(0, 10), specs(0, 65)},
+		{"one_past", specs(0, 63), specs(63, 64), false},
+		{"existing_plus_one", specs(0, 63), specs(0, 64), false},
+		{"existing_again", specs(0, 63), specs(0, 63), false},
+		{"many_at_once", specs(0, 10), specs(0, 65), false},
+		{"clustered_sixty_fourth", specs(0, 63), specs(63, 64), true},
+		{"clustered_one_past", specs(0, 64), specs(64, 65), true},
+		{"clustered_many_at_once", specs(0, 10), specs(0, 65), true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -305,6 +310,15 @@ func TestIndex_SixtyFourIndexLimit(t *testing.T) {
 				Name:    "Index_SixtyFourIndexLimit_" + tc.name,
 				Support: harness.DumboDBFull,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					if tc.clustered {
+						if err := col.Drop(ctx); err != nil {
+							return err
+						}
+						clustered := bson.D{{Key: "key", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "unique", Value: true}}
+						if err := col.Database().RunCommand(ctx, bson.D{{Key: "create", Value: col.Name()}, {Key: "clusteredIndex", Value: clustered}}).Err(); err != nil {
+							return err
+						}
+					}
 					if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: 1}}); err != nil {
 						return err
 					}
