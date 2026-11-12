@@ -1668,13 +1668,7 @@ func TestAggregate_ViewMatchPushdown(t *testing.T) {
 					return col.Database().CreateView(ctx, col.Name()+"_v", col.Name(), views[tc.view])
 				},
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-					cur, err := col.Database().Collection(col.Name()+"_v").Aggregate(ctx, tc.pipeline)
-					if err != nil {
-						return nil, err
-					}
-					var docs []bson.D
-					err = cur.All(ctx, &docs)
-					return docs, err
+					return runPipeline(ctx, col.Database().Collection(col.Name()+"_v"), tc.pipeline)
 				},
 			})
 		})
