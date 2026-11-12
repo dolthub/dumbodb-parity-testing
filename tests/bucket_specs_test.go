@@ -207,3 +207,45 @@ func TestArrayToObjectForms(t *testing.T) {
 		})
 	}
 }
+
+// Granularity rounding at the ends of the double and Decimal128 ranges: a
+// value whose double is zero or infinite stays unrounded, and the powers of
+// two rounder refuses an infinity (11785400).
+func TestBucketAutoGranularityExtremes(t *testing.T) {
+	values := map[string]string{
+		"Infinity":        `{"$numberDouble":"Infinity"}`,
+		"DecimalInfinity": `{"$numberDecimal":"Infinity"}`,
+		"DecimalAboveDbl": `{"$numberDecimal":"1E+400"}`,
+		"DecimalMax":      `{"$numberDecimal":"9.999999999999999999999999999999999E+6144"}`,
+		"DecimalBelowDbl": `{"$numberDecimal":"3E-400"}`,
+		"DecimalSmallest": `{"$numberDecimal":"1E-6176"}`,
+		"DecimalSmall":    `{"$numberDecimal":"1E-300"}`,
+		"DoubleSubnormal": `{"$numberDouble":"1e-310"}`,
+		"DoubleLargest":   `{"$numberDouble":"1.7e308"}`,
+	}
+	for name, js := range values {
+		var v struct{ V interface{} }
+		if err := bson.UnmarshalExtJSON([]byte(`{"v":`+js+`}`), false, &v); err != nil {
+			t.Fatal(err)
+		}
+		for _, g := range []string{"R5", "1-2-5", "E192", "POWERSOF2"} {
+			value, g := v.V, g
+			harness.PairTest(t, harness.TestCase{
+				Name:    "BucketAutoGranularityExtremes_" + name + "_" + g,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					_, err := col.InsertMany(ctx, []interface{}{
+						bson.D{{Key: "_id", Value: int32(1)}, {Key: "v", Value: value}},
+						bson.D{{Key: "_id", Value: int32(2)}, {Key: "v", Value: value}},
+					})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return fieldOpsAgg(ctx, col, bson.D{{Key: "$bucketAuto", Value: bson.D{
+						{Key: "groupBy", Value: "$v"}, {Key: "buckets", Value: int32(2)}, {Key: "granularity", Value: g},
+					}}})
+				},
+			})
+		}
+	}
+}
