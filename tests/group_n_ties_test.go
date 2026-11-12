@@ -207,3 +207,50 @@ func TestFirstNEvaluation(t *testing.T) {
 		})
 	}
 }
+
+// The n of an N accumulator: an out of range double fails with 31109 in the
+// classic engine; under SBE a path through $$ROOT is a field and $$ROOT
+// itself fails with 7548600 (7695201 for $firstN). A missing collection and
+// mongod's express plan for a leading _id equality do not run in SBE.
+func TestNArgumentCodes(t *testing.T) {
+	pipelines := map[string]string{
+		"ProjectHugeN":       `[{"$project":{"r":{"$firstN":{"input":["$v"],"n":1e20}}}}]`,
+		"WindowNaNN":         `[{"$setWindowFields":{"output":{"r":{"$firstN":{"input":"$v","n":{"$numberDouble":"NaN"}}}}}}]`,
+		"WindowNegInfN":      `[{"$setWindowFields":{"output":{"r":{"$firstN":{"input":"$v","n":{"$numberDouble":"-Infinity"}}}}}}]`,
+		"GroupRootPathN":     `[{"$group":{"_id":null,"r":{"$firstN":{"input":"$v","n":"$$ROOT.x"}}}}]`,
+		"GroupCurrentPathN":  `[{"$group":{"_id":null,"r":{"$firstN":{"input":"$v","n":"$$CURRENT.x"}}}}]`,
+		"GroupLastNRoot":     `[{"$group":{"_id":null,"r":{"$lastN":{"input":"$v","n":"$$ROOT"}}}}]`,
+		"GroupMinNRoot":      `[{"$group":{"_id":null,"r":{"$minN":{"input":"$v","n":"$$ROOT"}}}}]`,
+		"GroupTopNRoot":      `[{"$group":{"_id":null,"r":{"$topN":{"output":"$v","sortBy":{"v":1},"n":"$$ROOT"}}}}]`,
+		"GroupFirstNRoot":    `[{"$group":{"_id":null,"r":{"$firstN":{"input":"$v","n":"$$ROOT"}}}}]`,
+		"ExpressMatchFound":  `[{"$match":{"_id":1}},{"$group":{"_id":null,"r":{"$firstN":{"input":"$v","n":0}}}}]`,
+		"ExpressMatchNone":   `[{"$match":{"_id":5}},{"$group":{"_id":null,"r":{"$firstN":{"input":"$v","n":0}}}}]`,
+		"RangeMatch":         `[{"$match":{"_id":{"$gt":0}}},{"$group":{"_id":null,"r":{"$firstN":{"input":"$v","n":0}}}}]`,
+		"ExpressMatchDivide": `[{"$match":{"_id":1}},{"$group":{"_id":null,"r":{"$push":{"$divide":[1,"$z"]}}}}]`,
+	}
+	for name, js := range pipelines {
+		var stages []bson.D
+		if err := bson.UnmarshalExtJSON([]byte(`{"p":`+js+`}`), false, &struct{ P *[]bson.D }{&stages}); err != nil {
+			t.Fatal(name, err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "NArgumentCodes_" + name,
+			Support: harness.DumboDBFull,
+			Setup: func(ctx context.Context, col *mongo.Collection) error {
+				_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "x", Value: bson.D{{Key: "y", Value: int32(2)}}}, {Key: "v", Value: int32(1)}, {Key: "z", Value: int32(0)}})
+				return err
+			},
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return fieldOpsAgg(ctx, col, stages...)
+			},
+		})
+	}
+	harness.PairTest(t, harness.TestCase{
+		Name:    "NArgumentCodes_MissingCollection",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsAgg(ctx, col.Database().Collection(col.Name()+"_none"),
+				bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "r", Value: bson.D{{Key: "$firstN", Value: bson.D{{Key: "input", Value: "$v"}, {Key: "n", Value: int32(0)}}}}}}}})
+		},
+	})
+}
