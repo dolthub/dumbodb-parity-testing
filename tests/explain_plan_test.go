@@ -1948,3 +1948,79 @@ func TestExplainPlan_ViewHiddenFieldGetField(t *testing.T) {
 		}
 	}
 }
+
+// TestExplainPlan_SkipLimitWindow: a leading $skip and $limit, or ones after
+// an equality $lookup, run in the query plan as SKIP and LIMIT with their
+// amounts, under any EQ_LOOKUP, and nReturned counts what they pass.
+func TestExplainPlan_SkipLimitWindow(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 5)
+		foreign := make([]interface{}, 5)
+		for i := range docs {
+			docs[i] = bson.D{{Key: "_id", Value: int32(i + 1)}, {Key: "a", Value: int32(i + 1)}}
+			foreign[i] = bson.D{{Key: "_id", Value: int32(i + 1)}, {Key: "a", Value: int32(i + 1)}}
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		_, err := col.Database().Collection(col.Name()+"_f").InsertMany(ctx, foreign)
+		return err
+	}
+	skip := bson.D{{Key: "$skip", Value: 1}}
+	limit := bson.D{{Key: "$limit", Value: 2}}
+	match := bson.D{{Key: "$match", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 1}}}}}}
+	lookup := func(col *mongo.Collection) bson.D {
+		return bson.D{{Key: "$lookup", Value: bson.D{{Key: "from", Value: col.Name() + "_f"}, {Key: "localField", Value: "a"},
+			{Key: "foreignField", Value: "a"}, {Key: "as", Value: "j"}}}}
+	}
+	cases := []struct {
+		name     string
+		pipeline func(col *mongo.Collection) bson.A
+	}{
+		{"skip", func(*mongo.Collection) bson.A { return bson.A{skip} }},
+		{"skip_limit", func(*mongo.Collection) bson.A { return bson.A{skip, limit} }},
+		{"match_skip", func(*mongo.Collection) bson.A { return bson.A{match, skip} }},
+		{"lookup_skip", func(c *mongo.Collection) bson.A { return bson.A{lookup(c), skip} }},
+		{"lookup_skip_limit", func(c *mongo.Collection) bson.A { return bson.A{lookup(c), skip, limit} }},
+		{"skip_limit_lookup", func(c *mongo.Collection) bson.A { return bson.A{skip, limit, lookup(c)} }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "ExplainPlan_SkipLimitWindow_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					var res bson.D
+					cmd := bson.D{{Key: "explain", Value: bson.D{{Key: "aggregate", Value: col.Name()}, {Key: "pipeline", Value: tc.pipeline(col)},
+						{Key: "cursor", Value: bson.D{}}}}, {Key: "verbosity", Value: "executionStats"}}
+					if err := col.Database().RunCommand(ctx, cmd).Decode(&res); err != nil {
+						return nil, err
+					}
+					qp, _ := lookupBSONField(res, "queryPlanner")
+					wp, _ := lookupBSONField(qp.(bson.D), "winningPlan")
+					plan := wp.(bson.D)
+					if inner, ok := lookupBSONField(plan, "queryPlan"); ok {
+						plan = inner.(bson.D)
+					}
+					var window bson.A
+					for plan != nil {
+						name, _ := lookupBSONField(plan, "stage")
+						entry := bson.D{{Key: "stage", Value: name}}
+						for _, k := range []string{"skipAmount", "limitAmount"} {
+							if v, ok := lookupBSONField(plan, k); ok {
+								entry = append(entry, bson.E{Key: k, Value: v})
+							}
+						}
+						window = append(window, entry)
+						next, _ := lookupBSONField(plan, "inputStage")
+						plan, _ = next.(bson.D)
+					}
+					stats, _ := lookupBSONField(res, "executionStats")
+					n, _ := lookupBSONField(stats.(bson.D), "nReturned")
+					return bson.D{{Key: "plan", Value: window}, {Key: "nReturned", Value: n}}, nil
+				},
+			})
+		})
+	}
+}
