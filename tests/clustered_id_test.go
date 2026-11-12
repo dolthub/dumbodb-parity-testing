@@ -3096,6 +3096,17 @@ func TestHint_FirstInBoundsEdges(t *testing.T) {
 			bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 1}, {Key: "$lt", Value: 5}, {Key: "$type", Value: bson.A{"array", "number"}}}}}},
 		{"multikey_gte_lte", []interface{}{d(1, bson.A{1, 9}), d(2, 5), d(3, bson.A{0, 4})}, bson.D{{Key: "a", Value: 1}},
 			bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: 2}, {Key: "$lte", Value: 6}}}}},
+		{"or_regex_options_leaf", []interface{}{d(1, "a"), d(2, false)}, bson.D{{Key: "a", Value: -1}},
+			bson.D{{Key: "$or", Value: bson.A{
+				bson.D{{Key: "a", Value: bson.D{{Key: "$regex", Value: "a$"}, {Key: "$options", Value: "i"}}}},
+				bson.D{{Key: "a", Value: bson.D{{Key: "$lt", Value: true}}}}}}}},
+		{"or_leaves_after_range", []interface{}{d(1, "A"), bson.D{{Key: "_id", Value: 2}}}, bson.D{{Key: "a", Value: 1}},
+			bson.D{{Key: "$or", Value: bson.A{
+				bson.D{{Key: "a", Value: bson.D{{Key: "$lte", Value: "B"}}}},
+				bson.D{{Key: "a", Value: bson.D{{Key: "$exists", Value: false}}}},
+				bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 1}, {Key: "$lt", Value: "x"}}}}}}}},
+		{"multikey_in_with_null", []interface{}{d(1, bson.A{0, "x"}), d(2, 2)}, bson.D{{Key: "a", Value: 1}},
+			bson.D{{Key: "a", Value: bson.D{{Key: "$in", Value: bson.A{nil, 2, "x"}}}}}},
 	}
 	for _, tc := range cases {
 		setup := func(ctx context.Context, col *mongo.Collection) error {
