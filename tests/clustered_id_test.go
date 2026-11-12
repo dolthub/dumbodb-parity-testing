@@ -3169,3 +3169,83 @@ func TestCreate_OverExistingComparesStoredOptions(t *testing.T) {
 		})
 	}
 }
+
+// TestHint_OnView: a hint on a read of a view is checked against the view's
+// base collection, with the command run as an aggregate there: a bad
+// $natural value is overlooked only when the stages start with a $match, and
+// never by find.
+func TestHint_OnView(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 1}}); err != nil {
+			return err
+		}
+		db := col.Database()
+		if err := db.CreateView(ctx, col.Name()+"_v", col.Name(), mongo.Pipeline{}); err != nil {
+			return err
+		}
+		return db.CreateView(ctx, col.Name()+"_vm", col.Name(), mongo.Pipeline{{{Key: "$match", Value: bson.D{{Key: "a", Value: 1}}}}})
+	}
+	hints := []struct {
+		name string
+		hint interface{}
+	}{
+		{"natural_2", bson.D{{Key: "$natural", Value: 2}}},
+		{"natural_string", bson.D{{Key: "$natural", Value: "1"}}},
+		{"natural_compound", bson.D{{Key: "$natural", Value: 1}, {Key: "a", Value: 1}}},
+		{"natural_1", bson.D{{Key: "$natural", Value: 1}}},
+		{"unknown_name", "zz"},
+	}
+	match := bson.D{{Key: "a", Value: 1}}
+	cmds := []struct {
+		name string
+		cmd  func(c string, h interface{}) bson.D
+	}{
+		{"find", func(c string, h interface{}) bson.D {
+			return bson.D{{Key: "find", Value: c + "_v"}, {Key: "hint", Value: h}}
+		}},
+		{"find_filter", func(c string, h interface{}) bson.D {
+			return bson.D{{Key: "find", Value: c + "_v"}, {Key: "filter", Value: match}, {Key: "hint", Value: h}}
+		}},
+		{"find_match_view", func(c string, h interface{}) bson.D {
+			return bson.D{{Key: "find", Value: c + "_vm"}, {Key: "hint", Value: h}}
+		}},
+		{"aggregate", func(c string, h interface{}) bson.D {
+			return bson.D{{Key: "aggregate", Value: c + "_v"}, {Key: "pipeline", Value: bson.A{}}, {Key: "hint", Value: h}, {Key: "cursor", Value: bson.D{}}}
+		}},
+		{"aggregate_match", func(c string, h interface{}) bson.D {
+			return bson.D{{Key: "aggregate", Value: c + "_v"}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: match}}}}, {Key: "hint", Value: h}, {Key: "cursor", Value: bson.D{}}}
+		}},
+		{"distinct", func(c string, h interface{}) bson.D {
+			return bson.D{{Key: "distinct", Value: c + "_v"}, {Key: "key", Value: "a"}, {Key: "hint", Value: h}}
+		}},
+		{"count", func(c string, h interface{}) bson.D {
+			return bson.D{{Key: "count", Value: c + "_v"}, {Key: "hint", Value: h}}
+		}},
+		{"count_query", func(c string, h interface{}) bson.D {
+			return bson.D{{Key: "count", Value: c + "_v"}, {Key: "query", Value: match}, {Key: "hint", Value: h}}
+		}},
+	}
+	for _, h := range hints {
+		for _, c := range cmds {
+			t.Run(h.name+"_"+c.name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "Hint_OnView_" + h.name + "_" + c.name,
+					Support: harness.DumboDBFull,
+					Setup:   setup,
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						err := col.Database().RunCommand(ctx, c.cmd(col.Name(), h.hint)).Err()
+						var ce mongo.CommandError
+						if errors.As(err, &ce) {
+							// mongod's message for an unknown index embeds its query tree.
+							if strings.Contains(ce.Message, "$natural") {
+								return bson.D{{Key: "code", Value: ce.Code}, {Key: "message", Value: ce.Message}}, nil
+							}
+							return bson.D{{Key: "code", Value: ce.Code}}, nil
+						}
+						return bson.D{{Key: "ok", Value: err == nil}}, nil
+					},
+				})
+			})
+		}
+	}
+}
