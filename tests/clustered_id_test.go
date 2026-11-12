@@ -3401,3 +3401,66 @@ func TestCreate_OverExistingCollations(t *testing.T) {
 		})
 	}
 }
+
+// TestHint_SparseOrBranchMatchingMissing: on a hinted sparse or partial index,
+// an $or with a branch that matches a document missing the field, such as a
+// negation or a null test, reads the index in one scan, in index order.
+func TestHint_SparseOrBranchMatchingMissing(t *testing.T) {
+	docs := []interface{}{
+		bson.D{{Key: "_id", Value: 3}, {Key: "c", Value: "s"}},
+		bson.D{{Key: "_id", Value: 18}, {Key: "c", Value: nil}},
+		bson.D{{Key: "_id", Value: 20}, {Key: "c", Value: 1}},
+		bson.D{{Key: "_id", Value: 21}},
+	}
+	rng := bson.D{{Key: "c", Value: bson.D{{Key: "$gt", Value: ""}, {Key: "$lt", Value: "z"}}}}
+	or := func(other bson.D) bson.D { return bson.D{{Key: "$or", Value: bson.A{rng, other}}} }
+	filters := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"ne", or(bson.D{{Key: "c", Value: bson.D{{Key: "$ne", Value: ""}}}})},
+		{"nin", or(bson.D{{Key: "c", Value: bson.D{{Key: "$nin", Value: bson.A{""}}}}})},
+		{"not", or(bson.D{{Key: "c", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$eq", Value: ""}}}}}})},
+		{"null", or(bson.D{{Key: "c", Value: nil}})},
+		{"bounded", or(bson.D{{Key: "c", Value: bson.D{{Key: "$gte", Value: 1}}}})},
+	}
+	indexes := []struct {
+		name string
+		opts *options.IndexOptions
+	}{
+		{"sparse", options.Index().SetSparse(true)},
+		{"partial", options.Index().SetPartialFilterExpression(bson.D{{Key: "c", Value: bson.D{{Key: "$exists", Value: true}}}})},
+		{"plain", options.Index()},
+	}
+	index := bson.D{{Key: "c", Value: 1}}
+	for _, idx := range indexes {
+		for _, f := range filters {
+			setup := func(ctx context.Context, col *mongo.Collection) error {
+				if _, err := col.InsertMany(ctx, docs); err != nil {
+					return err
+				}
+				_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: index, Options: idx.opts})
+				return err
+			}
+			for _, op := range []string{"find_and_modify", "find"} {
+				name := idx.name + "_" + f.name + "_" + op
+				t.Run(name, func(t *testing.T) {
+					harness.PairTest(t, harness.TestCase{
+						Name:    "Hint_SparseOrBranchMatchingMissing_" + name,
+						Support: harness.DumboDBFull,
+						Setup:   setup,
+						Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+							if op == "find" {
+								return cluFindIDs(f.filter, options.Find().SetHint(index))(ctx, col)
+							}
+							var doc bson.D
+							err := col.FindOneAndUpdate(ctx, f.filter, bson.D{{Key: "$set", Value: bson.D{{Key: "hit", Value: 1}}}},
+								options.FindOneAndUpdate().SetHint(index)).Decode(&doc)
+							return doc, err
+						},
+					})
+				})
+			}
+		}
+	}
+}
