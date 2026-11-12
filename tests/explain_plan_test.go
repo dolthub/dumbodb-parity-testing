@@ -1970,6 +1970,15 @@ func TestExplainPlan_SkipLimitWindow(t *testing.T) {
 		{"limit_skip_limit", func(*mongo.Collection) bson.A { return bson.A{bson.D{{Key: "$limit", Value: 4}}, skip, limit} }},
 		{"lookup_limit_skip", func(c *mongo.Collection) bson.A { return bson.A{lookup(c), limit, skip} }},
 		{"lookup_skip_skip", func(c *mongo.Collection) bson.A { return bson.A{lookup(c), skip, skip} }},
+		{"limit_then_larger_skip", func(*mongo.Collection) bson.A {
+			return bson.A{bson.D{{Key: "$limit", Value: 3}}, bson.D{{Key: "$skip", Value: 5}}}
+		}},
+		{"limit_then_equal_skip", func(*mongo.Collection) bson.A {
+			return bson.A{bson.D{{Key: "$limit", Value: 3}}, bson.D{{Key: "$skip", Value: 3}}}
+		}},
+		{"skip_limit_larger_skip", func(*mongo.Collection) bson.A {
+			return bson.A{bson.D{{Key: "$skip", Value: 2}}, bson.D{{Key: "$limit", Value: 3}}, bson.D{{Key: "$skip", Value: 4}}}
+		}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
