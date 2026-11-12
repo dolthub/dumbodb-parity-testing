@@ -242,6 +242,24 @@ func TestIndex_CreateConflicts(t *testing.T) {
 			})
 		})
 	}
+	t.Run("wide_named_id", func(t *testing.T) {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "Index_CreateConflicts_wide_named_id",
+			Support: harness.DumboDBFull,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				key := bson.D{}
+				for i := range 33 {
+					key = append(key, bson.E{Key: fmt.Sprintf("f%d", i), Value: 1})
+				}
+				err := col.Database().RunCommand(ctx, bson.D{{Key: "createIndexes", Value: col.Name()}, {Key: "indexes", Value: bson.A{bson.D{{Key: "key", Value: key}, {Key: "name", Value: "_id_"}}}}}).Err()
+				var ce mongo.CommandError
+				if errors.As(err, &ce) {
+					return bson.D{{Key: "code", Value: ce.Code}}, nil
+				}
+				return bson.D{{Key: "ok", Value: err == nil}}, nil
+			},
+		})
+	})
 	t.Run("wide_without_name", func(t *testing.T) {
 		harness.PairTest(t, harness.TestCase{
 			Name:    "Index_CreateConflicts_wide_without_name",
