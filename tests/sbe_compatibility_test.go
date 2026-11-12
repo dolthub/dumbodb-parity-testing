@@ -246,6 +246,13 @@ func TestSBECompatibility_Pipelines(t *testing.T) {
 		"UnionWithInFacet":           `[{"$facet":{"f":[{"$unionWith":{"coll":"COLL","pipeline":[{"$group":{"_id":null,"r":{"$push":` + div + `}}}]}}]}}]`,
 		"UnionWithOverSetView":       `[{"$unionWith":{"coll":"COLL_vs","pipeline":[{"$group":{"_id":null,"r":{"$push":` + div + `}}}]}}]`,
 		"UnionWithOverGroupView":     `[{"$unionWith":{"coll":"COLL_vg"}}]`,
+		"GroupByIDFirstThenGroup":    `[{"$group":{"_id":"$_id","v":{"$first":"$v"},"z":{"$first":"$z"}}},{"$group":{"_id":null,"r":{"$max":` + div + `}}}]`,
+		"GroupByIDLastThenGroup":     `[{"$group":{"_id":"$_id","v":{"$last":"$v"},"z":{"$last":"$z"}}},{"$group":{"_id":null,"r":{"$max":` + div + `}}}]`,
+		"GroupByIDTopThenGroup":      `[{"$group":{"_id":"$_id","z":{"$top":{"output":"$z","sortBy":{"_id":1}}}}},{"$group":{"_id":null,"r":{"$max":{"$divide":[1,"$z"]}}}}]`,
+		"GroupByIDFirstComputed":     `[{"$group":{"_id":"$_id","r":{"$first":` + div + `}}}]`,
+		"GroupByIDFirstAndMax":       `[{"$group":{"_id":"$_id","v":{"$first":"$v"},"z":{"$max":"$z"}}},{"$group":{"_id":null,"r":{"$max":` + div + `}}}]`,
+		"GroupByIDMaxThenGroup":      `[{"$group":{"_id":"$_id","v":{"$max":"$v"},"z":{"$max":"$z"}}},{"$group":{"_id":null,"r":{"$max":` + div + `}}}]`,
+		"GroupNullFirst":             `[{"$group":{"_id":null,"r":{"$first":` + div + `}}}]`,
 		"LookupFromViewThenGroup":    `[{"$lookup":{"from":"COLL_vs","localField":"v","foreignField":"v","as":"j"}},{"$group":{"_id":null,"r":{"$push":` + div + `}}}]`,
 	}
 	for name, pipeline := range pipelines {
