@@ -253,6 +253,18 @@ func TestSBECompatibility_Pipelines(t *testing.T) {
 		"GroupByIDFirstAndMax":       `[{"$group":{"_id":"$_id","v":{"$first":"$v"},"z":{"$max":"$z"}}},{"$group":{"_id":null,"r":{"$max":` + div + `}}}]`,
 		"GroupByIDMaxThenGroup":      `[{"$group":{"_id":"$_id","v":{"$max":"$v"},"z":{"$max":"$z"}}},{"$group":{"_id":null,"r":{"$max":` + div + `}}}]`,
 		"GroupNullFirst":             `[{"$group":{"_id":null,"r":{"$first":` + div + `}}}]`,
+		"MatchJSONSchema":            `[{"$match":{"$jsonSchema":{"bsonType":"object"}}},{"$group":{"_id":null,"r":{"$push":` + div + `}}}]`,
+		"MatchBitsAllSet":            `[{"$match":{"v":{"$bitsAllSet":1}}},{"$group":{"_id":null,"r":{"$push":` + div + `}}}]`,
+		"MatchNotBitsAnySet":         `[{"$match":{"v":{"$not":{"$bitsAnySet":2}}}},{"$group":{"_id":null,"r":{"$push":` + div + `}}}]`,
+		"MatchElemMatchBits":         `[{"$match":{"a":{"$elemMatch":{"$bitsAnySet":1}}}},{"$group":{"_id":null,"r":{"$push":` + div + `}}}]`,
+		"MatchMod":                   `[{"$match":{"v":{"$mod":[5,0]}}},{"$group":{"_id":null,"r":{"$push":` + div + `}}}]`,
+		"SortByCountClassicOperator": `[{"$sortByCount":{"$add":[{"$size":"$a"},` + div + `]}}]`,
+		"SortByCountSBE":             `[{"$sortByCount":{"$add":[1,` + div + `]}}]`,
+		"ComputedProjectThenLimit":   `[{"$project":{"r":` + div + `}},{"$limit":2},{"$group":{"_id":"$r"}}]`,
+		"ComputedProjectThenSkip":    `[{"$project":{"r":` + div + `}},{"$skip":1},{"$group":{"_id":"$r"}}]`,
+		"SetThenSkip":                `[{"$set":{"r":` + div + `}},{"$skip":1}]`,
+		"ZeroSkipThenProject":        `[{"$skip":0},{"$project":{"r":` + div + `}},{"$group":{"_id":"$r"}}]`,
+		"InclusionProjectThenLimit":  `[{"$project":{"v":1,"z":1}},{"$limit":2},{"$group":{"_id":` + div + `}}]`,
 		"LookupFromViewThenGroup":    `[{"$lookup":{"from":"COLL_vs","localField":"v","foreignField":"v","as":"j"}},{"$group":{"_id":null,"r":{"$push":` + div + `}}}]`,
 	}
 	for name, pipeline := range pipelines {
