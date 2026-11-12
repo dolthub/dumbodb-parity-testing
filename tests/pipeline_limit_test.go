@@ -286,6 +286,24 @@ func TestPipeline_LengthLimitThroughViews(t *testing.T) {
 		{"count_v997_skip_limit", func(n string) bson.D {
 			return bson.D{{Key: "count", Value: n + "_v997"}, {Key: "skip", Value: 1}, {Key: "limit", Value: 5}}
 		}},
+		{"count_stage_v999", func(n string) bson.D { return aggregate(n+"_v999", bson.D{{Key: "$count", Value: "n"}}) }},
+		{"count_stage_v998", func(n string) bson.D { return aggregate(n+"_v998", bson.D{{Key: "$count", Value: "n"}}) }},
+		{"sort_by_count_v999", func(n string) bson.D { return aggregate(n+"_v999", bson.D{{Key: "$sortByCount", Value: "$a"}}) }},
+		{"collection_999_then_count", func(n string) bson.D {
+			return bson.D{{Key: "aggregate", Value: n}, {Key: "pipeline", Value: append(sets(999), bson.D{{Key: "$count", Value: "n"}})}, {Key: "cursor", Value: bson.D{}}}
+		}},
+		{"collection_998_then_count", func(n string) bson.D {
+			return bson.D{{Key: "aggregate", Value: n}, {Key: "pipeline", Value: append(sets(998), bson.D{{Key: "$count", Value: "n"}})}, {Key: "cursor", Value: bson.D{}}}
+		}},
+		{"collection_999_then_bucket", func(n string) bson.D {
+			return bson.D{{Key: "aggregate", Value: n}, {Key: "pipeline", Value: append(sets(999), bson.D{{Key: "$bucket", Value: bson.D{{Key: "groupBy", Value: "$a"}, {Key: "boundaries", Value: bson.A{0, 5}}, {Key: "default", Value: "o"}}}})}, {Key: "cursor", Value: bson.D{}}}
+		}},
+		{"collection_999_then_bucket_auto", func(n string) bson.D {
+			return bson.D{{Key: "aggregate", Value: n}, {Key: "pipeline", Value: append(sets(999), bson.D{{Key: "$bucketAuto", Value: bson.D{{Key: "groupBy", Value: "$a"}, {Key: "buckets", Value: 2}}}})}, {Key: "cursor", Value: bson.D{}}}
+		}},
+		{"explain_collection_999_then_count", func(n string) bson.D {
+			return bson.D{{Key: "explain", Value: bson.D{{Key: "aggregate", Value: n}, {Key: "pipeline", Value: append(sets(999), bson.D{{Key: "$count", Value: "n"}})}, {Key: "cursor", Value: bson.D{}}}}}
+		}},
 		{"explain_count_v998", func(n string) bson.D {
 			return bson.D{{Key: "explain", Value: bson.D{{Key: "count", Value: n + "_v998"}}}}
 		}},
