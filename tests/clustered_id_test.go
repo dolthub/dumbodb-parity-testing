@@ -3116,6 +3116,9 @@ func TestCreate_OverExistingComparesStoredOptions(t *testing.T) {
 		{"validator_same", bson.D{a1b2}, bson.D{a1b2}},
 		{"validator_plus_moderate", bson.D{a1b2}, bson.D{a1b2, {Key: "validationLevel", Value: "moderate"}}},
 		{"validator_plus_strict", bson.D{a1b2}, bson.D{a1b2, {Key: "validationLevel", Value: "strict"}}},
+		{"validator_unsorted_same", bson.D{validator(bson.E{Key: "b", Value: 2}, bson.E{Key: "a", Value: 1})}, bson.D{validator(bson.E{Key: "b", Value: 2}, bson.E{Key: "a", Value: 1})}},
+		{"validator_unsorted_then_sorted", bson.D{validator(bson.E{Key: "b", Value: 2}, bson.E{Key: "a", Value: 1})}, bson.D{a1b2}},
+		{"validator_sorted_then_unsorted", bson.D{a1b2}, bson.D{validator(bson.E{Key: "b", Value: 2}, bson.E{Key: "a", Value: 1})}},
 		{"validator_long_vs_int", bson.D{a1b2}, bson.D{validator(bson.E{Key: "a", Value: int64(1)}, bson.E{Key: "b", Value: 2})}},
 		{"action_dropped", bson.D{validator(bson.E{Key: "a", Value: 1}), {Key: "validationAction", Value: "warn"}}, bson.D{validator(bson.E{Key: "a", Value: 1})}},
 		{"action_same", bson.D{validator(bson.E{Key: "a", Value: 1}), {Key: "validationAction", Value: "warn"}},
@@ -3261,5 +3264,58 @@ func TestHint_OnView(t *testing.T) {
 				})
 			})
 		}
+	}
+}
+
+// TestCollMod_ValidationOptionsAsStored: listCollections reports a validator
+// in the order it was given, and collMod of any validation option stores the
+// validation level and action, dropping an emptied validator.
+func TestCollMod_ValidationOptionsAsStored(t *testing.T) {
+	cases := []struct {
+		name        string
+		create, mod bson.D
+	}{
+		{"create_unsorted", bson.D{{Key: "validator", Value: bson.D{{Key: "b", Value: 2}, {Key: "a", Value: bson.D{{Key: "$gt", Value: 1}, {Key: "$exists", Value: true}}}}}}, nil},
+		{"mod_validator", nil, bson.D{{Key: "validator", Value: bson.D{{Key: "z", Value: 1}, {Key: "y", Value: 2}}}}},
+		{"mod_level", nil, bson.D{{Key: "validationLevel", Value: "moderate"}}},
+		{"mod_action", nil, bson.D{{Key: "validationAction", Value: "warn"}}},
+		{"mod_clear", bson.D{{Key: "validator", Value: bson.D{{Key: "b", Value: 1}}}}, bson.D{{Key: "validator", Value: bson.D{}}}},
+		{"mod_level_keeps_validator", bson.D{{Key: "validator", Value: bson.D{{Key: "b", Value: 1}}}}, bson.D{{Key: "validationLevel", Value: "moderate"}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "CollMod_ValidationOptionsAsStored_" + tc.name,
+				Support: harness.DumboDBFull,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					name := col.Name() + "_c"
+					db := col.Database()
+					if err := db.RunCommand(ctx, append(bson.D{{Key: "create", Value: name}}, tc.create...)).Err(); err != nil {
+						return nil, err
+					}
+					if tc.mod != nil {
+						if err := db.RunCommand(ctx, append(bson.D{{Key: "collMod", Value: name}}, tc.mod...)).Err(); err != nil {
+							return nil, err
+						}
+					}
+					specs, err := db.ListCollectionSpecifications(ctx, bson.D{{Key: "name", Value: name}})
+					if err != nil || len(specs) != 1 {
+						return nil, err
+					}
+					var opts bson.D
+					if err := bson.Unmarshal(specs[0].Options, &opts); err != nil {
+						return nil, err
+					}
+					out := bson.D{}
+					for _, e := range opts {
+						switch e.Key {
+						case "validator", "validationLevel", "validationAction":
+							out = append(out, e)
+						}
+					}
+					return out, nil
+				},
+			})
+		})
 	}
 }
