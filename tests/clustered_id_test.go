@@ -3107,6 +3107,14 @@ func TestHint_FirstInBoundsEdges(t *testing.T) {
 				bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 1}, {Key: "$lt", Value: "x"}}}}}}}},
 		{"multikey_in_with_null", []interface{}{d(1, bson.A{0, "x"}), d(2, 2)}, bson.D{{Key: "a", Value: 1}},
 			bson.D{{Key: "a", Value: bson.D{{Key: "$in", Value: bson.A{nil, 2, "x"}}}}}},
+		{"multikey_null", []interface{}{bson.D{{Key: "_id", Value: 6}, {Key: "b", Value: "a"}}, d(33, bson.A{primitive.MinKey{}, nil})},
+			bson.D{{Key: "a", Value: 1}}, bson.D{{Key: "a", Value: nil}}},
+		{"multikey_eq_null", []interface{}{bson.D{{Key: "_id", Value: 6}, {Key: "b", Value: "a"}}, d(33, bson.A{primitive.MinKey{}, nil})},
+			bson.D{{Key: "a", Value: 1}}, bson.D{{Key: "a", Value: bson.D{{Key: "$eq", Value: nil}}}}},
+		{"multikey_lte_null", []interface{}{bson.D{{Key: "_id", Value: 6}, {Key: "b", Value: "a"}}, d(33, bson.A{primitive.MinKey{}, nil})},
+			bson.D{{Key: "a", Value: 1}}, bson.D{{Key: "a", Value: bson.D{{Key: "$lte", Value: nil}}}}},
+		{"multikey_gte_null", []interface{}{bson.D{{Key: "_id", Value: 6}, {Key: "b", Value: "a"}}, d(33, bson.A{primitive.MinKey{}, nil})},
+			bson.D{{Key: "a", Value: 1}}, bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: nil}}}}},
 	}
 	for _, tc := range cases {
 		setup := func(ctx context.Context, col *mongo.Collection) error {
