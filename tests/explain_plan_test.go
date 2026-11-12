@@ -1493,6 +1493,12 @@ func TestExplainPlan_PipelineStages(t *testing.T) {
 		{"project_then_count", bson.A{bson.D{{Key: "$project", Value: bson.D{{Key: "a", Value: 1}}}}, count}},
 		{"match_set_count", bson.A{match, set, count}},
 		{"project_set_count", bson.A{bson.D{{Key: "$project", Value: bson.D{{Key: "a", Value: 1}}}}, set, count}},
+		{"current_rename", bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: "$$CURRENT.g"}}}}, bson.D{{Key: "$match", Value: bson.D{{Key: "z", Value: 1}}}}}},
+		{"root_rename", bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: "$$ROOT.g"}}}}, bson.D{{Key: "$match", Value: bson.D{{Key: "z", Value: 1}}}}}},
+		{"json_schema", bson.A{set, bson.D{{Key: "$match", Value: bson.D{{Key: "$jsonSchema", Value: bson.D{{Key: "required", Value: bson.A{"g"}}}}}}}}},
+		{"renamed_plus_other_field", bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: "$g"}}}}, bson.D{{Key: "$match", Value: bson.D{{Key: "z", Value: 1}, {Key: "a", Value: 2}}}}}},
+		{"lookup_set_match", bson.A{bson.D{{Key: "$lookup", Value: bson.D{{Key: "from", Value: "explain_plan_foreign"}, {Key: "localField", Value: "a"},
+			{Key: "foreignField", Value: "a"}, {Key: "as", Value: "j"}}}}, set, match}},
 	}
 	for _, p := range pipelines {
 		t.Run(p.name, func(t *testing.T) {
