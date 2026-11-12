@@ -118,6 +118,14 @@ func TestServerStatus_QueryExecutorScanned(t *testing.T) {
 			_, err := col.CountDocuments(ctx, bson.D{{Key: "grp", Value: int32(5)}})
 			return err
 		}, true, harness.DumboDBFull},
+		{"IndexCountIn", func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.CountDocuments(ctx, bson.D{{Key: "i", Value: bson.D{{Key: "$in", Value: bson.A{int32(3), int32(5), int32(7), int32(2000)}}}}})
+			return err
+		}, true, harness.DumboDBFull},
+		{"IndexCountInRanges", func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.CountDocuments(ctx, bson.D{{Key: "grp", Value: bson.D{{Key: "$in", Value: bson.A{int32(1), int32(2)}}}}})
+			return err
+		}, true, harness.DumboDBFull},
 		{"IndexUpdateMany", func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.UpdateMany(ctx, bson.D{{Key: "grp", Value: int32(5)}}, bson.D{{Key: "$set", Value: bson.D{{Key: "t", Value: 1}}}})
 			return err
