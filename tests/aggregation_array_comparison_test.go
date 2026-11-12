@@ -77,3 +77,46 @@ func TestAggregationArrayComparison(t *testing.T) {
 		},
 	})
 }
+
+// More places that compare values as aggregation does, not as a query: $in
+// and $indexOfArray match whole values, window ranks tie as $sort orders, a
+// range window needs numeric sortBy values, and a $sort on _id alone compares
+// arrays whole.
+func TestAggregationComparisonSiblings(t *testing.T) {
+	seed := func(ctx context.Context, col *mongo.Collection) error {
+		_, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: bson.A{int32(3), int32(1)}}},
+			bson.D{{Key: "_id", Value: int32(2)}, {Key: "a", Value: bson.A{int32(2)}}},
+			bson.D{{Key: "_id", Value: int32(3)}, {Key: "a", Value: int32(1)}},
+			bson.D{{Key: "_id", Value: int32(4)}, {Key: "a", Value: bson.A{int32(1), int32(5)}}},
+			bson.D{{Key: "_id", Value: int32(5)}, {Key: "a", Value: bson.A{}}},
+		})
+		return err
+	}
+	pipelines := map[string]string{
+		"InAndIndexOfArray":   `[{"$match":{"_id":1}},{"$project":{"r":{"$in":[1,[[1],2]]},"s":{"$indexOfArray":[[[1,2],1],1]},"t":{"$in":[[1],[[1],2]]},"u":{"$indexOfArray":[[[1],1],[1]]}}}]`,
+		"RankAscending":       `[{"$setWindowFields":{"sortBy":{"a":1},"output":{"r":{"$rank":{}},"d":{"$denseRank":{}}}}},{"$sort":{"_id":1}}]`,
+		"RankDescending":      `[{"$setWindowFields":{"sortBy":{"a":-1},"output":{"r":{"$rank":{}},"d":{"$denseRank":{}}}}},{"$sort":{"_id":1}}]`,
+		"RangeWindowArray":    `[{"$setWindowFields":{"sortBy":{"a":1},"output":{"s":{"$sum":1,"window":{"range":[-1,1]}}}}}]`,
+		"RangeWindowMissing":  `[{"$set":{"b":"$zz"}},{"$setWindowFields":{"sortBy":{"b":1},"output":{"s":{"$sum":1,"window":{"range":["unbounded","current"]}}}}}]`,
+		"RangeWindowNumbers":  `[{"$setWindowFields":{"sortBy":{"_id":1},"output":{"s":{"$sum":1,"window":{"range":[-1,1]}}}}},{"$sort":{"_id":1}}]`,
+		"SortGroupIDAsc":      `[{"$group":{"_id":"$a"}},{"$sort":{"_id":1}}]`,
+		"SortGroupIDDesc":     `[{"$group":{"_id":"$a"}},{"$sort":{"_id":-1}}]`,
+		"SortProjectedIDDesc": `[{"$project":{"_id":"$a"}},{"$sort":{"_id":-1}}]`,
+		"SortGroupIDLimit":    `[{"$group":{"_id":"$a"}},{"$sort":{"_id":1}},{"$limit":2}]`,
+	}
+	for name, js := range pipelines {
+		var stages []bson.D
+		if err := bson.UnmarshalExtJSON([]byte(`{"p":`+js+`}`), false, &struct{ P *[]bson.D }{&stages}); err != nil {
+			t.Fatal(name, err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "AggregationComparisonSiblings_" + name,
+			Support: harness.DumboDBFull,
+			Setup:   seed,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return fieldOpsAgg(ctx, col, stages...)
+			},
+		})
+	}
+}
