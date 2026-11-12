@@ -65,3 +65,50 @@ func TestUpsertAndSeeding(t *testing.T) {
 		})
 	}
 }
+
+// A replacement upsert takes only _id from its query, and refuses a sub-path
+// of _id. A pipeline upsert seeds as a modifier upsert does.
+func TestUpsertSeedingByUpdateKind(t *testing.T) {
+	filters := map[string]bson.D{
+		"PathTwice":      {{Key: "$and", Value: bson.A{bson.D{{Key: "a", Value: int32(1)}}, bson.D{{Key: "a", Value: int32(2)}}}}},
+		"PathThenSub":    {{Key: "a", Value: bson.D{{Key: "b", Value: int32(1)}}}, {Key: "a.b", Value: int32(1)}},
+		"SubThenPath":    {{Key: "a.b", Value: int32(1)}, {Key: "a", Value: bson.D{{Key: "b", Value: int32(1)}}}},
+		"IDTwice":        {{Key: "$and", Value: bson.A{bson.D{{Key: "_id", Value: int32(7)}}, bson.D{{Key: "_id", Value: int32(8)}}}}},
+		"IDThenIDSub":    {{Key: "_id", Value: bson.D{{Key: "x", Value: int32(1)}}}, {Key: "_id.x", Value: int32(1)}},
+		"IDSubs":         {{Key: "_id.x", Value: int32(1)}, {Key: "_id.y", Value: int32(2)}},
+		"IDAndOther":     {{Key: "_id", Value: int32(5)}, {Key: "c", Value: int32(1)}},
+		"NestedAndPaths": {{Key: "$and", Value: bson.A{bson.D{{Key: "a", Value: int32(2)}}, bson.D{{Key: "$and", Value: bson.A{bson.D{{Key: "d.e", Value: int32(4)}}}}}}}},
+	}
+	updates := map[string]interface{}{
+		"Replacement":      bson.D{{Key: "r", Value: int32(1)}},
+		"EmptyReplacement": bson.D{},
+		"Pipeline":         mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "p", Value: int32(1)}}}}},
+	}
+	for fname, filter := range filters {
+		for uname, update := range updates {
+			filter, update := filter, update
+			harness.PairTest(t, harness.TestCase{
+				Name:    "UpsertSeedingByUpdateKind_" + uname + "_" + fname,
+				Support: harness.DumboDBFull,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					var err error
+					if d, ok := update.(bson.D); ok {
+						_, err = col.ReplaceOne(ctx, filter, d, options.Replace().SetUpsert(true))
+					} else {
+						_, err = col.UpdateOne(ctx, filter, update, options.Update().SetUpsert(true))
+					}
+					if err != nil {
+						return nil, err
+					}
+					cursor, err := col.Find(ctx, bson.D{}, options.Find().SetProjection(bson.D{{Key: "_id", Value: bson.D{{Key: "$type", Value: "$_id"}}}, {Key: "a", Value: 1}, {Key: "c", Value: 1}, {Key: "d", Value: 1}, {Key: "r", Value: 1}, {Key: "p", Value: 1}}))
+					if err != nil {
+						return nil, err
+					}
+					var out []bson.D
+					err = cursor.All(ctx, &out)
+					return out, err
+				},
+			})
+		}
+	}
+}
