@@ -2103,3 +2103,81 @@ func TestExplainPlan_CountFromCompoundAndSparse(t *testing.T) {
 		})
 	}
 }
+
+// TestExplainPlan_StageEntryShapes: a $sort and the $limit after it explain
+// as one $sort of sortKey and limit with its sort counters, and a pipeline
+// led by $collStats or $indexStats explains only its stages.
+func TestExplainPlan_StageEntryShapes(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 5)
+		for i := range docs {
+			docs[i] = bson.D{{Key: "_id", Value: int32(i + 1)}, {Key: "a", Value: int32(i + 1)}}
+		}
+		if _, err := col.InsertMany(ctx, docs); err != nil {
+			return err
+		}
+		_, err := col.Database().Collection(col.Name()+"_f").InsertMany(ctx, docs[:3])
+		return err
+	}
+	lookup := func(col *mongo.Collection) bson.D {
+		return bson.D{{Key: "$lookup", Value: bson.D{{Key: "from", Value: col.Name() + "_f"}, {Key: "localField", Value: "a"},
+			{Key: "foreignField", Value: "a"}, {Key: "as", Value: "j"}}}}
+	}
+	sort := bson.D{{Key: "$sort", Value: bson.D{{Key: "j.a", Value: 1}}}}
+	limit := bson.D{{Key: "$limit", Value: 2}}
+	cases := []struct {
+		name     string
+		pipeline func(col *mongo.Collection) bson.A
+	}{
+		{"lookup_sort_limit", func(c *mongo.Collection) bson.A { return bson.A{lookup(c), sort, limit} }},
+		{"set_sort_limit", func(*mongo.Collection) bson.A {
+			return bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "q", Value: "$a"}}}}, bson.D{{Key: "$sort", Value: bson.D{{Key: "q", Value: -1}}}}, limit}
+		}},
+		{"set_sort", func(*mongo.Collection) bson.A {
+			return bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "q", Value: "$a"}}}}, bson.D{{Key: "$sort", Value: bson.D{{Key: "q", Value: -1}}}}}
+		}},
+		{"coll_stats", func(*mongo.Collection) bson.A {
+			return bson.A{bson.D{{Key: "$collStats", Value: bson.D{{Key: "count", Value: bson.D{}}}}}}
+		}},
+		{"index_stats_match", func(*mongo.Collection) bson.A {
+			return bson.A{bson.D{{Key: "$indexStats", Value: bson.D{}}}, bson.D{{Key: "$match", Value: bson.D{{Key: "name", Value: "_id_"}}}}}
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "ExplainPlan_StageEntryShapes_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					var res bson.D
+					cmd := bson.D{{Key: "explain", Value: bson.D{{Key: "aggregate", Value: col.Name()}, {Key: "pipeline", Value: tc.pipeline(col)},
+						{Key: "cursor", Value: bson.D{}}}}, {Key: "verbosity", Value: "executionStats"}}
+					if err := col.Database().RunCommand(ctx, cmd).Decode(&res); err != nil {
+						return nil, err
+					}
+					_, hasPlanner := lookupBSONField(res, "queryPlanner")
+					stages, _ := lookupBSONField(res, "stages")
+					var shapes bson.A
+					arr, _ := stages.(bson.A)
+					for _, s := range arr {
+						entry := s.(bson.D)
+						shape := bson.D{}
+						for _, e := range entry {
+							switch e.Key {
+							case "executionTimeMillisEstimate", "totalDataSizeSortedBytesEstimate":
+								shape = append(shape, bson.E{Key: e.Key, Value: "present"})
+							case "$sort", "nReturned", "usedDisk", "spills", "spilledDataStorageSize":
+								shape = append(shape, e)
+							default:
+								shape = append(shape, bson.E{Key: e.Key, Value: "present"})
+							}
+						}
+						shapes = append(shapes, shape)
+					}
+					return bson.D{{Key: "queryPlanner", Value: hasPlanner}, {Key: "stages", Value: shapes}}, nil
+				},
+			})
+		})
+	}
+}
