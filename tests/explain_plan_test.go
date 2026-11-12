@@ -2246,6 +2246,12 @@ func TestCount_EqualityWithContradictingRange(t *testing.T) {
 		if err := createIndex(ctx, col, bson.D{{Key: "b", Value: 1}}); err != nil {
 			return err
 		}
+		if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(100)}, {Key: "m", Value: bson.A{5, 11}}}); err != nil {
+			return err
+		}
+		if err := createIndex(ctx, col, bson.D{{Key: "m", Value: 1}}); err != nil {
+			return err
+		}
 		return createIndex(ctx, col, bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}})
 	}
 	eq := func(more ...bson.E) bson.D { return append(bson.D{{Key: "$eq", Value: 5}}, more...) }
@@ -2260,6 +2266,11 @@ func TestCount_EqualityWithContradictingRange(t *testing.T) {
 		{"single_eq_ne", bson.D{{Key: "b", Value: eq(bson.E{Key: "$ne", Value: 5})}}, "b_1"},
 		{"compound_eq_gt", bson.D{{Key: "a", Value: 1}, {Key: "b", Value: eq(bson.E{Key: "$gt", Value: 10})}}, "a_1_b_1"},
 		{"compound_eq_lt", bson.D{{Key: "a", Value: 1}, {Key: "b", Value: eq(bson.E{Key: "$lt", Value: 3})}}, "a_1_b_1"},
+		{"single_eq_in_miss", bson.D{{Key: "b", Value: eq(bson.E{Key: "$in", Value: bson.A{6, 7}})}}, "b_1"},
+		{"single_eq_ne_other", bson.D{{Key: "b", Value: eq(bson.E{Key: "$ne", Value: 6})}}, "b_1"},
+		{"single_eq_nin", bson.D{{Key: "b", Value: eq(bson.E{Key: "$nin", Value: bson.A{5}})}}, "b_1"},
+		{"compound_eq_ne", bson.D{{Key: "a", Value: 1}, {Key: "b", Value: eq(bson.E{Key: "$ne", Value: 5})}}, "a_1_b_1"},
+		{"multikey_eq_gt", bson.D{{Key: "m", Value: eq(bson.E{Key: "$gt", Value: 10})}}, "m_1"},
 		{"compound_eq_in", bson.D{{Key: "a", Value: 1}, {Key: "b", Value: eq(bson.E{Key: "$in", Value: bson.A{5, 6}})}}, "a_1_b_1"},
 	}
 	for _, tc := range cases {
@@ -2278,7 +2289,23 @@ func TestCount_EqualityWithContradictingRange(t *testing.T) {
 						return nil, err
 					}
 					n, _ := lookupBSONField(res, "n")
-					return bson.D{{Key: "countDocuments", Value: docs}, {Key: "count", Value: n}}, nil
+					out := bson.D{{Key: "countDocuments", Value: docs}, {Key: "count", Value: n}}
+					for _, cmd := range []bson.D{
+						{{Key: "count", Value: col.Name()}, {Key: "query", Value: tc.filter}, {Key: "hint", Value: tc.hint}},
+						{{Key: "find", Value: col.Name()}, {Key: "filter", Value: tc.filter}, {Key: "hint", Value: tc.hint}},
+					} {
+						var ex bson.D
+						if err := col.Database().RunCommand(ctx, bson.D{{Key: "explain", Value: cmd}, {Key: "verbosity", Value: "executionStats"}}).Decode(&ex); err != nil {
+							return nil, err
+						}
+						qp, _ := lookupBSONField(ex, "queryPlanner")
+						wp, _ := lookupBSONField(qp.(bson.D), "winningPlan")
+						stats, _ := lookupBSONField(ex, "executionStats")
+						keys, _ := lookupBSONField(stats.(bson.D), "totalKeysExamined")
+						exDocs, _ := lookupBSONField(stats.(bson.D), "totalDocsExamined")
+						out = append(out, bson.E{Key: cmd[0].Key, Value: bson.D{{Key: "plan", Value: planStages(wp)}, {Key: "keys", Value: keys}, {Key: "docs", Value: exDocs}}})
+					}
+					return out, nil
 				},
 			})
 		})
