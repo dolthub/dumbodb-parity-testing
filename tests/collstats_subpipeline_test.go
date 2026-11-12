@@ -68,3 +68,74 @@ func TestCollStatsSubPipeline(t *testing.T) {
 		})
 	}
 }
+
+// A sub-pipeline over a view reads $collStats through a view without stages
+// to its base collection; a view's stages come first, so $collStats is no
+// longer first (40602). A top-level $collStats on a view is refused (166).
+// find, count and distinct on a view report the database in ns.
+func TestCollStatsViews(t *testing.T) {
+	count := bson.D{{Key: "$collStats", Value: bson.D{{Key: "count", Value: bson.D{}}}}}
+	storage := bson.D{{Key: "$collStats", Value: bson.D{{Key: "storageStats", Value: bson.D{}}}}}
+	keep := bson.D{{Key: "$project", Value: bson.D{{Key: "count", Value: 1}, {Key: "ns", Value: 1}, {Key: "c", Value: "$storageStats.count"}}}}
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		db := col.Database()
+		base := col.Name() + "_base"
+		if _, err := db.Collection(base).InsertMany(ctx, []interface{}{bson.D{{Key: "_id", Value: int32(1)}}, bson.D{{Key: "_id", Value: int32(2)}}}); err != nil {
+			return err
+		}
+		if err := db.CreateView(ctx, col.Name()+"_staged", base, mongo.Pipeline{{{Key: "$match", Value: bson.D{{Key: "_id", Value: int32(1)}}}}}); err != nil {
+			return err
+		}
+		if err := db.CreateView(ctx, col.Name()+"_plain", base, mongo.Pipeline{}); err != nil {
+			return err
+		}
+		if err := db.CreateView(ctx, col.Name()+"_plain2", col.Name()+"_plain", mongo.Pipeline{}); err != nil {
+			return err
+		}
+		if err := db.CreateView(ctx, col.Name()+"_stats", col.Name(), mongo.Pipeline{{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: base}, {Key: "pipeline", Value: bson.A{count}}}}}}); err != nil {
+			return err
+		}
+		_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(9)}})
+		return err
+	}
+	cleanup := func(ctx context.Context, col *mongo.Collection) {
+		for _, s := range []string{"_stats", "_plain2", "_plain", "_staged", "_base"} {
+			_ = col.Database().Collection(col.Name() + s).Drop(ctx)
+		}
+	}
+	union := func(view string, stats bson.D) func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			defer cleanup(ctx, col)
+			return fieldOpsAgg(ctx, col, bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: col.Name() + view}, {Key: "pipeline", Value: bson.A{stats, keep}}}}})
+		}
+	}
+	cases := map[string]func(ctx context.Context, col *mongo.Collection) (interface{}, error){
+		"UnionWithStagedView": union("_staged", count),
+		"UnionWithPlainView":  union("_plain", count),
+		"UnionWithViewChain":  union("_plain2", storage),
+		"LookupStagedView": func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			defer cleanup(ctx, col)
+			return fieldOpsAgg(ctx, col, bson.D{{Key: "$lookup", Value: bson.D{{Key: "from", Value: col.Name() + "_staged"}, {Key: "pipeline", Value: bson.A{count}}, {Key: "as", Value: "j"}}}})
+		},
+		"TopLevelPlainView": func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			defer cleanup(ctx, col)
+			return fieldOpsAgg(ctx, col.Database().Collection(col.Name()+"_plain"), count)
+		},
+		"TopLevelStagedView": func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			defer cleanup(ctx, col)
+			return fieldOpsAgg(ctx, col.Database().Collection(col.Name()+"_staged"), count)
+		},
+		"FindOnView": func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			defer cleanup(ctx, col)
+			return findWithProjection(ctx, col.Database().Collection(col.Name()+"_stats"), bson.D{}, bson.D{{Key: "ns", Value: 1}, {Key: "count", Value: 1}})
+		},
+	}
+	for name, run := range cases {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "CollStatsViews_" + name,
+			Support: harness.DumboDBFull,
+			Setup:   setup,
+			Run:     run,
+		})
+	}
+}
