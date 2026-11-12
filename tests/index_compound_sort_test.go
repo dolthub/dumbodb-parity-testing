@@ -16,6 +16,8 @@ package tests
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -153,6 +155,35 @@ func TestIndex_CompoundEqualityPrefixSortMixed(t *testing.T) {
 					}
 					var docs []bson.D
 					return docs, cur.All(ctx, &docs)
+				},
+			})
+		})
+	}
+}
+
+// TestIndex_KeyFieldLimit: an index key pattern holds at most 32 fields.
+func TestIndex_KeyFieldLimit(t *testing.T) {
+	for _, n := range []int{32, 33} {
+		t.Run(fmt.Sprintf("fields_%d", n), func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    fmt.Sprintf("Index_KeyFieldLimit_%d", n),
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: 1}})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					key := bson.D{}
+					for i := range n {
+						key = append(key, bson.E{Key: fmt.Sprintf("f%d", i), Value: 1})
+					}
+					err := col.Database().RunCommand(ctx, bson.D{{Key: "createIndexes", Value: col.Name()},
+						{Key: "indexes", Value: bson.A{bson.D{{Key: "key", Value: key}, {Key: "name", Value: "wide"}}}}}).Err()
+					var ce mongo.CommandError
+					if errors.As(err, &ce) {
+						return bson.D{{Key: "code", Value: ce.Code}, {Key: "message", Value: ce.Message}}, nil
+					}
+					return bson.D{{Key: "ok", Value: err == nil}}, nil
 				},
 			})
 		})
