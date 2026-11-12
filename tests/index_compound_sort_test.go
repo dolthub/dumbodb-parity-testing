@@ -261,3 +261,50 @@ func TestIndex_CreateConflicts(t *testing.T) {
 		})
 	})
 }
+
+// TestIndex_SixtyFourIndexLimit: a collection holds at most 64 indexes, its
+// _id index included; re-requesting existing indexes stays within it.
+func TestIndex_SixtyFourIndexLimit(t *testing.T) {
+	specs := func(from, to int) bson.A {
+		out := bson.A{}
+		for i := from; i < to; i++ {
+			out = append(out, bson.D{{Key: "key", Value: bson.D{{Key: fmt.Sprintf("f%d", i), Value: 1}}}, {Key: "name", Value: fmt.Sprintf("i%d", i)}})
+		}
+		return out
+	}
+	cases := []struct {
+		name          string
+		first, second bson.A
+	}{
+		{"one_past", specs(0, 63), specs(63, 64)},
+		{"existing_plus_one", specs(0, 63), specs(0, 64)},
+		{"existing_again", specs(0, 63), specs(0, 63)},
+		{"many_at_once", specs(0, 10), specs(0, 65)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Index_SixtyFourIndexLimit_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: 1}}); err != nil {
+						return err
+					}
+					return col.Database().RunCommand(ctx, bson.D{{Key: "createIndexes", Value: col.Name()}, {Key: "indexes", Value: tc.first}}).Err()
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					var res bson.M
+					err := col.Database().RunCommand(ctx, bson.D{{Key: "createIndexes", Value: col.Name()}, {Key: "indexes", Value: tc.second}}).Decode(&res)
+					var ce mongo.CommandError
+					if errors.As(err, &ce) {
+						return bson.D{{Key: "code", Value: ce.Code}}, nil
+					}
+					if err != nil {
+						return nil, err
+					}
+					return bson.D{{Key: "after", Value: res["numIndexesAfter"]}}, nil
+				},
+			})
+		})
+	}
+}
