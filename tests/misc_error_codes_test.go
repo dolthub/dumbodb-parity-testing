@@ -146,3 +146,80 @@ func TestUnionWithStartsAfterInput(t *testing.T) {
 		},
 	})
 }
+
+// $bucketAuto's buckets must be a positive 32-bit integer; an update
+// pipeline parses a stage before refusing it; $documents evaluates its
+// argument as an expression.
+func TestParseChecksQ11(t *testing.T) {
+	pipelines := map[string]string{
+		"BucketsFraction":      `[{"$bucketAuto":{"groupBy":"$x","buckets":1.5}}]`,
+		"BucketsTooLarge":      `[{"$bucketAuto":{"groupBy":"$x","buckets":8589934592}}]`,
+		"BucketsLongTooLarge":  `[{"$bucketAuto":{"groupBy":"$x","buckets":{"$numberLong":"8589934592"}}}]`,
+		"BucketsString":        `[{"$bucketAuto":{"groupBy":"$x","buckets":"a"}}]`,
+		"BucketsZero":          `[{"$bucketAuto":{"groupBy":"$x","buckets":0}}]`,
+		"BucketsNegativeFract": `[{"$bucketAuto":{"groupBy":"$x","buckets":-1.5}}]`,
+		"BucketsDecimal":       `[{"$bucketAuto":{"groupBy":"$x","buckets":{"$numberDecimal":"2"}}}]`,
+		"BucketsDecimalFract":  `[{"$bucketAuto":{"groupBy":"$x","buckets":{"$numberDecimal":"2.5"}}}]`,
+		"SortByCountTrailing":  `[{"$sortByCount":"$x."}]`,
+		"SortByCountEmptyVar":  `[{"$sortByCount":"$$"}]`,
+	}
+	for name, js := range pipelines {
+		var stages []bson.D
+		if err := bson.UnmarshalExtJSON([]byte(`{"p":`+js+`}`), false, &struct{ P *[]bson.D }{&stages}); err != nil {
+			t.Fatal(name, err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "ParseChecksQ11_" + name,
+			Support: harness.DumboDBFull,
+			Setup:   miscCodesSeed,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return fieldOpsAgg(ctx, col, stages...)
+			},
+		})
+	}
+	updates := map[string]string{
+		"UpdateBadDensify": `[{"$densify":{"field":1}}]`,
+		"UpdateBadGroup":   `[{"$group":{"_id":1,"zz":1}}]`,
+		"UpdateGroup":      `[{"$group":{"_id":1}}]`,
+		"UpdateUnknown":    `[{"$bogus":{}}]`,
+	}
+	for name, js := range updates {
+		var stages bson.A
+		if err := bson.UnmarshalExtJSON([]byte(js), false, &stages); err != nil {
+			t.Fatal(name, err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "ParseChecksQ11_" + name,
+			Support: harness.DumboDBFull,
+			Setup:   miscCodesSeed,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				_, err := col.UpdateOne(ctx, bson.D{}, stages)
+				return nil, err
+			},
+		})
+	}
+	documents := map[string]string{
+		"DocumentsFieldPaths": `[{"$documents":[{"a":"$b"},{"a":{"$add":[1,2]}}]},{"$project":{"_id":0,"a":1,"t":{"$type":"$a"}}}]`,
+		"DocumentsNow":        `[{"$documents":[{"a":"$$NOW"}]},{"$project":{"_id":0,"t":{"$type":"$a"}}}]`,
+		"DocumentsMap":        `[{"$documents":{"$map":{"input":[1,2],"in":{"v":"$$this"}}}}]`,
+		"DocumentsNotArray":   `[{"$documents":"$x"}]`,
+		"DocumentsScalar":     `[{"$documents":[1]}]`,
+	}
+	for name, js := range documents {
+		var stages bson.A
+		if err := bson.UnmarshalExtJSON([]byte(js), false, &stages); err != nil {
+			t.Fatal(name, err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "ParseChecksQ11_" + name,
+			Support: harness.DumboDBFull,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				var res bson.M
+				if err := col.Database().RunCommand(ctx, bson.D{{Key: "aggregate", Value: 1}, {Key: "pipeline", Value: stages}, {Key: "cursor", Value: bson.D{}}}).Decode(&res); err != nil {
+					return nil, err
+				}
+				return res["cursor"].(bson.M)["firstBatch"], nil
+			},
+		})
+	}
+}
