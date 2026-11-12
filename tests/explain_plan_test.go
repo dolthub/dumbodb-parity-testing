@@ -1388,6 +1388,8 @@ func TestAggregate_MatchAfterShaping(t *testing.T) {
 		{"set_rename_or", mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "z", Value: "$a"}}}}, {{Key: "$match", Value: bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "z", Value: 1}}, bson.D{{Key: "b", Value: 2}}}}}}}}},
 		{"array_rename", mongo.Pipeline{{{Key: "$project", Value: bson.D{{Key: "z", Value: "$arr.k"}}}}, {{Key: "$match", Value: bson.D{{Key: "z", Value: 2}}}}}},
 		{"unset", mongo.Pipeline{{{Key: "$unset", Value: "b"}}, {{Key: "$match", Value: bson.D{{Key: "a", Value: 2}}}}}},
+		{"get_field_after_set", mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "y", Value: "$a"}}}}, {{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{bson.D{{Key: "$getField", Value: "y"}}, 2}}}}}}}}},
+		{"get_field_after_unset", mongo.Pipeline{{{Key: "$unset", Value: "a"}}, {{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{bson.D{{Key: "$getField", Value: "a"}}, 2}}}}}}}}},
 		{"current_rename", mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "z", Value: "$$CURRENT.a"}}}}, {{Key: "$match", Value: bson.D{{Key: "z", Value: 2}}}}}},
 		{"expr_renamed", mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "z", Value: "$a"}}}}, {{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{"$z", 2}}}}}}}}},
 		{"expr_overwritten", mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$multiply", Value: bson.A{"$a", 10}}}}}}}, {{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{"$a", 20}}}}}}}}},
@@ -1908,5 +1910,41 @@ func TestExplainPlan_CountTrailingMultikey(t *testing.T) {
 				},
 			})
 		})
+	}
+}
+
+// TestExplainPlan_ViewHiddenFieldGetField: explain on a view that hides a
+// field reports the same counts whatever value a $getField probe of that field
+// guesses, because the probe runs after the view hides it.
+func TestExplainPlan_ViewHiddenFieldGetField(t *testing.T) {
+	for _, guess := range []string{"s1", "zz"} {
+		for _, shape := range []string{"field", "doc"} {
+			t.Run(guess+"/"+shape, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:      "ExplainPlan_ViewHiddenFieldGetField_" + guess + "_" + shape,
+					Support:   harness.DumboDBFull,
+					Clustered: true,
+					Setup: func(ctx context.Context, col *mongo.Collection) error {
+						if _, err := col.InsertMany(ctx, []interface{}{bson.D{{Key: "_id", Value: 1}, {Key: "secret", Value: "s1"}}, bson.D{{Key: "_id", Value: 2}, {Key: "secret", Value: "s2"}}}); err != nil {
+							return err
+						}
+						return col.Database().CreateView(ctx, col.Name()+"_v", col.Name(), mongo.Pipeline{{{Key: "$project", Value: bson.D{{Key: "secret", Value: 0}}}}})
+					},
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						var probe interface{} = "secret"
+						if shape == "doc" {
+							probe = bson.D{{Key: "field", Value: "secret"}, {Key: "input", Value: "$$CURRENT"}}
+						}
+						match := bson.D{{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{bson.D{{Key: "$getField", Value: probe}}, guess}}}}}}}
+						cmd := bson.D{{Key: "aggregate", Value: col.Name() + "_v"}, {Key: "pipeline", Value: bson.A{match}}, {Key: "cursor", Value: bson.D{}}}
+						var doc bson.D
+						if err := col.Database().RunCommand(ctx, bson.D{{Key: "explain", Value: cmd}, {Key: "verbosity", Value: "executionStats"}}).Decode(&doc); err != nil {
+							return nil, err
+						}
+						return bson.D{{Key: "stages", Value: topLevelStages(doc)}}, nil
+					},
+				})
+			})
+		}
 	}
 }
