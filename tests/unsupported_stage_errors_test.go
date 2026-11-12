@@ -43,7 +43,18 @@ func TestUnsupportedStageErrors(t *testing.T) {
 		{"ListSearchIndexes", stage("$listSearchIndexes", bson.D{})},
 		{"SearchMetaAfterMatch", bson.A{bson.D{{Key: "$match", Value: bson.D{}}}, bson.D{{Key: "$searchMeta", Value: bson.D{}}}}},
 		{"SearchMetaInFacet", stage("$facet", bson.D{{Key: "a", Value: bson.A{bson.D{{Key: "$searchMeta", Value: bson.D{}}}}}})},
-		{"SharedDataDistribution", stage("$sharedDataDistribution", bson.D{})},
+		{"ShardedDataDistribution", stage("$shardedDataDistribution", bson.D{})},
+		{"ShardedDataDistributionAfterMatch", bson.A{bson.D{{Key: "$match", Value: bson.D{}}}, bson.D{{Key: "$shardedDataDistribution", Value: bson.D{}}}}},
+		{"ShardedDataDistributionInFacet", stage("$facet", bson.D{{Key: "a", Value: bson.A{bson.D{{Key: "$shardedDataDistribution", Value: bson.D{}}}}}})},
+		{"QueryStatsOnCollection", stage("$queryStats", bson.D{})},
+		{"QueryStatsInUnionWith", stage("$unionWith", bson.D{{Key: "coll", Value: "x"}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$queryStats", Value: bson.D{}}}}}})},
+		{"ListCatalogNotFirst", bson.A{bson.D{{Key: "$match", Value: bson.D{}}}, bson.D{{Key: "$listCatalog", Value: bson.D{}}}}},
+		{"ListCatalogInFacet", stage("$facet", bson.D{{Key: "a", Value: bson.A{bson.D{{Key: "$listCatalog", Value: bson.D{}}}}}})},
+		{"ChangeStreamInFacet", stage("$facet", bson.D{{Key: "a", Value: bson.A{bson.D{{Key: "$changeStream", Value: bson.D{}}}}}})},
+		{"ChangeStreamInLookupNoInput", bson.A{
+			bson.D{{Key: "$match", Value: bson.D{{Key: "_id", Value: int32(-1)}}}},
+			bson.D{{Key: "$lookup", Value: bson.D{{Key: "from", Value: "x"}, {Key: "pipeline", Value: bson.A{bson.D{{Key: "$changeStream", Value: bson.D{}}}}}, {Key: "as", Value: "j"}}}},
+		}},
 		{"CurrentOpOnCollection", stage("$currentOp", bson.D{})},
 		{"ListSessionsOnCollection", stage("$listSessions", bson.D{})},
 		{"ListLocalSessionsOnCollection", stage("$listLocalSessions", bson.D{})},
@@ -60,15 +71,32 @@ func TestUnsupportedStageErrors(t *testing.T) {
 }
 
 func TestUnsupportedStageErrors_DatabaseLevel(t *testing.T) {
-	for _, name := range []string{"$sharedDataDistribution", "$bogus"} {
-		name := name
+	documents := bson.D{{Key: "$documents", Value: bson.A{bson.D{{Key: "a", Value: int32(1)}}}}}
+	cases := []struct {
+		name     string
+		pipeline bson.A
+	}{
+		{"ShardedDataDistribution", bson.A{bson.D{{Key: "$shardedDataDistribution", Value: bson.D{}}}}},
+		{"Bogus", bson.A{bson.D{{Key: "$bogus", Value: bson.D{}}}}},
+		{"ChangeStream", bson.A{bson.D{{Key: "$changeStream", Value: bson.D{}}}}},
+		{"ListSessions", bson.A{bson.D{{Key: "$listSessions", Value: bson.D{}}}}},
+		{"Search", bson.A{bson.D{{Key: "$search", Value: bson.D{}}}}},
+		{"SearchInFacet", bson.A{bson.D{{Key: "$facet", Value: bson.D{{Key: "a", Value: bson.A{bson.D{{Key: "$search", Value: bson.D{}}}}}}}}}},
+		{"QueryStats", bson.A{bson.D{{Key: "$queryStats", Value: bson.D{}}}}},
+		{"ListCatalog", bson.A{bson.D{{Key: "$listCatalog", Value: bson.D{}}}}},
+		{"DocumentsThenShardedDataDistribution", bson.A{documents, bson.D{{Key: "$shardedDataDistribution", Value: bson.D{}}}}},
+		{"DocumentsThenQueryStats", bson.A{documents, bson.D{{Key: "$queryStats", Value: bson.D{}}}}},
+		{"DocumentsThenListCatalog", bson.A{documents, bson.D{{Key: "$listCatalog", Value: bson.D{}}}}},
+	}
+	for _, c := range cases {
+		pipeline := c.pipeline
 		harness.PairTest(t, harness.TestCase{
-			Name:    "UnsupportedStage_DatabaseLevel_" + name[1:],
+			Name:    "UnsupportedStage_DatabaseLevel_" + c.name,
 			Support: harness.DumboDBFull,
 			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 				err := col.Database().RunCommand(ctx, bson.D{
 					{Key: "aggregate", Value: 1},
-					{Key: "pipeline", Value: bson.A{bson.D{{Key: name, Value: bson.D{}}}}},
+					{Key: "pipeline", Value: pipeline},
 					{Key: "cursor", Value: bson.D{}},
 				}).Err()
 				return nil, err
@@ -91,6 +119,14 @@ func TestUnsupportedStageErrors_UpdatePipeline(t *testing.T) {
 		{"Merge", bson.D{{Key: "$merge", Value: "x"}}},
 		{"IndexStats", bson.D{{Key: "$indexStats", Value: bson.D{}}}},
 		{"Unknown", bson.D{{Key: "$bogus", Value: bson.D{}}}},
+		{"ShardedDataDistribution", bson.D{{Key: "$shardedDataDistribution", Value: bson.D{}}}},
+		{"Search", bson.D{{Key: "$search", Value: bson.D{}}}},
+		{"SearchMeta", bson.D{{Key: "$searchMeta", Value: bson.D{}}}},
+		{"VectorSearch", bson.D{{Key: "$vectorSearch", Value: bson.D{}}}},
+		{"ChangeStream", bson.D{{Key: "$changeStream", Value: bson.D{}}}},
+		{"CurrentOp", bson.D{{Key: "$currentOp", Value: bson.D{}}}},
+		{"QueryStats", bson.D{{Key: "$queryStats", Value: bson.D{}}}},
+		{"ListCatalog", bson.D{{Key: "$listCatalog", Value: bson.D{}}}},
 	}
 	for _, c := range cases {
 		stage := c.stage
@@ -104,6 +140,77 @@ func TestUnsupportedStageErrors_UpdatePipeline(t *testing.T) {
 			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 				_, err := col.UpdateOne(ctx, bson.D{}, mongo.Pipeline{stage})
 				return nil, err
+			},
+		})
+	}
+}
+
+// mongod parses a view's pipeline when the view is defined, and refuses stages
+// that write to disk.
+func TestUnsupportedStageErrors_ViewDefinition(t *testing.T) {
+	cases := []struct {
+		name     string
+		collMod  bool
+		pipeline bson.A
+	}{
+		{"Out", false, bson.A{bson.D{{Key: "$out", Value: "x"}}}},
+		{"MergeAfterMatch", false, bson.A{bson.D{{Key: "$match", Value: bson.D{}}}, bson.D{{Key: "$merge", Value: "x"}}}},
+		{"ChangeStream", false, bson.A{bson.D{{Key: "$changeStream", Value: bson.D{}}}}},
+		{"ShardedDataDistribution", false, bson.A{bson.D{{Key: "$shardedDataDistribution", Value: bson.D{}}}}},
+		{"CollModOut", true, bson.A{bson.D{{Key: "$out", Value: "x"}}}},
+	}
+	for _, c := range cases {
+		c := c
+		harness.PairTest(t, harness.TestCase{
+			Name:    "UnsupportedStage_ViewDefinition_" + c.name,
+			Support: harness.DumboDBFull,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				db := col.Database()
+				view := col.Name() + "_v"
+				defer db.Collection(view).Drop(ctx)
+				if c.collMod {
+					if err := db.CreateView(ctx, view, col.Name(), mongo.Pipeline{}); err != nil {
+						return nil, err
+					}
+					return nil, db.RunCommand(ctx, bson.D{{Key: "collMod", Value: view}, {Key: "pipeline", Value: c.pipeline}}).Err()
+				}
+				return nil, db.RunCommand(ctx, bson.D{{Key: "create", Value: view}, {Key: "viewOn", Value: col.Name()}, {Key: "pipeline", Value: c.pipeline}}).Err()
+			},
+		})
+	}
+}
+
+// A view may contain $unionWith and $facet.
+func TestUnsupportedStageErrors_ViewWithUnionWith(t *testing.T) {
+	for name, stage := range map[string]bson.D{
+		"UnionWith": {{Key: "$unionWith", Value: "other"}},
+		"Facet":     {{Key: "$facet", Value: bson.D{{Key: "n", Value: bson.A{bson.D{{Key: "$count", Value: "c"}}}}}}},
+	} {
+		stage := stage
+		harness.PairTest(t, harness.TestCase{
+			Name:    "View_" + name,
+			Support: harness.DumboDBFull,
+			Setup: func(ctx context.Context, col *mongo.Collection) error {
+				if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}}); err != nil {
+					return err
+				}
+				_, err := col.Database().Collection("other").InsertOne(ctx, bson.D{{Key: "_id", Value: int32(2)}})
+				return err
+			},
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				db := col.Database()
+				view := col.Name() + "_v"
+				if err := db.CreateView(ctx, view, col.Name(), mongo.Pipeline{stage}); err != nil {
+					return nil, err
+				}
+				defer db.Collection(view).Drop(ctx)
+				defer db.Collection("other").Drop(ctx)
+				agg, err := fieldOpsAgg(ctx, db.Collection(view), bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}})
+				if err != nil {
+					return nil, err
+				}
+				n, err := db.Collection(view).CountDocuments(ctx, bson.D{})
+				return bson.D{{Key: "agg", Value: agg}, {Key: "count", Value: n}}, err
 			},
 		})
 	}
