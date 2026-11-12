@@ -3335,3 +3335,52 @@ func TestCollMod_ValidationOptionsAsStored(t *testing.T) {
 		})
 	}
 }
+
+// TestCreate_OverExistingCollations: the simple collation counts as none
+// when a create meets an existing collection, and a view re-create must give
+// the view's collation, as mongod reports in its message.
+func TestCreate_OverExistingCollations(t *testing.T) {
+	simple := bson.E{Key: "collation", Value: bson.D{{Key: "locale", Value: "simple"}}}
+	en := bson.E{Key: "collation", Value: bson.D{{Key: "locale", Value: "en"}}}
+	fr := bson.E{Key: "collation", Value: bson.D{{Key: "locale", Value: "fr"}}}
+	view := func(opts ...bson.E) bson.D {
+		return append(bson.D{{Key: "viewOn", Value: "base"}, {Key: "pipeline", Value: bson.A{}}}, opts...)
+	}
+	cases := []struct {
+		name          string
+		first, second bson.D
+	}{
+		{"plain_over_simple", bson.D{simple}, bson.D{}},
+		{"simple_over_plain", bson.D{}, bson.D{simple}},
+		{"simple_over_simple", bson.D{simple}, bson.D{simple}},
+		{"view_without_its_collation", view(en), view()},
+		{"view_same_collation", view(en), view(en)},
+		{"view_other_collation", view(en), view(fr)},
+		{"view_adds_collation", view(), view(en)},
+		{"view_simple_collation", view(), view(simple)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Create_OverExistingCollations_" + tc.name,
+				Support: harness.DumboDBFull,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					db := col.Database()
+					name := col.Name() + "_c"
+					if err := db.RunCommand(ctx, append(bson.D{{Key: "create", Value: name}}, tc.first...)).Err(); err != nil {
+						return nil, err
+					}
+					err := db.RunCommand(ctx, append(bson.D{{Key: "create", Value: name}}, tc.second...)).Err()
+					var ce mongo.CommandError
+					if errors.As(err, &ce) {
+						msg := regexp.MustCompile(`UUID\("[^"]+"\)`).ReplaceAllString(ce.Message, "UUID(...)")
+						msg = regexp.MustCompile(`version: "[^"]+"`).ReplaceAllString(msg, "version")
+						msg = strings.ReplaceAll(msg, db.Name()+".", "<db>.")
+						return bson.D{{Key: "code", Value: ce.Code}, {Key: "message", Value: msg}}, nil
+					}
+					return bson.D{{Key: "ok", Value: err == nil}}, nil
+				},
+			})
+		})
+	}
+}
