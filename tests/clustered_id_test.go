@@ -2587,14 +2587,22 @@ func twoCreates(create func(...bson.E) func(context.Context, *mongo.Collection) 
 			return nil, err
 		}
 		_, err := create(second...)(ctx, col)
-		var ce mongo.CommandError
-		if errors.As(err, &ce) {
-			msg := regexp.MustCompile(`UUID\("[^"]+"\)`).ReplaceAllString(ce.Message, "UUID(...)")
-			msg = strings.ReplaceAll(msg, col.Database().Name()+".", "<db>.")
-			return bson.D{{Key: "code", Value: ce.Code}, {Key: "message", Value: msg}}, nil
-		}
-		return bson.D{{Key: "ok", Value: err == nil}}, nil
+		return createOutcome(err, col.Database().Name()), nil
 	}
+}
+
+// createOutcome is a create's error code and message, without the
+// collection's UUID, the collation version or the database name, or ok.
+func createOutcome(err error, dbName string) interface{} {
+	var ce mongo.CommandError
+	if !errors.As(err, &ce) {
+		return bson.D{{Key: "ok", Value: err == nil}}
+	}
+	msg := regexp.MustCompile(`UUID\("[^"]+"\)`).ReplaceAllString(ce.Message, "UUID(...)")
+	msg = regexp.MustCompile(`version: "[^"]+"`).ReplaceAllString(msg, "version")
+	msg = strings.ReplaceAll(msg, dbName+".", "<db>.")
+	msg = strings.ReplaceAll(msg, dbName, "<db>")
+	return bson.D{{Key: "code", Value: ce.Code}, {Key: "message", Value: msg}}
 }
 
 // TestClustered_HintTopLevelOperator: a read or single-document write hinted
@@ -3149,15 +3157,6 @@ func TestCreate_OverExistingComparesStoredOptions(t *testing.T) {
 		{"collation_differs", bson.D{collation("en", 2)}, bson.D{collation("en", 1)}},
 		{"collated_over_plain", bson.D{}, bson.D{collation("en", 2)}},
 	}
-	clean := func(err error) interface{} {
-		var ce mongo.CommandError
-		if errors.As(err, &ce) {
-			msg := regexp.MustCompile(`UUID\("[^"]+"\)`).ReplaceAllString(ce.Message, "UUID(...)")
-			msg = regexp.MustCompile(`version: "[^"]+"`).ReplaceAllString(msg, "version")
-			return bson.D{{Key: "code", Value: ce.Code}, {Key: "message", Value: msg}}
-		}
-		return bson.D{{Key: "ok", Value: err == nil}}
-	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
@@ -3169,7 +3168,7 @@ func TestCreate_OverExistingComparesStoredOptions(t *testing.T) {
 						return nil, err
 					}
 					err := col.Database().RunCommand(ctx, append(bson.D{{Key: "create", Value: name}}, tc.second...)).Err()
-					return clean(err), nil
+					return createOutcome(err, col.Database().Name()), nil
 				},
 			})
 		})
@@ -3195,12 +3194,7 @@ func TestCreate_OverExistingComparesStoredOptions(t *testing.T) {
 						return nil, err
 					}
 					err := col.Database().RunCommand(ctx, append(bson.D{{Key: "create", Value: name}}, tc.second...)).Err()
-					res := clean(err)
-					if d, ok := res.(bson.D); ok && len(d) == 2 {
-						d[1].Value = strings.ReplaceAll(d[1].Value.(string), col.Database().Name()+".", "<db>.")
-						d[1].Value = strings.ReplaceAll(d[1].Value.(string), col.Database().Name(), "<db>")
-					}
-					return res, nil
+					return createOutcome(err, col.Database().Name()), nil
 				},
 			})
 		})
@@ -3375,14 +3369,7 @@ func TestCreate_OverExistingCollations(t *testing.T) {
 						return nil, err
 					}
 					err := db.RunCommand(ctx, append(bson.D{{Key: "create", Value: name}}, tc.second...)).Err()
-					var ce mongo.CommandError
-					if errors.As(err, &ce) {
-						msg := regexp.MustCompile(`UUID\("[^"]+"\)`).ReplaceAllString(ce.Message, "UUID(...)")
-						msg = regexp.MustCompile(`version: "[^"]+"`).ReplaceAllString(msg, "version")
-						msg = strings.ReplaceAll(msg, db.Name()+".", "<db>.")
-						return bson.D{{Key: "code", Value: ce.Code}, {Key: "message", Value: msg}}, nil
-					}
-					return bson.D{{Key: "ok", Value: err == nil}}, nil
+					return createOutcome(err, db.Name()), nil
 				},
 			})
 		})
