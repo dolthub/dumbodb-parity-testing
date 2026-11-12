@@ -27,7 +27,7 @@ import (
 // mongod absorbs an $unwind of a $lookup's as field into the $lookup and
 // streams the matches, so their total size is not limited. That holds in
 // sub-pipelines, after a view's stages and across a $match that does not read
-// as.
+// as, a $limit, a $skip and a $sort, which mongod moves ahead of the $lookup.
 
 func lookupUnwindStage(col *mongo.Collection) bson.D {
 	return lookupLimitStage(col, nil)
@@ -52,6 +52,38 @@ func TestLookupUnwindStream_Scopes(t *testing.T) {
 			return fieldOpsAgg(ctx, col, lookupUnwindStage(col),
 				bson.D{{Key: "$match", Value: bson.D{{Key: "k", Value: int32(1)}}}},
 				lookupUnwindJ, lookupUnwindCount)
+		}},
+		{"MatchExprBetween", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsAgg(ctx, col, lookupUnwindStage(col),
+				bson.D{{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{"$k", int32(1)}}}}}}},
+				lookupUnwindJ, lookupUnwindCount)
+		}},
+		{"MatchExprReadingAs", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsAgg(ctx, col, lookupUnwindStage(col),
+				bson.D{{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$gt", Value: bson.A{bson.D{{Key: "$size", Value: "$j"}}, int32(0)}}}}}}},
+				lookupUnwindJ, lookupUnwindCount)
+		}},
+		{"LimitBetween", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsAgg(ctx, col, lookupUnwindStage(col), bson.D{{Key: "$limit", Value: int32(5)}}, lookupUnwindJ, lookupUnwindCount)
+		}},
+		{"SkipAndMatchBetween", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsAgg(ctx, col, lookupUnwindStage(col), bson.D{{Key: "$skip", Value: int32(2)}},
+				bson.D{{Key: "$match", Value: bson.D{{Key: "k", Value: int32(1)}}}}, lookupUnwindJ, lookupUnwindCount)
+		}},
+		{"SortBetween", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsAgg(ctx, col, lookupUnwindStage(col), bson.D{{Key: "$sort", Value: bson.D{{Key: "k", Value: 1}, {Key: "_id", Value: -1}}}},
+				lookupUnwindJ, bson.D{{Key: "$limit", Value: int32(3)}}, bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: 1}}}})
+		}},
+		{"SortOnAsBetween", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsAgg(ctx, col, lookupUnwindStage(col), bson.D{{Key: "$sort", Value: bson.D{{Key: "j", Value: 1}}}}, lookupUnwindJ, lookupUnwindCount)
+		}},
+		{"AfterGroupByIDFirst", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsAgg(ctx, col, bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: "$_id"}, {Key: "k", Value: bson.D{{Key: "$first", Value: "$k"}}}}}},
+				lookupUnwindStage(col), bson.D{{Key: "$project", Value: bson.D{{Key: "s", Value: bson.D{{Key: "$size", Value: "$j"}}}}}}, bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}})
+		}},
+		{"AfterGroupByIDMax", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsAgg(ctx, col, bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: "$_id"}, {Key: "k", Value: bson.D{{Key: "$max", Value: "$k"}}}}}},
+				lookupUnwindStage(col), bson.D{{Key: "$project", Value: bson.D{{Key: "s", Value: bson.D{{Key: "$size", Value: "$j"}}}}}}, bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}})
 		}},
 		{"MatchReadingAs", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return fieldOpsAgg(ctx, col, lookupUnwindStage(col),
