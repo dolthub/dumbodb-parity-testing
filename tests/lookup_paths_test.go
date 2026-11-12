@@ -112,3 +112,55 @@ func TestLookupPaths(t *testing.T) {
 		Run: lookupPathsRun("v", "v", "j"),
 	})
 }
+
+// A numeric path component indexes into an array. In foreignField an array
+// reached by an index is compared whole.
+func TestLookupNumericPaths(t *testing.T) {
+	seed := func(ctx context.Context, col *mongo.Collection) error {
+		var local, foreign []interface{}
+		for _, js := range []string{
+			`{"_id":1,"a":[5,6]}`, `{"_id":2,"a":[{"b":5},{"b":6}]}`, `{"_id":3,"a":[{"0":6},{"1":5}]}`,
+			`{"_id":4,"a":[[5],[6]]}`, `{"_id":5,"a":{"0":5}}`, `{"_id":6,"k":[1]}`, `{"_id":7,"a":[{"0":[5,6]}]}`,
+			`{"_id":8,"v":5}`, `{"_id":9,"v":6}`,
+		} {
+			var d bson.D
+			if err := bson.UnmarshalExtJSON([]byte(js), false, &d); err != nil {
+				return err
+			}
+			local = append(local, d)
+		}
+		for _, js := range []string{
+			`{"_id":10,"k":5}`, `{"_id":11}`, `{"_id":12,"k":6}`, `{"_id":13,"k":[5,7]}`, `{"_id":14,"k":[[5]]}`,
+			`{"_id":15,"q":[{"k":5},{"k":6}]}`, `{"_id":16,"q":[{"0":{"k":6}}]}`, `{"_id":17,"k":{"0":5}}`,
+			`{"_id":18,"k":[{"0":6}]}`, `{"_id":19,"q":{"0":{"k":5}}}`,
+		} {
+			var d bson.D
+			if err := bson.UnmarshalExtJSON([]byte(js), false, &d); err != nil {
+				return err
+			}
+			foreign = append(foreign, d)
+		}
+		if _, err := col.InsertMany(ctx, local); err != nil {
+			return err
+		}
+		_, err := col.Database().Collection(col.Name()+"_f").InsertMany(ctx, foreign)
+		return err
+	}
+	cases := []struct{ name, local, foreign string }{
+		{"LocalIndex", "a.0", "k"},
+		{"LocalSecondIndex", "a.1", "k"},
+		{"LocalIndexThenField", "a.1.b", "k"},
+		{"LocalTwoIndexes", "a.0.0", "k"},
+		{"LocalIndexOfOneElement", "k.0", "_id"},
+		{"ForeignIndex", "v", "k.0"},
+		{"ForeignIndexThenField", "v", "q.0.k"},
+	}
+	for _, c := range cases {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "LookupNumericPaths_" + c.name,
+			Support: harness.DumboDBFull,
+			Setup:   seed,
+			Run:     lookupPathsRun(c.local, c.foreign, "j"),
+		})
+	}
+}
