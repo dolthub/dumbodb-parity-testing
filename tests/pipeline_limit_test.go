@@ -196,7 +196,8 @@ func TestPipeline_LengthLimitThroughViews(t *testing.T) {
 		for _, v := range []struct {
 			name, on string
 			n        int
-		}{{"_v1000", col.Name(), 1000}, {"_v600", col.Name(), 600}, {"_v600b", col.Name() + "_v600", 600}} {
+		}{{"_v1000", col.Name(), 1000}, {"_v999", col.Name(), 999}, {"_v998", col.Name(), 998}, {"_v997", col.Name(), 997},
+			{"_v600", col.Name(), 600}, {"_v600b", col.Name() + "_v600", 600}} {
 			if err := db.RunCommand(ctx, bson.D{{Key: "create", Value: col.Name() + v.name}, {Key: "viewOn", Value: v.on}, {Key: "pipeline", Value: sets(v.n)}}).Err(); err != nil {
 				return err
 			}
@@ -235,6 +236,61 @@ func TestPipeline_LengthLimitThroughViews(t *testing.T) {
 				{Key: "from", Value: n + "_v1000"}, {Key: "localField", Value: "a"}, {Key: "foreignField", Value: "a"}, {Key: "as", Value: "j"}}}}}}, {Key: "cursor", Value: bson.D{}}}
 		}},
 	}
+	aggregate := func(n string, stage bson.D) bson.D {
+		return bson.D{{Key: "aggregate", Value: n}, {Key: "pipeline", Value: bson.A{stage}}, {Key: "cursor", Value: bson.D{}}}
+	}
+	union := func(view string, sub int) func(n string) bson.D {
+		return func(n string) bson.D {
+			return aggregate(n, bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: n + view}, {Key: "pipeline", Value: sets(sub)}}}})
+		}
+	}
+	lookup := func(view string, sub int, local bool) func(n string) bson.D {
+		return func(n string) bson.D {
+			spec := bson.D{{Key: "from", Value: n + view}, {Key: "pipeline", Value: sets(sub)}, {Key: "as", Value: "j"}}
+			if local {
+				spec = append(spec, bson.E{Key: "localField", Value: "a"}, bson.E{Key: "foreignField", Value: "a"})
+			}
+			return aggregate(n, bson.D{{Key: "$lookup", Value: spec}})
+		}
+	}
+	explainUpdate := func(stages int) func(n string) bson.D {
+		return func(n string) bson.D {
+			return bson.D{{Key: "explain", Value: bson.D{{Key: "update", Value: n}, {Key: "updates", Value: bson.A{bson.D{{Key: "q", Value: bson.D{}}, {Key: "u", Value: sets(stages)}}}}}}}
+		}
+	}
+	explainFindAndModify := func(stages int) func(n string) bson.D {
+		return func(n string) bson.D {
+			return bson.D{{Key: "explain", Value: bson.D{{Key: "findAndModify", Value: n}, {Key: "query", Value: bson.D{}}, {Key: "update", Value: sets(stages)}}}}
+		}
+	}
+	cmds = append(cmds, []struct {
+		name string
+		cmd  func(name string) bson.D
+	}{
+		{"union_with_bare_v1000", func(n string) bson.D { return aggregate(n, bson.D{{Key: "$unionWith", Value: n + "_v1000"}}) }},
+		{"union_with_v999_sub1", union("_v999", 1)},
+		{"union_with_v999_sub2", union("_v999", 2)},
+		{"union_with_v998_sub2", union("_v998", 2)},
+		{"lookup_pipeline_v1000_sub0", lookup("_v1000", 0, false)},
+		{"lookup_pipeline_v1000_sub1", lookup("_v1000", 1, false)},
+		{"lookup_pipeline_v999_sub2", lookup("_v999", 2, false)},
+		{"lookup_pipeline_v998_sub2", lookup("_v998", 2, false)},
+		{"lookup_local_v999_sub0", lookup("_v999", 0, true)},
+		{"lookup_local_v999_sub1", lookup("_v999", 1, true)},
+		{"lookup_local_v998_sub1", lookup("_v998", 1, true)},
+		{"count_v998", func(n string) bson.D { return bson.D{{Key: "count", Value: n + "_v998"}} }},
+		{"count_v999", func(n string) bson.D { return bson.D{{Key: "count", Value: n + "_v999"}} }},
+		{"count_v998_query", func(n string) bson.D {
+			return bson.D{{Key: "count", Value: n + "_v998"}, {Key: "query", Value: bson.D{{Key: "a", Value: 1}}}}
+		}},
+		{"count_v997_skip_limit", func(n string) bson.D {
+			return bson.D{{Key: "count", Value: n + "_v997"}, {Key: "skip", Value: 1}, {Key: "limit", Value: 5}}
+		}},
+		{"explain_update_1000", explainUpdate(1000)},
+		{"explain_update_1001", explainUpdate(1001)},
+		{"explain_find_and_modify_1000", explainFindAndModify(1000)},
+		{"explain_find_and_modify_1001", explainFindAndModify(1001)},
+	}...)
 	for _, c := range cmds {
 		t.Run(c.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
