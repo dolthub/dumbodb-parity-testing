@@ -138,6 +138,20 @@ func TestExpressionParseChecks(t *testing.T) {
 		"MatchGetFieldNoInput":  `{"$match":{"$expr":{"$getField":{"field":"j"}}}}`,
 		"MatchGetFieldUnknown":  `{"$match":{"$expr":{"$getField":{"field":"j","zz":1}}}}`,
 		"MatchGetFieldNoField":  `{"$match":{"$expr":{"$eq":[{"$getField":{"input":{}}},1]}}}`,
+		"SwitchNotObject":       `{"$set":{"c":{"$switch":5}}}`,
+		"SwitchBranchesNotArr":  `{"$set":{"c":{"$switch":{"branches":5}}}}`,
+		"SwitchBranchNotObject": `{"$set":{"c":{"$switch":{"branches":[5]}}}}`,
+		"SwitchBranchUnknown":   `{"$set":{"c":{"$switch":{"branches":[{"case":true,"then":1,"zz":1}]}}}}`,
+		"SwitchBranchNoCase":    `{"$set":{"c":{"$switch":{"branches":[{"then":1}],"zz":1}}}}`,
+		"SwitchBranchNoThen":    `{"$set":{"c":{"$switch":{"branches":[{"case":true}]}}}}`,
+		"SwitchUnknown":         `{"$set":{"c":{"$switch":{"zz":1,"branches":5}}}}`,
+		"SwitchNoBranches":      `{"$set":{"c":{"$switch":{"branches":[],"default":1}}}}`,
+		"SwitchNoBranchesExpr":  `{"$match":{"$expr":{"$switch":{"default":1}}}}`,
+		"LetNotObject":          `{"$set":{"c":{"$let":5}}}`,
+		"LetVarsNotObject":      `{"$set":{"c":{"$let":{"vars":5,"in":1}}}}`,
+		"LetUnknown":            `{"$set":{"c":{"$let":{"zz":1,"vars":5}}}}`,
+		"LetNoVars":             `{"$set":{"c":{"$let":{"in":1}}}}`,
+		"LetNoIn":               `{"$set":{"c":{"$let":{"vars":{}}}}}`,
 	}
 	for name, js := range stages {
 		var stage bson.D
