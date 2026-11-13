@@ -262,6 +262,48 @@ func TestOutKeepsTargetIndexes(t *testing.T) {
 	}
 }
 
+// $replaceRoot and $replaceWith report an expression's own error, not one
+// wrapped in OperationFailed, and check the expression while parsing.
+func TestReplaceRootExpressionErrors(t *testing.T) {
+	cases := map[string]string{
+		"NulKeyFromArray":    `[{"$replaceWith":{"$arrayToObject":"$a"}}]`,
+		"NulKeyReplaceRoot":  `[{"$replaceRoot":{"newRoot":{"$arrayToObject":"$a"}}}]`,
+		"SetFieldNulLiteral": `[{"$replaceWith":{"$setField":{"field":{"$literal":"p\u0000q"},"input":"$o","value":1}}}]`,
+		"TypeMismatch":       `[{"$replaceWith":{"$add":["$o",1]}}]`,
+		"NestedTypeMismatch": `[{"$replaceWith":{"$mergeObjects":["$o",{"$add":["$o",1]}]}}]`,
+		"UnknownOperator":    `[{"$replaceWith":{"$bogus":1}}]`,
+		"WrongArgCount":      `[{"$replaceRoot":{"newRoot":{"$abs":[1,2]}}}]`,
+	}
+	for name, js := range cases {
+		var stages []bson.D
+		if err := bson.UnmarshalExtJSON([]byte(`{"p":`+js+`}`), false, &struct{ P *[]bson.D }{&stages}); err != nil {
+			t.Fatal(name, err)
+		}
+		for _, empty := range []bool{false, true} {
+			testName := "ReplaceRootExpressionErrors_" + name
+			if empty {
+				testName += "_Empty"
+			}
+			empty := empty
+			harness.PairTest(t, harness.TestCase{
+				Name:    testName,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					if empty {
+						return col.Database().CreateCollection(ctx, col.Name())
+					}
+					_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)},
+						{Key: "a", Value: bson.A{bson.A{"p\x00q", int32(1)}}}, {Key: "o", Value: bson.D{{Key: "x", Value: int32(1)}}}})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return fieldOpsAgg(ctx, col, stages...)
+				},
+			})
+		}
+	}
+}
+
 // Stage-level field names with a null byte are refused when the stage is
 // parsed.
 func TestNulByteStageFieldNames(t *testing.T) {
