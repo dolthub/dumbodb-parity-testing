@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math/rand"
 	"slices"
+	"strings"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -231,25 +232,46 @@ func TestNArgumentCodes(t *testing.T) {
 		"ExpressMatchFound":  `[{"$match":{"_id":1}},{"$group":{"_id":null,"r":{"$firstN":{"input":"$v","n":0}}}}]`,
 		"ExpressMatchNone":   `[{"$match":{"_id":5}},{"$group":{"_id":null,"r":{"$firstN":{"input":"$v","n":0}}}}]`,
 		"RangeMatch":         `[{"$match":{"_id":{"$gt":0}}},{"$group":{"_id":null,"r":{"$firstN":{"input":"$v","n":0}}}}]`,
+		"MatchNullID":        `[{"$match":{"_id":null}},{"$group":{"_id":null,"r":{"$firstN":{"input":"$v","n":0}}}}]`,
+		"TwoLeadingMatches":  `[{"$match":{"_id":99}},{"$match":{"v":1}},{"$group":{"_id":null,"r":{"$firstN":{"input":"$v","n":0}}}}]`,
+		"UnionWithMissing":   `[{"$unionWith":{"coll":"none_coll","pipeline":[{"$group":{"_id":null,"r":{"$firstN":{"input":"$v","n":0}}}}]}},{"$sort":{"_id":1}},{"$project":{"_id":1}}]`,
+		"UnionWithExpress":   `[{"$unionWith":{"coll":"COLL","pipeline":[{"$match":{"_id":5}},{"$group":{"_id":null,"r":{"$firstN":{"input":"$v","n":0}}}}]}},{"$sort":{"_id":1}},{"$project":{"_id":1}}]`,
 		"ExpressMatchDivide": `[{"$match":{"_id":1}},{"$group":{"_id":null,"r":{"$push":{"$divide":[1,"$z"]}}}}]`,
 	}
 	for name, js := range pipelines {
-		var stages []bson.D
-		if err := bson.UnmarshalExtJSON([]byte(`{"p":`+js+`}`), false, &struct{ P *[]bson.D }{&stages}); err != nil {
-			t.Fatal(name, err)
-		}
+		js := js
 		harness.PairTest(t, harness.TestCase{
 			Name:    "NArgumentCodes_" + name,
 			Support: harness.DumboDBFull,
 			Setup: func(ctx context.Context, col *mongo.Collection) error {
 				_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "x", Value: bson.D{{Key: "y", Value: int32(2)}}}, {Key: "v", Value: int32(1)}, {Key: "z", Value: int32(0)}})
+				if err == nil {
+					_, err = col.InsertOne(ctx, bson.D{{Key: "_id", Value: nil}, {Key: "v", Value: int32(2)}})
+				}
 				return err
 			},
 			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				var stages []bson.D
+				if err := bson.UnmarshalExtJSON([]byte(`{"p":`+strings.ReplaceAll(js, "COLL", col.Name())+`}`), false, &struct{ P *[]bson.D }{&stages}); err != nil {
+					return nil, err
+				}
 				return fieldOpsAgg(ctx, col, stages...)
 			},
 		})
 	}
+	harness.PairTest(t, harness.TestCase{
+		Name:    "NArgumentCodes_ViewOverMissingCollection",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			view := col.Name() + "_vm"
+			if err := col.Database().CreateView(ctx, view, col.Name()+"_missing", mongo.Pipeline{}); err != nil {
+				return nil, err
+			}
+			defer col.Database().Collection(view).Drop(ctx)
+			return fieldOpsAgg(ctx, col.Database().Collection(view),
+				bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "r", Value: bson.D{{Key: "$firstN", Value: bson.D{{Key: "input", Value: "$v"}, {Key: "n", Value: int32(0)}}}}}}}})
+		},
+	})
 	harness.PairTest(t, harness.TestCase{
 		Name:    "NArgumentCodes_MissingCollection",
 		Support: harness.DumboDBFull,
