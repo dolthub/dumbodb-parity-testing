@@ -41,7 +41,7 @@ func TestLookupLetScope(t *testing.T) {
 			return err
 		}
 		_, err := foreign.InsertMany(ctx, []interface{}{
-			bson.D{{Key: "_id", Value: int32(1)}, {Key: "y", Value: int32(1)}, {Key: "arr", Value: bson.A{int32(1), int32(2), int32(3)}}},
+			bson.D{{Key: "_id", Value: int32(1)}, {Key: "y", Value: int32(1)}, {Key: "arr", Value: bson.A{int32(1), int32(2), int32(3)}}, {Key: "s", Value: "$$v"}},
 			bson.D{{Key: "_id", Value: int32(2)}, {Key: "y", Value: int32(2)}, {Key: "arr", Value: bson.A{int32(1), int32(2), int32(3)}}},
 		})
 		return err
@@ -115,6 +115,20 @@ func TestLookupLetScope(t *testing.T) {
 		{"array_input_in_match", bson.D{{Key: "v", Value: bson.A{int32(1), int32(2)}}}, func(string) bson.A {
 			return bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$in", Value: bson.A{"$_id",
 				bson.D{{Key: "$map", Value: bson.D{{Key: "input", Value: "$$v"}, {Key: "in", Value: "$$this"}}}}}}}}}}}, bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}}}
+		}},
+		{"graph_lookup_literal_in_query", vx, func(f string) bson.A {
+			return bson.A{bson.D{{Key: "$limit", Value: int32(1)}}, bson.D{{Key: "$graphLookup", Value: bson.D{{Key: "from", Value: f}, {Key: "startWith", Value: int32(1)},
+				{Key: "connectFromField", Value: "y"}, {Key: "connectToField", Value: "y"},
+				{Key: "restrictSearchWithMatch", Value: bson.D{{Key: "s", Value: "$$v"}}}, {Key: "as", Value: "g"}}}},
+				bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "g", Value: "$g._id"}}}}}
+		}},
+		{"graph_lookup_start_with", vx, func(f string) bson.A {
+			return bson.A{bson.D{{Key: "$limit", Value: int32(1)}}, bson.D{{Key: "$graphLookup", Value: bson.D{{Key: "from", Value: f}, {Key: "startWith", Value: "$$v"},
+				{Key: "connectFromField", Value: "y"}, {Key: "connectToField", Value: "_id"}, {Key: "as", Value: "g"}}}},
+				bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "g", Value: "$g._id"}}}}}
+		}},
+		{"bucket_default", vx, func(string) bson.A {
+			return bson.A{bson.D{{Key: "$bucket", Value: bson.D{{Key: "groupBy", Value: "$y"}, {Key: "boundaries", Value: bson.A{int32(0), int32(1)}}, {Key: "default", Value: "$$v"}}}}}
 		}},
 		{"facet_and_union", vx, func(f string) bson.A {
 			return bson.A{bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: f}, {Key: "pipeline", Value: project(bson.D{{Key: "u", Value: "$$v"}})}}}},
