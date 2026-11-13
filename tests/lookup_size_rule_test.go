@@ -27,7 +27,9 @@ import (
 // An equality $lookup that mongod runs in SBE refuses a match that would take
 // one document's matches past 100MB (146). Elsewhere mongod runs it in the
 // classic engine, which refuses a match only once the matches so far pass
-// 100MB (4568), so the seed's 26 matches of 4.1MB pass.
+// 100MB (4568), so the seed's 26 matches of 4.1MB pass. mongod runs a
+// $lookup in the classic engine after a leading _id equality, which takes its
+// express plan, and when localField or foreignField has an array index.
 
 func TestLookupSizeRule(t *testing.T) {
 	sizeOfJ := bson.D{{Key: "$project", Value: bson.D{{Key: "s", Value: bson.D{{Key: "$size", Value: "$j"}}}}}}
@@ -74,6 +76,13 @@ func TestLookupSizeRule(t *testing.T) {
 					lookupLimitStage(col, nil), sizeOfJ,
 				}}}}})
 		}},
+		{"AfterExpressMatch", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsAgg(ctx, col, bson.D{{Key: "$match", Value: bson.D{{Key: "_id", Value: int32(1)}}}},
+				lookupLimitStage(col, nil), sizeOfJ)
+		}},
+		{"LocalIndexPath", lookupSizeRulePaths("kk.0", "k", sizeOfJ)},
+		{"LocalLeadingZeroPath", lookupSizeRulePaths("kk.00", "k", sizeOfJ)},
+		{"ForeignIndexPath", lookupSizeRulePaths("k", "ka.0", sizeOfJ)},
 	}
 	for _, c := range cases {
 		harness.PairTest(t, harness.TestCase{
@@ -82,5 +91,25 @@ func TestLookupSizeRule(t *testing.T) {
 			Setup:   lookupLimitSeed,
 			Run:     c.run,
 		})
+	}
+}
+
+// lookupSizeRulePaths joins the seed on the given paths, after giving the local
+// documents kk:[1] and the foreign ones ka:[1].
+func lookupSizeRulePaths(local, foreign string, after bson.D) func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		one := bson.A{int32(1)}
+		if _, err := col.UpdateMany(ctx, bson.D{}, bson.D{{Key: "$set", Value: bson.D{{Key: "kk", Value: one}}}}); err != nil {
+			return nil, err
+		}
+		foreignColl := col.Database().Collection(col.Name() + "_f")
+		if _, err := foreignColl.UpdateMany(ctx, bson.D{}, bson.D{{Key: "$set", Value: bson.D{{Key: "ka", Value: one}}}}); err != nil {
+			return nil, err
+		}
+		return fieldOpsAgg(ctx, col, bson.D{{Key: "$match", Value: bson.D{{Key: "k", Value: int32(1)}}}},
+			bson.D{{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: foreignColl.Name()}, {Key: "localField", Value: local},
+				{Key: "foreignField", Value: foreign}, {Key: "as", Value: "j"},
+			}}}, after)
 	}
 }
