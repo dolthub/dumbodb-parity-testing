@@ -145,6 +145,17 @@ func TestAggCommandCollation(t *testing.T) {
 				{Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{"$k", "$$s"}}}}}}}}}, {Key: "as", Value: "j"}}}},
 				bson.D{{Key: "$project", Value: bson.D{{Key: "j", Value: "$j._id"}}}}, byID}
 		},
+		"lookup_pipeline_match": func(name string) bson.A {
+			return bson.A{bson.D{{Key: "$lookup", Value: bson.D{{Key: "from", Value: name + "_o"},
+				{Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "k", Value: "abc"}}}}}}, {Key: "as", Value: "j"}}}},
+				bson.D{{Key: "$project", Value: bson.D{{Key: "j", Value: "$j._id"}}}}, byID}
+		},
+		"graph_lookup_restrict": func(name string) bson.A {
+			return bson.A{bson.D{{Key: "$graphLookup", Value: bson.D{{Key: "from", Value: name + "_g"}, {Key: "startWith", Value: "a"},
+				{Key: "connectFromField", Value: "parent"}, {Key: "connectToField", Value: "name"},
+				{Key: "restrictSearchWithMatch", Value: bson.D{{Key: "parent", Value: "B"}}}, {Key: "as", Value: "h"}}}},
+				bson.D{{Key: "$project", Value: bson.D{{Key: "n", Value: bson.D{{Key: "$size", Value: "$h"}}}}}}, byID}
+		},
 		"graph_lookup": func(name string) bson.A {
 			return bson.A{bson.D{{Key: "$graphLookup", Value: bson.D{{Key: "from", Value: name + "_g"}, {Key: "startWith", Value: "a"},
 				{Key: "connectFromField", Value: "parent"}, {Key: "connectToField", Value: "name"}, {Key: "as", Value: "h"}}}},
