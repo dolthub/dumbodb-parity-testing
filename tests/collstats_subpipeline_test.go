@@ -71,7 +71,8 @@ func TestCollStatsSubPipeline(t *testing.T) {
 
 // A sub-pipeline over a view reads $collStats through a view without stages
 // to its base collection; a view's stages come first, so $collStats is no
-// longer first (40602). A top-level $collStats on a view is refused (166).
+// longer first (40602). A top-level $collStats on a view reports only latency
+// statistics; storage and count are refused (166).
 // find, count and distinct on a view report the database in ns.
 func TestCollStatsViews(t *testing.T) {
 	count := bson.D{{Key: "$collStats", Value: bson.D{{Key: "count", Value: bson.D{}}}}}
@@ -124,6 +125,22 @@ func TestCollStatsViews(t *testing.T) {
 		"TopLevelStagedView": func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			defer cleanup(ctx, col)
 			return fieldOpsAgg(ctx, col.Database().Collection(col.Name()+"_staged"), count)
+		},
+		"TopLevelLatencyView": func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			defer cleanup(ctx, col)
+			return fieldOpsAgg(ctx, col.Database().Collection(col.Name()+"_staged"),
+				bson.D{{Key: "$collStats", Value: bson.D{{Key: "latencyStats", Value: bson.D{}}}}},
+				bson.D{{Key: "$project", Value: bson.D{{Key: "ns", Value: 1}, {Key: "t", Value: bson.D{{Key: "$type", Value: "$latencyStats.reads.ops"}}}}}})
+		},
+		"TopLevelEmptySpecView": func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			defer cleanup(ctx, col)
+			return fieldOpsAgg(ctx, col.Database().Collection(col.Name()+"_plain"),
+				bson.D{{Key: "$collStats", Value: bson.D{}}}, bson.D{{Key: "$project", Value: bson.D{{Key: "ns", Value: 1}}}})
+		},
+		"TopLevelLatencyAndCountView": func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			defer cleanup(ctx, col)
+			return fieldOpsAgg(ctx, col.Database().Collection(col.Name()+"_plain"),
+				bson.D{{Key: "$collStats", Value: bson.D{{Key: "latencyStats", Value: bson.D{}}, {Key: "count", Value: bson.D{}}}}})
 		},
 		"FindOnView": func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			defer cleanup(ctx, col)
