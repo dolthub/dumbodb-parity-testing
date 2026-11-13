@@ -164,3 +164,81 @@ func TestLookupNumericPaths(t *testing.T) {
 		})
 	}
 }
+
+// A component with a leading zero names a field, not an array index. A null
+// local value matches a foreign path that a document lacks, but not one that
+// ends at a scalar array element.
+func TestLookupLeadingZeroAndNullPaths(t *testing.T) {
+	seed := func(ctx context.Context, col *mongo.Collection) error {
+		var local, foreign []interface{}
+		for _, js := range []string{
+			`{"_id":1,"k":[{"m":5},{"m":6}]}`, `{"_id":2,"k":[7,8]}`, `{"_id":3,"k":{"01":8}}`,
+		} {
+			var d bson.D
+			if err := bson.UnmarshalExtJSON([]byte(js), false, &d); err != nil {
+				return err
+			}
+			local = append(local, d)
+		}
+		for _, js := range []string{
+			`{"_id":10,"a":[]}`, `{"_id":11,"a":[1]}`, `{"_id":12,"a":[[{"c":1}]]}`, `{"_id":13,"a":[{"c":1}]}`,
+			`{"_id":14,"a":[5,{"b":2}]}`, `{"_id":15,"a":5}`, `{"_id":16,"a":[[1]]}`, `{"_id":17}`,
+			`{"_id":18,"a":[{"b":[]}]}`, `{"_id":19,"a":[7,8]}`, `{"_id":20,"a":{"01":8,"00":7}}`,
+		} {
+			var d bson.D
+			if err := bson.UnmarshalExtJSON([]byte(js), false, &d); err != nil {
+				return err
+			}
+			foreign = append(foreign, d)
+		}
+		if _, err := col.InsertMany(ctx, local); err != nil {
+			return err
+		}
+		_, err := col.Database().Collection(col.Name()+"_f").InsertMany(ctx, foreign)
+		return err
+	}
+	cases := []struct{ name, local, foreign string }{
+		{"NullThroughField", "zz", "a.b"},
+		{"NullThroughIndex", "zz", "a.1"},
+		{"NullThroughLeadingZero", "zz", "a.01"},
+		{"NullThroughIndexThenField", "zz", "a.0.b"},
+		{"NullThroughTwoIndexes", "zz", "a.0.0"},
+		{"LocalLeadingZero", "k.01", "a.01"},
+		{"LocalIndexForeignLeadingZero", "k.1", "a.01"},
+		{"LocalDoubleZero", "k.00", "a.00"},
+	}
+	for _, c := range cases {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "LookupLeadingZeroAndNullPaths_" + c.name,
+			Support: harness.DumboDBFull,
+			Setup:   seed,
+			Run:     lookupPathsRun(c.local, c.foreign, "j"),
+		})
+	}
+	filters := map[string]string{
+		"FindLeadingZero":        `{"a.01":8}`,
+		"FindIndex":              `{"a.1":8}`,
+		"FindPlusSign":           `{"a.+1":8}`,
+		"FindLeadingZeroExists":  `{"a.01":{"$exists":true}}`,
+		"FindIndexThenFieldNull": `{"a.0.b":null}`,
+		"FindTwoIndexesNull":     `{"a.0.0":null}`,
+	}
+	for name, js := range filters {
+		var filter bson.D
+		if err := bson.UnmarshalExtJSON([]byte(js), false, &filter); err != nil {
+			t.Fatal(name, err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "LookupLeadingZeroAndNullPaths_" + name,
+			Support: harness.DumboDBFull,
+			Setup:   seed,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return fieldOpsAgg(ctx, col.Database().Collection(col.Name()+"_f"),
+					bson.D{{Key: "$match", Value: filter}},
+					bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: 1}}}},
+					bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+				)
+			},
+		})
+	}
+}
