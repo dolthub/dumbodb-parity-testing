@@ -290,3 +290,65 @@ func TestLookupGetFieldReadsAs(t *testing.T) {
 		})
 	}
 }
+
+// $graphLookup's startWith is an expression: mongod checks its paths,
+// variables and operators while parsing, and evaluates it per document
+// without folding its constants.
+func TestGraphLookupStartWith(t *testing.T) {
+	cases := map[string]string{
+		"EmptyPathPart":     `"$a..b"`,
+		"DollarPathPart":    `"$a.$b"`,
+		"UndefinedVariable": `"$$nope"`,
+		"VariableInOp":      `{"$add":["$$nope",1]}`,
+		"UnknownOperator":   `{"$bogus":1}`,
+		"WrongArgCount":     `{"$abs":[1,2]}`,
+		"ConstantError":     `{"$divide":[1,0]}`,
+		"FieldError":        `{"$divide":[1,"$n"]}`,
+		"RootPath":          `"$$ROOT.a"`,
+		"Operator":          `{"$add":["$a",1]}`,
+		"ArrayOfPaths":      `["$a","$arr"]`,
+		"ArrayField":        `"$arr"`,
+		"Constant":          `2`,
+		"NoMatchSwitch":     `{"$switch":{"branches":[{"case":false,"then":"$a"}]}}`,
+	}
+	for name, js := range cases {
+		var holder struct{ S interface{} }
+		if err := bson.UnmarshalExtJSON([]byte(`{"s":`+js+`}`), false, &holder); err != nil {
+			t.Fatal(name, err)
+		}
+		for _, empty := range []bool{false, true} {
+			testName := "GraphLookupStartWith_" + name
+			if empty {
+				testName += "_Empty"
+			}
+			empty := empty
+			harness.PairTest(t, harness.TestCase{
+				Name:    testName,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					if empty {
+						return col.Database().CreateCollection(ctx, col.Name())
+					}
+					_, err := col.InsertMany(ctx, []interface{}{
+						bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: int32(1)}, {Key: "n", Value: int32(0)},
+							{Key: "arr", Value: bson.A{int32(1), bson.A{int32(2)}}}},
+						bson.D{{Key: "_id", Value: int32(2)}, {Key: "a", Value: int32(2)}, {Key: "n", Value: int32(1)}},
+					})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return fieldOpsAgg(ctx, col,
+						bson.D{{Key: "$graphLookup", Value: bson.D{
+							{Key: "from", Value: col.Name()}, {Key: "startWith", Value: holder.S},
+							{Key: "connectFromField", Value: "zz"}, {Key: "connectToField", Value: "_id"}, {Key: "as", Value: "g"},
+						}}},
+						bson.D{{Key: "$project", Value: bson.D{{Key: "g", Value: bson.D{{Key: "$sortArray", Value: bson.D{
+							{Key: "input", Value: "$g._id"}, {Key: "sortBy", Value: int32(1)},
+						}}}}}}},
+						bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+					)
+				},
+			})
+		}
+	}
+}
