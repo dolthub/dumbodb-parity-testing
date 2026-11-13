@@ -16,6 +16,7 @@ package tests
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -63,4 +64,26 @@ func TestAccumulatorMemoryLimit(t *testing.T) {
 			},
 		})
 	}
+}
+
+// mongod does not limit the memory $mergeObjects keeps.
+func TestMergeObjectsMemoryUnlimited(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:    "MergeObjectsMemoryUnlimited",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			pad := strings.Repeat("x", 8_000_000)
+			for i := int32(1); i <= 13; i++ {
+				if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: i}, {Key: "f", Value: pad}, {Key: "i", Value: i}}); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return fieldOpsAgg(ctx, col,
+				bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "m", Value: bson.D{{Key: "$mergeObjects", Value: "$$ROOT"}}}}}},
+				bson.D{{Key: "$project", Value: bson.D{{Key: "n", Value: bson.D{{Key: "$strLenBytes", Value: "$m.f"}}}}}})
+		},
+	})
 }
