@@ -3683,3 +3683,170 @@ func TestHint_SparseOrPartialArrayOrder(t *testing.T) {
 		}
 	}
 }
+
+// c103PartialDottedDocs are documents for a partial index over a multikey
+// dotted path, some holding MinKey among their keys.
+var c103PartialDottedDocs = `[
+		{"_id": 1, "a": [{"$minKey": 1}, false, [null, {"$oid": "5f0000000000000000000001"}]], "b": true, "c": "s"},
+		{"_id": 2, "a": [1], "b": 2, "c": 1},
+		{"_id": 3, "b": {"$date": {"$numberLong": "1000"}}, "e": {"f": [{"x": {"$date": {"$numberLong": "1000"}}}, {"$maxKey": 1}]}},
+		{"_id": 4, "a": true, "b": {"$numberDouble": "NaN"}, "e": {"f": "b"}},
+		{"_id": 5, "a": [{"$numberDecimal": "2.0"}, 1, [2, 3]], "b": false},
+		{"_id": 6, "a": [], "b": "B", "c": 0, "e": {"f": ["b", [{"$date": {"$numberLong": "1000"}}, 3]]}},
+		{"_id": 7, "a": [[1], "B", "b"], "c": 3, "e": {"f": "a"}},
+		{"_id": 8, "a": [], "b": {"$date": {"$numberLong": "1000"}}, "e": {"f": [false, {"$numberLong": "2"}, 2.5]}},
+		{"_id": 9, "a": "a", "b": {"$maxKey": 1}, "c": "s"},
+		{"_id": 10, "a": [{"x": {"$numberDecimal": "2.0"}}, true, ["a", 0]], "b": 2.5, "c": "s", "e": {"f": -1}},
+		{"_id": 11, "a": "b", "b": {"$maxKey": 1}, "c": "s"},
+		{"_id": 12, "b": {"$minKey": 1}, "e": {"f": [2]}},
+		{"_id": 13, "a": {"$numberDouble": "NaN"}, "b": 1, "c": 3, "e": {"f": []}},
+		{"_id": 14, "a": null, "e": {"f": {"$numberDouble": "NaN"}}},
+		{"_id": 15, "b": "a", "e": {"f": []}},
+		{"_id": 16, "a": [], "b": {"$numberDouble": "NaN"}, "c": 1, "e": {"f": {"x": 2.5}}},
+		{"_id": 17, "a": {"$numberLong": "2"}, "e": {"f": 2.5}},
+		{"_id": 18, "a": [], "b": 3, "c": null, "e": {"f": []}},
+		{"_id": 19, "a": [false, {"$date": {"$numberLong": "1000"}}], "b": null, "e": {"f": [[]]}},
+		{"_id": 20, "a": {"x": "b"}, "b": {"$date": {"$numberLong": "1000"}}, "e": {"f": "B"}},
+		{"_id": 21, "a": -1, "b": 2.5, "e": {"f": 2}},
+		{"_id": 22, "a": 3, "b": null, "c": 1, "e": [{"f": "B"}, {"f": null}]},
+		{"_id": 23, "a": "a", "b": 2},
+		{"_id": 24, "a": false, "e": [{"f": {"$numberLong": "2"}}, {"f": -1}]},
+		{"_id": 25, "a": 1, "b": 2.5, "e": {"f": [{"$date": {"$numberLong": "1000"}}, 3, {"$numberLong": "2"}]}},
+		{"_id": 26, "a": "B", "b": 1, "c": 3},
+		{"_id": 27, "a": [[]], "b": {"$numberDecimal": "2.0"}, "c": 0, "e": {"f": {"x": null}}},
+		{"_id": 28, "a": 2.5, "c": "s", "e": {"f": []}},
+		{"_id": 29, "a": [[-1, {"$numberLong": "2"}], {"x": {"$numberDouble": "NaN"}}, [{"$numberDouble": "NaN"}, "x"]], "b": {"$numberDouble": "NaN"}, "e": [{"f": "a"}, {"f": "B"}]},
+		{"_id": 30, "b": {"$minKey": 1}},
+		{"_id": 31, "a": 3, "b": "", "e": {"f": []}},
+		{"_id": 32, "a": false, "b": -1, "e": {"f": {"$maxKey": 1}}},
+		{"_id": 33, "b": {"$oid": "5f0000000000000000000001"}, "e": {"f": 2.5}},
+		{"_id": 34, "b": {"$numberDouble": "NaN"}, "c": 0},
+		{"_id": 35, "a": [3], "b": 1, "e": {"f": {"$minKey": 1}}},
+		{"_id": 36, "a": 2.5, "b": 2, "e": {"f": [-1, {"$minKey": 1}]}},
+		{"_id": 37, "a": "x", "b": 3, "c": 2, "e": {"f": {"x": "B"}}},
+		{"_id": 38, "a": 1, "b": {"$minKey": 1}, "c": 2, "e": {"f": []}},
+		{"_id": 39, "a": {"$numberLong": "2"}, "b": "b", "e": {"f": []}},
+		{"_id": 40, "a": [null, [{"$date": {"$numberLong": "1000"}}, {"$numberDouble": "NaN"}], {"x": {"$numberDecimal": "2.0"}}], "b": 0, "c": 0}
+	]`
+
+// c103NestedAndDocs are documents for a two-sided dotted multikey range
+// inside a nested $and and $or.
+var c103NestedAndDocs = `[
+		{"_id": 1, "a": "a", "b": "x", "e": {"f": [2.5, true, {"$date": {"$numberLong": "1000"}}]}},
+		{"_id": 2, "a": "B", "b": 0, "e": {"f": {"$date": {"$numberLong": "1000"}}}},
+		{"_id": 3, "a": [-1, [{"$date": {"$numberLong": "1000"}}], {"x": null}], "b": 0},
+		{"_id": 4, "a": {"$numberLong": "2"}, "b": "x", "e": {"f": 3}},
+		{"_id": 5, "a": "ab", "b": {"$oid": "5f0000000000000000000001"}, "c": null, "e": {"f": {"x": null}}},
+		{"_id": 6, "a": 1, "b": {"$minKey": 1}},
+		{"_id": 7, "a": "b", "b": -1, "c": 1},
+		{"_id": 8, "a": 0, "b": 3, "c": 3, "e": {"f": ["x", 1, {"$numberDouble": "NaN"}]}},
+		{"_id": 9, "a": "x", "c": null, "e": {"f": "ab"}},
+		{"_id": 10, "a": {"$numberLong": "2"}, "e": {"f": {"$maxKey": 1}}},
+		{"_id": 11, "a": {"$numberDouble": "NaN"}, "b": 2, "e": {"f": [{"$numberDecimal": "2.0"}, {"$numberDecimal": "2.0"}]}},
+		{"_id": 12, "b": {"$numberDecimal": "2.0"}, "c": 2, "e": {"f": [{"$numberDouble": "NaN"}, {"$numberLong": "2"}]}},
+		{"_id": 13, "a": {"x": "b"}, "b": {"$minKey": 1}, "c": null},
+		{"_id": 14, "a": {"x": 1}, "b": 1, "c": 0},
+		{"_id": 15, "b": 2.5, "c": 0, "e": {"f": [[], 1]}},
+		{"_id": 16, "a": {"$numberDouble": "NaN"}, "c": 3, "e": {"f": ["ab", {"x": {"$oid": "5f0000000000000000000001"}}]}},
+		{"_id": 17, "a": -1, "b": 1, "c": "s", "e": {"f": [{"x": {"$minKey": 1}}, {"x": {"$maxKey": 1}}]}},
+		{"_id": 18, "a": [{"x": "x"}, {"$numberLong": "2"}, 2], "b": {"$date": {"$numberLong": "1000"}}, "e": [{"f": 2.5}, {"f": {"$numberDecimal": "2.0"}}]},
+		{"_id": 19, "a": [], "b": {"$maxKey": 1}, "e": {"f": ["ab", {"$date": {"$numberLong": "1000"}}, 2.5]}},
+		{"_id": 20, "a": 0, "b": {"$numberLong": "2"}},
+		{"_id": 21, "a": {"$minKey": 1}, "e": [{"f": {"$maxKey": 1}}, {"f": ""}]},
+		{"_id": 22, "a": {"x": true}, "c": 1, "e": {"f": {"$date": {"$numberLong": "1000"}}}},
+		{"_id": 23, "a": [2.5, 3, {"$numberDouble": "NaN"}], "b": 2.5, "e": {"f": {"x": "x"}}},
+		{"_id": 24, "b": {"$maxKey": 1}, "e": {"f": [{"$numberDecimal": "2.0"}]}},
+		{"_id": 25, "a": "B", "b": 3, "c": null, "e": [{"f": {"$maxKey": 1}}, {"f": {"$oid": "5f0000000000000000000001"}}]},
+		{"_id": 26, "a": [true, [-1, {"$minKey": 1}, {"$oid": "5f0000000000000000000001"}], {"x": {"$maxKey": 1}}], "e": {"f": {"$minKey": 1}}},
+		{"_id": 27, "a": [-1, {"$maxKey": 1}], "b": 3, "c": 0, "e": [{"f": 2.5}, {"f": "b"}]},
+		{"_id": 28, "a": {"$maxKey": 1}, "c": 2, "e": {"f": 2.5}},
+		{"_id": 29, "a": [["", {"$numberDecimal": "2.0"}, "x"], {"$minKey": 1}], "b": {"$numberLong": "2"}, "c": 2, "e": {"f": {"$numberLong": "2"}}},
+		{"_id": 30, "a": {"x": 1}, "b": 3, "c": 3},
+		{"_id": 31, "a": {"$date": {"$numberLong": "1000"}}, "b": "x"},
+		{"_id": 32, "a": [{"x": 1}], "b": 2},
+		{"_id": 33, "a": [[{"$date": {"$numberLong": "1000"}}], {"x": "a"}, {"x": {"$numberDecimal": "2.0"}}], "b": 0, "c": 0},
+		{"_id": 34, "a": "b", "b": {"$numberDouble": "NaN"}, "c": 3, "e": {"f": -1}},
+		{"_id": 35, "a": 0, "c": "s", "e": {"f": {"$maxKey": 1}}},
+		{"_id": 36, "a": [3, {"$minKey": 1}, []], "b": {"$minKey": 1}, "e": {"f": [false, "ab"]}},
+		{"_id": 37, "a": {"x": "a"}, "b": {"$maxKey": 1}},
+		{"_id": 38, "a": [{"$numberLong": "2"}, ["x", "x", "x"]], "c": 2, "e": {"f": ["B", "x", 1]}},
+		{"_id": 39, "b": 2, "e": [{"f": 0}, {"f": {"$numberDecimal": "2.0"}}]},
+		{"_id": 40, "a": {"x": 3}, "b": {"$numberDouble": "NaN"}}
+	]`
+
+// TestHint_PartialDottedAndNestedRange: a hinted read on a partial index over
+// a multikey dotted path reaches a document holding MinKey at that key, as
+// {$gt: MinKey} bounds include it; and a hinted find with a limit over a
+// two-sided dotted range inside $and keeps the bound mongod's trial keeps
+// when its plans stop at the limit.
+func TestHint_PartialDottedAndNestedRange(t *testing.T) {
+	gtMin := bson.D{{Key: "e.f", Value: bson.D{{Key: "$gt", Value: primitive.MinKey{}}}}}
+	nested := bson.D{{Key: "$and", Value: bson.A{
+		bson.D{{Key: "$or", Value: bson.A{
+			bson.D{{Key: "b", Value: bson.D{{Key: "$exists", Value: true}}}},
+			bson.D{{Key: "a", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$type", Value: "string"}}}}}},
+			bson.D{{Key: "$and", Value: bson.A{
+				bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: -1}, {Key: "$lte", Value: nil}}}},
+				bson.D{{Key: "a", Value: bson.D{{Key: "$nin", Value: bson.A{2.5}}}}},
+			}}},
+		}}},
+		bson.D{{Key: "e.f", Value: bson.D{{Key: "$gt", Value: "a"}, {Key: "$lt", Value: 3}}}},
+	}}}
+	partial := mongo.IndexModel{Keys: bson.D{{Key: "e.f", Value: 1}, {Key: "c", Value: 1}},
+		Options: options.Index().SetName("efap").SetPartialFilterExpression(bson.D{{Key: "a", Value: bson.D{{Key: "$gte", Value: 0}}}})}
+	plain := mongo.IndexModel{Keys: bson.D{{Key: "e.f", Value: 1}}, Options: options.Index().SetName("ef")}
+	ids := func(cur *mongo.Cursor, err error) (interface{}, error) {
+		if err != nil {
+			return nil, err
+		}
+		var out []bson.D
+		if err := cur.All(context.Background(), &out); err != nil {
+			return nil, err
+		}
+		got := bson.A{}
+		for _, d := range out {
+			v, _ := lookupBSONField(d, "_id")
+			got = append(got, v)
+		}
+		return got, nil
+	}
+	cases := []struct {
+		name  string
+		docs  string
+		index mongo.IndexModel
+		run   func(ctx context.Context, col *mongo.Collection) (interface{}, error)
+	}{
+		{"partial_find", c103PartialDottedDocs, partial, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return ids(col.Find(ctx, gtMin, options.Find().SetHint("efap")))
+		}},
+		{"partial_find_limit", c103PartialDottedDocs, partial, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return ids(col.Find(ctx, gtMin, options.Find().SetHint("efap").SetLimit(2)))
+		}},
+		{"partial_aggregate", c103PartialDottedDocs, partial, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return ids(col.Aggregate(ctx, bson.A{bson.D{{Key: "$match", Value: gtMin}}}, options.Aggregate().SetHint("efap")))
+		}},
+		{"nested_and_find_limit", c103NestedAndDocs, plain, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return ids(col.Find(ctx, nested, options.Find().SetHint("ef").SetLimit(2)))
+		}},
+	}
+	for _, tc := range cases {
+		var docs []interface{}
+		if err := bson.UnmarshalExtJSON([]byte(tc.docs), false, &docs); err != nil {
+			t.Fatal(err)
+		}
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Hint_PartialDottedAndNestedRange_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					if _, err := col.InsertMany(ctx, docs); err != nil {
+						return err
+					}
+					_, err := col.Indexes().CreateOne(ctx, tc.index)
+					return err
+				},
+				Run: tc.run,
+			})
+		})
+	}
+}
