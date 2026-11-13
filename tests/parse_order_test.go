@@ -42,6 +42,11 @@ func TestPipelineParseOrder(t *testing.T) {
 		"LookupBadDensifyOnEmptyInput":       `[{"$match":{"_id":-1}},{"$lookup":{"from":"COLL","pipeline":[{"$densify":{"field":"x","range":{"step":"a","bounds":"full"}}}],"as":"j"}}]`,
 		"UnionWithNestedUnknown":             `[{"$unionWith":{"coll":"COLL","pipeline":[{"$lookup":{"from":"COLL","pipeline":[{"$bogus":{}}],"as":"k"}}]}}]`,
 		"FacetBadDensify":                    `[{"$facet":{"f":[{"$match":{}},{"$densify":{"field":1}}]}}]`,
+		"EmptyProjectBeforeBadSkip":          `[{"$project":{}},{"$skip":-1}]`,
+		"BadSetBeforeBadSkip":                `[{"$set":{"$x":1}},{"$skip":"x"}]`,
+		"UndefinedBeforeBadSkip":             `[{"$project":{"x":"$$bogus"}},{"$skip":-1}]`,
+		"BadUnsetBeforeBadSkip":              `[{"$unset":1},{"$skip":-1}]`,
+		"ProjectBeforeBadSkip":               `[{"$project":{"x":1}},{"$skip":-1}]`,
 	}
 	for name, js := range pipelines {
 		js := js
@@ -71,6 +76,7 @@ func TestPipelineParseOrder(t *testing.T) {
 		"UnknownInUnionWith": `[{"$unionWith":{"coll":"COLL","pipeline":[{"$bogus":{}}]}}]`,
 		"UnknownInFacet":     `[{"$facet":{"f":[{"$bogus":{}}]}}]`,
 		"LookupThenSet":      `[{"$lookup":{"from":"COLL","localField":"a","foreignField":"b","as":"j"}},{"$set":{"x":1}}]`,
+		"BadUnsetBadSkip":    `[{"$unset":1},{"$skip":-1}]`,
 	}
 	for name, js := range views {
 		js := js
