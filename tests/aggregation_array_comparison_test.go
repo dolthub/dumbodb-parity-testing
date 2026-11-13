@@ -135,3 +135,41 @@ func TestAggregationComparisonSiblings(t *testing.T) {
 		})
 	}
 }
+
+// A field path through arrays yields an array of the results of their
+// document elements: arrays further along the path stay nested, and arrays
+// directly inside arrays are skipped.
+func TestFieldPathThroughArrays(t *testing.T) {
+	seed := func(ctx context.Context, col *mongo.Collection) error {
+		var doc bson.D
+		if err := bson.UnmarshalExtJSON([]byte(`{"_id":1,"j":[{"l":[{"k":1},{"k":2}]},{"l":{"k":3}},5,[{"l":{"k":4}}],{"zz":1}],`+
+			`"a":[[{"b":1}],{"b":2},[]],"c":{"d":[1,2]},"e":[{"f":null}]}`), false, &doc); err != nil {
+			return err
+		}
+		_, err := col.InsertOne(ctx, doc)
+		return err
+	}
+	pipelines := map[string]string{
+		"Project":      `[{"$project":{"x":"$j.l.k","y":"$a.b","z":"$c.d","w":"$e.f","v":"$j.l","u":"$a.0","t":"$c.d.x"}}]`,
+		"InOperators":  `[{"$project":{"x":{"$concatArrays":["$j.l.k"]},"y":{"$size":"$a.b"}}}]`,
+		"GroupKey":     `[{"$group":{"_id":"$a.b","n":{"$sum":1}}}]`,
+		"AddFields":    `[{"$addFields":{"q":"$j.l.k"}},{"$project":{"q":1}}]`,
+		"RootVariable": `[{"$project":{"q":"$$ROOT.j.l.k","r":"$$CURRENT.a.b","s":"$$ROOT.c.d"}}]`,
+		"LetVariable":  `[{"$project":{"q":{"$let":{"vars":{"v":"$j"},"in":"$$v.l.k"}}}}]`,
+		"MatchExpr":    `[{"$match":{"$expr":{"$eq":["$a.b",[2]]}}},{"$project":{"_id":1}}]`,
+	}
+	for name, js := range pipelines {
+		var stages []bson.D
+		if err := bson.UnmarshalExtJSON([]byte(`{"p":`+js+`}`), false, &struct{ P *[]bson.D }{&stages}); err != nil {
+			t.Fatal(name, err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "FieldPathThroughArrays_" + name,
+			Support: harness.DumboDBFull,
+			Setup:   seed,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return fieldOpsAgg(ctx, col, stages...)
+			},
+		})
+	}
+}
