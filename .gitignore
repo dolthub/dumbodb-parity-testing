@@ -4,6 +4,7 @@
 .runtime/
 CLAUDE.md
 .idea/
+fuzz-results/
 
 # Gas Town (added by gt)
 .logs/
