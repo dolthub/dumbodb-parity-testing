@@ -136,6 +136,14 @@ func TestQueryStatsStage(t *testing.T) {
 		"SettingsCollNotObject":  {"", "c", `[{"$querySettings":5}]`},
 		"InhibitNotObject":       {"", "c", `[{"$_internalInhibitOptimization":5}]`},
 		"InhibitNotEmpty":        {"", "c", `[{"$_internalInhibitOptimization":{"zz":1}}]`},
+		"InFacetCollection":      {"", "c", `[{"$facet":{"a":[{"$queryStats":{}}]}}]`},
+		"InFacetOtherDatabase":   {"", 1, `[{"$facet":{"a":[{"$queryStats":{}}]}}]`},
+		"SettingsNotFirst":       {"admin", 1, `[{"$documents":[]},{"$querySettings":{}}]`},
+		"SettingsInFacet":        {"admin", 1, `[{"$facet":{"a":[{"$querySettings":{}}]}}]`},
+		"SettingsInFacetColl":    {"", "c", `[{"$facet":{"a":[{"$querySettings":{}}]}}]`},
+		"SplitEventSpec":         {"", "c", `[{"$changeStreamSplitLargeEvent":5}]`},
+		"SplitEventSpecDatabase": {"admin", 1, `[{"$changeStreamSplitLargeEvent":5}]`},
+		"SplitEventInFacet":      {"", "c", `[{"$facet":{"a":[{"$changeStreamSplitLargeEvent":{}}]}}]`},
 	}
 	for name, c := range cases {
 		c := c
