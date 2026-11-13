@@ -102,6 +102,20 @@ func TestLookupLetScope(t *testing.T) {
 			return project(bson.D{{Key: "r", Value: bson.D{{Key: "$setField", Value: bson.D{
 				{Key: "field", Value: "$$v"}, {Key: "input", Value: bson.D{}}, {Key: "value", Value: int32(1)}}}}}})
 		}},
+		{"array_inputs", bson.D{{Key: "v", Value: bson.A{int32(1), int32(2)}}}, func(string) bson.A {
+			return project(bson.D{
+				{Key: "r", Value: bson.D{{Key: "$reduce", Value: bson.D{{Key: "input", Value: "$$v"}, {Key: "initialValue", Value: int32(0)},
+					{Key: "in", Value: bson.D{{Key: "$add", Value: bson.A{"$$value", "$$this"}}}}}}}},
+				{Key: "m", Value: bson.D{{Key: "$map", Value: bson.D{{Key: "input", Value: "$$v"}, {Key: "in", Value: "$$this"}}}}},
+				{Key: "z", Value: bson.D{{Key: "$zip", Value: bson.D{{Key: "inputs", Value: bson.A{"$$v", "$$v"}}}}}},
+				{Key: "rv", Value: bson.D{{Key: "$reverseArray", Value: "$$v"}}},
+				{Key: "i", Value: bson.D{{Key: "$in", Value: bson.A{int32(1), "$$v"}}}},
+			})
+		}},
+		{"array_input_in_match", bson.D{{Key: "v", Value: bson.A{int32(1), int32(2)}}}, func(string) bson.A {
+			return bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$in", Value: bson.A{"$_id",
+				bson.D{{Key: "$map", Value: bson.D{{Key: "input", Value: "$$v"}, {Key: "in", Value: "$$this"}}}}}}}}}}}, bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}}}
+		}},
 		{"facet_and_union", vx, func(f string) bson.A {
 			return bson.A{bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: f}, {Key: "pipeline", Value: project(bson.D{{Key: "u", Value: "$$v"}})}}}},
 				bson.D{{Key: "$facet", Value: bson.D{{Key: "a", Value: project(bson.D{{Key: "u", Value: "$$v"}})}}}}}
