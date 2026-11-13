@@ -116,6 +116,88 @@ func TestMergeOnFieldValues(t *testing.T) {
 	}
 }
 
+// $merge refuses a null _id, an 'on' path through an array index, 'on' fields
+// that are not exactly a unique index's fields, and a change to a matched
+// document's _id. whenMatched and whenNotMatched "fail" use mongod's codes.
+func TestMergeTargetChecks(t *testing.T) {
+	cases := map[string]struct {
+		source, merge string
+	}{
+		"NullID":             {`[{"_id":null,"k":1}]`, `{"into":"T"}`},
+		"NullIDOnID":         {`[{"_id":null,"k":1}]`, `{"into":"T","on":"_id"}`},
+		"MissingIDGenerated": {`[{"k":3}]`, `{"into":"T","on":"_id"}`},
+		"OnThroughIndex":     {`[{"_id":1,"k":[{"m":1}]}]`, `{"into":"T","on":"k.0.m"}`},
+		"OnNoIndex":          {`[{"_id":1,"k":1}]`, `{"into":"T","on":"zz"}`},
+		"OnPartOfIndex":      {`[{"_id":1,"k":1}]`, `{"into":"T","on":["k","zz"]}`},
+		"OnPartialIndex":     {`[{"_id":1,"p":1}]`, `{"into":"T","on":"p"}`},
+		"OnNonUniqueIndex":   {`[{"_id":1,"q":1}]`, `{"into":"T","on":"q"}`},
+		"OnMissingTarget":    {`[{"_id":1,"k":1}]`, `{"into":"T_none","on":"k"}`},
+		"OnCompoundAnyOrder": {`[{"k":1,"j":2}]`, `{"into":"T","on":["k","j"]}`},
+		"OnEmptySource":      {`[]`, `{"into":"T","on":"zz"}`},
+		"MergeChangesID":     {`[{"_id":1,"k":1,"x":5}]`, `{"into":"T","on":"k"}`},
+		"ReplaceChangesID":   {`[{"_id":1,"k":1,"x":5}]`, `{"into":"T","on":"k","whenMatched":"replace"}`},
+		"MergeChangesIDType": {`[{"_id":9.0,"k":1,"x":5}]`, `{"into":"T","on":"k"}`},
+		"MergeSameID":        {`[{"_id":9,"k":1,"x":5}]`, `{"into":"T","on":"k"}`},
+		"MergeNoID":          {`[{"k":1,"x":5}]`, `{"into":"T","on":"k","whenMatched":"replace"}`},
+		"WhenMatchedFail":    {`[{"_id":9,"k":1}]`, `{"into":"T","whenMatched":"fail"}`},
+		"WhenNotMatchedFail": {`[{"_id":2,"k":2}]`, `{"into":"T","whenNotMatched":"fail"}`},
+	}
+	for name, c := range cases {
+		var source []interface{}
+		if err := bson.UnmarshalExtJSON([]byte(`{"s":`+c.source+`}`), false, &struct{ S *[]interface{} }{&source}); err != nil {
+			t.Fatal(name, err)
+		}
+		var spec bson.D
+		if err := bson.UnmarshalExtJSON([]byte(c.merge), false, &spec); err != nil {
+			t.Fatal(name, err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "MergeTargetChecks_" + name,
+			Support: harness.DumboDBFull,
+			Setup: func(ctx context.Context, col *mongo.Collection) error {
+				if len(source) > 0 {
+					if _, err := col.InsertMany(ctx, source); err != nil {
+						return err
+					}
+				} else if err := col.Database().CreateCollection(ctx, col.Name()); err != nil {
+					return err
+				}
+				target := col.Database().Collection(col.Name() + "_t")
+				if _, err := target.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(9)}, {Key: "k", Value: int32(1)}}); err != nil {
+					return err
+				}
+				_, err := target.Indexes().CreateMany(ctx, []mongo.IndexModel{
+					{Keys: bson.D{{Key: "k", Value: 1}}, Options: options.Index().SetUnique(true)},
+					{Keys: bson.D{{Key: "k.0.m", Value: 1}}, Options: options.Index().SetUnique(true).SetName("km")},
+					{Keys: bson.D{{Key: "j", Value: 1}, {Key: "k", Value: -1}}, Options: options.Index().SetUnique(true)},
+					{Keys: bson.D{{Key: "p", Value: 1}}, Options: options.Index().SetUnique(true).
+						SetPartialFilterExpression(bson.D{{Key: "p", Value: bson.D{{Key: "$gt", Value: int32(1)}}}})},
+					{Keys: bson.D{{Key: "q", Value: 1}}},
+				})
+				return err
+			},
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				target := col.Database().Collection(col.Name() + "_t")
+				defer target.Drop(ctx)
+				into := bson.D{}
+				for _, e := range spec {
+					if e.Key == "into" {
+						e.Value = col.Name() + "_t" + e.Value.(string)[1:]
+					}
+					into = append(into, e)
+				}
+				if _, err := fieldOpsAgg(ctx, col, bson.D{{Key: "$merge", Value: into}}); err != nil {
+					return nil, err
+				}
+				return fieldOpsAgg(ctx, target,
+					bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: bson.D{{Key: "$type", Value: "$_id"}}},
+						{Key: "k", Value: 1}, {Key: "j", Value: 1}, {Key: "x", Value: 1}}}},
+					bson.D{{Key: "$sort", Value: bson.D{{Key: "k", Value: 1}}}})
+			},
+		})
+	}
+}
+
 // Stage-level field names with a null byte are refused when the stage is
 // parsed.
 func TestNulByteStageFieldNames(t *testing.T) {
