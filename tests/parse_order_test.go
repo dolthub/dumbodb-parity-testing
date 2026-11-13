@@ -120,6 +120,16 @@ func TestQueryStatsStage(t *testing.T) {
 		"ListCatalogThenUnknown": {"admin", 1, `[{"$listCatalog":{}},{"$bogus":{}}]`},
 		"ListCatalogNotFirst":    {"admin", 1, `[{"$documents":[]},{"$listCatalog":{}}]`},
 		"ListCatalogCollSpec":    {"", "c", `[{"$listCatalog":{"zz":1}}]`},
+		"HmacShortKey":           {"admin", 1, `[{"$queryStats":{"transformIdentifiers":{"algorithm":"hmac-sha-256","hmacKey":{"$binary":{"base64":"AAAA","subType":"08"}}}}}]`},
+		"HmacGeneralSubtype":     {"admin", 1, `[{"$queryStats":{"transformIdentifiers":{"algorithm":"hmac-sha-256","hmacKey":{"$binary":{"base64":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","subType":"00"}}}}}]`},
+		"TransformNull":          {"admin", 1, `[{"$queryStats":{"transformIdentifiers":null}}]`},
+		"SettingsNotObject":      {"admin", 1, `[{"$querySettings":5}]`},
+		"SettingsUnknownField":   {"admin", 1, `[{"$querySettings":{"zz":1}}]`},
+		"SettingsDebugNotBool":   {"admin", 1, `[{"$querySettings":{"showDebugQueryShape":1}}]`},
+		"SettingsDebugBool":      {"admin", 1, `[{"$querySettings":{"showDebugQueryShape":true}}]`},
+		"SettingsCollNotObject":  {"", "c", `[{"$querySettings":5}]`},
+		"InhibitNotObject":       {"", "c", `[{"$_internalInhibitOptimization":5}]`},
+		"InhibitNotEmpty":        {"", "c", `[{"$_internalInhibitOptimization":{"zz":1}}]`},
 	}
 	for name, c := range cases {
 		c := c
