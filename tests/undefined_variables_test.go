@@ -135,6 +135,8 @@ func TestExpressionParseChecks(t *testing.T) {
 		"LookupSubPipelineBad":  `{"$lookup":{"from":"x","pipeline":[{"$bogus":{}}],"as":"j"}}`,
 		"LookupLetDocumentPath": `{"$lookup":{"from":"x","let":{"v":"$$ROOT"},"pipeline":[{"$documents":[{"q":1}]},{"$project":{"_id":0,"q":"$$v.a.x","r":{"$add":["$$v.a.x",1]}}}],"as":"j"}}`,
 		"FacetSet":              `{"$facet":{"f":[{"$set":{"q":"$$nope"}}]}}`,
+		"LookupDocumentsPath":   `{"$lookup":{"pipeline":[{"$documents":[{"a":"$a..b"}]}],"as":"j"}}`,
+		"LookupDocumentsArray":  `{"$lookup":{"pipeline":[{"$documents":"$a.$b"}],"as":"j"}}`,
 		"MatchGetFieldNoInput":  `{"$match":{"$expr":{"$getField":{"field":"j"}}}}`,
 		"MatchGetFieldUnknown":  `{"$match":{"$expr":{"$getField":{"field":"j","zz":1}}}}`,
 		"MatchGetFieldNoField":  `{"$match":{"$expr":{"$eq":[{"$getField":{"input":{}}},1]}}}`,
