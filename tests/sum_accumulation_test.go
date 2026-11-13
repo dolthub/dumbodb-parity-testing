@@ -60,3 +60,47 @@ func TestAggGroupNum_SumNearestDouble(t *testing.T) {
 		}
 	}
 }
+
+// TestAggGroupNum_ConstantSum: the classic engine sums a literal int, long or
+// double $sum argument with plain typed arithmetic (an int overflows to a
+// long, a long to a double, doubles add uncompensated); SBE uses the
+// double-double. A decimal literal takes the usual path in both.
+func TestAggGroupNum_ConstantSum(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		docs := make([]interface{}, 10)
+		for i := range docs {
+			docs[i] = bson.D{{Key: "_id", Value: int32(i)}, {Key: "g", Value: int32(i % 2)}}
+		}
+		_, err := col.InsertMany(ctx, docs)
+		return err
+	}
+	args := map[string]interface{}{
+		"double":         0.1,
+		"int_max":        int32(math.MaxInt32),
+		"long_max":       int64(math.MaxInt64),
+		"literal_double": bson.D{{Key: "$literal", Value: 0.1}},
+		"decimal":        mustDecimal("0.1"),
+		"expression":     bson.D{{Key: "$add", Value: bson.A{0.1, int32(0)}}},
+	}
+	for name, arg := range args {
+		pipelines := map[string]bson.A{
+			"group_sbe": {bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: "$g"}, {Key: "s", Value: bson.D{{Key: "$sum", Value: arg}}}}}}},
+			"group_classic": {bson.D{{Key: "$_internalInhibitOptimization", Value: bson.D{}}},
+				bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: "$g"}, {Key: "s", Value: bson.D{{Key: "$sum", Value: arg}}}}}}},
+			"bucket": {bson.D{{Key: "$bucket", Value: bson.D{{Key: "groupBy", Value: "$_id"},
+				{Key: "boundaries", Value: bson.A{int32(0), int32(5), int32(10)}},
+				{Key: "output", Value: bson.D{{Key: "s", Value: bson.D{{Key: "$sum", Value: arg}}}}}}}}},
+			"bucket_auto": {bson.D{{Key: "$bucketAuto", Value: bson.D{{Key: "groupBy", Value: "$_id"}, {Key: "buckets", Value: int32(2)},
+				{Key: "output", Value: bson.D{{Key: "s", Value: bson.D{{Key: "$sum", Value: arg}}}}}}}}},
+		}
+		for pipeName, pipeline := range pipelines {
+			pipeline = append(pipeline, bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}})
+			harness.PairTest(t, harness.TestCase{
+				Name:    fmt.Sprintf("AggGroupNum_ConstantSum_%s_%s", name, pipeName),
+				Support: harness.DumboDBFull,
+				Setup:   setup,
+				Run:     pipelineRunExtJSON(pipeline),
+			})
+		}
+	}
+}
