@@ -190,3 +190,59 @@ func TestOutputPathConflicts(t *testing.T) {
 		},
 	})
 }
+
+// An empty object beside paths within it adds nothing: the paths apply to
+// the current value, which may be an object or an array. A dotted name
+// inside an object literal is refused (40183), and a repeated output name
+// conflicts with itself.
+func TestOutputPathEmptyObjectAndDuplicates(t *testing.T) {
+	seed := func(ctx context.Context, col *mongo.Collection) error {
+		_, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: int32(1)}, {Key: "y", Value: bson.D{{Key: "q", Value: int32(1)}}}},
+			bson.D{{Key: "_id", Value: int32(2)}, {Key: "y", Value: bson.A{bson.D{{Key: "a", Value: int32(1)}}, int32(2)}}},
+			bson.D{{Key: "_id", Value: int32(3)}, {Key: "y", Value: int32(5)}},
+			bson.D{{Key: "_id", Value: int32(4)}},
+		})
+		return err
+	}
+	pipelines := map[string]string{
+		"EmptyThenSub":       `[{"$set":{"y":{},"y.z":2}},{"$sort":{"_id":1}}]`,
+		"SubThenEmpty":       `[{"$addFields":{"y.z":2,"y":{}}},{"$sort":{"_id":1}}]`,
+		"DottedInSubObject":  `[{"$set":{"y":{"a.b":1}}}]`,
+		"DottedDeeper":       `[{"$set":{"y":{"c":{"a.b":1}}}}]`,
+		"DuplicateSet":       `[{"$set":{"y":1,"y":2}}]`,
+		"DuplicateAddFields": `[{"$addFields":{"y":1,"y":2}}]`,
+		"DuplicateWindow":    `[{"$setWindowFields":{"output":{"y":{"$sum":1},"y":{"$sum":2}}}}]`,
+		"DuplicateProject":   `[{"$project":{"y":1,"y":0}}]`,
+		"DuplicateInFacet":   `[{"$facet":{"f":[{"$set":{"y":1,"y":2}}]}}]`,
+	}
+	for name, js := range pipelines {
+		var stages bson.A
+		if err := bson.UnmarshalExtJSON([]byte(js), false, &stages); err != nil {
+			t.Fatal(name, err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "OutputPathEmptyObjectAndDuplicates_" + name,
+			Support: harness.DumboDBFull,
+			Setup:   seed,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				var res bson.M
+				if err := col.Database().RunCommand(ctx, bson.D{{Key: "aggregate", Value: col.Name()}, {Key: "pipeline", Value: stages}, {Key: "cursor", Value: bson.D{}}}).Decode(&res); err != nil {
+					return nil, err
+				}
+				return res["cursor"].(bson.M)["firstBatch"], nil
+			},
+		})
+	}
+	harness.PairTest(t, harness.TestCase{
+		Name:    "OutputPathEmptyObjectAndDuplicates_UpdatePipelineKeepsY",
+		Support: harness.DumboDBFull,
+		Setup:   seed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if _, err := col.UpdateOne(ctx, bson.D{{Key: "_id", Value: int32(1)}}, mongo.Pipeline{{{Key: "$set", Value: bson.D{{Key: "y", Value: bson.D{}}, {Key: "y.z", Value: int32(3)}}}}}); err != nil {
+				return nil, err
+			}
+			return findWithProjection(ctx, col, bson.D{{Key: "_id", Value: int32(1)}}, nil)
+		},
+	})
+}
