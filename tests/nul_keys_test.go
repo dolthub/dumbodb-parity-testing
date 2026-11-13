@@ -115,3 +115,59 @@ func TestMergeOnFieldValues(t *testing.T) {
 		}
 	}
 }
+
+// Stage-level field names with a null byte are refused when the stage is
+// parsed.
+func TestNulByteStageFieldNames(t *testing.T) {
+	cases := map[string]bson.D{
+		"Count":            {{Key: "$count", Value: "p\x00q"}},
+		"LookupAs":         {{Key: "$lookup", Value: bson.D{{Key: "from", Value: "x"}, {Key: "localField", Value: "a"}, {Key: "foreignField", Value: "a"}, {Key: "as", Value: "p\x00q"}}}},
+		"UnwindArrayIndex": {{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$arr"}, {Key: "includeArrayIndex", Value: "i\x00j"}}}},
+	}
+	for name, stage := range cases {
+		stage := stage
+		harness.PairTest(t, harness.TestCase{
+			Name:    "NulByteStageFieldNames_" + name,
+			Support: harness.DumboDBFull,
+			Setup: func(ctx context.Context, col *mongo.Collection) error {
+				_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "arr", Value: bson.A{int32(1)}}})
+				return err
+			},
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return fieldOpsAgg(ctx, col, stage)
+			},
+		})
+	}
+}
+
+// The $unwind path is a field path, never a variable, and includeArrayIndex
+// names a field.
+func TestUnwindPathChecks(t *testing.T) {
+	cases := map[string]bson.D{
+		"Variable":         {{Key: "$unwind", Value: "$$nope"}},
+		"DollarAlone":      {{Key: "$unwind", Value: "$"}},
+		"Root":             {{Key: "$unwind", Value: "$$ROOT"}},
+		"CurrentPath":      {{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$$CURRENT.arr"}}}},
+		"RootPath":         {{Key: "$unwind", Value: "$$ROOT.arr"}},
+		"IndexDollar":      {{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$arr"}, {Key: "includeArrayIndex", Value: "$a"}}}},
+		"IndexDollarPart":  {{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$arr"}, {Key: "includeArrayIndex", Value: "a.$b"}}}},
+		"IndexEmptyPart":   {{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$arr"}, {Key: "includeArrayIndex", Value: "a..b"}}}},
+		"IndexTrailingDot": {{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$arr"}, {Key: "includeArrayIndex", Value: "a."}}}},
+		"IndexEmpty":       {{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$arr"}, {Key: "includeArrayIndex", Value: ""}}}},
+		"IndexDotted":      {{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$arr"}, {Key: "includeArrayIndex", Value: "a.b"}}}},
+	}
+	for name, stage := range cases {
+		stage := stage
+		harness.PairTest(t, harness.TestCase{
+			Name:    "UnwindPathChecks_" + name,
+			Support: harness.DumboDBFull,
+			Setup: func(ctx context.Context, col *mongo.Collection) error {
+				_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "arr", Value: bson.A{int32(1), int32(2)}}})
+				return err
+			},
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return fieldOpsAgg(ctx, col, stage)
+			},
+		})
+	}
+}
