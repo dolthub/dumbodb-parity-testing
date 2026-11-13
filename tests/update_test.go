@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -921,6 +922,53 @@ func TestPull_by_condition(t *testing.T) {
 			return readOne(ctx, col, "pull-cond")
 		},
 	})
+}
+
+// TestPull_element_query: a $pull condition naming fields is a query each
+// element document must match, including MinKey and MaxKey bounds; one led by
+// an operator applies to the element itself.
+func TestPull_element_query(t *testing.T) {
+	cases := []struct {
+		name string
+		cond interface{}
+	}{
+		{"field_range", bson.D{{Key: "k", Value: bson.D{{Key: "$gte", Value: int32(2)}}}}},
+		{"field_equality_extra_fields", bson.D{{Key: "k", Value: int32(1)}}},
+		{"gte_minkey", bson.D{{Key: "k", Value: bson.D{{Key: "$gte", Value: primitive.MinKey{}}}}}},
+		{"lte_maxkey", bson.D{{Key: "k", Value: bson.D{{Key: "$lte", Value: primitive.MaxKey{}}}}}},
+		{"or_of_fields", bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "k", Value: int32(1)}}, bson.D{{Key: "j", Value: int32(2)}}}}}},
+		{"value_operator", bson.D{{Key: "$type", Value: "object"}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Pull_element_query_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					_, err := col.InsertOne(ctx, bson.D{
+						{Key: "_id", Value: "pull-q"},
+						{Key: "arr", Value: bson.A{
+							bson.D{{Key: "k", Value: int32(1)}, {Key: "z", Value: int32(1)}},
+							bson.D{{Key: "k", Value: int32(2)}},
+							bson.D{{Key: "k", Value: "x"}},
+							bson.D{{Key: "k", Value: nil}},
+							bson.D{{Key: "j", Value: int32(2)}},
+							int32(3),
+						}},
+					})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					_, err := col.UpdateOne(ctx, bson.D{{Key: "_id", Value: "pull-q"}},
+						bson.D{{Key: "$pull", Value: bson.D{{Key: "arr", Value: tc.cond}}}})
+					if err != nil {
+						return nil, err
+					}
+					return readOne(ctx, col, "pull-q")
+				},
+			})
+		})
+	}
 }
 
 func TestPull_by_in_condition(t *testing.T) {
@@ -2295,4 +2343,328 @@ func TestPull_from_nested_array(t *testing.T) {
 			return readOne(ctx, col, "pull-nested")
 		},
 	})
+}
+
+// TestPull_refused_condition: mongod refuses a $pull condition holding $expr,
+// $where or $text, anywhere in it, or led by $not.
+func TestPull_refused_condition(t *testing.T) {
+	cases := []struct {
+		name string
+		cond bson.D
+	}{
+		{"expr", bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{"$k", 1}}}}}},
+		{"where", bson.D{{Key: "$where", Value: "true"}}},
+		{"text", bson.D{{Key: "$text", Value: bson.D{{Key: "$search", Value: "x"}}}}},
+		{"not", bson.D{{Key: "$not", Value: bson.D{{Key: "$gt", Value: 2}}}}},
+		{"field_and_expr", bson.D{{Key: "k", Value: 1}, {Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{1, 1}}}}}},
+		{"expr_under_and", bson.D{{Key: "$and", Value: bson.A{bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{1, 1}}}}}}}}},
+		{"comment_allowed", bson.D{{Key: "k", Value: 1}, {Key: "$comment", Value: "x"}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Pull_refused_condition_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: "pull-r"}, {Key: "arr", Value: bson.A{bson.D{{Key: "k", Value: 1}}, bson.D{{Key: "k", Value: 2}}, 3}}})
+					return err
+				},
+				Run: errorMessage(func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					if _, err := col.UpdateOne(ctx, bson.D{{Key: "_id", Value: "pull-r"}}, bson.D{{Key: "$pull", Value: bson.D{{Key: "arr", Value: tc.cond}}}}); err != nil {
+						return nil, err
+					}
+					return readOne(ctx, col, "pull-r")
+				}),
+			})
+		})
+	}
+}
+
+// TestUpdate_missing_collection: an update that cannot upsert matches nothing
+// in a missing collection, whatever its hint, and does not create it.
+func TestUpdate_missing_collection(t *testing.T) {
+	cases := []struct {
+		name string
+		stmt bson.D
+	}{
+		{"plain", bson.D{{Key: "q", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: 1}}}}}}},
+		{"hinted", bson.D{{Key: "q", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: 1}}}}}, {Key: "hint", Value: "a_1"}}},
+		{"upsert", bson.D{{Key: "q", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: 1}}}}}, {Key: "upsert", Value: true}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Update_missing_collection_" + tc.name,
+				Support: harness.DumboDBFull,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					name := col.Name() + "_missing"
+					var res bson.M
+					if err := col.Database().RunCommand(ctx, bson.D{{Key: "update", Value: name}, {Key: "updates", Value: bson.A{tc.stmt}}}).Decode(&res); err != nil {
+						return nil, err
+					}
+					names, err := col.Database().ListCollectionNames(ctx, bson.D{{Key: "name", Value: name}})
+					if err != nil {
+						return nil, err
+					}
+					return bson.D{{Key: "n", Value: res["n"]}, {Key: "writeErrors", Value: res["writeErrors"] != nil}, {Key: "created", Value: len(names) == 1}}, nil
+				},
+			})
+		})
+	}
+}
+
+// TestUpdate_FailedStatementKeepsBatch: a statement whose write fails is that
+// statement's write error; the statements before it stay applied, and an
+// unordered update runs the ones after it.
+func TestUpdate_FailedStatementKeepsBatch(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 1}, {Key: "s", Value: "x"}},
+			bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: 2}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "a", Value: 3}},
+		}); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "u", Value: 1}},
+			Options: options.Index().SetUnique(true).SetSparse(true)})
+		return err
+	}
+	stmt := func(id int, u bson.D, upsert bool) mongo.WriteModel {
+		return mongo.NewUpdateOneModel().SetFilter(bson.D{{Key: "_id", Value: id}}).SetUpdate(u).SetUpsert(upsert)
+	}
+	failing := []struct {
+		name string
+		stmt mongo.WriteModel
+	}{
+		{"inc_string", stmt(1, bson.D{{Key: "$inc", Value: bson.D{{Key: "s", Value: 1}}}}, false)},
+		{"duplicate_key", stmt(3, bson.D{{Key: "$set", Value: bson.D{{Key: "u", Value: 1}}}}, false)},
+		{"empty_set_path", stmt(1, bson.D{{Key: "$set", Value: bson.D{{Key: "", Value: 1}}}}, false)},
+		{"conflicting_paths", stmt(1, bson.D{{Key: "$set", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "$inc", Value: bson.D{{Key: "a", Value: 1}}}}, false)},
+		{"nested_pull_expr", stmt(1, bson.D{{Key: "$pull", Value: bson.D{{Key: "a", Value: bson.D{{Key: "k", Value: bson.D{{Key: "$expr", Value: 1}}}}}}}}, false)},
+		{"unknown_modifier", stmt(1, bson.D{{Key: "$bogus", Value: bson.D{{Key: "a", Value: 1}}}}, false)},
+		{"field_beside_modifier", stmt(1, bson.D{{Key: "$set", Value: bson.D{{Key: "a", Value: 1}}}, {Key: "b", Value: 1}}, false)},
+		{"replacement_dollar_field", mongo.NewReplaceOneModel().SetFilter(bson.D{{Key: "_id", Value: 1}}).
+			SetReplacement(bson.D{{Key: "b", Value: 1}, {Key: "$set", Value: bson.D{{Key: "a", Value: 1}}}})},
+		{"set_stage_number", mongo.NewUpdateOneModel().SetFilter(bson.D{{Key: "_id", Value: 1}}).SetUpdate(bson.A{bson.D{{Key: "$set", Value: 1}}})},
+	}
+	for _, f := range failing {
+		for _, ordered := range []bool{true, false} {
+			name := fmt.Sprintf("%s_ordered_%t", f.name, ordered)
+			t.Run(name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "Update_FailedStatementKeepsBatch_" + name,
+					Support: harness.DumboDBFull,
+					Setup:   setup,
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						models := []mongo.WriteModel{
+							stmt(2, bson.D{{Key: "$set", Value: bson.D{{Key: "u", Value: 1}}}}, false),
+							stmt(9, bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: 1}}}}, true),
+							f.stmt,
+							stmt(10, bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: 2}}}}, true),
+						}
+						res, err := col.BulkWrite(ctx, models, options.BulkWrite().SetOrdered(ordered))
+						var bwe mongo.BulkWriteException
+						if err != nil && !errors.As(err, &bwe) {
+							return nil, err
+						}
+						var errs bson.A
+						for _, we := range bwe.WriteErrors {
+							errs = append(errs, bson.D{{Key: "index", Value: we.Index}, {Key: "code", Value: we.Code}, {Key: "errmsg", Value: we.Message}})
+						}
+						ids, err := cluFindIDs(bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))(ctx, col)
+						if err != nil {
+							return nil, err
+						}
+						upserted := bson.D{}
+						for i := int64(0); i < int64(len(models)); i++ {
+							if id, ok := res.UpsertedIDs[i]; ok {
+								upserted = append(upserted, bson.E{Key: fmt.Sprint(i), Value: id})
+							}
+						}
+						return bson.D{{Key: "matched", Value: res.MatchedCount}, {Key: "modified", Value: res.ModifiedCount},
+							{Key: "upserted", Value: upserted}, {Key: "writeErrors", Value: errs}, {Key: "ids", Value: ids}}, nil
+					},
+				})
+			})
+		}
+	}
+}
+
+// TestUpdate_MultiFailingPartway: a multi update that fails at one document
+// keeps the documents it updated before it, reports none for the statement,
+// and an unordered batch runs the statements after it.
+func TestUpdate_MultiFailingPartway(t *testing.T) {
+	cases := []struct {
+		name    string
+		unique  bool
+		docs    []interface{}
+		updates bson.A
+		ordered bool
+	}{
+		{"inc_string", false, []interface{}{bson.D{{Key: "_id", Value: 1}, {Key: "v", Value: 1}}, bson.D{{Key: "_id", Value: 2}, {Key: "v", Value: 2}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "v", Value: "s"}}, bson.D{{Key: "_id", Value: 4}, {Key: "v", Value: 4}}},
+			bson.A{bson.D{{Key: "q", Value: bson.D{}}, {Key: "u", Value: bson.D{{Key: "$inc", Value: bson.D{{Key: "v", Value: 1}}}}}, {Key: "multi", Value: true}},
+				bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "z", Value: 1}}}}}}}, false},
+		{"pipeline_type_error", false, []interface{}{bson.D{{Key: "_id", Value: 1}, {Key: "v", Value: 1}}, bson.D{{Key: "_id", Value: 2}, {Key: "v", Value: "s"}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "v", Value: 3}}},
+			bson.A{bson.D{{Key: "q", Value: bson.D{}}, {Key: "u", Value: bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "v", Value: bson.D{{Key: "$add", Value: bson.A{"$v", 1}}}}}}}}}, {Key: "multi", Value: true}}}, true},
+		{"duplicate_key", true, []interface{}{bson.D{{Key: "_id", Value: 1}, {Key: "v", Value: 1}}, bson.D{{Key: "_id", Value: 2}, {Key: "v", Value: 2}},
+			bson.D{{Key: "_id", Value: 3}, {Key: "v", Value: 3}}},
+			bson.A{bson.D{{Key: "q", Value: bson.D{}}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "u", Value: 7}}}}}, {Key: "multi", Value: true}},
+				bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 3}}}, {Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "w", Value: 1}}}}}}}, false},
+		{"distinct_unique_values", true, []interface{}{bson.D{{Key: "_id", Value: 1}, {Key: "u", Value: 1}}, bson.D{{Key: "_id", Value: 2}, {Key: "u", Value: 2}}},
+			bson.A{bson.D{{Key: "q", Value: bson.D{}}, {Key: "u", Value: bson.D{{Key: "$inc", Value: bson.D{{Key: "u", Value: 10}}}}}, {Key: "multi", Value: true}}}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Update_MultiFailingPartway_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					if _, err := col.InsertMany(ctx, tc.docs); err != nil {
+						return err
+					}
+					if !tc.unique {
+						return nil
+					}
+					_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "u", Value: 1}}, Options: options.Index().SetUnique(true).SetSparse(true)})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					var res bson.M
+					cmd := bson.D{{Key: "update", Value: col.Name()}, {Key: "updates", Value: tc.updates}, {Key: "ordered", Value: tc.ordered}}
+					raw, err := col.Database().RunCommand(ctx, cmd).Raw()
+					if err != nil && raw == nil {
+						return nil, err
+					}
+					if err := bson.Unmarshal(raw, &res); err != nil {
+						return nil, err
+					}
+					var codes bson.A
+					if we, ok := res["writeErrors"].(bson.A); ok {
+						for _, e := range we {
+							m := e.(bson.M)
+							codes = append(codes, bson.D{{Key: "index", Value: m["index"]}, {Key: "code", Value: m["code"]}})
+						}
+					}
+					cur, err := col.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+					if err != nil {
+						return nil, err
+					}
+					var docs []bson.M
+					if err := cur.All(ctx, &docs); err != nil {
+						return nil, err
+					}
+					return bson.D{{Key: "n", Value: res["n"]}, {Key: "nModified", Value: res["nModified"]}, {Key: "writeErrors", Value: codes}, {Key: "docs", Value: docs}}, nil
+				},
+			})
+		})
+	}
+}
+
+// TestUpdate_InvalidUpdateDocumentScope: an unknown modifier, a multi
+// replacement and a disallowed stage fail their statement; a replacement's
+// $-prefixed field fails only when it is applied; a pipeline element that is
+// not a document, or an unknown stage, fails the command. findAndModify and
+// bulkWrite report the same errors.
+func TestUpdate_InvalidUpdateDocumentScope(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		_, err := col.InsertMany(ctx, []interface{}{bson.D{{Key: "_id", Value: 1}}, bson.D{{Key: "_id", Value: 2}}})
+		return err
+	}
+	set := bson.D{{Key: "$set", Value: bson.D{{Key: "x", Value: 1}}}}
+	dollarReplacement := bson.D{{Key: "b", Value: 1}, {Key: "$set", Value: bson.D{{Key: "a", Value: 1}}}}
+	invalid := []struct {
+		name string
+		stmt bson.D
+	}{
+		{"unknown_modifier", bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "u", Value: bson.D{{Key: "$bogus", Value: 1}}}}},
+		{"multi_replacement", bson.D{{Key: "q", Value: bson.D{}}, {Key: "u", Value: bson.D{{Key: "b", Value: 1}}}, {Key: "multi", Value: true}}},
+		{"replacement_dollar_field", bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "u", Value: dollarReplacement}}},
+		{"replacement_dollar_field_no_match", bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 9}}}, {Key: "u", Value: dollarReplacement}}},
+		{"disallowed_stage", bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "u", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{}}}}}}},
+		{"unknown_stage", bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "u", Value: bson.A{bson.D{{Key: "$bogus", Value: bson.D{}}}}}}},
+		{"non_document_stage", bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "u", Value: bson.A{1}}}},
+	}
+	// reply is the whole reply, which the driver turns into a WriteException
+	// when it holds write errors, or the command error.
+	reply := func(sr *mongo.SingleResult) (interface{}, error) {
+		raw, err := sr.Raw()
+		var ce mongo.CommandError
+		if errors.As(err, &ce) {
+			return bson.D{{Key: "code", Value: ce.Code}, {Key: "cause", Value: causedBy(ce.Message)}}, nil
+		}
+		var we mongo.WriteException
+		if err != nil && !errors.As(err, &we) {
+			return nil, err
+		}
+		var res bson.M
+		if err := bson.Unmarshal(raw, &res); err != nil {
+			return nil, err
+		}
+		if cur, ok := res["cursor"].(bson.M); ok {
+			batch, _ := cur["firstBatch"].(bson.A)
+			for _, r := range batch {
+				if rm, ok := r.(bson.M); ok {
+					if msg, ok := rm["errmsg"].(string); ok {
+						rm["errmsg"] = causedBy(msg)
+					}
+				}
+			}
+			res = bson.M{"nErrors": res["nErrors"], "nModified": res["nModified"], "firstBatch": batch}
+		}
+		for _, k := range []string{"$clusterTime", "operationTime", "electionId", "opTime"} {
+			delete(res, k)
+		}
+		return res, nil
+	}
+	for _, tc := range invalid {
+		for _, ordered := range []bool{true, false} {
+			name := fmt.Sprintf("%s_ordered_%t", tc.name, ordered)
+			t.Run("update_"+name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "Update_InvalidUpdateDocumentScope_update_" + name,
+					Support: harness.DumboDBFull,
+					Setup:   setup,
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						return reply(col.Database().RunCommand(ctx, bson.D{{Key: "update", Value: col.Name()}, {Key: "ordered", Value: ordered}, {Key: "updates", Value: bson.A{
+							bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 2}}}, {Key: "u", Value: set}},
+							tc.stmt,
+							bson.D{{Key: "q", Value: bson.D{{Key: "_id", Value: 1}}}, {Key: "u", Value: set}},
+						}}}))
+					},
+				})
+			})
+		}
+		if tc.name == "multi_replacement" {
+			continue
+		}
+		t.Run("findAndModify_"+tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Update_InvalidUpdateDocumentScope_findAndModify_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return reply(col.Database().RunCommand(ctx, bson.D{{Key: "findAndModify", Value: col.Name()},
+						{Key: "query", Value: tc.stmt.Map()["q"]}, {Key: "update", Value: tc.stmt.Map()["u"]}}))
+				},
+			})
+		})
+		t.Run("bulkWrite_"+tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Update_InvalidUpdateDocumentScope_bulkWrite_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					ns := col.Database().Name() + "." + col.Name()
+					return reply(col.Database().Client().Database("admin").RunCommand(ctx, bson.D{{Key: "bulkWrite", Value: 1}, {Key: "ordered", Value: false},
+						{Key: "ops", Value: bson.A{
+							bson.D{{Key: "update", Value: 0}, {Key: "filter", Value: tc.stmt.Map()["q"]}, {Key: "updateMods", Value: tc.stmt.Map()["u"]}},
+							bson.D{{Key: "update", Value: 0}, {Key: "filter", Value: bson.D{{Key: "_id", Value: 2}}}, {Key: "updateMods", Value: set}},
+						}},
+						{Key: "nsInfo", Value: bson.A{bson.D{{Key: "ns", Value: ns}}}}}))
+				},
+			})
+		})
+	}
 }

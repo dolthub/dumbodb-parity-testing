@@ -91,16 +91,28 @@ func isPlanCacheHash(v interface{}) bool {
 func planStages(plan interface{}) []string {
 	var out []string
 	for plan != nil {
-		m, ok := plan.(bson.M)
-		if !ok {
-			break
+		var get func(string) (interface{}, bool)
+		switch p := plan.(type) {
+		case bson.M:
+			get = func(k string) (interface{}, bool) { v, ok := p[k]; return v, ok }
+		case bson.D:
+			get = func(k string) (interface{}, bool) { return lookupBSONField(p, k) }
+		default:
+			return out
 		}
-		stage := fmt.Sprint(m["stage"])
-		if idx, ok := m["indexName"]; ok {
-			stage += ":" + fmt.Sprint(idx)
+		stage, _ := get("stage")
+		name := fmt.Sprint(stage)
+		if idx, ok := get("indexName"); ok {
+			name += ":" + fmt.Sprint(idx)
 		}
-		out = append(out, stage)
-		plan = m["inputStage"]
+		out = append(out, name)
+		plan = nil
+		for _, k := range []string{"inputStage", "outerStage"} {
+			if v, ok := get(k); ok {
+				plan = v
+				break
+			}
+		}
 	}
 	return out
 }

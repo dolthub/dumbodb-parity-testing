@@ -17,6 +17,7 @@ package benchmarks
 import (
 	"context"
 	"fmt"
+	"math"
 	"slices"
 	"testing"
 
@@ -143,8 +144,7 @@ type indexUseExpectation struct {
 }
 
 var (
-	mustUseIndex         = indexUseExpectation{}
-	coveredProjectionGap = indexUseExpectation{knownDumboGap: "dumbodb#142: covered projections fetch documents"}
+	mustUseIndex = indexUseExpectation{}
 )
 
 type explainSummary struct {
@@ -152,6 +152,7 @@ type explainSummary struct {
 	indexNames   []string
 	indexesUsed  []string
 	nReturned    int64
+	keysExamined int64
 	docsExamined int64
 	hasExecStats bool
 }
@@ -221,8 +222,9 @@ func collectExplain(res bson.M, out *explainSummary) {
 	}
 	if es, ok := res["executionStats"].(bson.M); ok {
 		n, nOK := asInt64(es["nReturned"])
+		k, kOK := asInt64(es["totalKeysExamined"])
 		d, dOK := asInt64(es["totalDocsExamined"])
-		out.nReturned, out.docsExamined, out.hasExecStats = n, d, nOK && dOK
+		out.nReturned, out.keysExamined, out.docsExamined, out.hasExecStats = n, k, d, nOK && kOK && dOK
 	}
 }
 
@@ -248,8 +250,14 @@ var indexScanStages = []string{
 // the collection itself is the _id_ index.
 var clusteredScanStages = []string{"CLUSTERED_IXSCAN", "EXPRESS_CLUSTERED_IXSCAN"}
 
+// clusteredIDScan reports whether s reads the clustered _id_ index: a
+// clustered scan, or an EXPRESS write naming no index.
 func (s explainSummary) clusteredIDScan() bool {
-	return slices.ContainsFunc(s.stages, func(st string) bool { return slices.Contains(clusteredScanStages, st) })
+	if slices.ContainsFunc(s.stages, func(st string) bool { return slices.Contains(clusteredScanStages, st) }) {
+		return true
+	}
+	express := slices.Contains(s.stages, "EXPRESS_UPDATE") || slices.Contains(s.stages, "EXPRESS_DELETE")
+	return express && len(s.indexNames) == 0
 }
 
 // usesIndex reports whether s shows an index scan on idx and, when the command
@@ -266,6 +274,17 @@ func (s explainSummary) usesIndex(idx string, collDocs int, checkExamined bool) 
 		return false, fmt.Sprintf("examined %d of %d docs for %d results", s.docsExamined, collDocs, s.nReturned)
 	}
 	return true, ""
+}
+
+// agreesWith reports whether s's executionStats totals are keys and docs, the
+// work the command did when run. Explain must describe the plan that runs.
+func (s explainSummary) agreesWith(keys, docs int64) bool {
+	return !s.hasExecStats || (s.keysExamined == keys && s.docsExamined == docs)
+}
+
+func (s explainSummary) disagreement(keys, docs int64) string {
+	return fmt.Sprintf("explain reports %d keys and %d docs examined, but running the command read %d and %d",
+		s.keysExamined, s.docsExamined, keys, docs)
 }
 
 // requireIndexUse fails b unless inner's plan uses the index-use fixture's
@@ -288,7 +307,7 @@ func requireIndexUseOf(b *testing.B, ctx context.Context, col *mongo.Collection,
 	ok, why := s.usesIndex(idx, collDocs, checkExamined)
 	readsChecked := true
 	if ok && collDocs > 0 && readCommands[inner[0].Key] {
-		ok, why, readsChecked = indexedReads(b, ctx, col, inner, collDocs, idx == idIndex && s.clusteredIDScan())
+		ok, why, readsChecked = indexedReads(b, ctx, col, inner, collDocs, s, idx == idIndex && s.clusteredIDScan())
 	}
 	switch {
 	case ok && dumbo && exp.knownDumboGap != "" && !readsChecked:
@@ -305,13 +324,13 @@ func requireIndexUseOf(b *testing.B, ctx context.Context, col *mongo.Collection,
 var readCommands = map[string]bool{"find": true, "aggregate": true, "count": true, "distinct": true}
 
 // indexedReads runs inner and reports whether the server read every document
-// through an index key and, for a find or a pipeline that returns documents
-// unchanged, read no more documents than it returned or a tenth of the
-// collDocs-document collection, whichever is more. A clustered _id scan reads
-// documents without index keys, so only the second bound applies to it.
-// Unlike explain, which plans separately, this measures the command itself.
+// through an index key, read what explain's executionStats s say the plan
+// reads and, for a find or a pipeline that returns documents unchanged, read
+// no more documents than it returned or a tenth of the collDocs-document
+// collection, whichever is more. A clustered _id scan reads documents without
+// index keys, so the key bound does not apply to it.
 // checked is false when the server reports no counters, so nothing was measured.
-func indexedReads(b *testing.B, ctx context.Context, col *mongo.Collection, inner bson.D, collDocs int, clustered bool) (ok bool, why string, checked bool) {
+func indexedReads(b *testing.B, ctx context.Context, col *mongo.Collection, inner bson.D, collDocs int, s explainSummary, clustered bool) (ok bool, why string, checked bool) {
 	b.Helper()
 	r, err := readsOf(ctx, col, inner)
 	if err != nil {
@@ -323,6 +342,8 @@ func indexedReads(b *testing.B, ctx context.Context, col *mongo.Collection, inne
 		return true, "", false
 	case !clustered && r.docs > r.keys:
 		return false, fmt.Sprintf("read %d docs but only %d index keys: some came from a collection scan", r.docs, r.keys), true
+	case !s.agreesWith(r.keys, r.docs):
+		return false, s.disagreement(r.keys, r.docs), true
 	case returnsReadDocuments(inner) && r.docs > max(r.returned, int64(collDocs/10)):
 		return false, fmt.Sprintf("read %d of %d docs for %d results", r.docs, collDocs, r.returned), true
 	}
@@ -812,6 +833,73 @@ func BenchmarkIndexUse_OrUnion_10K(b *testing.B) {
 	}
 }
 
+// An $or whose branches use a compound index and a single-field one.
+func BenchmarkIndexUse_OrUnion_Compound_10K(b *testing.B) {
+	col, ctx, dumbo := withIndexUseCollection(b, "iu_or_union_compound", flatKey)
+	if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "grp", Value: 1}, {Key: "a.b", Value: 1}}, Options: options.Index().SetName("grpab")}); err != nil {
+		b.Fatalf("create compound index: %v", err)
+	}
+	filter := func(i int) bson.D {
+		return bson.D{{Key: "$or", Value: bson.A{
+			bson.D{{Key: "k", Value: int32(i)}},
+			bson.D{{Key: "grp", Value: int32((i + 1) % 1000)}, {Key: "a.b", Value: bson.D{{Key: "$gte", Value: int32(0)}}}},
+		}}}
+	}
+	cmd := findCmd(col, filter(indexUseDocs/2), nil, 0)
+	requireIndexUse(b, ctx, col, dumbo, cmd, mustUseIndex)
+	requireWork(b, ctx, col, dumbo, cmd, workBound{maxKeys: 13, maxDocs: 11}, mustUseIndex)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		runFind(b, ctx, col, filter(i%indexUseDocs), nil, 0)
+	}
+}
+
+// An $or nested in an $or branch flattens into one union.
+func BenchmarkIndexUse_OrUnion_Nested_10K(b *testing.B) {
+	col, ctx, dumbo := withIndexUseCollection(b, "iu_or_union_nested", flatKey)
+	if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "grp", Value: 1}}, Options: options.Index().SetName("grpidx")}); err != nil {
+		b.Fatalf("create grp index: %v", err)
+	}
+	filter := func(i int) bson.D {
+		return bson.D{{Key: "$or", Value: bson.A{
+			bson.D{{Key: "k", Value: int32(i)}},
+			bson.D{{Key: "$or", Value: bson.A{
+				bson.D{{Key: "grp", Value: int32((i + 1) % 1000)}},
+				bson.D{{Key: "grp", Value: int32((i + 2) % 1000)}},
+			}}},
+		}}}
+	}
+	cmd := findCmd(col, filter(indexUseDocs/2), nil, 0)
+	requireIndexUse(b, ctx, col, dumbo, cmd, mustUseIndex)
+	requireWork(b, ctx, col, dumbo, cmd, workBound{maxKeys: 24, maxDocs: 21}, mustUseIndex)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		runFind(b, ctx, col, filter(i%indexUseDocs), nil, 0)
+	}
+}
+
+// An $or branch with a field its index does not bound fetches and filters its
+// documents before the union.
+func BenchmarkIndexUse_OrUnion_Residual_10K(b *testing.B) {
+	col, ctx, dumbo := withIndexUseCollection(b, "iu_or_union_residual", flatKey)
+	if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "grp", Value: 1}}, Options: options.Index().SetName("grpidx")}); err != nil {
+		b.Fatalf("create grp index: %v", err)
+	}
+	filter := func(i int) bson.D {
+		return bson.D{{Key: "$or", Value: bson.A{
+			bson.D{{Key: "k", Value: int32(i)}},
+			bson.D{{Key: "grp", Value: int32((i + 1) % 1000)}, {Key: "pad", Value: bson.D{{Key: "$exists", Value: true}}}},
+		}}}
+	}
+	// The residual branch's documents are read twice, so more documents than
+	// keys are read without a collection scan; requireWork bounds both.
+	requireWork(b, ctx, col, dumbo, findCmd(col, filter(indexUseDocs/2), nil, 0), workBound{maxKeys: 11, maxDocs: 22}, mustUseIndex)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		runFind(b, ctx, col, filter(i%indexUseDocs), nil, 0)
+	}
+}
+
 // A projection of only indexed fields is answered from index keys, reading no
 // documents.
 func BenchmarkIndexUse_CoveredProjection_10K(b *testing.B) {
@@ -819,7 +907,7 @@ func BenchmarkIndexUse_CoveredProjection_10K(b *testing.B) {
 	projection := bson.D{{Key: "k", Value: 1}, {Key: "_id", Value: 0}}
 	inner := append(findCmd(col, rangeOn("k", 50)(indexUseDocs/2), nil, 0), bson.E{Key: "projection", Value: projection})
 	requireIndexUse(b, ctx, col, dumbo, inner, mustUseIndex)
-	requireNoDocsRead(b, ctx, col, dumbo, inner, coveredProjectionGap)
+	requireWork(b, ctx, col, dumbo, inner, keysOnly(50), mustUseIndex)
 	opts := options.Find().SetProjection(projection)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -834,9 +922,45 @@ func BenchmarkIndexUse_CoveredProjection_10K(b *testing.B) {
 	}
 }
 
-// requireNoDocsRead fails b unless running inner reads no documents, honoring
-// exp on DumboDB.
-func requireNoDocsRead(b *testing.B, ctx context.Context, col *mongo.Collection, dumbo bool, inner bson.D, exp indexUseExpectation) {
+// A covered projection sorted on its index with a limit reads only the
+// limit's keys.
+func BenchmarkIndexUse_CoveredSortLimit_10K(b *testing.B) {
+	col, ctx, dumbo := withIndexUseCollection(b, "iu_covered_sort_limit", flatKey)
+	projection := bson.D{{Key: "k", Value: 1}, {Key: "_id", Value: 0}}
+	sort := bson.D{{Key: "k", Value: 1}}
+	inner := append(findCmd(col, rangeOn("k", 1000)(indexUseDocs/2), sort, 10), bson.E{Key: "projection", Value: projection})
+	requireIndexUse(b, ctx, col, dumbo, inner, mustUseIndex)
+	requireWork(b, ctx, col, dumbo, inner, keysOnly(11), mustUseIndex)
+	opts := options.Find().SetProjection(projection).SetSort(sort).SetLimit(10)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		cur, err := col.Find(ctx, rangeOn("k", 1000)(i%indexUseDocs), opts)
+		if err != nil {
+			b.Fatalf("Find: %v", err)
+		}
+		var docs []bson.M
+		if err := cur.All(ctx, &docs); err != nil {
+			b.Fatalf("cursor.All: %v", err)
+		}
+	}
+}
+
+// workBound caps the index keys and documents a command may read.
+type workBound struct {
+	maxKeys, maxDocs int64
+}
+
+// keysOnly allows keys index keys and no documents: a read answered from the
+// index alone.
+func keysOnly(keys int64) workBound { return workBound{maxKeys: keys, maxDocs: 0} }
+
+// docsWithin allows any number of index keys and at most docs documents.
+func docsWithin(docs int64) workBound { return workBound{maxKeys: math.MaxInt64, maxDocs: docs} }
+
+// requireWork fails b unless running inner reads within bound, honoring exp on
+// DumboDB. It shows a plan doing the work its shape promises, not only that it
+// names the index.
+func requireWork(b *testing.B, ctx context.Context, col *mongo.Collection, dumbo bool, inner bson.D, bound workBound, exp indexUseExpectation) {
 	b.Helper()
 	r, err := readsOf(ctx, col, inner)
 	if err != nil {
@@ -846,14 +970,22 @@ func requireNoDocsRead(b *testing.B, ctx context.Context, col *mongo.Collection,
 		b.Logf("server reports no queryExecutor counters; reads unchecked")
 		return
 	}
-	ok := r.docs == 0
+	ok := r.keys <= bound.maxKeys && r.docs <= bound.maxDocs
+	why := fmt.Sprintf("read %d keys and %d docs, want at most %d and %d", r.keys, r.docs, bound.maxKeys, bound.maxDocs)
+	applyExpectation(b, dumbo, exp, ok, why, inner)
+}
+
+// applyExpectation fails b when a required check fails, or when a known
+// DumboDB gap's check passes so the benchmark can be promoted.
+func applyExpectation(b *testing.B, dumbo bool, exp indexUseExpectation, ok bool, why string, inner bson.D) {
+	b.Helper()
 	switch {
 	case ok && dumbo && exp.knownDumboGap != "":
-		b.Fatalf("DumboDB now reads no documents (%s); promote this benchmark", exp.knownDumboGap)
+		b.Fatalf("DumboDB now passes (%s); promote this benchmark to mustUseIndex", exp.knownDumboGap)
 	case !ok && dumbo && exp.knownDumboGap != "":
-		b.Logf("known DumboDB gap (%s): read %d docs", exp.knownDumboGap, r.docs)
+		b.Logf("known DumboDB gap (%s): %s", exp.knownDumboGap, why)
 	case !ok:
-		b.Fatalf("%v read %d docs, want none", inner, r.docs)
+		b.Fatalf("%v: %s", inner, why)
 	}
 }
 
@@ -874,6 +1006,35 @@ func BenchmarkIndexUse_NullEq_10K(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		runFind(b, ctx, col, filter, nil, 0)
 	}
+}
+
+// Null on a dotted path matches documents missing the field, which the index
+// holds under a null key.
+func BenchmarkIndexUse_DottedNullEq_10K(b *testing.B) {
+	docOf := func(i int) bson.D {
+		doc := indexUseDoc(i)
+		if i%10 == 0 {
+			doc[3] = bson.E{Key: "a", Value: bson.D{{Key: "c", Value: bson.D{{Key: "d", Value: int32(i % 1000)}}}}}
+		}
+		return doc
+	}
+	benchmarkIndexedFindOf(b, "iu_dotted_null", dottedKey, docOf, func(int) bson.D { return bson.D{{Key: "a.b", Value: nil}} }, nil, 0, mustUseIndex)
+}
+
+// Null through an array matches documents with an element missing the field:
+// the index holds a null key for each such element.
+func BenchmarkIndexUse_ThroughArrayNullEq_10K(b *testing.B) {
+	docOf := func(i int) bson.D {
+		doc := indexUseDoc(i)
+		if i%10 == 0 {
+			doc[4] = bson.E{Key: "items", Value: bson.A{
+				bson.D{{Key: "sku", Value: fmt.Sprintf("sku-%d-0", i)}},
+				bson.D{{Key: "qty", Value: int32(1)}},
+			}}
+		}
+		return doc
+	}
+	benchmarkIndexedFindOf(b, "iu_through_array_null", skuKey, docOf, func(int) bson.D { return bson.D{{Key: "items.sku", Value: nil}} }, nil, 0, mustUseIndex)
 }
 
 // $exists: true on a sparse index reads only its members.
@@ -915,6 +1076,27 @@ func BenchmarkIndexUse_CompoundPrefixSortLimit_10K(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		runFind(b, ctx, col, filter(i), sort, 10)
+	}
+}
+
+// $in on a compound index's leading field, sorted on the next with a limit:
+// each $in value's range is already in sort order, so merging them reads
+// about the limit's keys, plus one per range.
+func BenchmarkIndexUse_CompoundInSortLimit_10K(b *testing.B) {
+	keys := bson.D{{Key: "bucket", Value: 1}, {Key: "k", Value: 1}}
+	col, ctx, dumbo := withIndexUseCollectionOf(b, "iu_cmp_in_sort", keys, func(i int) bson.D {
+		return append(indexUseDoc(i), bson.E{Key: "bucket", Value: int32(i % 50)})
+	})
+	filter := func(i int) bson.D {
+		return bson.D{{Key: "bucket", Value: bson.D{{Key: "$in", Value: bson.A{int32(i % 50), int32((i + 2) % 50)}}}}}
+	}
+	sort := bson.D{{Key: "k", Value: 1}}
+	cmd := findCmd(col, filter(1), sort, 5)
+	requireIndexUse(b, ctx, col, dumbo, cmd, mustUseIndex)
+	requireWork(b, ctx, col, dumbo, cmd, workBound{maxKeys: 7, maxDocs: 5}, mustUseIndex)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		runFind(b, ctx, col, filter(i), sort, 5)
 	}
 }
 
@@ -970,11 +1152,16 @@ func BenchmarkIndexUse_AggMatchGroup_10K(b *testing.B) {
 }
 
 // requireIndexedWrite fails b unless the write inner plans on idx and, run
-// once, reads every document it touches through an index key and no more than
-// a tenth of the collection.
-func requireIndexedWrite(b *testing.B, ctx context.Context, col *mongo.Collection, dumbo bool, inner bson.D) {
+// once, reads every document it touches through an index key, no more than a
+// tenth of the collection, and what its explain's executionStats report,
+// honoring exp on DumboDB.
+func requireIndexedWrite(b *testing.B, ctx context.Context, col *mongo.Collection, dumbo bool, inner bson.D, exp indexUseExpectation) {
 	b.Helper()
 	requireIndexUseOf(b, ctx, col, dumbo, inner, "idx", 0, mustUseIndex)
+	s, err := explainExecution(ctx, col, inner)
+	if err != nil {
+		b.Fatalf("explain %v: %v", inner, err)
+	}
 	k0, d0, tracked, err := scannedCounters(ctx, col)
 	if err != nil {
 		b.Fatalf("serverStatus: %v", err)
@@ -990,9 +1177,11 @@ func requireIndexedWrite(b *testing.B, ctx context.Context, col *mongo.Collectio
 		b.Logf("server reports no queryExecutor counters; reads unchecked")
 		return
 	}
-	if keys, docs := k1-k0, d1-d0; docs > keys || docs > indexUseDocs/10 {
+	keys, docs := k1-k0, d1-d0
+	if docs > keys || docs > indexUseDocs/10 {
 		b.Fatalf("%v read %d docs through %d index keys", inner, docs, keys)
 	}
+	applyExpectation(b, dumbo, exp, s.agreesWith(keys, docs), s.disagreement(keys, docs), inner)
 }
 
 func setTouched(i int) bson.D {
@@ -1003,7 +1192,7 @@ func BenchmarkIndexUse_UpdateOneByIndex_10K(b *testing.B) {
 	col, ctx, dumbo := withIndexUseCollection(b, "iu_update_one", flatKey)
 	requireIndexedWrite(b, ctx, col, dumbo, bson.D{{Key: "update", Value: col.Name()}, {Key: "updates", Value: bson.A{
 		bson.D{{Key: "q", Value: eqOn("k")(indexUseDocs / 2)}, {Key: "u", Value: setTouched(0)}},
-	}}})
+	}}}, mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if _, err := col.UpdateOne(ctx, eqOn("k")(i%indexUseDocs), setTouched(i)); err != nil {
@@ -1016,7 +1205,7 @@ func BenchmarkIndexUse_DeleteOneByIndex_10K(b *testing.B) {
 	col, ctx, dumbo := withIndexUseCollection(b, "iu_delete_one", flatKey)
 	requireIndexedWrite(b, ctx, col, dumbo, bson.D{{Key: "delete", Value: col.Name()}, {Key: "deletes", Value: bson.A{
 		bson.D{{Key: "q", Value: eqOn("k")(indexUseDocs / 2)}, {Key: "limit", Value: 1}},
-	}}})
+	}}}, mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		reseedEvery(b, ctx, col, i)
@@ -1026,11 +1215,45 @@ func BenchmarkIndexUse_DeleteOneByIndex_10K(b *testing.B) {
 	}
 }
 
+func BenchmarkIndexUse_UpdateManyByIndex_10K(b *testing.B) {
+	col, ctx, dumbo := withIndexUseCollection(b, "iu_update_many", bson.D{{Key: "grp", Value: 1}})
+	requireIndexedWrite(b, ctx, col, dumbo, bson.D{{Key: "update", Value: col.Name()}, {Key: "updates", Value: bson.A{
+		bson.D{{Key: "q", Value: eqOn("grp")(500)}, {Key: "u", Value: setTouched(0)}, {Key: "multi", Value: true}},
+	}}}, mustUseIndex)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := col.UpdateMany(ctx, eqOn("grp")(i%1000), setTouched(i)); err != nil {
+			b.Fatalf("UpdateMany: %v", err)
+		}
+	}
+}
+
+func BenchmarkIndexUse_DeleteManyByIndex_10K(b *testing.B) {
+	col, ctx, dumbo := withIndexUseCollection(b, "iu_delete_many", bson.D{{Key: "grp", Value: 1}})
+	requireIndexedWrite(b, ctx, col, dumbo, bson.D{{Key: "delete", Value: col.Name()}, {Key: "deletes", Value: bson.A{
+		bson.D{{Key: "q", Value: eqOn("grp")(500)}, {Key: "limit", Value: 0}},
+	}}}, mustUseIndex)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		// Every grp has been deleted once each thousand iterations.
+		if i > 0 && i%1000 == 0 {
+			b.StopTimer()
+			if err := insertIndexUseDocs(ctx, col, indexUseDocs, indexUseDoc); err != nil {
+				b.Fatalf("reseed: %v", err)
+			}
+			b.StartTimer()
+		}
+		if _, err := col.DeleteMany(ctx, eqOn("grp")(i%1000)); err != nil {
+			b.Fatalf("DeleteMany: %v", err)
+		}
+	}
+}
+
 func BenchmarkIndexUse_FindAndModifyByIndex_10K(b *testing.B) {
 	col, ctx, dumbo := withIndexUseCollection(b, "iu_find_and_modify", flatKey)
 	requireIndexedWrite(b, ctx, col, dumbo, bson.D{
 		{Key: "findAndModify", Value: col.Name()}, {Key: "query", Value: eqOn("k")(indexUseDocs / 2)}, {Key: "update", Value: setTouched(0)},
-	})
+	}, mustUseIndex)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if err := col.FindOneAndUpdate(ctx, eqOn("k")(i%indexUseDocs), setTouched(i)).Err(); err != nil {
@@ -1045,7 +1268,7 @@ func BenchmarkIndexUse_UpsertUnique_10K(b *testing.B) {
 	col, ctx, dumbo := withIndexUseCollectionIndexed(b, "iu_upsert_unique", options.Index().SetUnique(true), flatKey, indexUseDoc)
 	requireIndexedWrite(b, ctx, col, dumbo, bson.D{{Key: "update", Value: col.Name()}, {Key: "updates", Value: bson.A{
 		bson.D{{Key: "q", Value: eqOn("k")(indexUseDocs * 2)}, {Key: "u", Value: setTouched(0)}, {Key: "upsert", Value: true}},
-	}}})
+	}}}, mustUseIndex)
 	opts := options.Update().SetUpsert(true)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1135,14 +1358,25 @@ func BenchmarkIndexUse_DottedCount_10K(b *testing.B) {
 	benchmarkIndexedCount(b, "iu_dot_count", dottedKey, eqOn("a.b"))
 }
 
-func benchmarkIndexedDistinct(b *testing.B, label string, keys bson.D, field string) {
-	benchmarkIndexedDistinctWhere(b, label, keys, field, bson.D{})
+// benchmarkIndexedDistinct times a distinct of field, which has values
+// distinct values. Read with a DISTINCT_SCAN, it reads about one key per value
+// and no documents.
+func benchmarkIndexedDistinct(b *testing.B, label string, keys bson.D, field string, values int64) {
+	col, ctx, dumbo := withIndexUseCollection(b, label, keys)
+	cmd := bson.D{{Key: "distinct", Value: col.Name()}, {Key: "key", Value: field}, {Key: "query", Value: bson.D{}}}
+	requireIndexUse(b, ctx, col, dumbo, cmd, mustUseIndex)
+	requireWork(b, ctx, col, dumbo, cmd, keysOnly(values+1), mustUseIndex)
+	timeDistinct(b, ctx, col, field, bson.D{})
 }
 
-func benchmarkIndexedDistinctWhere(b *testing.B, label string, keys bson.D, field string, filter bson.D) {
+func benchmarkIndexedDistinctWhere(b *testing.B, label string, keys bson.D, field string, filter bson.D, exp indexUseExpectation) {
 	col, ctx, dumbo := withIndexUseCollection(b, label, keys)
 	cmd := bson.D{{Key: "distinct", Value: col.Name()}, {Key: "key", Value: field}, {Key: "query", Value: filter}}
-	requireIndexUse(b, ctx, col, dumbo, cmd, mustUseIndex)
+	requireIndexUse(b, ctx, col, dumbo, cmd, exp)
+	timeDistinct(b, ctx, col, field, filter)
+}
+
+func timeDistinct(b *testing.B, ctx context.Context, col *mongo.Collection, field string, filter bson.D) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if _, err := col.Distinct(ctx, field, filter); err != nil {
@@ -1161,21 +1395,25 @@ func BenchmarkIndexUse_DottedCountRange_10K(b *testing.B) {
 
 // Distinct values of the indexed field within a range of it.
 func BenchmarkIndexUse_DistinctFilteredOnKey_10K(b *testing.B) {
-	benchmarkIndexedDistinctWhere(b, "iu_distinct_on_key", bson.D{{Key: "grp", Value: 1}}, "grp",
-		bson.D{{Key: "grp", Value: bson.D{{Key: "$lt", Value: int32(100)}}}})
+	col, ctx, dumbo := withIndexUseCollection(b, "iu_distinct_on_key", bson.D{{Key: "grp", Value: 1}})
+	filter := bson.D{{Key: "grp", Value: bson.D{{Key: "$lt", Value: int32(100)}}}}
+	cmd := bson.D{{Key: "distinct", Value: col.Name()}, {Key: "key", Value: "grp"}, {Key: "query", Value: filter}}
+	requireIndexUse(b, ctx, col, dumbo, cmd, mustUseIndex)
+	requireWork(b, ctx, col, dumbo, cmd, keysOnly(101), mustUseIndex)
+	timeDistinct(b, ctx, col, "grp", filter)
 }
 
 // Distinct values of another field, filtered through the index.
 func BenchmarkIndexUse_DistinctFilteredOnOther_10K(b *testing.B) {
-	benchmarkIndexedDistinctWhere(b, "iu_distinct_on_other", flatKey, "grp", rangeOn("k", 50)(5000))
+	benchmarkIndexedDistinctWhere(b, "iu_distinct_on_other", flatKey, "grp", rangeOn("k", 50)(5000), mustUseIndex)
 }
 
 func BenchmarkIndexUse_FlatDistinct_10K(b *testing.B) {
-	benchmarkIndexedDistinct(b, "iu_flat_distinct", bson.D{{Key: "grp", Value: 1}}, "grp")
+	benchmarkIndexedDistinct(b, "iu_flat_distinct", bson.D{{Key: "grp", Value: 1}}, "grp", 1000)
 }
 
 func BenchmarkIndexUse_DottedDistinct_10K(b *testing.B) {
-	benchmarkIndexedDistinct(b, "iu_dot_distinct", deepKey, "a.c.d")
+	benchmarkIndexedDistinct(b, "iu_dot_distinct", deepKey, "a.c.d", 1000)
 }
 
 // Write paths: inserts maintain each index kind; dotted and through-array keys

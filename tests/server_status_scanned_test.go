@@ -118,6 +118,28 @@ func TestServerStatus_QueryExecutorScanned(t *testing.T) {
 			_, err := col.CountDocuments(ctx, bson.D{{Key: "grp", Value: int32(5)}})
 			return err
 		}, true, harness.DumboDBFull},
+		{"IndexCountIn", func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.CountDocuments(ctx, bson.D{{Key: "i", Value: bson.D{{Key: "$in", Value: bson.A{int32(3), int32(5), int32(7), int32(2000)}}}}})
+			return err
+		}, true, harness.DumboDBFull},
+		{"IndexCountInRanges", func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.CountDocuments(ctx, bson.D{{Key: "grp", Value: bson.D{{Key: "$in", Value: bson.A{int32(1), int32(2)}}}}})
+			return err
+		}, true, harness.DumboDBFull},
+		{"IndexDollarCountIn", func(ctx context.Context, col *mongo.Collection) error {
+			cur, err := col.Aggregate(ctx, mongo.Pipeline{{{Key: "$match", Value: bson.D{{Key: "grp", Value: bson.D{{Key: "$in", Value: bson.A{int32(1), int32(3), int32(5)}}}}}}}, {{Key: "$count", Value: "n"}}})
+			if err != nil {
+				return err
+			}
+			return cur.All(ctx, &[]bson.D{})
+		}, true, harness.DumboDBFull},
+		{"IndexDollarCountInPoints", func(ctx context.Context, col *mongo.Collection) error {
+			cur, err := col.Aggregate(ctx, mongo.Pipeline{{{Key: "$match", Value: bson.D{{Key: "i", Value: bson.D{{Key: "$in", Value: bson.A{int32(3), int32(5), int32(7), int32(2000)}}}}}}}, {{Key: "$count", Value: "n"}}})
+			if err != nil {
+				return err
+			}
+			return cur.All(ctx, &[]bson.D{})
+		}, true, harness.DumboDBFull},
 		{"IndexUpdateMany", func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.UpdateMany(ctx, bson.D{{Key: "grp", Value: int32(5)}}, bson.D{{Key: "$set", Value: bson.D{{Key: "t", Value: 1}}}})
 			return err
@@ -129,9 +151,10 @@ func TestServerStatus_QueryExecutorScanned(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
-				Name:    fmt.Sprintf("ServerStatus_QueryExecutorScanned_%s", tc.name),
-				Support: tc.support,
-				Setup:   setup,
+				Name:      fmt.Sprintf("ServerStatus_QueryExecutorScanned_%s", tc.name),
+				Support:   tc.support,
+				Clustered: true,
+				Setup:     setup,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return scannedBy(ctx, col, func() error { return tc.op(ctx, col) }, tc.repeatable)
 				},

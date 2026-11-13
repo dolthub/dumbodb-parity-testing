@@ -27,8 +27,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var idOrderGap = indexUseExpectation{knownDumboGap: "dumbodb#207: _id ranges and sorts scan the whole collection"}
-
 const idPageSize = 100
 
 func intID(i int) interface{} { return i }
@@ -75,7 +73,7 @@ func benchmarkIDRangeScaled(b *testing.B, label string, n int, idOf func(int) in
 	col, ctx := withSeededIDCollection(b, fmt.Sprintf("idrange_%s_%d", label, n), n, idOf)
 	width := n / 100
 	probe := idRangeFilter(idOf, n/2, n/2+width)
-	requireIndexed(b, ctx, col, findCmd(col, probe, nil, 0), idIndex, n, idOrderGap)
+	requireIndexed(b, ctx, col, findCmd(col, probe, nil, 0), idIndex, n, mustUseIndex)
 	if got := len(findAll(b, ctx, col, probe)); got != width {
 		b.Fatalf("_id range returned %d docs, want %d", got, width)
 	}
@@ -112,7 +110,7 @@ func idPage(b *testing.B, ctx context.Context, col *mongo.Collection, after int)
 func benchmarkIDPaginateScaled(b *testing.B, n int) {
 	col, ctx := withSeededIDCollection(b, fmt.Sprintf("idpage_%d", n), n, intID)
 	probe := bson.D{{Key: "_id", Value: bson.D{{Key: "$gt", Value: n / 2}}}}
-	requireIndexed(b, ctx, col, findCmd(col, probe, bson.D{{Key: "_id", Value: 1}}, idPageSize), idIndex, n, idOrderGap)
+	requireIndexed(b, ctx, col, findCmd(col, probe, bson.D{{Key: "_id", Value: 1}}, idPageSize), idIndex, n, mustUseIndex)
 	page := idPage(b, ctx, col, n/2)
 	got := make([]interface{}, len(page))
 	want := make([]interface{}, idPageSize)

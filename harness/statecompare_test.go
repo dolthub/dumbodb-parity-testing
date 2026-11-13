@@ -250,3 +250,37 @@ func TestStateCompare_StructuralDifferences(t *testing.T) {
 		}
 	})
 }
+
+func TestStateCompare_IgnoresIDClustering(t *testing.T) {
+	idKey := bson.D{{Key: "_id", Value: int32(1)}}
+	plain := &CollectionState{
+		Options: raw(t, bson.D{{Key: "validator", Value: bson.D{{Key: "a", Value: int32(1)}}}}),
+		Indexes: map[string]bson.Raw{"_id_": raw(t, bson.D{{Key: "v", Value: int32(2)}, {Key: "key", Value: idKey}, {Key: "name", Value: "_id_"}})},
+	}
+	clustered := &CollectionState{
+		Options: raw(t, bson.D{
+			{Key: "clusteredIndex", Value: bson.D{{Key: "v", Value: int32(2)}, {Key: "key", Value: idKey}, {Key: "name", Value: "_id_"}, {Key: "unique", Value: true}}},
+			{Key: "validator", Value: bson.D{{Key: "a", Value: int32(1)}}},
+		}),
+		Indexes: map[string]bson.Raw{"_id_": raw(t, bson.D{{Key: "v", Value: int32(2)}, {Key: "key", Value: idKey}, {Key: "name", Value: "_id_"}, {Key: "unique", Value: true}, {Key: "clustered", Value: true}})},
+	}
+	if d := diffCollection("db.c", plain, clustered, "mongo", "dumbo"); len(d) != 0 {
+		t.Errorf("clustering by _id reported as divergent: %v", d)
+	}
+
+	renamed := &CollectionState{
+		Options: raw(t, bson.D{
+			{Key: "clusteredIndex", Value: bson.D{{Key: "v", Value: int32(2)}, {Key: "key", Value: idKey}, {Key: "name", Value: "byID"}, {Key: "unique", Value: true}}},
+			{Key: "validator", Value: bson.D{{Key: "a", Value: int32(1)}}},
+		}),
+		Indexes: clustered.Indexes,
+	}
+	if d := diffCollection("db.c", renamed, clustered, "mongo", "dumbo"); len(d) != 1 {
+		t.Errorf("clustered index names byID and _id_: %v, want one divergence", d)
+	}
+
+	otherValidator := &CollectionState{Options: raw(t, bson.D{{Key: "validator", Value: bson.D{{Key: "b", Value: int32(1)}}}}), Indexes: clustered.Indexes}
+	if d := diffCollection("db.c", clustered, otherValidator, "mongo", "dumbo"); len(d) != 1 {
+		t.Errorf("a different validator beside clustering: %v, want one divergence", d)
+	}
+}
