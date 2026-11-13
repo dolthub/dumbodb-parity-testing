@@ -331,3 +331,41 @@ func TestUnwindIndexPathAndLatencyStats(t *testing.T) {
 		})
 	}
 }
+
+// A plain $first in SBE's $group or $bucket, and in $bucketAuto, evaluates
+// every document, so a later document's error is reported; the classic $group
+// evaluates only the first. $bucketAuto has no group key for an N
+// accumulator's n to read.
+func TestFirstEvaluatesEveryDocument(t *testing.T) {
+	seed := func(ctx context.Context, col *mongo.Collection) error {
+		_, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: int32(1)}, {Key: "z", Value: int32(1)}},
+			bson.D{{Key: "_id", Value: int32(2)}, {Key: "z", Value: int32(1)}},
+			bson.D{{Key: "_id", Value: int32(3)}, {Key: "z", Value: int32(0)}},
+		})
+		return err
+	}
+	pipelines := map[string]string{
+		"GroupSBE":          `[{"$sort":{"_id":1}},{"$group":{"_id":null,"f":{"$first":{"$divide":[1,"$z"]}}}}]`,
+		"GroupClassic":      `[{"$sort":{"_id":1}},{"$set":{"q":1}},{"$group":{"_id":null,"f":{"$first":{"$divide":[1,"$z"]}}}}]`,
+		"BucketSBE":         `[{"$sort":{"_id":1}},{"$bucket":{"groupBy":"$_id","boundaries":[0,10],"output":{"f":{"$first":{"$divide":[1,"$z"]}}}}}]`,
+		"BucketAuto":        `[{"$bucketAuto":{"groupBy":"$_id","buckets":1,"output":{"f":{"$first":{"$divide":[1,"$z"]}}}}}]`,
+		"BucketAutoNField":  `[{"$bucketAuto":{"groupBy":"$_id","buckets":1,"output":{"f":{"$firstN":{"input":"$z","n":"$z"}}}}}]`,
+		"BucketAutoNRoot":   `[{"$bucketAuto":{"groupBy":"$_id","buckets":1,"output":{"f":{"$topN":{"output":"$z","sortBy":{"z":1},"n":"$$ROOT"}}}}}]`,
+		"BucketAutoNFolded": `[{"$bucketAuto":{"groupBy":"$_id","buckets":1,"output":{"f":{"$firstN":{"input":"$z","n":{"$add":[1,1]}}}}}}]`,
+	}
+	for name, js := range pipelines {
+		var stages []bson.D
+		if err := bson.UnmarshalExtJSON([]byte(`{"p":`+js+`}`), false, &struct{ P *[]bson.D }{&stages}); err != nil {
+			t.Fatal(name, err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "FirstEvaluatesEveryDocument_" + name,
+			Support: harness.DumboDBFull,
+			Setup:   seed,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return fieldOpsAgg(ctx, col, stages...)
+			},
+		})
+	}
+}
