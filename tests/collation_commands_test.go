@@ -151,3 +151,64 @@ func TestCollationCommandExpressions(t *testing.T) {
 		}
 	}
 }
+
+// TestCollationForeignView: $lookup, $graphLookup and $unionWith may read a
+// view only under the view's own collation (167).
+func TestCollationForeignView(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		db := col.Database()
+		if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "s", Value: "a"}}); err != nil {
+			return err
+		}
+		other := db.Collection(col.Name() + "_o")
+		if err := other.Drop(ctx); err != nil {
+			return err
+		}
+		if _, err := other.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "k", Value: "A"}}); err != nil {
+			return err
+		}
+		for _, v := range []string{"_vci", "_vsimple"} {
+			_ = db.Collection(col.Name() + v).Drop(ctx)
+		}
+		if err := db.CreateView(ctx, col.Name()+"_vci", other.Name(), bson.A{}, options.CreateView().SetCollation(caseInsensitive)); err != nil {
+			return err
+		}
+		return db.CreateView(ctx, col.Name()+"_vsimple", other.Name(), bson.A{})
+	}
+	cases := map[string]struct {
+		view      string
+		collation *options.Collation
+		stage     func(view string) bson.D
+	}{
+		"lookup_simple_over_ci": {"_vci", nil, lookupStage},
+		"lookup_ci_over_ci":     {"_vci", caseInsensitive, lookupStage},
+		"lookup_ci_over_simple": {"_vsimple", caseInsensitive, lookupStage},
+		"lookup_pipeline_over_ci": {"_vci", nil, func(v string) bson.D {
+			return bson.D{{Key: "$lookup", Value: bson.D{{Key: "from", Value: v}, {Key: "pipeline", Value: bson.A{}}, {Key: "as", Value: "j"}}}}
+		}},
+		"graph_lookup_over_ci": {"_vci", nil, func(v string) bson.D {
+			return bson.D{{Key: "$graphLookup", Value: bson.D{{Key: "from", Value: v}, {Key: "startWith", Value: "$s"},
+				{Key: "connectFromField", Value: "k"}, {Key: "connectToField", Value: "k"}, {Key: "as", Value: "g"}}}}
+		}},
+		"union_with_over_ci": {"_vci", nil, func(v string) bson.D { return bson.D{{Key: "$unionWith", Value: v}} }},
+	}
+	for name, tc := range cases {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "CollationForeignView_" + name,
+			Support: harness.DumboDBFull,
+			Setup:   setup,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				opts := options.Aggregate()
+				if tc.collation != nil {
+					opts.SetCollation(tc.collation)
+				}
+				cursor, err := col.Aggregate(ctx, bson.A{tc.stage(col.Name() + tc.view)}, opts)
+				return drainCursor(ctx, cursor, err)
+			},
+		})
+	}
+}
+
+func lookupStage(view string) bson.D {
+	return bson.D{{Key: "$lookup", Value: bson.D{{Key: "from", Value: view}, {Key: "localField", Value: "s"}, {Key: "foreignField", Value: "k"}, {Key: "as", Value: "j"}}}}
+}
