@@ -65,3 +65,89 @@ func TestCollationArrayEquality(t *testing.T) {
 		})
 	}
 }
+
+// TestCollationCommandExpressions: $expr in find, count, distinct and delete
+// filters, find projection expressions, and update and findAndModify
+// pipelines compare strings under the command's or the collection's
+// collation.
+func TestCollationCommandExpressions(t *testing.T) {
+	seed := []interface{}{
+		bson.D{{Key: "_id", Value: int32(1)}, {Key: "s", Value: "A"}},
+		bson.D{{Key: "_id", Value: int32(2)}, {Key: "s", Value: "b"}},
+	}
+	expr := bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{"$s", "a"}}}}}
+	projection := bson.D{{Key: "e", Value: bson.D{{Key: "$eq", Value: bson.A{"$s", "a"}}}}}
+	pipeline := bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "e", Value: bson.D{{Key: "$eq", Value: bson.A{"$s", "a"}}}}}}}}
+	all := func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		cursor, err := col.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+		return drainCursor(ctx, cursor, err)
+	}
+	type run func(ctx context.Context, col *mongo.Collection, c *options.Collation) (interface{}, error)
+	runs := map[string]run{
+		"find": func(ctx context.Context, col *mongo.Collection, c *options.Collation) (interface{}, error) {
+			cursor, err := col.Find(ctx, expr, options.Find().SetCollation(c))
+			return drainCursor(ctx, cursor, err)
+		},
+		"count": func(ctx context.Context, col *mongo.Collection, c *options.Collation) (interface{}, error) {
+			return col.CountDocuments(ctx, expr, options.Count().SetCollation(c))
+		},
+		"distinct": func(ctx context.Context, col *mongo.Collection, c *options.Collation) (interface{}, error) {
+			return col.Distinct(ctx, "s", expr, options.Distinct().SetCollation(c))
+		},
+		"projection": func(ctx context.Context, col *mongo.Collection, c *options.Collation) (interface{}, error) {
+			cursor, err := col.Find(ctx, bson.D{}, options.Find().SetCollation(c).SetProjection(projection).SetSort(bson.D{{Key: "_id", Value: 1}}))
+			return drainCursor(ctx, cursor, err)
+		},
+		"delete": func(ctx context.Context, col *mongo.Collection, c *options.Collation) (interface{}, error) {
+			if _, err := col.DeleteMany(ctx, expr, options.Delete().SetCollation(c)); err != nil {
+				return errOutcome(err), nil
+			}
+			return all(ctx, col)
+		},
+		"update_pipeline": func(ctx context.Context, col *mongo.Collection, c *options.Collation) (interface{}, error) {
+			if _, err := col.UpdateMany(ctx, bson.D{}, pipeline, options.Update().SetCollation(c)); err != nil {
+				return errOutcome(err), nil
+			}
+			return all(ctx, col)
+		},
+		"find_and_modify_pipeline": func(ctx context.Context, col *mongo.Collection, c *options.Collation) (interface{}, error) {
+			res := col.FindOneAndUpdate(ctx, bson.D{{Key: "_id", Value: int32(1)}}, pipeline,
+				options.FindOneAndUpdate().SetCollation(c).SetReturnDocument(options.After))
+			var doc bson.M
+			if err := res.Decode(&doc); err != nil {
+				return errOutcome(err), nil
+			}
+			return doc, nil
+		},
+	}
+	for name, r := range runs {
+		for _, source := range []string{"command", "collection"} {
+			collated := source == "collection"
+			harness.PairTest(t, harness.TestCase{
+				Name:    "CollationCommandExpressions_" + name + "_" + source,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					if err := col.Drop(ctx); err != nil {
+						return err
+					}
+					opts := options.CreateCollection()
+					if collated {
+						opts.SetCollation(caseInsensitive)
+					}
+					if err := col.Database().CreateCollection(ctx, col.Name(), opts); err != nil {
+						return err
+					}
+					_, err := col.InsertMany(ctx, seed)
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					var c *options.Collation
+					if !collated {
+						c = caseInsensitive
+					}
+					return r(ctx, col, c)
+				},
+			})
+		}
+	}
+}
