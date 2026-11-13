@@ -80,8 +80,9 @@ func TestAggregationArrayComparison(t *testing.T) {
 
 // More places that compare values as aggregation does, not as a query: $in
 // and $indexOfArray match whole values, window ranks tie as $sort orders, a
-// range window needs numeric sortBy values, and a $sort on _id alone compares
-// arrays whole.
+// range window needs numeric sortBy values, a $sort or window sortBy on _id
+// alone compares arrays whole, and the set operators compare whole values
+// and report a non-array operand with their own codes.
 func TestAggregationComparisonSiblings(t *testing.T) {
 	seed := func(ctx context.Context, col *mongo.Collection) error {
 		_, err := col.InsertMany(ctx, []interface{}{
@@ -104,6 +105,20 @@ func TestAggregationComparisonSiblings(t *testing.T) {
 		"SortGroupIDDesc":     `[{"$group":{"_id":"$a"}},{"$sort":{"_id":-1}}]`,
 		"SortProjectedIDDesc": `[{"$project":{"_id":"$a"}},{"$sort":{"_id":-1}}]`,
 		"SortGroupIDLimit":    `[{"$group":{"_id":"$a"}},{"$sort":{"_id":1}},{"$limit":2}]`,
+		"SetOperators":        `[{"$match":{"_id":1}},{"$project":{"i":{"$setIntersection":[[[1]],[1]]},"s":{"$setIsSubset":[[[1]],[1]]},"e":{"$setEquals":[[[1]],[1]]},"d":{"$setDifference":[[[1]],[1]]},"u":{"$setUnion":[[1,[1]],[[1]]]}}}]`,
+		"SetOperatorsFields":  `[{"$project":{"i":{"$setIntersection":[["$a"],[1]]},"d":{"$setDifference":["$a",[[1]]]},"u":{"$setUnion":[[1],["$a"]]}}},{"$sort":{"_id":1}}]`,
+		"WindowGroupIDAsc":    `[{"$group":{"_id":"$a"}},{"$setWindowFields":{"sortBy":{"_id":1},"output":{"r":{"$documentNumber":{}}}}}]`,
+		"WindowGroupIDDesc":   `[{"$group":{"_id":"$a"}},{"$setWindowFields":{"sortBy":{"_id":-1},"output":{"r":{"$rank":{}}}}}]`,
+		"WindowSetIDAsc":      `[{"$set":{"_id":"$a"}},{"$setWindowFields":{"sortBy":{"_id":1},"output":{"r":{"$documentNumber":{}}}}}]`,
+		"SetUnionNotArray":    `[{"$project":{"u":{"$setUnion":["$a",[1]]}}},{"$sort":{"_id":1}}]`,
+		"SetEqualsNotArray":   `[{"$project":{"u":{"$setEquals":[[1],"$a"]}}},{"$sort":{"_id":1}}]`,
+		"SetEqualsOneArg":     `[{"$project":{"u":{"$setEquals":[[1]]}}}]`,
+		"SetIsSubsetFirst":    `[{"$project":{"u":{"$setIsSubset":["$a",[1]]}}},{"$sort":{"_id":1}}]`,
+		"SetIsSubsetConstant": `[{"$project":{"u":{"$setIsSubset":["$a",5]}}}]`,
+		"SetDifferenceNull":   `[{"$project":{"u":{"$setDifference":["$a",null]}}},{"$sort":{"_id":1}}]`,
+		"AnyElementTrueNull":  `[{"$project":{"u":{"$anyElementTrue":["$zz"]}}}]`,
+		"AllElementsTrueInt":  `[{"$match":{"_id":3}},{"$project":{"u":{"$allElementsTrue":["$a"]}}}]`,
+		"SetUnionNotArraySBE": `[{"$group":{"_id":null,"u":{"$push":{"$setUnion":["$a",[1]]}}}}]`,
 	}
 	for name, js := range pipelines {
 		var stages []bson.D
