@@ -227,7 +227,8 @@ func TestParseChecksQ11(t *testing.T) {
 
 // $tsSecond and $tsIncrement fail on a value that is not a timestamp with
 // their own codes and give null for null or missing; $const is $literal; a
-// filter checks $expr after its other conditions.
+// filter checks $expr after its other conditions unless an index on _id serves
+// the query.
 func TestExpressionsQ12(t *testing.T) {
 	seed := func(ctx context.Context, col *mongo.Collection) error {
 		_, err := col.InsertMany(ctx, []interface{}{
@@ -238,17 +239,21 @@ func TestExpressionsQ12(t *testing.T) {
 		return err
 	}
 	pipelines := map[string]string{
-		"TsSecondConstant":     `[{"$project":{"t":{"$tsSecond":{"$literal":1}}}}]`,
-		"TsIncrementString":    `[{"$project":{"t":{"$tsIncrement":"x"}}}]`,
-		"TsValues":             `[{"$project":{"s":{"$tsSecond":"$t"},"i":{"$tsIncrement":"$t"},"m":{"$tsSecond":"$n"},"z":{"$tsSecond":"$zz"}}}]`,
-		"TsSecondField":        `[{"$project":{"s":{"$tsSecond":"$v"}}}]`,
-		"Const":                `[{"$project":{"t":{"$const":5}}}]`,
-		"ConstFieldPath":       `[{"$project":{"t":{"$const":"$a"}}}]`,
-		"MatchOrExprFirst":     `[{"$match":{"$or":[{"$expr":{"$eq":[{"$size":"$a"},2]}},{"v":9}]}},{"$project":{"_id":1}}]`,
-		"MatchAndExprFirst":    `[{"$match":{"$and":[{"$expr":{"$eq":[{"$size":"$a"},2]}},{"v":8}]}}]`,
-		"MatchExprBeforeField": `[{"$match":{"$expr":{"$eq":[{"$size":"$a"},2]},"v":8}}]`,
-		"MatchNorExprFirst":    `[{"$match":{"$nor":[{"$expr":{"$eq":[{"$size":"$a"},2]}},{"v":9}]}}]`,
-		"MatchOrExprFails":     `[{"$match":{"$or":[{"$expr":{"$eq":[{"$size":"$a"},2]}},{"v":8}]}}]`,
+		"TsSecondConstant":      `[{"$project":{"t":{"$tsSecond":{"$literal":1}}}}]`,
+		"TsIncrementString":     `[{"$project":{"t":{"$tsIncrement":"x"}}}]`,
+		"TsValues":              `[{"$project":{"s":{"$tsSecond":"$t"},"i":{"$tsIncrement":"$t"},"m":{"$tsSecond":"$n"},"z":{"$tsSecond":"$zz"}}}]`,
+		"TsSecondField":         `[{"$project":{"s":{"$tsSecond":"$v"}}}]`,
+		"Const":                 `[{"$project":{"t":{"$const":5}}}]`,
+		"ConstFieldPath":        `[{"$project":{"t":{"$const":"$a"}}}]`,
+		"MatchOrExprFirst":      `[{"$match":{"$or":[{"$expr":{"$eq":[{"$size":"$a"},2]}},{"v":9}]}},{"$project":{"_id":1}}]`,
+		"MatchAndExprFirst":     `[{"$match":{"$and":[{"$expr":{"$eq":[{"$size":"$a"},2]}},{"v":8}]}}]`,
+		"MatchExprBeforeField":  `[{"$match":{"$expr":{"$eq":[{"$size":"$a"},2]},"v":8}}]`,
+		"MatchNorExprFirst":     `[{"$match":{"$nor":[{"$expr":{"$eq":[{"$size":"$a"},2]}},{"v":9}]}}]`,
+		"MatchOrExprFails":      `[{"$match":{"$or":[{"$expr":{"$eq":[{"$size":"$a"},2]}},{"v":8}]}}]`,
+		"MatchExprWithIdRange":  `[{"$match":{"$expr":{"$eq":[{"$size":"$a"},2]},"_id":{"$gte":1},"v":8}}]`,
+		"MatchExprWithIdRegex":  `[{"$match":{"$expr":{"$eq":[{"$size":"$a"},2]},"_id":{"$regex":"x"},"v":8}}]`,
+		"MatchAndExprWithIdIn":  `[{"$match":{"$and":[{"$expr":{"$eq":[{"$size":"$a"},2]}},{"_id":{"$in":[1,2]}},{"v":8}]}}]`,
+		"MatchAndExprWithIdGte": `[{"$match":{"$and":[{"$expr":{"$eq":[{"$size":"$a"},2]}},{"_id":{"$gte":1}},{"v":8}]}}]`,
 	}
 	for name, js := range pipelines {
 		var stages []bson.D
