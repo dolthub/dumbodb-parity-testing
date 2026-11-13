@@ -36,8 +36,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"github.com/dolthub/dumbodb-parity-testing/targets"
 )
 
 var (
@@ -106,7 +105,10 @@ func run() error {
 	if local && (*dumboBin == "" || *mongodBin == "") {
 		return errors.New("-dumbodb-bin and -mongod-bin must be set together")
 	}
-	notifiers := buildNotifiers()
+	notifiers := targets.NotifyConfig{
+		ReportDir: *reportDir, AlertCmd: *alertCmd,
+		EmailFrom: *emailFrom, EmailTo: *emailTo, EmailRegion: *emailRegion,
+	}.Notifiers()
 
 	info := currentRunInfo(local)
 
@@ -128,7 +130,7 @@ func run() error {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return err
 		}
-		if benchErr = requireDiskBacked(dir); benchErr == nil {
+		if benchErr = targets.RequireDiskBacked(dir); benchErr == nil {
 			dumboResults, mongoResults, benchErr = runLocalTargets(dir, suite)
 		}
 	default:
@@ -178,8 +180,8 @@ func runContainerTargets(suite *benchSuite) (dumbo, mongo []result, cleanup func
 		// much less confusing than leftover daemons.
 		if !*keepAlive {
 			cleanup = func() {
-				stopContainer(context.Background(), mongoContainer)
-				stopContainer(context.Background(), dumboContainer)
+				mongoContainer.Stop(context.Background())
+				dumboContainer.Stop(context.Background())
 			}
 		}
 	}
@@ -187,11 +189,11 @@ func runContainerTargets(suite *benchSuite) (dumbo, mongo []result, cleanup func
 	for _, name := range suite.names {
 		for _, t := range []struct {
 			label   string
-			c       container
+			c       targets.Container
 			results *[]result
 		}{{"dumbodb", dumboContainer, &dumbo}, {"mongodb", mongoContainer, &mongo}} {
 			if !*noContainers {
-				if err := freshContainer(ctx, t.c); err != nil {
+				if err := t.c.Fresh(ctx, *healthTimeout); err != nil {
 					errs = append(errs, fmt.Errorf("%s %s: %w", t.label, name, err))
 					continue
 				}
@@ -217,7 +219,7 @@ func currentRunInfo(local bool) runInfo {
 	if info.DumboDBVersion == "" {
 		switch {
 		case local:
-			info.DumboDBVersion = binaryVersion(*dumboBin, "dumbodb ")
+			info.DumboDBVersion = targets.BinaryVersion(*dumboBin, "dumbodb ")
 		case *dumboSrc != "":
 			info.DumboDBVersion = "source " + *dumboSrc
 		default:
@@ -226,61 +228,12 @@ func currentRunInfo(local bool) runInfo {
 	}
 	if info.MongoDBVersion == "" {
 		if local {
-			info.MongoDBVersion = binaryVersion(*mongodBin, "db version ")
+			info.MongoDBVersion = targets.BinaryVersion(*mongodBin, "db version ")
 		} else {
-			info.MongoDBVersion = mongoContainer.image
+			info.MongoDBVersion = mongoContainer.Image
 		}
 	}
 	return info
-}
-
-// prepareImages pulls the MongoDB image and builds or pulls the DumboDB image
-// that each benchmark's fresh containers run.
-func prepareImages(ctx context.Context) error {
-	if err := ensureMongoImage(ctx); err != nil {
-		return fmt.Errorf("pull %s: %w", mongoContainer.image, err)
-	}
-	return prepareDumboImage(ctx)
-}
-
-// freshContainer replaces c with a new container, so its server starts with
-// empty data.
-func freshContainer(ctx context.Context, c container) error {
-	stopContainer(ctx, c)
-	if err := startContainer(ctx, c); err != nil {
-		return err
-	}
-	return waitHealthy(ctx, c, *healthTimeout)
-}
-
-// prepareDumboImage selects the DumboDB image based on the flags and ensures
-// it is available locally. When -dumbodb-src is set, build dumbodb-bench:local
-// from that source tree. Otherwise pull -dumbodb-image from the registry.
-// In both cases dumboContainer is mutated to point at the chosen image and the
-// matching host-to-container port mapping for that image.
-//
-// Source-build mode additionally publishes port 6060 so the pprof endpoint
-// baked into dumbodb-bench:local (see benchmarks/Dockerfile.dumbodb) is
-// reachable from the host. Pulled-image mode does not, because the public
-// image's CMD does not include -pprof-addr.
-func prepareDumboImage(ctx context.Context) error {
-	if *dumboSrc != "" {
-		dumboContainer.image = "dumbodb-bench:local"
-		dumboContainer.runArgs = []string{
-			"-p", "127.0.0.1:27018:27018",
-			"-p", "127.0.0.1:6060:6060",
-		}
-		if err := buildDumboImage(ctx, *dumboSrc); err != nil {
-			return fmt.Errorf("build %s: %w", dumboContainer.image, err)
-		}
-		return nil
-	}
-	dumboContainer.image = *dumboImage
-	dumboContainer.runArgs = []string{"-p", "127.0.0.1:27018:27017"}
-	if err := ensureDumboImage(ctx); err != nil {
-		return fmt.Errorf("pull %s: %w", dumboContainer.image, err)
-	}
-	return nil
 }
 
 func writeResultsCSV(out io.Writer, rows []combined) error {
@@ -319,51 +272,24 @@ func fmtMultiplier(v *float64) string {
 
 func printKeepAliveBanner(w *os.File) {
 	fmt.Fprintln(w, "Servers still running (-f):")
-	fmt.Fprintf(w, "  DumboDB: %s\n", dumboContainer.hostURI)
-	fmt.Fprintf(w, "  MongoDB: %s\n", mongoContainer.hostURI)
+	fmt.Fprintf(w, "  DumboDB: %s\n", dumboContainer.HostURI)
+	fmt.Fprintf(w, "  MongoDB: %s\n", mongoContainer.HostURI)
 	fmt.Fprintf(w, "Clean up: docker stop %s %s && docker rm %s %s\n",
-		dumboContainer.name, mongoContainer.name,
-		dumboContainer.name, mongoContainer.name)
+		dumboContainer.Name, mongoContainer.Name,
+		dumboContainer.Name, mongoContainer.Name)
 }
 
-// runTargetBench verifies the target container is still running (and accepts
-// connections) before handing off to runBench. The early check exists because
-// an opaque "dial tcp ... connection refused" bubbling up from inside `go
-// test` is much harder to triage than an explicit "container X is not running
-// anymore" from the runner.
-//
-// When -no-containers is set, we trust the user and skip the verification.
-func runTargetBench(ctx context.Context, label string, c container, suite *benchSuite, name string) ([]result, error) {
+// runTargetBench checks that the target container still serves before
+// handing off to the benchmark: an opaque "connection refused" from inside
+// `go test` is much harder to triage. With -no-containers the user's servers
+// are trusted.
+func runTargetBench(ctx context.Context, label string, c targets.Container, suite *benchSuite, name string) ([]result, error) {
 	if !*noContainers {
-		if state := containerState(ctx, c.name); state != "running" {
-			return nil, fmt.Errorf(
-				"%s container %q is %q, not running — %s",
-				label, c.name, stateOrMissing(state),
-				"check `docker logs "+c.name+"` for why it exited")
-		}
-		// Re-ping: container may be alive but mongod/dumbodb crashed inside it.
-		// Short timeout — if the server died the TCP refusal is immediate.
-		pingCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-		defer cancel()
-		client, err := mongo.Connect(pingCtx, options.Client().ApplyURI(c.hostURI))
-		if err == nil {
-			err = client.Ping(pingCtx, nil)
-			_ = client.Disconnect(context.Background())
-		}
-		if err != nil {
-			return nil, fmt.Errorf(
-				"%s container %q is running but not reachable at %s: %w — check `docker logs %s`",
-				label, c.name, c.hostURI, err, c.name)
+		if err := c.CheckServing(ctx, label); err != nil {
+			return nil, err
 		}
 	}
-	return suite.run(name, label, c.hostURI)
-}
-
-func stateOrMissing(s string) string {
-	if s == "" {
-		return "missing"
-	}
-	return s
+	return suite.run(name, label, c.HostURI)
 }
 
 // benchSuite is the compiled benchmark binary and the benchmarks -bench selects.

@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"strings"
@@ -72,19 +71,5 @@ func TestReportShowsWorstOutliers(t *testing.T) {
 	failed := buildReport(info, nil, errors.New("mongod exited"), nil)
 	if !strings.Contains(failed.Subject, "FAILED") || !strings.Contains(failed.HTMLBody, "mongod exited") {
 		t.Fatalf("failure report: %q", failed.Subject)
-	}
-}
-
-func TestRawEmailAttachesCSV(t *testing.T) {
-	r := report{Subject: "s", HTMLBody: "<p>x</p>", CSVName: "run.csv", CSV: []byte("a,b\n1,2\n")}
-	raw := buildRawEmail("from@example.com", "to@example.com", r)
-	for _, want := range []string{
-		"multipart/mixed",
-		`Content-Disposition: attachment; filename="run.csv"`,
-		base64.StdEncoding.EncodeToString(r.CSV),
-	} {
-		if !bytes.Contains(raw, []byte(want)) {
-			t.Fatalf("email lacks %q:\n%s", want, raw)
-		}
 	}
 }

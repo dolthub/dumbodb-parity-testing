@@ -31,6 +31,11 @@ Available scenarios are `cas`, `uuid-cas`, `blind-inc`,
 `-payload-bytes` to retain a large payload in the contended document. The
 command exits nonzero when a hard accounting or final-state check fails.
 
+The differential fuzzer (`cmd/fuzz`) is also outside the suites. It runs
+random hinted reads and writes against MongoDB and DumboDB for a set time
+and reports each divergence with a minimized repro; see
+[cmd/fuzz/README.md](cmd/fuzz/README.md).
+
 ## Prerequisites
 
 - Go 1.22+

@@ -1,32 +1,14 @@
 package main
 
 import (
-	"bytes"
-	"context"
-	"encoding/base64"
 	"fmt"
 	"html"
-	"log"
 	"math"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/sesv2"
-	"github.com/aws/aws-sdk-go-v2/service/sesv2/types"
+	"github.com/dolthub/dumbodb-parity-testing/targets"
 )
-
-type report struct {
-	Subject  string
-	TextBody string
-	HTMLBody string
-	CSVName  string
-	CSV      []byte
-}
 
 type runInfo struct {
 	Date           string
@@ -86,7 +68,7 @@ func worst(rows []combined, n int) []combined {
 	return compared[:min(n, len(compared))]
 }
 
-func buildReport(info runInfo, rows []combined, runErr error, csvData []byte) report {
+func buildReport(info runInfo, rows []combined, runErr error, csvData []byte) targets.Report {
 	s := summarize(rows)
 	subject := fmt.Sprintf("%s %s: median %.2fx vs MongoDB", *emailSubject, info.DumboDBVersion, s.median)
 	if runErr != nil {
@@ -124,12 +106,13 @@ func buildReport(info runInfo, rows []combined, runErr error, csvData []byte) re
 	}
 	fmt.Fprintf(&h, "</table><p>All %d results are in the attached CSV.</p></body></html>", len(rows))
 
-	return report{
-		Subject:  subject,
-		TextBody: t.String(),
-		HTMLBody: h.String(),
-		CSVName:  "dumbodb-compare-" + strings.NewReplacer(" ", "_", ":", "").Replace(info.Date) + ".csv",
-		CSV:      csvData,
+	return targets.Report{
+		Subject:        subject,
+		TextBody:       t.String(),
+		HTMLBody:       h.String(),
+		AttachmentName: "dumbodb-compare-" + strings.NewReplacer(" ", "_", ":", "").Replace(info.Date) + ".csv",
+		AttachmentType: "text/csv",
+		Attachment:     csvData,
 	}
 }
 
@@ -138,114 +121,4 @@ func fmtMs3(ns *float64) string {
 		return "-"
 	}
 	return fmt.Sprintf("%.3f", *ns/1e6)
-}
-
-type notifier func(ctx context.Context, r report)
-
-func buildNotifiers() []notifier {
-	var out []notifier
-	if *reportDir != "" {
-		out = append(out, fileNotifier(*reportDir))
-	}
-	if *alertCmd != "" {
-		out = append(out, cmdNotifier(*alertCmd))
-	}
-	if *emailFrom != "" && *emailTo != "" {
-		out = append(out, sesNotifier(*emailFrom, *emailTo, *emailRegion))
-	}
-	return out
-}
-
-func fileNotifier(dir string) notifier {
-	return func(_ context.Context, r report) {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			log.Printf("report-dir: %v", err)
-			return
-		}
-		for name, data := range map[string][]byte{
-			"report-latest.txt":  []byte(r.TextBody),
-			"report-latest.html": []byte(r.HTMLBody),
-			r.CSVName:            r.CSV,
-		} {
-			if len(data) == 0 {
-				continue
-			}
-			if err := os.WriteFile(filepath.Join(dir, name), data, 0o644); err != nil {
-				log.Printf("report-dir write %s: %v", name, err)
-			}
-		}
-		log.Printf("report written to %s", dir)
-	}
-}
-
-func cmdNotifier(cmdLine string) notifier {
-	return func(ctx context.Context, r report) {
-		cmd := exec.CommandContext(ctx, "sh", "-c", cmdLine)
-		cmd.Env = append(cmd.Environ(), "ALERT_SUBJECT="+r.Subject)
-		cmd.Stdin = strings.NewReader(r.TextBody)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			log.Printf("alert-cmd failed: %v: %s", err, strings.TrimSpace(string(out)))
-		}
-	}
-}
-
-func sesNotifier(from, toCSV, region string) notifier {
-	var to []string
-	for _, p := range strings.Split(toCSV, ",") {
-		if v := strings.TrimSpace(p); v != "" {
-			to = append(to, v)
-		}
-	}
-	return func(ctx context.Context, r report) {
-		var opts []func(*config.LoadOptions) error
-		if region != "" {
-			opts = append(opts, config.WithRegion(region))
-		}
-		cfg, err := config.LoadDefaultConfig(ctx, opts...)
-		if err != nil {
-			log.Printf("ses config: %v", err)
-			return
-		}
-		raw := buildRawEmail(from, strings.Join(to, ", "), r)
-		_, err = sesv2.NewFromConfig(cfg).SendEmail(ctx, &sesv2.SendEmailInput{
-			FromEmailAddress: aws.String(from),
-			Destination:      &types.Destination{ToAddresses: to},
-			Content:          &types.EmailContent{Raw: &types.RawMessage{Data: raw}},
-		})
-		if err != nil {
-			log.Printf("ses send: %v", err)
-			return
-		}
-		log.Printf("report emailed to %s", strings.Join(to, ", "))
-	}
-}
-
-func buildRawEmail(from, to string, r report) []byte {
-	const boundary = "mixed-boundary-dumbodb-compare"
-	var b bytes.Buffer
-	fmt.Fprintf(&b, "From: %s\r\n", from)
-	fmt.Fprintf(&b, "To: %s\r\n", to)
-	fmt.Fprintf(&b, "Subject: %s\r\n", r.Subject)
-	b.WriteString("MIME-Version: 1.0\r\n")
-	fmt.Fprintf(&b, "Content-Type: multipart/mixed; boundary=\"%s\"\r\n\r\n", boundary)
-
-	fmt.Fprintf(&b, "--%s\r\n", boundary)
-	b.WriteString("Content-Type: text/html; charset=\"UTF-8\"\r\n")
-	b.WriteString("Content-Transfer-Encoding: 8bit\r\n\r\n")
-	b.WriteString(r.HTMLBody)
-	b.WriteString("\r\n")
-
-	if len(r.CSV) > 0 {
-		fmt.Fprintf(&b, "--%s\r\n", boundary)
-		fmt.Fprintf(&b, "Content-Type: text/csv; name=\"%s\"\r\n", r.CSVName)
-		b.WriteString("Content-Transfer-Encoding: base64\r\n")
-		fmt.Fprintf(&b, "Content-Disposition: attachment; filename=\"%s\"\r\n\r\n", r.CSVName)
-		encoded := base64.StdEncoding.EncodeToString(r.CSV)
-		for i := 0; i < len(encoded); i += 76 {
-			b.WriteString(encoded[i:min(i+76, len(encoded))])
-			b.WriteString("\r\n")
-		}
-	}
-	fmt.Fprintf(&b, "--%s--\r\n", boundary)
-	return b.Bytes()
 }
