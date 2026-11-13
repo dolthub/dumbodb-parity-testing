@@ -87,3 +87,44 @@ func TestMergeObjectsMemoryUnlimited(t *testing.T) {
 		},
 	})
 }
+
+// mongod sizes kept values as its engine stores them: SBE's $group charges 9
+// bytes for each element of an array of numbers, the classic engine 16, so a
+// group that passes in one engine can fail in the other.
+func TestAccumulatorMemoryPerEngine(t *testing.T) {
+	ranged := bson.D{{Key: "$range", Value: bson.A{"$z", int32(1000000)}}}
+	group := func(acc bson.D) bson.D {
+		return bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "f", Value: acc}}}}
+	}
+	classic := bson.D{{Key: "$set", Value: bson.D{{Key: "q", Value: int32(1)}}}}
+	cases := []struct {
+		name   string
+		docs   int32
+		stages []bson.D
+	}{
+		{"SBEPush11", 11, []bson.D{group(bson.D{{Key: "$push", Value: ranged}})}},
+		{"SBEPush12", 12, []bson.D{group(bson.D{{Key: "$push", Value: ranged}})}},
+		{"SBEAddToSet11", 11, []bson.D{group(bson.D{{Key: "$addToSet", Value: bson.D{{Key: "$range", Value: bson.A{"$_id", int32(1000000)}}}}})}},
+		{"SBEFirstN11", 11, []bson.D{group(bson.D{{Key: "$firstN", Value: bson.D{{Key: "n", Value: int32(100)}, {Key: "input", Value: ranged}}}})}},
+		{"ClassicPush6", 6, []bson.D{classic, group(bson.D{{Key: "$push", Value: ranged}})}},
+		{"ClassicPush7", 7, []bson.D{classic, group(bson.D{{Key: "$push", Value: ranged}})}},
+	}
+	for _, c := range cases {
+		c := c
+		harness.PairTest(t, harness.TestCase{
+			Name:    "AccumulatorMemoryPerEngine_" + c.name,
+			Support: harness.DumboDBFull,
+			Setup: func(ctx context.Context, col *mongo.Collection) error {
+				var docs []interface{}
+				for i := int32(0); i < c.docs; i++ {
+					docs = append(docs, bson.D{{Key: "_id", Value: i}, {Key: "z", Value: int32(0)}})
+				}
+				_, err := col.InsertMany(ctx, docs)
+				return err
+			},
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return fieldOpsAgg(ctx, col, append(c.stages, bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: 1}}}})...)
+			},
+		})
+	}
+}
