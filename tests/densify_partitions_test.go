@@ -160,8 +160,10 @@ func TestDensifyPartitions_NumericBoundsWithUnit(t *testing.T) {
 // $densify emits documents in the order mongod streams them: partitions
 // sorted with null and missing tying, generated documents before the one that
 // ends their gap, and partition values copied from that document. Under full
-// bounds a partition's first value is generated again only when it is one
-// step above the minimum. A memory-heavy partition value is shared.
+// bounds a partition's first value passes through when it is at most one step
+// above the minimum, and its fill starts from the minimum in a double or
+// decimal step's type, unless that fill comes at the end of the input. A
+// memory-heavy partition value is shared.
 func TestDensifyStreamOrder(t *testing.T) {
 	cases := []struct {
 		name, docs, stages string
@@ -178,6 +180,12 @@ func TestDensifyStreamOrder(t *testing.T) {
 		{"NullAndMissingInterleave", `[{"p":null,"x":2},{"x":3},{"p":null,"x":5},{"x":6}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":1,"bounds":"partition"}}}]`},
 		{"PartitionValueType", `[{"p":1,"x":1},{"p":1.0,"x":4},{"p":{"$numberLong":"1"},"x":6}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":1,"bounds":"partition"}}},{"$project":{"x":1,"t":{"$type":"$p"}}}]`},
 		{"PartitionValueTypeExplicit", `[{"p":1,"x":1},{"p":1.0,"x":4},{"p":{"$numberLong":"1"},"x":6}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":1,"bounds":[0,9]}}},{"$project":{"x":1,"t":{"$type":"$p"}}}]`},
+		{"FullDoubleStepMinType", `[{"p":"a","x":0},{"p":"b","x":1}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":0.5,"bounds":"full"}}},{"$project":{"p":1,"x":1,"t":{"$type":"$x"}}},{"$sort":{"p":1,"x":1}}]`},
+		{"FullDecimalStepMinType", `[{"p":"a","x":0},{"p":"b","x":1}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":{"$numberDecimal":"0.25"},"bounds":"full"}}},{"$project":{"p":1,"x":1,"t":{"$type":"$x"}}},{"$sort":{"p":1,"x":1}}]`},
+		{"FullLongStepMinType", `[{"p":"a","x":0},{"p":"b","x":2}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":{"$numberLong":"1"},"bounds":"full"}}},{"$project":{"p":1,"x":1,"t":{"$type":"$x"}}},{"$sort":{"p":1,"x":1}}]`},
+		{"FullOffGridFirst", `[{"p":"a","x":0},{"p":"b","x":0.5},{"p":"b","x":3}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":1,"bounds":"full"}}},{"$project":{"p":1,"x":1,"t":{"$type":"$x"}}}]`},
+		{"FullPassThroughDouble", `[{"p":"a","x":0},{"p":"b","x":0.5},{"p":"b","x":3}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":0.5,"bounds":"full"}}},{"$project":{"p":1,"x":1,"t":{"$type":"$x"}}}]`},
+		{"FullPassThroughAtEnd", `[{"p":"a","x":0},{"p":"b","x":1}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":{"$numberDecimal":"1"},"bounds":"full"}}},{"$project":{"p":1,"x":1,"t":{"$type":"$x"}}},{"$sort":{"p":1,"x":1,"t":1}}]`},
 		{"SharedPartitionSet", `[{"p":{"q":1},"x":1},{"p":{"q":1},"x":4}]`, `[{"$densify":{"field":"x","partitionByFields":["p"],"range":{"step":1,"bounds":"partition"}}},{"$set":{"p.r":"$x"}},{"$unset":"p.q"}]`},
 	}
 	for _, c := range cases {
