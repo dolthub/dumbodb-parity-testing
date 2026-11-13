@@ -32,9 +32,11 @@ func miscCodesSeed(ctx context.Context, col *mongo.Collection) error {
 }
 
 // $switch without a match fails with 40066 in the classic engine and 7158303
-// in SBE; a constant one fails while mongod optimizes it (40069). $bucket and
-// $fill check their fields in the order given. $$REMOVE in $percentile's p is
-// a constant null. A Decimal128 projection flag includes or excludes.
+// in SBE. mongod's optimizer drops each branch with a constant falsy case,
+// keeps none after a constant truthy one, and fails with 40069 when no branch
+// or default is left. $bucket and $fill check their fields in the order given.
+// $$REMOVE in $percentile's p is a constant null. A Decimal128 projection flag
+// includes or excludes.
 func TestMiscErrorCodes(t *testing.T) {
 	pipelines := map[string]string{
 		"SwitchNoMatch":                `[{"$project":{"r":{"$switch":{"branches":[{"case":"$n","then":1}]}}}}]`,
@@ -42,6 +44,14 @@ func TestMiscErrorCodes(t *testing.T) {
 		"SwitchNoMatchNested":          `[{"$project":{"r":{"$add":[1,{"$switch":{"branches":[{"case":"$n","then":1}]}}]}}}]`,
 		"SwitchConstantNoMatch":        `[{"$project":{"r":{"$switch":{"branches":[{"case":false,"then":1}]}}}}]`,
 		"SwitchConstantNoMatchInSBE":   `[{"$group":{"_id":null,"r":{"$push":{"$switch":{"branches":[{"case":false,"then":1}]}}}}}]`,
+		"SwitchFalseFieldThen":         `[{"$project":{"r":{"$switch":{"branches":[{"case":false,"then":"$x"}]}}}}]`,
+		"SwitchFalseFieldThenInSBE":    `[{"$group":{"_id":{"$switch":{"branches":[{"case":false,"then":"$x"}]}}}}]`,
+		"SwitchFalseCasesFieldThen":    `[{"$project":{"r":{"$switch":{"branches":[{"case":{"$eq":[1,2]},"then":"$x"},{"case":null,"then":"$x"}]}}}}]`,
+		"SwitchFalseInMatchExpr":       `[{"$match":{"$expr":{"$switch":{"branches":[{"case":0,"then":"$x"}]}}}}]`,
+		"SwitchFalseBranchNotFolded":   `[{"$project":{"r":{"$switch":{"branches":[{"case":false,"then":{"$divide":[1,0]}}],"default":1}}}}]`,
+		"SwitchTrueDropsLaterBranches": `[{"$project":{"r":{"$switch":{"branches":[{"case":"$x","then":1},{"case":true,"then":2},{"case":"$n","then":{"$divide":[1,0]}}]}}}}]`,
+		"SwitchDefaultFoldedFirst":     `[{"$project":{"r":{"$switch":{"branches":[{"case":{"$divide":[1,0]},"then":1}],"default":{"$toInt":"x"}}}}}]`,
+		"SwitchFalseThenDefaultField":  `[{"$project":{"r":{"$switch":{"branches":[{"case":false,"then":1}],"default":"$x"}}}}]`,
 		"BucketNoMatchingBucket":       `[{"$bucket":{"groupBy":"$x","boundaries":[5,6]}}]`,
 		"BucketBoundariesBeforeGroup":  `[{"$bucket":{"boundaries":[0,"a"],"groupBy":{"a":1}}}]`,
 		"BucketGroupBeforeBoundaries":  `[{"$bucket":{"groupBy":{"a":1},"boundaries":[0,"a"]}}]`,
