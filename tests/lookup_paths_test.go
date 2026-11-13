@@ -242,3 +242,51 @@ func TestLookupLeadingZeroAndNullPaths(t *testing.T) {
 		})
 	}
 }
+
+// A $getField without input reads the current document, so a $match that
+// reads the $lookup output through it stays after the $lookup, and the
+// expression is not folded to a constant.
+func TestLookupGetFieldReadsAs(t *testing.T) {
+	seed := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: int32(1)}, {Key: "k", Value: int32(1)}},
+			bson.D{{Key: "_id", Value: int32(2)}, {Key: "k", Value: int32(2)}},
+		}); err != nil {
+			return err
+		}
+		_, err := col.Database().Collection(col.Name()+"_f").InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: int32(10)}, {Key: "k", Value: int32(1)}},
+		})
+		return err
+	}
+	pipelines := map[string]string{
+		"MatchGetField":         `[{"$match":{"$expr":{"$eq":[{"$size":{"$getField":"j"}},1]}}}]`,
+		"MatchGetFieldLiteral":  `[{"$match":{"$expr":{"$eq":[{"$size":{"$getField":{"$literal":"j"}}},0]}}}]`,
+		"MatchLetCurrent":       `[{"$match":{"$expr":{"$let":{"vars":{"CURRENT":"$$CURRENT"},"in":{"$eq":[{"$size":"$j"},1]}}}}}]`,
+		"ProjectGetField":       `[{"$project":{"n":{"$size":{"$getField":"j"}}}}]`,
+		"ProjectGetFieldInput":  `[{"$project":{"n":{"$size":{"$getField":{"field":"j","input":{"j":[1,2]}}}}}}]`,
+		"ProjectGetFieldIntErr": `[{"$project":{"n":{"$size":{"$getField":{"field":"j","input":{"$literal":{"j":5}}}}}}}]`,
+		"ProjectGetFieldNull":   `[{"$project":{"n":{"$getField":{"field":"j","input":null}}}}]`,
+	}
+	for name, js := range pipelines {
+		var stages []bson.D
+		if err := bson.UnmarshalExtJSON([]byte(`{"p":`+js+`}`), false, &struct{ P *[]bson.D }{&stages}); err != nil {
+			t.Fatal(name, err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "LookupGetFieldReadsAs_" + name,
+			Support: harness.DumboDBFull,
+			Setup:   seed,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				lookup := bson.D{{Key: "$lookup", Value: bson.D{
+					{Key: "from", Value: col.Name() + "_f"}, {Key: "localField", Value: "k"},
+					{Key: "foreignField", Value: "k"}, {Key: "as", Value: "j"},
+				}}}
+				all := append([]bson.D{lookup}, stages...)
+				all = append(all, bson.D{{Key: "$project", Value: bson.D{{Key: "j", Value: 0}}}},
+					bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}})
+				return fieldOpsAgg(ctx, col, all...)
+			},
+		})
+	}
+}
