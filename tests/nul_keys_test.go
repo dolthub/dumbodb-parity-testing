@@ -16,6 +16,7 @@ package tests
 
 import (
 	"context"
+	"sort"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -193,6 +194,69 @@ func TestMergeTargetChecks(t *testing.T) {
 					bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: bson.D{{Key: "$type", Value: "$_id"}}},
 						{Key: "k", Value: 1}, {Key: "j", Value: 1}, {Key: "x", Value: 1}}}},
 					bson.D{{Key: "$sort", Value: bson.D{{Key: "k", Value: 1}}}})
+			},
+		})
+	}
+}
+
+// $out keeps the indexes of the collection it replaces, and fails when the
+// output breaks one of them.
+func TestOutKeepsTargetIndexes(t *testing.T) {
+	for name, set := range map[string]bson.D{
+		"Kept":         nil,
+		"DuplicateKey": {{Key: "k", Value: int32(1)}},
+	} {
+		set := set
+		harness.PairTest(t, harness.TestCase{
+			Name:    "OutKeepsTargetIndexes_" + name,
+			Support: harness.DumboDBFull,
+			Setup: func(ctx context.Context, col *mongo.Collection) error {
+				if _, err := col.InsertMany(ctx, []interface{}{
+					bson.D{{Key: "_id", Value: int32(1)}, {Key: "k", Value: int32(1)}},
+					bson.D{{Key: "_id", Value: int32(2)}, {Key: "k", Value: int32(2)}},
+				}); err != nil {
+					return err
+				}
+				target := col.Database().Collection(col.Name() + "_t")
+				if _, err := target.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(9)}, {Key: "k", Value: int32(1)}}); err != nil {
+					return err
+				}
+				_, err := target.Indexes().CreateMany(ctx, []mongo.IndexModel{
+					{Keys: bson.D{{Key: "k", Value: 1}}, Options: options.Index().SetUnique(true)},
+					{Keys: bson.D{{Key: "j", Value: -1}}, Options: options.Index().SetSparse(true).SetName("jj")},
+				})
+				return err
+			},
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				target := col.Database().Collection(col.Name() + "_t")
+				defer target.Drop(ctx)
+				pipeline := []bson.D{}
+				if set != nil {
+					pipeline = append(pipeline, bson.D{{Key: "$set", Value: set}})
+				}
+				pipeline = append(pipeline, bson.D{{Key: "$out", Value: target.Name()}})
+				if _, err := fieldOpsAgg(ctx, col, pipeline...); err != nil {
+					return nil, err
+				}
+				cur, err := target.Indexes().List(ctx)
+				if err != nil {
+					return nil, err
+				}
+				var indexes []bson.D
+				if err = cur.All(ctx, &indexes); err != nil {
+					return nil, err
+				}
+				var names []string
+				for _, idx := range indexes {
+					for _, e := range idx {
+						if e.Key == "name" {
+							names = append(names, e.Value.(string))
+						}
+					}
+				}
+				sort.Strings(names)
+				docs, err := fieldOpsAgg(ctx, target, bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}})
+				return bson.D{{Key: "indexes", Value: names}, {Key: "docs", Value: docs}}, err
 			},
 		})
 	}
