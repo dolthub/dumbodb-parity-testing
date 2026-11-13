@@ -205,3 +205,36 @@ func TestAggCommandCollation(t *testing.T) {
 		},
 	})
 }
+
+// TestAggCollationSortByID: a $sort on _id alone, and on a document field,
+// orders strings under the collation, also after $group and in $facet.
+func TestAggCollationSortByID(t *testing.T) {
+	ci := &options.Collation{Locale: "en", Strength: 2}
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		_, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: "A"}, {Key: "d", Value: bson.D{{Key: "x", Value: "b"}}}},
+			bson.D{{Key: "_id", Value: "b"}, {Key: "d", Value: bson.D{{Key: "x", Value: "C"}}}},
+			bson.D{{Key: "_id", Value: "c"}, {Key: "d", Value: bson.D{{Key: "x", Value: "a"}}}},
+			bson.D{{Key: "_id", Value: "D"}, {Key: "d", Value: bson.D{{Key: "x", Value: "B2"}}}},
+		})
+		return err
+	}
+	pipelines := map[string]bson.A{
+		"asc":         {bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}}},
+		"desc":        {bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: -1}}}}},
+		"after_group": {bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: "$_id"}}}}, bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}}},
+		"document":    {bson.D{{Key: "$sort", Value: bson.D{{Key: "d", Value: 1}}}}},
+		"facet":       {bson.D{{Key: "$facet", Value: bson.D{{Key: "a", Value: bson.A{bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}}}}}}}},
+	}
+	for name, pipeline := range pipelines {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "AggCollationSortByID_" + name,
+			Support: harness.DumboDBFull,
+			Setup:   setup,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				cursor, err := col.Aggregate(ctx, pipeline, options.Aggregate().SetCollation(ci))
+				return drainCursor(ctx, cursor, err)
+			},
+		})
+	}
+}
