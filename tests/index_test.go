@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -604,6 +605,53 @@ func TestIndex_Compound_Drop(t *testing.T) {
 			}
 			return bson.D{{Key: "ok", Value: int32(1)}}, nil
 		},
+	})
+}
+
+// dropByKeyPattern creates an index on keys, drops by pattern, and returns the
+// drop's error code with the indexes that remain.
+func dropByKeyPattern(keys, pattern bson.D) func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: keys}); err != nil {
+			return nil, err
+		}
+		var code int32
+		err := col.Database().RunCommand(ctx, bson.D{{Key: "dropIndexes", Value: col.Name()}, {Key: "index", Value: pattern}}).Err()
+		var ce mongo.CommandError
+		if errors.As(err, &ce) {
+			code = ce.Code
+		} else if err != nil {
+			return nil, err
+		}
+		remaining, err := indexSpecsByName(ctx, col)
+		if err != nil {
+			return nil, err
+		}
+		return bson.D{{Key: "code", Value: code}, {Key: "remaining", Value: remaining}}, nil
+	}
+}
+
+func TestIndex_DropByKeyPattern_ShorterThanIndex(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:      "Index_DropByKeyPattern_ShorterThanIndex",
+		Support:   harness.DumboDBFull,
+		Clustered: true,
+		Run: dropByKeyPattern(
+			bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}},
+			bson.D{{Key: "a", Value: 1}},
+		),
+	})
+}
+
+func TestIndex_DropByKeyPattern_LongerThanIndex(t *testing.T) {
+	harness.PairTest(t, harness.TestCase{
+		Name:      "Index_DropByKeyPattern_LongerThanIndex",
+		Support:   harness.DumboDBFull,
+		Clustered: true,
+		Run: dropByKeyPattern(
+			bson.D{{Key: "a", Value: 1}},
+			bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}},
+		),
 	})
 }
 
