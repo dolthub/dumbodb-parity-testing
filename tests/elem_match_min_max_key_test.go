@@ -132,8 +132,7 @@ func TestElemMatch_MinMaxKey_ArrayElement(t *testing.T) {
 }
 
 // A positional $ after an $elemMatch on the array names the first element the
-// $elemMatch expression matches; operators beside it, such as $size, do not
-// choose the element.
+// $elemMatch expression matches; $size beside it does not choose the element.
 func TestElemMatch_PositionalUpdate(t *testing.T) {
 	setup := func(ctx context.Context, col *mongo.Collection) error {
 		_, err := col.InsertMany(ctx, []interface{}{
@@ -162,21 +161,7 @@ func TestElemMatch_PositionalUpdate(t *testing.T) {
 				Name:    "ElemMatch_PositionalUpdate_" + tc.name,
 				Support: harness.DumboDBFull,
 				Setup:   setup,
-				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-					res, err := col.UpdateOne(ctx, tc.filter, bson.D{{Key: "$set", Value: bson.D{{Key: tc.set, Value: "hit"}}}})
-					if err != nil {
-						return nil, err
-					}
-					var docs []bson.D
-					cur, err := col.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
-					if err != nil {
-						return nil, err
-					}
-					if err := cur.All(ctx, &docs); err != nil {
-						return nil, err
-					}
-					return bson.D{{Key: "modified", Value: res.ModifiedCount}, {Key: "docs", Value: docs}}, nil
-				},
+				Run:     positionalUpdateRun(tc.filter, tc.set),
 			})
 		})
 	}
@@ -204,4 +189,136 @@ func TestElemMatch_PositionalUpdate(t *testing.T) {
 			},
 		})
 	})
+}
+
+// positionalUpdateRun sets the element at path, which holds a positional $, to
+// "hit" in the first document filter matches.
+func positionalUpdateRun(filter bson.D, path string) func(context.Context, *mongo.Collection) (interface{}, error) {
+	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		res, err := col.UpdateOne(ctx, filter, bson.D{{Key: "$set", Value: bson.D{{Key: path, Value: "hit"}}}})
+		if err != nil {
+			return nil, err
+		}
+		var docs []bson.D
+		cur, err := col.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+		if err != nil {
+			return nil, err
+		}
+		if err := cur.All(ctx, &docs); err != nil {
+			return nil, err
+		}
+		return bson.D{{Key: "modified", Value: res.ModifiedCount}, {Key: "docs", Value: docs}}, nil
+	}
+}
+
+// With several predicates on one array, the positional $ names the element of
+// the last predicate that matches one, in the order mongod evaluates them:
+// $elemMatch first, then equality, comparisons, and the other operators.
+func TestPositionalUpdate_PredicateOrder(t *testing.T) {
+	nums := bson.A{int32(1), int32(5), int32(9)}
+	xy := bson.A{
+		bson.D{{Key: "x", Value: int32(5)}, {Key: "y", Value: int32(0)}},
+		bson.D{{Key: "x", Value: int32(1)}, {Key: "y", Value: int32(1)}},
+		bson.D{{Key: "x", Value: int32(6)}, {Key: "y", Value: int32(1)}},
+	}
+	elemMatch := func(ops ...bson.E) bson.E { return bson.E{Key: "$elemMatch", Value: bson.D(ops)} }
+	op := func(name string, v interface{}) bson.E { return bson.E{Key: name, Value: v} }
+	gt3 := op("$gt", int32(3))
+	for _, tc := range []struct {
+		name   string
+		a      bson.A
+		filter bson.D
+	}{
+		{"ElemMatchLt", nums, bson.D{{Key: "a", Value: bson.D{elemMatch(gt3), op("$lt", int32(6))}}}},
+		{"ElemMatchEq", nums, bson.D{{Key: "a", Value: bson.D{elemMatch(op("$gt", int32(6))), op("$eq", int32(1))}}}},
+		{"ElemMatchAll", nums, bson.D{{Key: "a", Value: bson.D{elemMatch(gt3), op("$all", bson.A{int32(1)})}}}},
+		{"ElemMatchGt", nums, bson.D{{Key: "a", Value: bson.D{elemMatch(gt3), op("$gt", int32(8))}}}},
+		{"ElemMatchIn", nums, bson.D{{Key: "a", Value: bson.D{elemMatch(gt3), op("$in", bson.A{int32(9)})}}}},
+		{"GtElemMatch", nums, bson.D{{Key: "a", Value: bson.D{op("$gt", int32(8)), elemMatch(gt3)}}}},
+		{"ElemMatchDotted", xy, bson.D{{Key: "a", Value: bson.D{elemMatch(bson.E{Key: "x", Value: bson.D{gt3}})}}, {Key: "a.y", Value: int32(1)}}},
+		{"DottedElemMatch", xy, bson.D{{Key: "a.y", Value: int32(1)}, {Key: "a", Value: bson.D{elemMatch(bson.E{Key: "x", Value: bson.D{gt3}})}}}},
+		{"DottedGtEq", xy, bson.D{{Key: "a.x", Value: bson.D{gt3}}, {Key: "a.y", Value: int32(1)}}},
+		{"DottedEqEq", xy, bson.D{{Key: "a.y", Value: int32(1)}, {Key: "a.x", Value: int32(6)}}},
+		{"OneInGt", nums, bson.D{{Key: "a", Value: bson.D{op("$in", bson.A{int32(5)}), op("$gt", int32(8))}}}},
+		{"InGt", nums, bson.D{{Key: "a", Value: bson.D{op("$in", bson.A{int32(5), int32(1)}), op("$gt", int32(8))}}}},
+		{"GtLt", nums, bson.D{{Key: "a", Value: bson.D{gt3, op("$lt", int32(9))}}}},
+		{"All91", nums, bson.D{{Key: "a", Value: bson.D{op("$all", bson.A{int32(9), int32(1)})}}}},
+		{"ExistsGt", nums, bson.D{{Key: "a", Value: bson.D{op("$exists", true), gt3}}}},
+		{"TypeIn", nums, bson.D{{Key: "a", Value: bson.D{op("$type", "number"), op("$in", bson.A{int32(5), int32(9)})}}}},
+		{"ModGt", nums, bson.D{{Key: "a", Value: bson.D{op("$mod", bson.A{int32(2), int32(1)}), gt3}}}},
+		{"NotLt", bson.A{int32(7), int32(5), int32(9)}, bson.D{{Key: "a", Value: bson.D{op("$not", bson.D{op("$gt", int32(100))}), op("$lt", int32(6))}}}},
+		{"RegexGte", bson.A{"x", "b"}, bson.D{{Key: "a", Value: bson.D{op("$regex", "b"), op("$gte", "a")}}}},
+		{"EmptyElemMatch", bson.A{int32(1), bson.D{}, bson.A{}}, bson.D{{Key: "a", Value: bson.D{elemMatch()}}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "PositionalUpdate_PredicateOrder_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: tc.a}})
+					return err
+				},
+				Run: positionalUpdateRun(tc.filter, "a.$"),
+			})
+		})
+	}
+}
+
+// An empty $elemMatch matches an array holding a document or an array, so a
+// delete under its negation keeps those documents.
+func TestElemMatch_Empty(t *testing.T) {
+	setup := func(indexed bool) func(context.Context, *mongo.Collection) error {
+		return func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: bson.A{int32(1)}}},
+				bson.D{{Key: "_id", Value: int32(2)}, {Key: "a", Value: bson.A{bson.D{{Key: "b", Value: int32(1)}}}}},
+				bson.D{{Key: "_id", Value: int32(3)}, {Key: "a", Value: bson.A{}}},
+				bson.D{{Key: "_id", Value: int32(4)}, {Key: "a", Value: bson.A{bson.A{}}}},
+				bson.D{{Key: "_id", Value: int32(5)}, {Key: "a", Value: int32(1)}},
+			})
+			if err != nil || !indexed {
+				return err
+			}
+			_, err = col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}}})
+			return err
+		}
+	}
+	empty := bson.D{{Key: "$elemMatch", Value: bson.D{}}}
+	for _, tc := range []struct {
+		name   string
+		filter bson.D
+	}{
+		{"ElemMatch", bson.D{{Key: "a", Value: empty}}},
+		{"NotElemMatch", bson.D{{Key: "a", Value: bson.D{{Key: "$not", Value: empty}}}}},
+		{"NorElemMatch", bson.D{{Key: "$nor", Value: bson.A{bson.D{{Key: "a", Value: empty}}}}}},
+	} {
+		for _, indexed := range []bool{false, true} {
+			name := tc.name + "_NoIndex"
+			if indexed {
+				name = tc.name + "_Index"
+			}
+			t.Run(name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "ElemMatch_Empty_" + name,
+					Support: harness.DumboDBFull,
+					Setup:   setup(indexed),
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						n, err := col.CountDocuments(ctx, tc.filter)
+						if err != nil {
+							return nil, err
+						}
+						res, err := col.DeleteMany(ctx, tc.filter)
+						if err != nil {
+							return nil, err
+						}
+						kept, err := cluFindIDs(bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))(ctx, col)
+						if err != nil {
+							return nil, err
+						}
+						return bson.D{{Key: "count", Value: n}, {Key: "deleted", Value: res.DeletedCount}, {Key: "kept", Value: kept}}, nil
+					},
+				})
+			})
+		}
+	}
 }
