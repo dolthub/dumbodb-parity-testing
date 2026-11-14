@@ -30,6 +30,10 @@ cost.
 **Aggregation**: `$match + $group`, `$sort + $limit`, `$project`.
 `Agg_Sort_10K[_Indexed]` repeats `$sort + $limit` on 10K documents, the indexed
 variant with an index on the sort field.
+`Collated_GroupMaxLargeValue` and `Collated_SortLimitLargeValue` (in
+`collated_large_value_bench_test.go`) run a `$group` `$max` and a `$sort +
+$limit` over 2,001 documents of a collection with a default collation, one of
+which holds an array of 20,000 strings.
 
 **Projection** (in `projection_bench_test.go`): `Find_Projection` returns
 `{i, tag}` from the 1K small-doc set; `Find_Projection_10KB` and
