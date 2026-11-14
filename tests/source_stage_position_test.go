@@ -173,3 +173,54 @@ func TestCurrentOpParseOrder(t *testing.T) {
 		})
 	}
 }
+
+// TestViewFirstStageOnly: a view definition with $collStats or $indexStats
+// after the first stage fails with 40602, after every stage's namespace
+// check, for create and collMod.
+func TestViewFirstStageOnly(t *testing.T) {
+	cases := map[string]string{
+		"MatchCollStats":          `[{"$match":{}},{"$collStats":{}}]`,
+		"MatchIndexStats":         `[{"$match":{}},{"$indexStats":{}}]`,
+		"CollStatsTwice":          `[{"$collStats":{}},{"$collStats":{}}]`,
+		"CollStatsFirst":          `[{"$collStats":{}},{"$match":{}}]`,
+		"CollStatsThenDocuments":  `[{"$match":{}},{"$collStats":{}},{"$documents":[]}]`,
+		"CollStatsThenCurrentOp":  `[{"$match":{}},{"$collStats":{}},{"$currentOp":{}}]`,
+		"SearchThenDocuments":     `[{"$match":{}},{"$search":{}},{"$documents":[]}]`,
+		"CollStatsThenSearch":     `[{"$match":{}},{"$collStats":{}},{"$search":{}}]`,
+		"CollStatsThenOut":        `[{"$match":{}},{"$collStats":{}},{"$out":"x"}]`,
+		"CollStatsThenLimitZero":  `[{"$match":{}},{"$collStats":{}},{"$limit":0}]`,
+		"CollStatsBadSpecInPlace": `[{"$match":{}},{"$collStats":{"bogus":1}}]`,
+	}
+	for name, js := range cases {
+		var pipeline bson.A
+		if err := bson.UnmarshalExtJSON([]byte(`{"p":`+js+`}`), false, &struct{ P *bson.A }{&pipeline}); err != nil {
+			t.Fatal(name, err)
+		}
+		for _, collMod := range []bool{false, true} {
+			caseName := "ViewFirstStageOnly_" + name
+			if collMod {
+				caseName += "_CollMod"
+			}
+			harness.PairTest(t, harness.TestCase{
+				Name:    caseName,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					db := col.Database()
+					if !collMod {
+						return errOutcome(db.CreateView(ctx, "v", col.Name(), pipeline)), nil
+					}
+					if err := db.CreateView(ctx, "v", col.Name(), bson.A{}); err != nil {
+						return nil, err
+					}
+					return errOutcome(db.RunCommand(ctx, bson.D{
+						{Key: "collMod", Value: "v"}, {Key: "viewOn", Value: col.Name()}, {Key: "pipeline", Value: pipeline},
+					}).Err()), nil
+				},
+			})
+		}
+	}
+}
