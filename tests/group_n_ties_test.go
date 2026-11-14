@@ -30,10 +30,12 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// mongod keeps the n best values of $topN, $bottomN, $minN and $maxN in an
-// ordered set: a value that only ties the worst kept one is refused, and a
-// better one evicts the latest of the tied worst values ($topN, $minN) or the
-// earliest ($bottomN, $maxN). $maxN lists ties in reverse arrival order.
+// mongod's classic engine keeps the n best values of $topN, $bottomN, $minN
+// and $maxN in an ordered set: a value that only ties the worst kept one is
+// refused, and a better one evicts the latest of the tied worst values
+// ($topN, $minN) or the earliest ($bottomN, $maxN); $maxN lists ties in
+// reverse arrival order. SBE keeps them in a binary heap, whose layout
+// decides which ties survive.
 // Results carry $type so int, long, double and decimal ties are told apart.
 // $documents runs in mongod's classic engine and a $group on a collection in
 // SBE, which report an invalid n under different codes.
