@@ -50,6 +50,28 @@ func insertPositionalArrayDocs(ctx context.Context, col *mongo.Collection) error
 	return err
 }
 
+func insertUnsortedKeyDoc(ctx context.Context, col *mongo.Collection) error {
+	_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "d", Value: bson.D{{Key: "b", Value: int32(2)}, {Key: "a", Value: int32(1)}}}})
+	return err
+}
+
+// lookupMatchCount counts the documents an uncorrelated $lookup sub-pipeline
+// matching on expr returns.
+func lookupMatchCount(expr bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
+	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		cursor, err := col.Aggregate(ctx, bson.A{
+			bson.D{{Key: "$match", Value: bson.D{{Key: "_id", Value: int32(1)}}}},
+			bson.D{{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: col.Name()},
+				{Key: "pipeline", Value: bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "$expr", Value: expr}}}}}},
+				{Key: "as", Value: "r"},
+			}}},
+			bson.D{{Key: "$project", Value: bson.D{{Key: "n", Value: bson.D{{Key: "$size", Value: "$r"}}}}}},
+		})
+		return drainCursor(ctx, cursor, err)
+	}
+}
+
 func canonicalFindIDs(filter interface{}) func(context.Context, *mongo.Collection) (interface{}, error) {
 	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 		cursor, err := col.Find(ctx, filter, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
@@ -120,6 +142,13 @@ func TestFilterCanonicalizationScope(t *testing.T) {
 			}
 			return docs, nil
 		}},
+
+		// An uncorrelated sub-pipeline compares a literal with stored
+		// documents too.
+		{"LookupUncorrelatedExprAnd", insertUnsortedKeyDoc, lookupMatchCount(d("$and", bson.A{d("$eq", bson.A{"$d", ba})}))},
+		{"LookupUncorrelatedExprOr", insertUnsortedKeyDoc, lookupMatchCount(d("$or", bson.A{d("$eq", bson.A{"$d", ba})}))},
+		{"LookupUncorrelatedExprLiteral", insertUnsortedKeyDoc, lookupMatchCount(d("$and", bson.A{d("$eq", bson.A{"$d", d("$literal", ba)})}))},
+		{"LookupUncorrelatedExprEq", insertUnsortedKeyDoc, lookupMatchCount(d("$eq", bson.A{"$d", ba}))},
 
 		// Order-sensitive arguments under $expr are not stored values.
 		{"ExprObjectToArrayOrder", insertCanonicalScopeDocs, canonicalFindIDs(d("$expr", d("$eq", bson.A{
