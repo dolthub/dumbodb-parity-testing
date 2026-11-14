@@ -34,6 +34,11 @@ variant with an index on the sort field.
 `collated_large_value_bench_test.go`) run a `$group` `$max` and a `$sort +
 $limit` over 2,001 documents of a collection with a default collation, one of
 which holds an array of 20,000 strings.
+`WideFilter_Equality` and `WideFilter_In` (in `wide_filter_bench_test.go`)
+count 1,000 documents with a filter that compares a field with a document of
+5,000 fields; the `Collated_WideFilter_*` variants add `$ne` and run on a
+collection with a case-insensitive collation. Parsing the filter must stay
+linear in its size, and each comparison must stop at the first differing field.
 
 **Projection** (in `projection_bench_test.go`): `Find_Projection` returns
 `{i, tag}` from the 1K small-doc set; `Find_Projection_10KB` and
