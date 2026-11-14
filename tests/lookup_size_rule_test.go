@@ -29,7 +29,10 @@ import (
 // classic engine, which refuses a match only once the matches so far pass
 // 100MB (4568), so the seed's 26 matches of 4.1MB pass. mongod runs a
 // $lookup in the classic engine after a leading _id equality, which takes its
-// express plan, and when localField or foreignField has an array index.
+// express plan, and when localField or foreignField has an array index. On a
+// view it runs the pipeline's $lookup in SBE, but the view's own in the
+// classic engine once the pipeline run on the view holds an expression SBE
+// cannot run, as $size.
 
 func TestLookupSizeRule(t *testing.T) {
 	sizeOfJ := bson.D{{Key: "$project", Value: bson.D{{Key: "s", Value: bson.D{{Key: "$size", Value: "$j"}}}}}}
@@ -61,6 +64,15 @@ func TestLookupSizeRule(t *testing.T) {
 			}
 			defer db.Collection(view).Drop(ctx)
 			return fieldOpsAgg(ctx, db.Collection(view), sizeOfJ, byID)
+		}},
+		{"OnView", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			db := col.Database()
+			view := col.Name() + "_mv"
+			if err := db.CreateView(ctx, view, col.Name(), mongo.Pipeline{{{Key: "$match", Value: bson.D{{Key: "k", Value: bson.D{{Key: "$exists", Value: true}}}}}}}); err != nil {
+				return nil, err
+			}
+			defer db.Collection(view).Drop(ctx)
+			return fieldOpsAgg(ctx, db.Collection(view), lookupLimitStage(col, nil), sizeOfJ, byID)
 		}},
 		{"AfterMatch", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return fieldOpsAgg(ctx, col, bson.D{{Key: "$match", Value: bson.D{{Key: "k", Value: int32(1)}}}},
