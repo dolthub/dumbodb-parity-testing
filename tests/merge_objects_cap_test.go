@@ -77,8 +77,9 @@ func TestMergeObjectsCap(t *testing.T) {
 		},
 		DumboExpect: func(t *testing.T, res interface{}, err error) {
 			var cmdErr mongo.CommandError
-			if !errors.As(err, &cmdErr) || cmdErr.Code != 146 || !strings.Contains(cmdErr.Message, "mongod applies none") {
-				t.Errorf("dumbodb: want ExceededMemoryLimit naming the deviation, got %v (err %v)", res, err)
+			if !errors.As(err, &cmdErr) || cmdErr.Code != 146 || !strings.HasPrefix(cmdErr.Message, "$mergeObjects") ||
+				!strings.Contains(cmdErr.Message, "over the 104857600-byte limit") || !strings.Contains(cmdErr.Message, "mongod applies none") {
+				t.Errorf("dumbodb: want ExceededMemoryLimit naming $mergeObjects, the limit and the deviation, got %v (err %v)", res, err)
 			}
 		},
 	})
