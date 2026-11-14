@@ -30,6 +30,8 @@ import (
 // comparison to them matches an element that is itself an array, though a
 // comparison to any other non-array value does not.
 
+const elemMatchMinMaxIndexName = "a_idx"
+
 func elemMatchMinMaxSetup(ctx context.Context, col *mongo.Collection) error {
 	_, err := col.InsertMany(ctx, []interface{}{
 		bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: bson.A{bson.A{"x", int32(-1)}}}},
@@ -44,17 +46,51 @@ func elemMatchMinMaxSetup(ctx context.Context, col *mongo.Collection) error {
 	return err
 }
 
-func elemMatchMinMaxRun(filter bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
+// elemMatchMinMaxModes reads each filter without an index, through a multikey
+// index on a, and hinted to that index.
+var elemMatchMinMaxModes = []struct {
+	name          string
+	indexed, hint bool
+}{
+	{"NoIndex", false, false},
+	{"Index", true, false},
+	{"IndexHinted", true, true},
+}
+
+func elemMatchMinMaxSetupFor(indexed bool) func(context.Context, *mongo.Collection) error {
+	return func(ctx context.Context, col *mongo.Collection) error {
+		if err := elemMatchMinMaxSetup(ctx, col); err != nil || !indexed {
+			return err
+		}
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+			Keys:    bson.D{{Key: "a", Value: 1}},
+			Options: options.Index().SetName(elemMatchMinMaxIndexName),
+		})
+		return err
+	}
+}
+
+func elemMatchMinMaxRun(filter bson.D, hint bool) func(context.Context, *mongo.Collection) (interface{}, error) {
 	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-		ids, err := cluFindIDs(filter, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))(ctx, col)
+		findOpts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}})
+		countOpts := options.Count()
+		if hint {
+			findOpts.SetHint(elemMatchMinMaxIndexName)
+			countOpts.SetHint(elemMatchMinMaxIndexName)
+		}
+		ids, err := cluFindIDs(filter, findOpts)(ctx, col)
 		if err != nil {
 			return nil, err
 		}
-		n, err := col.CountDocuments(ctx, filter)
+		n, err := col.CountDocuments(ctx, filter, countOpts)
 		if err != nil {
 			return nil, err
 		}
-		return bson.D{{Key: "find", Value: ids}, {Key: "count", Value: n}}, nil
+		distinct, err := col.Distinct(ctx, "_id", filter)
+		if err != nil {
+			return nil, err
+		}
+		return bson.D{{Key: "find", Value: ids}, {Key: "count", Value: n}, {Key: "distinct", Value: bson.A(distinct)}}, nil
 	}
 }
 
@@ -81,13 +117,91 @@ func TestElemMatch_MinMaxKey_ArrayElement(t *testing.T) {
 		{"LtNumber", elemMatch(bson.E{Key: "$lt", Value: int32(7)}), harness.DumboDBFull},
 		{"TopLevelGtMinKey", bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: primitive.MinKey{}}}}}, harness.DumboDBFull},
 	} {
+		for _, mode := range elemMatchMinMaxModes {
+			name := tc.name + "_" + mode.name
+			t.Run(name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "ElemMatch_MinMaxKey_ArrayElement_" + name,
+					Support: tc.support,
+					Setup:   elemMatchMinMaxSetupFor(mode.indexed),
+					Run:     elemMatchMinMaxRun(tc.filter, mode.hint),
+				})
+			})
+		}
+	}
+}
+
+// A positional $ after an $elemMatch on the array names the first element the
+// $elemMatch expression matches; operators beside it, such as $size, do not
+// choose the element.
+func TestElemMatch_PositionalUpdate(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		_, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: bson.A{int32(1), int32(5)}}},
+			bson.D{{Key: "_id", Value: int32(2)}, {Key: "a", Value: bson.A{bson.D{{Key: "x", Value: int32(1)}}, bson.D{{Key: "x", Value: int32(5)}}}}},
+			bson.D{{Key: "_id", Value: int32(3)}, {Key: "b", Value: bson.D{{Key: "c", Value: bson.A{int32(1), int32(5), int32(7)}}}}},
+			bson.D{{Key: "_id", Value: int32(4)}, {Key: "a", Value: bson.A{int32(1), int32(5), int32(9)}}},
+			bson.D{{Key: "_id", Value: int32(5)}, {Key: "a", Value: bson.A{int32(2), bson.A{int32(1)}, int32(6)}}},
+		})
+		return err
+	}
+	gt3 := bson.D{{Key: "$gt", Value: int32(3)}}
+	for _, tc := range []struct {
+		name   string
+		filter bson.D
+		set    string
+	}{
+		{"Scalars", bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: bson.D{{Key: "$elemMatch", Value: gt3}}}}, "a.$"},
+		{"Documents", bson.D{{Key: "_id", Value: int32(2)}, {Key: "a", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "x", Value: gt3}}}}}}, "a.$"},
+		{"DottedPath", bson.D{{Key: "_id", Value: int32(3)}, {Key: "b.c", Value: bson.D{{Key: "$elemMatch", Value: gt3}}}}, "b.c.$"},
+		{"BesideSize", bson.D{{Key: "_id", Value: int32(4)}, {Key: "a", Value: bson.D{{Key: "$elemMatch", Value: gt3}, {Key: "$size", Value: int32(3)}}}}, "a.$"},
+		{"ArrayElementMinKey", bson.D{{Key: "_id", Value: int32(5)}, {Key: "a", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$gt", Value: primitive.MinKey{}}, {Key: "$type", Value: "array"}}}}}}, "a.$"},
+	} {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
-				Name:    "ElemMatch_MinMaxKey_ArrayElement_" + tc.name,
-				Support: tc.support,
-				Setup:   elemMatchMinMaxSetup,
-				Run:     elemMatchMinMaxRun(tc.filter),
+				Name:    "ElemMatch_PositionalUpdate_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					res, err := col.UpdateOne(ctx, tc.filter, bson.D{{Key: "$set", Value: bson.D{{Key: tc.set, Value: "hit"}}}})
+					if err != nil {
+						return nil, err
+					}
+					var docs []bson.D
+					cur, err := col.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+					if err != nil {
+						return nil, err
+					}
+					if err := cur.All(ctx, &docs); err != nil {
+						return nil, err
+					}
+					return bson.D{{Key: "modified", Value: res.ModifiedCount}, {Key: "docs", Value: docs}}, nil
+				},
 			})
 		})
 	}
+
+	t.Run("MinKeyOverSetup", func(t *testing.T) {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "ElemMatch_PositionalUpdate_MinKeyOverSetup",
+			Support: harness.DumboDBFull,
+			Setup:   elemMatchMinMaxSetup,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				filter := bson.D{{Key: "a", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$gt", Value: primitive.MinKey{}}}}}}}
+				res, err := col.UpdateMany(ctx, filter, bson.D{{Key: "$set", Value: bson.D{{Key: "a.$", Value: "hit"}}}})
+				if err != nil {
+					return nil, err
+				}
+				var docs []bson.D
+				cur, err := col.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+				if err != nil {
+					return nil, err
+				}
+				if err := cur.All(ctx, &docs); err != nil {
+					return nil, err
+				}
+				return bson.D{{Key: "modified", Value: res.ModifiedCount}, {Key: "docs", Value: docs}}, nil
+			},
+		})
+	})
 }
