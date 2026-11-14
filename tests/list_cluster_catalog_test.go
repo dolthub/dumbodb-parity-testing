@@ -219,3 +219,41 @@ func TestListClusterCatalogErrors(t *testing.T) {
 		}
 	}
 }
+
+// TestListClusterCatalogSystemViews: a database holding a view or a
+// time-series collection lists its system.views collection; one holding
+// only collections does not.
+func TestListClusterCatalogSystemViews(t *testing.T) {
+	setups := map[string]bson.D{
+		"View":       {{Key: "create", Value: "vv"}, {Key: "viewOn", Value: "x"}, {Key: "pipeline", Value: bson.A{}}},
+		"TimeSeries": {{Key: "create", Value: "ts"}, {Key: "timeseries", Value: bson.D{{Key: "timeField", Value: "t"}}}},
+		"Collection": {{Key: "create", Value: "cc"}},
+	}
+	for name, create := range setups {
+		for _, admin := range []bool{false, true} {
+			caseName := "ListClusterCatalogSystemViews_" + name
+			if admin {
+				caseName += "_Admin"
+			}
+			harness.PairTest(t, harness.TestCase{
+				Name:    caseName,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					return col.Database().RunCommand(ctx, create).Err()
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					db := col.Database()
+					if admin {
+						db = db.Client().Database("admin")
+					}
+					cursor, err := db.Aggregate(ctx, bson.A{
+						bson.D{{Key: "$listClusterCatalog", Value: bson.D{}}},
+						bson.D{{Key: "$match", Value: bson.D{{Key: "ns", Value: col.Database().Name() + ".system.views"}}}},
+						bson.D{{Key: "$project", Value: bson.D{{Key: "info.uuid", Value: 0}}}},
+					})
+					return drainCursor(ctx, cursor, err)
+				},
+			})
+		}
+	}
+}
