@@ -41,6 +41,14 @@ func TestAlwaysTrueFalse(t *testing.T) {
 		"in_or":         `{"$or":[{"$alwaysFalse":1},{"v":1}]}`,
 		"with_field":    `{"$alwaysFalse":1,"v":1}`,
 		"in_elem_match": `{"v":{"$elemMatch":{"$alwaysTrue":1}}}`,
+		"decimal_one":   `{"$alwaysTrue":{"$numberDecimal":"1.0"}}`,
+		"decimal_scale": `{"$alwaysFalse":{"$numberDecimal":"0.1E1"}}`,
+		"decimal_above": `{"$alwaysTrue":{"$numberDecimal":"1.00000000000000000001"}}`,
+		"decimal_below": `{"$alwaysFalse":{"$numberDecimal":"0.99999999999999999999"}}`,
+		"decimal_false": `{"$alwaysFalse":{"$numberDecimal":"1.00000000000000000001"}}`,
+		"decimal_inf":   `{"$alwaysTrue":{"$numberDecimal":"Infinity"}}`,
+		"double_nan":    `{"$alwaysTrue":{"$numberDouble":"NaN"}}`,
+		"double_inf":    `{"$alwaysFalse":{"$numberDouble":"-Infinity"}}`,
 	}
 	for name, f := range filters {
 		var filter bson.D
