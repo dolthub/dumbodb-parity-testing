@@ -16,6 +16,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -174,4 +175,45 @@ func TestDuplicateFilterKeysUpsert(t *testing.T) {
 func asD(v interface{}) bson.D {
 	d, _ := v.(bson.D)
 	return d
+}
+
+// TestDuplicateFilterKeysInSequence: a statement in a driver's document
+// sequence that repeats a key DumboDB cannot rewrite, here inside a
+// document literal, is refused like the same statement in the command body
+// rather than read, and the connection stays usable. mongod compares the
+// literal and matches nothing.
+func TestDuplicateFilterKeysInSequence(t *testing.T) {
+	literal := bson.D{{Key: "y", Value: bson.D{{Key: "q", Value: 1}, {Key: "q", Value: 2}}}}
+	run := func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		_, updErr := col.UpdateMany(ctx, literal, bson.D{{Key: "$set", Value: bson.D{{Key: "x", Value: 1}}}})
+		_, delErr := col.DeleteMany(ctx, literal)
+		n, err := col.CountDocuments(ctx, bson.D{{Key: "x", Value: bson.D{{Key: "$exists", Value: false}}}})
+		if err != nil {
+			return nil, err
+		}
+		return bson.D{{Key: "update", Value: errOutcome(updErr)}, {Key: "delete", Value: errOutcome(delErr)}, {Key: "untouched", Value: n}}, nil
+	}
+	expect := func(code int) func(*testing.T, interface{}, error) {
+		return func(t *testing.T, res interface{}, err error) {
+			want := bson.D{{Key: "update", Value: errOutcome(nil)}, {Key: "delete", Value: errOutcome(nil)}, {Key: "untouched", Value: int64(1)}}
+			if code != 0 {
+				refused := bson.M{"ok": false, "code": code, "codeName": "FailedToParse"}
+				want = bson.D{{Key: "update", Value: refused}, {Key: "delete", Value: refused}, {Key: "untouched", Value: int64(1)}}
+			}
+			if err != nil || fmt.Sprint(res) != fmt.Sprint(want) {
+				t.Errorf("want %v, got %v (err %v)", want, res, err)
+			}
+		}
+	}
+	harness.PairTest(t, harness.TestCase{
+		Name:    "DuplicateFilterKeysInSequence_literal",
+		Support: harness.DumboDBDeviates,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: 1}, {Key: "y", Value: 1}})
+			return err
+		},
+		Run:         run,
+		MongoExpect: expect(0),
+		DumboExpect: expect(9),
+	})
 }
