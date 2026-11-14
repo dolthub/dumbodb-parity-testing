@@ -2446,9 +2446,10 @@ func TestExplainPlan_CursorPulledBeforeLimit(t *testing.T) {
 }
 
 // TestExplainPlan_AggregateProjection: a pipeline's trailing $project or
-// $unset that only includes or excludes fields runs in the query plan, under
-// its skip and limit, under a sort with no limit, and over one with a limit,
-// covered when the index holds every field it returns.
+// $unset that only includes or excludes fields runs in the query plan, over
+// its skip and under its limit, under a sort with no limit, and over one with
+// a limit, covered when the index holds every field it returns. Under a sort
+// it returns every match.
 func TestExplainPlan_AggregateProjection(t *testing.T) {
 	setup := func(ctx context.Context, col *mongo.Collection) error {
 		docs := make([]interface{}, 10)
@@ -2477,6 +2478,13 @@ func TestExplainPlan_AggregateProjection(t *testing.T) {
 		{"match_limit_covered", bson.A{match, limit(2), project(bson.D{{Key: "a", Value: 1}, {Key: "_id", Value: 0}})}},
 		{"unset_only", bson.A{bson.D{{Key: "$unset", Value: "b"}}}},
 		{"match_sort_limit_covered", bson.A{match, bson.D{{Key: "$sort", Value: bson.D{{Key: "a", Value: 1}}}}, limit(3), project(bson.D{{Key: "a", Value: 1}, {Key: "_id", Value: 0}})}},
+		{"project_skip", bson.A{project(bson.D{{Key: "b", Value: 1}}), bson.D{{Key: "$skip", Value: 2}}}},
+		{"project_skip_limit", bson.A{project(bson.D{{Key: "b", Value: 1}}), bson.D{{Key: "$skip", Value: 2}}, limit(3)}},
+		{"project_limit_skip", bson.A{project(bson.D{{Key: "b", Value: 1}}), limit(5), bson.D{{Key: "$skip", Value: 2}}}},
+		{"exclusion_skip", bson.A{project(bson.D{{Key: "b", Value: 0}}), bson.D{{Key: "$skip", Value: 2}}}},
+		{"skip_limit_project", bson.A{bson.D{{Key: "$skip", Value: 2}}, limit(3), project(bson.D{{Key: "b", Value: 1}})}},
+		{"match_skip_covered", bson.A{match, bson.D{{Key: "$skip", Value: 2}}, project(bson.D{{Key: "a", Value: 1}, {Key: "_id", Value: 0}})}},
+		{"sort_skip_project", bson.A{sortB, bson.D{{Key: "$skip", Value: 2}}, project(bson.D{{Key: "b", Value: 1}})}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -2497,9 +2505,27 @@ func TestExplainPlan_AggregateProjection(t *testing.T) {
 					wp, _ := lookupBSONField(qp.(bson.D), "winningPlan")
 					stats, _ := lookupBSONField(res, "executionStats")
 					n, _ := lookupBSONField(stats.(bson.D), "nReturned")
-					return bson.D{{Key: "plan", Value: planStages(wp)}, {Key: "nReturned", Value: n}}, nil
+					es, _ := lookupBSONField(stats.(bson.D), "executionStages")
+					return bson.D{{Key: "plan", Value: planStages(wp)}, {Key: "nReturned", Value: n}, {Key: "returned", Value: stageReturnedChain(es)}}, nil
 				},
 			})
 		})
 	}
+}
+
+// stageReturnedChain lists each stage of an executionStages chain with the
+// documents it returned.
+func stageReturnedChain(plan interface{}) []string {
+	var out []string
+	for plan != nil {
+		node, ok := plan.(bson.D)
+		if !ok {
+			break
+		}
+		stage, _ := lookupBSONField(node, "stage")
+		n, _ := lookupBSONField(node, "nReturned")
+		out = append(out, fmt.Sprintf("%v:%v", stage, n))
+		plan, _ = lookupBSONField(node, "inputStage")
+	}
+	return out
 }
