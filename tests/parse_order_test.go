@@ -184,9 +184,6 @@ func TestStandaloneStageErrors(t *testing.T) {
 		for _, first := range []bool{true, false} {
 			for _, onCollection := range []bool{true, false} {
 				name, first, onCollection := name, first, onCollection
-				if name == "$listClusterCatalog" && first && !onCollection {
-					continue
-				}
 				label := "StandaloneStageErrors_" + strings.TrimPrefix(name, "$")
 				if !first {
 					label += "_AfterMatch"
@@ -205,6 +202,10 @@ func TestStandaloneStageErrors(t *testing.T) {
 						pipeline := bson.A{bson.D{{Key: name, Value: bson.D{}}}}
 						if !first {
 							pipeline = append(bson.A{bson.D{{Key: "$match", Value: bson.D{}}}}, pipeline...)
+						}
+						if name == "$listClusterCatalog" {
+							// DumboDB creates collections clustered by default.
+							pipeline = append(pipeline, bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "ns", Value: 1}, {Key: "type", Value: 1}, {Key: "sharded", Value: 1}}}})
 						}
 						var target interface{} = col.Name()
 						if !onCollection {
