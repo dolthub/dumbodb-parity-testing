@@ -28,7 +28,8 @@ import (
 // across a $match whose $jsonSchema does not read "as", so the 100MB limit on
 // one document's matches does not apply. A $group on _id that keeps one value
 // per group, with _id written as "$$CURRENT._id", "$$ROOT._id" or an object of
-// _id paths, is rewritten by mongod as for "$_id".
+// one _id path, is rewritten by mongod as for "$_id". A schema name reads the
+// field before its first ".".
 func TestLookupLimitAcrossStages(t *testing.T) {
 	count := bson.D{{Key: "$count", Value: "n"}}
 	unwind := bson.D{{Key: "$unwind", Value: "$j"}}
@@ -48,6 +49,18 @@ func TestLookupLimitAcrossStages(t *testing.T) {
 		},
 		"schema_required_as": func(col *mongo.Collection) []bson.D {
 			return []bson.D{lookupLimitStage(col, nil), schema(bson.D{{Key: "required", Value: bson.A{"j"}}}), unwind, count}
+		},
+		"schema_required_as_path": func(col *mongo.Collection) []bson.D {
+			return []bson.D{lookupLimitStage(col, nil), schema(bson.D{{Key: "required", Value: bson.A{"j.x"}}}), unwind, count}
+		},
+		"schema_properties_as_path": func(col *mongo.Collection) []bson.D {
+			return []bson.D{lookupLimitStage(col, nil), schema(bson.D{{Key: "properties", Value: bson.D{{Key: "j.x", Value: bson.D{{Key: "bsonType", Value: "int"}}}}}}), unwind, count}
+		},
+		"group_object_id_two_paths": func(col *mongo.Collection) []bson.D {
+			return []bson.D{groupBy(bson.D{{Key: "i", Value: "$_id"}, {Key: "j", Value: "$$ROOT._id"}}), lookupLimitStage(col, nil), sizeOfJ}
+		},
+		"group_object_id_same_path_twice": func(col *mongo.Collection) []bson.D {
+			return []bson.D{groupBy(bson.D{{Key: "a", Value: "$_id"}, {Key: "b", Value: "$_id"}}), lookupLimitStage(col, nil), sizeOfJ}
 		},
 		"group_current_id": func(col *mongo.Collection) []bson.D {
 			return []bson.D{groupBy("$$CURRENT._id"), lookupLimitStage(col, nil), sizeOfJ}
