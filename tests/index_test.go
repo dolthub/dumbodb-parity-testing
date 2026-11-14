@@ -609,9 +609,8 @@ func TestIndex_Compound_Drop(t *testing.T) {
 }
 
 // dropByKeyPattern creates an index on keys, drops by pattern, and returns the
-// drop's error code with the names of the indexes that remain. Names, not
-// specs: DumboDB lists a text index's key as created, where mongod lists
-// {_fts: "text", _ftsx: 1}.
+// drop's error code with the names of the indexes that remain. It compares
+// names, not specs, until dolthub/dumbodb#294 is fixed.
 func dropByKeyPattern(keys, pattern bson.D) func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 		if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: keys}); err != nil {
