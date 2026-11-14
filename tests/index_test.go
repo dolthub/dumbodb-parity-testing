@@ -609,7 +609,9 @@ func TestIndex_Compound_Drop(t *testing.T) {
 }
 
 // dropByKeyPattern creates an index on keys, drops by pattern, and returns the
-// drop's error code with the indexes that remain.
+// drop's error code with the names of the indexes that remain. Names, not
+// specs: DumboDB lists a text index's key as created, where mongod lists
+// {_fts: "text", _ftsx: 1}.
 func dropByKeyPattern(keys, pattern bson.D) func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 		if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: keys}); err != nil {
@@ -623,10 +625,15 @@ func dropByKeyPattern(keys, pattern bson.D) func(ctx context.Context, col *mongo
 		} else if err != nil {
 			return nil, err
 		}
-		remaining, err := indexSpecsByName(ctx, col)
+		names, err := col.Indexes().ListSpecifications(ctx)
 		if err != nil {
 			return nil, err
 		}
+		remaining := make([]string, 0, len(names))
+		for _, spec := range names {
+			remaining = append(remaining, spec.Name)
+		}
+		sort.Strings(remaining)
 		return bson.D{{Key: "code", Value: code}, {Key: "remaining", Value: remaining}}, nil
 	}
 }
@@ -653,6 +660,35 @@ func TestIndex_DropByKeyPattern_LongerThanIndex(t *testing.T) {
 			bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}},
 		),
 	})
+}
+
+func TestIndex_DropByKeyPattern_IndexType(t *testing.T) {
+	cases := []struct {
+		name    string
+		keys    bson.D
+		pattern bson.D
+	}{
+		{"HashedByAscending", bson.D{{Key: "a", Value: "hashed"}}, bson.D{{Key: "a", Value: 1}}},
+		{"AscendingByHashed", bson.D{{Key: "a", Value: 1}}, bson.D{{Key: "a", Value: "hashed"}}},
+		{"Hashed", bson.D{{Key: "a", Value: "hashed"}}, bson.D{{Key: "a", Value: "hashed"}}},
+		{"2dsphereByAscending", bson.D{{Key: "g", Value: "2dsphere"}}, bson.D{{Key: "g", Value: 1}}},
+		{"2dsphereBy2d", bson.D{{Key: "g", Value: "2dsphere"}}, bson.D{{Key: "g", Value: "2d"}}},
+		{"2dByAscending", bson.D{{Key: "g", Value: "2d"}}, bson.D{{Key: "g", Value: 1}}},
+		{"TextByAscending", bson.D{{Key: "t", Value: "text"}}, bson.D{{Key: "t", Value: 1}}},
+		{"TextByItsFields", bson.D{{Key: "t", Value: "text"}}, bson.D{{Key: "t", Value: "text"}}},
+		{"TextByStoredPattern", bson.D{{Key: "a", Value: 1}, {Key: "t", Value: "text"}},
+			bson.D{{Key: "a", Value: 1}, {Key: "_fts", Value: "text"}, {Key: "_ftsx", Value: 1}}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:      "Index_DropByKeyPattern_" + c.name,
+				Support:   harness.DumboDBFull,
+				Clustered: true,
+				Run:       dropByKeyPattern(c.keys, c.pattern),
+			})
+		})
+	}
 }
 
 func TestIndex_Unique_CreateOne(t *testing.T) {
