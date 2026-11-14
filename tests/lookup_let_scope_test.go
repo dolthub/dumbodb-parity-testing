@@ -116,6 +116,15 @@ func TestLookupLetScope(t *testing.T) {
 			return bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "$expr", Value: bson.D{{Key: "$in", Value: bson.A{"$_id",
 				bson.D{{Key: "$map", Value: bson.D{{Key: "input", Value: "$$v"}, {Key: "in", Value: "$$this"}}}}}}}}}}}, bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}}}
 		}},
+		{"unwind_variable_path", bson.D{{Key: "v", Value: bson.A{int32(1), int32(2)}}}, func(string) bson.A {
+			return bson.A{bson.D{{Key: "$unwind", Value: "$$v"}}}
+		}},
+		{"unwind_variable_path_option", bson.D{{Key: "v", Value: bson.A{int32(1), int32(2)}}}, func(string) bson.A {
+			return bson.A{bson.D{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$$v"}}}}}
+		}},
+		{"unwind_variable_index", vx, func(string) bson.A {
+			return bson.A{bson.D{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$arr"}, {Key: "includeArrayIndex", Value: "$$v"}}}}}
+		}},
 		{"graph_lookup_literal_in_query", vx, func(f string) bson.A {
 			return bson.A{bson.D{{Key: "$limit", Value: int32(1)}}, bson.D{{Key: "$graphLookup", Value: bson.D{{Key: "from", Value: f}, {Key: "startWith", Value: int32(1)},
 				{Key: "connectFromField", Value: "y"}, {Key: "connectToField", Value: "y"},
