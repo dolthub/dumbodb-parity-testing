@@ -124,3 +124,52 @@ func TestDatabaseSourceSessionsOut(t *testing.T) {
 		},
 	})
 }
+
+// TestCurrentOpParseOrder: $currentOp checks that it runs on the admin
+// database (73), then its options, while it parses, so these come in stage
+// order with the other stages' parse errors and before position checks.
+func TestCurrentOpParseOrder(t *testing.T) {
+	type tc struct {
+		admin    bool
+		pipeline string
+	}
+	cases := map[string]tc{
+		"SessionsCurrentOp":             {pipeline: `[{"$listLocalSessions":{}},{"$currentOp":{}}]`},
+		"SessionsCurrentOpThenStats":    {pipeline: `[{"$listLocalSessions":{}},{"$currentOp":{}},{"$queryStats":{}}]`},
+		"CurrentOpLimitZero":            {pipeline: `[{"$currentOp":{}},{"$limit":0}]`},
+		"CurrentOpBadMatch":             {pipeline: `[{"$currentOp":{}},{"$match":{"$bogus":1}}]`},
+		"CurrentOpBadOption":            {pipeline: `[{"$currentOp":{"bogus":1}},{"$limit":0}]`},
+		"CurrentOpNotObject":            {pipeline: `[{"$currentOp":5},{"$limit":0}]`},
+		"CurrentOpQueryStats":           {pipeline: `[{"$currentOp":{}},{"$queryStats":{}}]`},
+		"MatchCurrentOp":                {pipeline: `[{"$match":{}},{"$currentOp":{}}]`},
+		"BadMatchCurrentOp":             {pipeline: `[{"$match":{"$bogus":1}},{"$currentOp":{}}]`},
+		"DocumentsOutCurrentOp":         {pipeline: `[{"$documents":[]},{"$out":"o"},{"$currentOp":{}}]`},
+		"AdminCurrentOpLimitZero":       {admin: true, pipeline: `[{"$currentOp":{}},{"$limit":0}]`},
+		"AdminCurrentOpBadOption":       {admin: true, pipeline: `[{"$currentOp":{"bogus":1}},{"$limit":0}]`},
+		"AdminSessionsCurrentOpBad":     {admin: true, pipeline: `[{"$listLocalSessions":{}},{"$currentOp":{"bogus":1}}]`},
+		"AdminCurrentOpOptionType":      {admin: true, pipeline: `[{"$currentOp":{"idleCursors":5,"bogus":1}}]`},
+		"AdminCurrentOpUnknownFirst":    {admin: true, pipeline: `[{"$currentOp":{"bogus":1,"idleCursors":5}}]`},
+		"AdminCurrentOpAllUsersType":    {admin: true, pipeline: `[{"$currentOp":{"bogus":1,"allUsers":5}}]`},
+		"AdminCurrentOpLocalOpsFirst":   {admin: true, pipeline: `[{"$currentOp":{"idleCursors":5,"localOps":5,"allUsers":5}}]`},
+		"AdminCurrentOpTargetAllNodes":  {admin: true, pipeline: `[{"$currentOp":{"targetAllNodes":true}}]`},
+		"AdminCurrentOpTargetAllNodesB": {admin: true, pipeline: `[{"$currentOp":{"targetAllNodes":true,"bogus":1}}]`},
+	}
+	for name, c := range cases {
+		var pipeline bson.A
+		if err := bson.UnmarshalExtJSON([]byte(`{"p":`+c.pipeline+`}`), false, &struct{ P *bson.A }{&pipeline}); err != nil {
+			t.Fatal(name, err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "CurrentOpParseOrder_" + name,
+			Support: harness.DumboDBFull,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				db := col.Database()
+				if c.admin {
+					db = db.Client().Database("admin")
+				}
+				cursor, err := db.Aggregate(ctx, pipeline)
+				return drainCursor(ctx, cursor, err)
+			},
+		})
+	}
+}
