@@ -72,7 +72,7 @@ func TestMergeObjectsMemoryUnlimited(t *testing.T) {
 		Name:    "MergeObjectsMemoryUnlimited",
 		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
-			pad := strings.Repeat("x", 8_000_000)
+			pad := strings.Repeat("x", 8<<20)
 			for i := int32(1); i <= 13; i++ {
 				if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: i}, {Key: "f", Value: pad}, {Key: "i", Value: i}}); err != nil {
 					return err
@@ -124,6 +124,67 @@ func TestAccumulatorMemoryPerEngine(t *testing.T) {
 			},
 			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 				return fieldOpsAgg(ctx, col, append(c.stages, bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: 1}}}})...)
+			},
+		})
+	}
+}
+
+// SBE charges a value read from a stored document at its BSON size and an
+// array it builds at 9 bytes a slot, with stored documents in it as views of
+// their BSON. The classic engine's $bucketAuto charges each value $push keeps
+// twice; its $group charges once.
+func TestAccumulatorMemoryStoredValues(t *testing.T) {
+	empties := make(bson.A, 1000000)
+	for i := range empties {
+		empties[i] = bson.D{}
+	}
+	pad := strings.Repeat("x", 8<<20)
+	seedArrays := func(n int32) func(ctx context.Context, col *mongo.Collection) error {
+		return func(ctx context.Context, col *mongo.Collection) error {
+			for i := int32(0); i < n; i++ {
+				if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: i}, {Key: "a", Value: empties}}); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}
+	seedStrings := func(n int32) func(ctx context.Context, col *mongo.Collection) error {
+		return func(ctx context.Context, col *mongo.Collection) error {
+			for i := int32(0); i < n; i++ {
+				if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: i}, {Key: "s", Value: pad}}); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}
+	group := func(acc bson.D) bson.D {
+		return bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "f", Value: acc}}}}
+	}
+	bucketAuto := func(acc bson.D) bson.D {
+		return bson.D{{Key: "$bucketAuto", Value: bson.D{{Key: "groupBy", Value: "$_id"}, {Key: "buckets", Value: int32(1)},
+			{Key: "output", Value: bson.D{{Key: "f", Value: acc}}}}}}
+	}
+	cases := []struct {
+		name  string
+		setup func(ctx context.Context, col *mongo.Collection) error
+		stage bson.D
+	}{
+		{"SBEPushStored8", seedArrays(8), group(bson.D{{Key: "$push", Value: "$a"}})},
+		{"SBEFirstNStored8", seedArrays(8), group(bson.D{{Key: "$firstN", Value: bson.D{{Key: "n", Value: int32(10)}, {Key: "input", Value: "$a"}}}})},
+		{"SBEPushBuilt8", seedArrays(8), group(bson.D{{Key: "$push", Value: bson.D{{Key: "$concatArrays", Value: bson.A{"$a"}}}}})},
+		{"BucketAutoPush6", seedStrings(6), bucketAuto(bson.D{{Key: "$push", Value: "$s"}})},
+		{"BucketAutoPush7", seedStrings(7), bucketAuto(bson.D{{Key: "$push", Value: "$s"}})},
+		{"BucketAutoFirstN12", seedStrings(12), bucketAuto(bson.D{{Key: "$firstN", Value: bson.D{{Key: "n", Value: int32(20)}, {Key: "input", Value: "$s"}}}})},
+	}
+	for _, c := range cases {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "AccumulatorMemoryStoredValues_" + c.name,
+			Support: harness.DumboDBFull,
+			Setup:   c.setup,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return fieldOpsAgg(ctx, col, c.stage, bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: 1}}}})
 			},
 		})
 	}
