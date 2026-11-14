@@ -25,7 +25,8 @@ import (
 )
 
 // TestElemMatchExpr: $expr anywhere inside $elemMatch, also beside field
-// conditions or inside $all, fails with BadValue whatever the data.
+// conditions, inside $all or in a logical operator, and $where or $text in
+// a logical operator there, fail with BadValue whatever the data.
 func TestElemMatchExpr(t *testing.T) {
 	shapes := map[string]bson.A{
 		"array":  {bson.D{{Key: "_id", Value: int32(1)}, {Key: "a", Value: bson.A{int32(1)}}}},
@@ -38,6 +39,13 @@ func TestElemMatchExpr(t *testing.T) {
 		"nested":      `{"a":{"$elemMatch":{"b":{"$elemMatch":{"$expr":1}}}}}`,
 		"inside_all":  `{"a":{"$all":[{"$elemMatch":{"$expr":{"$eq":[1,1]}}}]}}`,
 		"object_last": `{"a":{"$elemMatch":{"b":{"$gt":0},"c":1,"$expr":true}}}`,
+		"in_and":      `{"a":{"$elemMatch":{"$and":[{"$expr":true}]}}}`,
+		"in_or":       `{"a":{"$elemMatch":{"$or":[{"b":1},{"$expr":true}]}}}`,
+		"in_nor":      `{"a":{"$elemMatch":{"$nor":[{"$expr":false}]}}}`,
+		"deep_mixed":  `{"a":{"$elemMatch":{"$and":[{"b":1},{"$or":[{"$expr":true}]}]}}}`,
+		"under_and":   `{"$and":[{"a":{"$elemMatch":{"$or":[{"$expr":true}]}}}]}`,
+		"where_in_or": `{"a":{"$elemMatch":{"$or":[{"$where":"true"}]}}}`,
+		"text_in_or":  `{"a":{"$elemMatch":{"$or":[{"$text":{"$search":"x"}}]}}}`,
 	}
 	for shapeName, docs := range shapes {
 		docs := docs

@@ -74,3 +74,56 @@ func TestAlwaysTrueFalse(t *testing.T) {
 		})
 	}
 }
+
+// TestAlwaysTrueFalseElemMatch: $alwaysTrue and $alwaysFalse in an
+// $elemMatch query test each element that is a document or an array.
+func TestAlwaysTrueFalseElemMatch(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		var docs []interface{}
+		err := bson.UnmarshalExtJSON([]byte(`{"d":[
+			{"_id":1,"a":[1,2]},
+			{"_id":2,"a":3},
+			{"_id":3,"a":[[1]]},
+			{"_id":4,"a":[{"b":1}]},
+			{"_id":5,"a":[[]]},
+			{"_id":6,"a":[[3],{"0":3}]}
+		]}`), false, &struct{ D *[]interface{} }{&docs})
+		if err != nil {
+			return err
+		}
+		_, err = col.InsertMany(ctx, docs)
+		return err
+	}
+	filters := map[string]string{
+		"true":          `{"a":{"$elemMatch":{"$alwaysTrue":1}}}`,
+		"false":         `{"a":{"$elemMatch":{"$alwaysFalse":1}}}`,
+		"true_in_and":   `{"a":{"$elemMatch":{"$and":[{"$alwaysTrue":1}]}}}`,
+		"true_and_b":    `{"a":{"$elemMatch":{"$alwaysTrue":1,"b":1}}}`,
+		"nor":           `{"a":{"$elemMatch":{"$nor":[{"b":1}]}}}`,
+		"index_field":   `{"a":{"$elemMatch":{"0":3}}}`,
+		"bad_operand":   `{"a":{"$elemMatch":{"$alwaysTrue":2}}}`,
+		"decimal_in_or": `{"a":{"$elemMatch":{"$or":[{"$alwaysTrue":{"$numberDecimal":"1.00000000000000000001"}}]}}}`,
+	}
+	for name, f := range filters {
+		var filter bson.D
+		if err := bson.UnmarshalExtJSON([]byte(f), false, &filter); err != nil {
+			t.Fatal(err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "AlwaysTrueFalseElemMatch_" + name,
+			Support: harness.DumboDBFull,
+			Setup:   setup,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				ids, err := findIDs(ctx, col, filter)
+				if err != nil {
+					return errOutcome(err), nil
+				}
+				n, err := col.CountDocuments(ctx, filter)
+				if err != nil {
+					return errOutcome(err), nil
+				}
+				return bson.D{{Key: "find", Value: ids}, {Key: "count", Value: n}}, nil
+			},
+		})
+	}
+}
