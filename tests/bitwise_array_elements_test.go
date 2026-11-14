@@ -144,3 +144,60 @@ func TestBitwiseDecimalValues(t *testing.T) {
 		})
 	}
 }
+
+// TestBitwiseBinaryValues: the bitwise query operators test BinData values,
+// alone or as array elements, bit p being bit p%8 of byte p/8 and bits past
+// the end clear.
+func TestBitwiseBinaryValues(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		var docs []interface{}
+		err := bson.UnmarshalExtJSON([]byte(`{"d":[
+			{"_id":1,"a":{"$binary":{"base64":"AQ==","subType":"00"}}},
+			{"_id":2,"a":[{"$binary":{"base64":"AAAAAAAAAAAAAQ==","subType":"00"}}]},
+			{"_id":3,"a":{"$binary":{"base64":"","subType":"00"}}},
+			{"_id":4,"a":[{"$binary":{"base64":"/w==","subType":"05"}},2]},
+			{"_id":5,"a":[[{"$binary":{"base64":"AQ==","subType":"00"}}]]},
+			{"_id":6,"a":[{"$binary":{"base64":"AQ==","subType":"00"}}]}
+		]}`), false, &struct{ D *[]interface{} }{&docs})
+		if err != nil {
+			return err
+		}
+		_, err = col.InsertMany(ctx, docs)
+		return err
+	}
+	matches := map[string]string{
+		"all_set":         `{"a":{"$bitsAllSet":1}}`,
+		"any_set":         `{"a":{"$bitsAnySet":255}}`,
+		"all_clear":       `{"a":{"$bitsAllClear":1}}`,
+		"any_clear":       `{"a":{"$bitsAnyClear":[96,0]}}`,
+		"position_96":     `{"a":{"$bitsAllSet":[96]}}`,
+		"past_end_clear":  `{"a":{"$bitsAllClear":[1000]}}`,
+		"past_end_set":    `{"a":{"$bitsAllSet":[1000]}}`,
+		"binary_mask":     `{"a":{"$bitsAllClear":{"$binary":{"base64":"AAE=","subType":"00"}}}}`,
+		"empty_positions": `{"a":{"$bitsAllSet":[]}}`,
+		"not_any_set":     `{"a":{"$not":{"$bitsAnySet":1}}}`,
+		"elem_match":      `{"a":{"$elemMatch":{"$bitsAllSet":[0]}}}`,
+	}
+	for name, match := range matches {
+		var m bson.D
+		if err := bson.UnmarshalExtJSON([]byte(match), false, &m); err != nil {
+			t.Fatal(err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "BitwiseBinaryValues_" + name,
+			Support: harness.DumboDBFull,
+			Setup:   setup,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				ids, err := findIDs(ctx, col, m)
+				if err != nil {
+					return errOutcome(err), nil
+				}
+				del, err := col.DeleteMany(ctx, m)
+				if err != nil {
+					return errOutcome(err), nil
+				}
+				return bson.D{{Key: "find", Value: ids}, {Key: "deleted", Value: del.DeletedCount}}, nil
+			},
+		})
+	}
+}
