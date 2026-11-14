@@ -119,3 +119,73 @@ func TestMergeBatchUniqueConflict(t *testing.T) {
 		})
 	}
 }
+
+// TestMergeBatchSameKey: documents of one $merge batch that share a key are
+// written in order, as mongod's upserts are: a document inserted by the
+// batch is matched by the later ones, whether or not the target exists.
+func TestMergeBatchSameKey(t *testing.T) {
+	specs := map[string]string{
+		"Merge":           `{"into":"o"}`,
+		"Replace":         `{"into":"o","whenMatched":"replace"}`,
+		"KeepExisting":    `{"into":"o","whenMatched":"keepExisting"}`,
+		"Fail":            `{"into":"o","whenMatched":"fail"}`,
+		"Pipeline":        `{"into":"o","whenMatched":[{"$set":{"n":{"$add":[{"$ifNull":["$n",0]},1]}}}]}`,
+		"Discard":         `{"into":"o","whenNotMatched":"discard"}`,
+		"NotMatchedFail":  `{"into":"o","whenNotMatched":"fail"}`,
+		"GeneratedIDs":    `{"into":"o"}`,
+		"OnUniqueIndexed": `{"into":"o","on":"k"}`,
+	}
+	for name, specJSON := range specs {
+		for _, existing := range []bool{false, true} {
+			caseName := "MergeBatchSameKey_" + name
+			if existing {
+				caseName += "_Existing"
+			}
+			harness.PairTest(t, harness.TestCase{
+				Name:    caseName,
+				Support: harness.DumboDBFull,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					var spec bson.D
+					if err := bson.UnmarshalExtJSON([]byte(specJSON), false, &spec); err != nil {
+						return nil, err
+					}
+					source := bson.A{
+						bson.D{{Key: "_id", Value: int32(1)}, {Key: "k", Value: int32(1)}, {Key: "a", Value: int32(1)}},
+						bson.D{{Key: "_id", Value: int32(1)}, {Key: "k", Value: int32(1)}, {Key: "b", Value: int32(2)}},
+						bson.D{{Key: "_id", Value: int32(2)}, {Key: "k", Value: int32(2)}, {Key: "c", Value: int32(3)}},
+					}
+					projection := bson.D{}
+					switch name {
+					case "GeneratedIDs":
+						source = bson.A{bson.D{{Key: "a", Value: int32(1)}}, bson.D{{Key: "a", Value: int32(2)}}}
+						projection = bson.D{{Key: "_id", Value: 0}}
+					case "OnUniqueIndexed":
+						source = bson.A{
+							bson.D{{Key: "_id", Value: int32(1)}, {Key: "k", Value: int32(1)}, {Key: "a", Value: int32(1)}},
+							bson.D{{Key: "_id", Value: int32(2)}, {Key: "k", Value: int32(1)}, {Key: "b", Value: int32(2)}},
+						}
+					}
+					o := col.Database().Collection("o")
+					if existing {
+						if _, err := o.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}, {Key: "k", Value: int32(1)}, {Key: "t", Value: int32(0)}}); err != nil {
+							return nil, err
+						}
+					}
+					if name == "OnUniqueIndexed" {
+						if _, err := o.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "k", Value: 1}}, Options: options.Index().SetUnique(true)}); err != nil {
+							return nil, err
+						}
+					}
+					cursor, err := col.Database().Aggregate(ctx, bson.A{
+						bson.D{{Key: "$documents", Value: source}},
+						bson.D{{Key: "$merge", Value: spec}},
+					})
+					res, _ := drainCursor(ctx, cursor, err)
+					found, err := o.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "a", Value: 1}, {Key: "_id", Value: 1}}).SetProjection(projection))
+					docs, _ := drainCursor(ctx, found, err)
+					return bson.M{"result": res, "target": docs}, nil
+				},
+			})
+		}
+	}
+}
