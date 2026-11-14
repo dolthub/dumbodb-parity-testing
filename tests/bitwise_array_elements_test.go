@@ -89,3 +89,58 @@ func TestBitwiseArrayElements(t *testing.T) {
 		})
 	}
 }
+
+// TestBitwiseDecimalValues: the bitwise query operators match a Decimal128
+// value, alone or as an array element, only when it is an integer that a
+// 64-bit integer holds.
+func TestBitwiseDecimalValues(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		var docs []interface{}
+		err := bson.UnmarshalExtJSON([]byte(`{"d":[
+			{"_id":1,"a":{"$numberDecimal":"1.5"}},
+			{"_id":2,"a":[{"$numberDecimal":"1.5"}]},
+			{"_id":3,"a":{"$numberDecimal":"3.0"}},
+			{"_id":4,"a":[{"$numberDecimal":"-1.5"},{"$numberDecimal":"2"}]},
+			{"_id":5,"a":[{"$numberDecimal":"1.0000000000000000000000000000001"}]},
+			{"_id":6,"a":{"$numberDecimal":"1E+30"}},
+			{"_id":7,"a":[{"$numberDecimal":"5E-1"}]},
+			{"_id":8,"a":{"$numberDecimal":"-3"}}
+		]}`), false, &struct{ D *[]interface{} }{&docs})
+		if err != nil {
+			return err
+		}
+		_, err = col.InsertMany(ctx, docs)
+		return err
+	}
+	matches := map[string]string{
+		"all_set":    `{"a":{"$bitsAllSet":1}}`,
+		"any_set":    `{"a":{"$bitsAnySet":1}}`,
+		"all_clear":  `{"a":{"$bitsAllClear":1}}`,
+		"any_clear":  `{"a":{"$bitsAnyClear":1}}`,
+		"not_set":    `{"a":{"$not":{"$bitsAnySet":1}}}`,
+		"elem_match": `{"a":{"$elemMatch":{"$bitsAnyClear":[0]}}}`,
+		"sign_bit":   `{"a":{"$bitsAllSet":[63]}}`,
+	}
+	for name, match := range matches {
+		var m bson.D
+		if err := bson.UnmarshalExtJSON([]byte(match), false, &m); err != nil {
+			t.Fatal(err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "BitwiseDecimalValues_" + name,
+			Support: harness.DumboDBFull,
+			Setup:   setup,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				ids, err := findIDs(ctx, col, m)
+				if err != nil {
+					return errOutcome(err), nil
+				}
+				del, err := col.DeleteMany(ctx, m)
+				if err != nil {
+					return errOutcome(err), nil
+				}
+				return bson.D{{Key: "find", Value: ids}, {Key: "deleted", Value: del.DeletedCount}}, nil
+			},
+		})
+	}
+}
