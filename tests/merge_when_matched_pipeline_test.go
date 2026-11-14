@@ -234,6 +234,14 @@ func TestMergeSpecErrors(t *testing.T) {
 		"LetUndefinedVar":         `{"into":"t","whenMatched":[{"$set":{"a":1}}],"let":{"b":"$$c"}}`,
 		"LetReadsNew":             `{"into":"t","whenMatched":[{"$set":{"a":1}}],"let":{"new":"$$ROOT","b":"$$new"}}`,
 		"LetArgCount":             `{"into":"t","whenMatched":[{"$set":{"a":1}}],"let":{"a":{"$substr":[1]}}}`,
+		"KeepExistingDiscard":     `{"into":"t","whenMatched":"keepExisting","whenNotMatched":"discard"}`,
+		"KeepExistingFail":        `{"into":"t","whenMatched":"keepExisting","whenNotMatched":"fail"}`,
+		"FailDiscard":             `{"into":"t","whenMatched":"fail","whenNotMatched":"discard"}`,
+		"FailFail":                `{"into":"t","whenMatched":"fail","whenNotMatched":"fail"}`,
+		"FailFailBadOn":           `{"into":"t","whenMatched":"fail","whenNotMatched":"fail","on":"$a"}`,
+		"FailFailLet":             `{"into":"t","whenMatched":"fail","whenNotMatched":"fail","let":{"a":1}}`,
+		"ReplaceFail":             `{"into":"t","whenMatched":"replace","whenNotMatched":"fail"}`,
+		"PipelineDiscard":         `{"into":"t","whenMatched":[],"whenNotMatched":"discard"}`,
 		"LetBadExprThenBadMode":   `{"into":"t","whenMatched":[{"$set":{"a":1}}],"let":{"a":{"$bad":1}},"whenNotMatched":"bogus"}`,
 	}
 	for name, js := range cases {
