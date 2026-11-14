@@ -19,7 +19,9 @@ import (
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
@@ -123,6 +125,69 @@ func TestAlwaysTrueFalseElemMatch(t *testing.T) {
 					return errOutcome(err), nil
 				}
 				return bson.D{{Key: "find", Value: ids}, {Key: "count", Value: n}}, nil
+			},
+		})
+	}
+}
+
+// TestAlwaysTrueFalseUpsertSeed: an upsert seeds nothing from a query that
+// mongod simplifies to $alwaysFalse ($alwaysFalse, an empty $in, an $and
+// holding one, an $or of only such clauses), drops the always-false clauses
+// of an $or before seeding a lone remaining clause, and ignores $alwaysTrue.
+func TestAlwaysTrueFalseUpsertSeed(t *testing.T) {
+	queries := map[string]string{
+		"false_with_id":     `{"$alwaysFalse":1,"_id":9}`,
+		"true_with_id":      `{"$alwaysTrue":1,"_id":9}`,
+		"and_false":         `{"$and":[{"$alwaysFalse":1},{"k":7}]}`,
+		"and_true":          `{"$and":[{"$alwaysTrue":1},{"k":7}]}`,
+		"or_false_one":      `{"$or":[{"$alwaysFalse":1},{"k":7}]}`,
+		"or_false_two":      `{"$or":[{"$alwaysFalse":1},{"k":7},{"j":1}]}`,
+		"or_true":           `{"$or":[{"$alwaysTrue":1},{"k":7}]}`,
+		"nested_or_false":   `{"k":7,"$and":[{"j":1},{"$or":[{"$alwaysFalse":1}]}]}`,
+		"or_all_false":      `{"k":7,"$or":[{"$alwaysFalse":1},{"$and":[{"$alwaysFalse":1}]}]}`,
+		"or_false_and":      `{"k":7,"$or":[{"j":1},{"$and":[{"$alwaysFalse":1},{"m":1}]}]}`,
+		"nor_true":          `{"k":7,"$nor":[{"$alwaysTrue":1}]}`,
+		"empty_in":          `{"k":{"$in":[]},"j":1}`,
+		"false_twice_match": `{"$alwaysFalse":1,"$and":[{"k":1},{"k":2}]}`,
+	}
+	for name, q := range queries {
+		var query bson.D
+		if err := bson.UnmarshalExtJSON([]byte(q), false, &query); err != nil {
+			t.Fatal(err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "AlwaysTrueFalseUpsertSeed_" + name,
+			Support: harness.DumboDBFull,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				_, err := col.UpdateMany(ctx, query, bson.D{{Key: "$set", Value: bson.D{{Key: "x", Value: 1}}}},
+					options.Update().SetUpsert(true))
+				if err != nil {
+					return errOutcome(err), nil
+				}
+				_, err = col.Database().Collection(col.Name()+"_fam").FindOneAndUpdate(ctx, query,
+					bson.D{{Key: "$set", Value: bson.D{{Key: "x", Value: 2}}}},
+					options.FindOneAndUpdate().SetUpsert(true)).Raw()
+				if err != nil && err != mongo.ErrNoDocuments {
+					return errOutcome(err), nil
+				}
+				var out bson.A
+				for _, c := range []*mongo.Collection{col, col.Database().Collection(col.Name() + "_fam")} {
+					cur, err := c.Find(ctx, bson.D{})
+					if err != nil {
+						return nil, err
+					}
+					var docs []bson.M
+					if err := cur.All(ctx, &docs); err != nil {
+						return nil, err
+					}
+					for _, d := range docs {
+						if _, ok := d["_id"].(primitive.ObjectID); ok {
+							d["_id"] = "generated"
+						}
+						out = append(out, d)
+					}
+				}
+				return out, nil
 			},
 		})
 	}
