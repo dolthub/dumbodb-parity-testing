@@ -2529,3 +2529,59 @@ func stageReturnedChain(plan interface{}) []string {
 	}
 	return out
 }
+
+// TestExplainPlan_ComputedProjection: a $project computing a field runs in
+// the query plan, as PROJECTION_DEFAULT, only when the query has no sort,
+// skip or limit; otherwise it stays a stage after $cursor, and the query
+// projects the fields the later stages read (PROJECTION_SIMPLE). A projection
+// of a dotted path is PROJECTION_DEFAULT too.
+func TestExplainPlan_ComputedProjection(t *testing.T) {
+	computed := bson.D{{Key: "$project", Value: bson.D{{Key: "a", Value: 1}, {Key: "z", Value: bson.D{{Key: "$add", Value: bson.A{"$b", 1}}}}}}}
+	skip := bson.D{{Key: "$skip", Value: 2}}
+	limit := bson.D{{Key: "$limit", Value: 3}}
+	sortA := bson.D{{Key: "$sort", Value: bson.D{{Key: "a", Value: 1}}}}
+	cases := []struct {
+		name     string
+		pipeline bson.A
+	}{
+		{"alone", bson.A{computed}},
+		{"skip", bson.A{computed, skip}},
+		{"skip_limit", bson.A{computed, skip, limit}},
+		{"limit", bson.A{computed, limit}},
+		{"match", bson.A{bson.D{{Key: "$match", Value: bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: 1}}}}}}, computed}},
+		{"sort", bson.A{sortA, computed}},
+		{"sort_limit", bson.A{sortA, limit, computed}},
+		{"skip_first", bson.A{skip, computed}},
+		{"then_match", bson.A{computed, bson.D{{Key: "$match", Value: bson.D{{Key: "a", Value: 2}}}}}},
+		{"rename_skip", bson.A{bson.D{{Key: "$project", Value: bson.D{{Key: "a", Value: 1}, {Key: "z", Value: "$b"}}}}, skip}},
+		{"dotted", bson.A{bson.D{{Key: "$project", Value: bson.D{{Key: "a.x", Value: 1}}}}}},
+		{"dotted_skip", bson.A{bson.D{{Key: "$project", Value: bson.D{{Key: "a.x", Value: 1}}}}, skip}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "ExplainPlan_ComputedProjection_" + tc.name,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					docs := make([]interface{}, 10)
+					for i := range docs {
+						docs[i] = bson.D{{Key: "_id", Value: int32(i)}, {Key: "a", Value: int32(i)}, {Key: "b", Value: int32(i % 3)}}
+					}
+					_, err := col.InsertMany(ctx, docs)
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					cmd := bson.D{{Key: "aggregate", Value: col.Name()}, {Key: "pipeline", Value: tc.pipeline}, {Key: "cursor", Value: bson.D{}}}
+					doc, err := explainRunExplain(ctx, col, cmd, "executionStats")
+					if err != nil {
+						return nil, err
+					}
+					es := findExecutionStats(doc)
+					stages, _ := lookup(es, "executionStages")
+					return bson.D{{Key: "plan", Value: winningPlanStages(doc)}, {Key: "returned", Value: stageReturnedChain(stages)},
+						{Key: "stages", Value: topLevelStages(doc)}}, nil
+				},
+			})
+		})
+	}
+}
