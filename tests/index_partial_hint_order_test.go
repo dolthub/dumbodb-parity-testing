@@ -46,6 +46,9 @@ func partialHintOrderSetup(keys, pfe bson.D) func(context.Context, *mongo.Collec
 			bson.D{{Key: "_id", Value: int32(7)}, {Key: "a", Value: "s"}, {Key: "b", Value: int32(2)}},
 			bson.D{{Key: "_id", Value: int32(8)}, {Key: "a", Value: bson.A{int32(0), "t", int32(7)}}, {Key: "b", Value: int32(3)}},
 			bson.D{{Key: "_id", Value: int32(9)}, {Key: "a", Value: bson.A{int32(3), int32(-2)}}, {Key: "b", Value: int32(4)}},
+			bson.D{{Key: "_id", Value: int32(10)}, {Key: "a", Value: bson.A{int32(4), "u", nil}}, {Key: "b", Value: nil}},
+			bson.D{{Key: "_id", Value: int32(11)}, {Key: "a", Value: bson.A{math.NaN(), "N", int32(1)}}, {Key: "b", Value: nil}},
+			bson.D{{Key: "_id", Value: int32(12)}, {Key: "a", Value: math.NaN()}, {Key: "b", Value: nil}},
 		})
 		if err != nil {
 			return err
@@ -110,6 +113,9 @@ func TestIndex_PartialHintOrder_ExistsDescending(t *testing.T) {
 				bson.D{{Key: "a", Value: cond("$gte", int32(3))}, {Key: "b", Value: cond("$gt", int32(0))}},
 				bson.D{{Key: "a", Value: cond("$lte", int32(0))}},
 			}}}, harness.DumboDBFull},
+			// mongod reads $all as equalities, so $all: [null] can match a missing b.
+			{"BAllNull", bson.D{{Key: "a", Value: cond("$lte", int32(9))}, {Key: "b", Value: cond("$all", bson.A{nil})}}, harness.DumboDBFull},
+			{"ImpliedByAllNullAndOne", bson.D{{Key: "a", Value: cond("$lte", int32(9))}, {Key: "b", Value: cond("$all", bson.A{nil, int32(1)})}}, harness.DumboDBFull},
 			{"ImpliedByExists", bson.D{{Key: "a", Value: cond("$lte", int32(5))}, {Key: "b", Value: cond("$exists", true)}}, harness.DumboDBFull},
 			{"ImpliedByNeNull", bson.D{{Key: "a", Value: cond("$lte", int32(5))}, {Key: "b", Value: cond("$ne", nil)}}, harness.DumboDBFull},
 			{"ImpliedByType", bson.D{{Key: "a", Value: cond("$lte", int32(5))}, {Key: "b", Value: cond("$type", "number")}}, harness.DumboDBFull},
@@ -132,4 +138,106 @@ func TestIndex_PartialHintOrder_RangeAscending(t *testing.T) {
 			{"ImpliedRange", bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: int32(0)}, {Key: "$lt", Value: int32(6)}}}}, harness.DumboDBFull},
 			{"ImpliedIn", bson.D{{Key: "a", Value: cond("$in", bson.A{int32(0), int32(3), int32(5)})}}, harness.DumboDBFull},
 		})
+}
+
+// mongod compares a string of the query with the partial filter only under a
+// shared collation, and then under it. The strings here are lowercase, so
+// membership in the partial index does not depend on the collation.
+func TestIndex_PartialHintOrder_Collated(t *testing.T) {
+	en2 := &options.Collation{Locale: "en", Strength: 2}
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		_, err := col.InsertMany(ctx, []interface{}{
+			bson.D{{Key: "_id", Value: int32(21)}, {Key: "a", Value: bson.A{"q", int32(1)}}},
+			bson.D{{Key: "_id", Value: int32(22)}, {Key: "a", Value: "n"}},
+			bson.D{{Key: "_id", Value: int32(23)}, {Key: "a", Value: bson.A{"p", "b"}}},
+			bson.D{{Key: "_id", Value: int32(24)}, {Key: "a", Value: bson.A{"o", nil}}},
+			bson.D{{Key: "_id", Value: int32(25)}, {Key: "a", Value: "a"}},
+		})
+		if err != nil {
+			return err
+		}
+		_, err = col.Indexes().CreateOne(ctx, mongo.IndexModel{
+			Keys: bson.D{{Key: "a", Value: 1}},
+			Options: options.Index().SetCollation(en2).SetName(partialHintOrderIndexName).
+				SetPartialFilterExpression(bson.D{{Key: "a", Value: cond("$gte", "m")}}),
+		})
+		return err
+	}
+	run := func(filter bson.D, coll *options.Collation) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			findOpts := options.Find().SetHint(partialHintOrderIndexName)
+			famOpts := options.FindOneAndUpdate().SetHint(partialHintOrderIndexName).SetProjection(bson.D{{Key: "_id", Value: 1}})
+			if coll != nil {
+				findOpts.SetCollation(coll)
+				famOpts.SetCollation(coll)
+			}
+			ids, err := cluFindIDs(filter, findOpts)(ctx, col)
+			if err != nil {
+				return nil, err
+			}
+			var updated bson.D
+			err = col.FindOneAndUpdate(ctx, filter, bson.D{{Key: "$set", Value: bson.D{{Key: "m", Value: int32(1)}}}}, famOpts).Decode(&updated)
+			if err != nil && err != mongo.ErrNoDocuments {
+				return nil, err
+			}
+			return bson.D{{Key: "find", Value: ids}, {Key: "findAndModify", Value: updated}}, nil
+		}
+	}
+	for _, tc := range []struct {
+		name    string
+		filter  bson.D
+		coll    *options.Collation
+		support harness.DumboDBSupport
+	}{
+		{"SimpleQuery", bson.D{{Key: "a", Value: cond("$gte", "n")}}, nil, harness.DumboDBFull},
+		{"SharedCollation", bson.D{{Key: "a", Value: cond("$gte", "n")}}, en2, harness.DumboDBFull},
+		{"SharedCollationCaseVariant", bson.D{{Key: "a", Value: cond("$gte", "N")}}, en2, harness.DumboDBFull},
+		{"SimpleQueryNumber", bson.D{{Key: "a", Value: cond("$gte", int32(0))}}, nil, harness.DumboDBFull},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Index_PartialHintOrder_Collated_" + tc.name,
+				Support: tc.support,
+				Setup:   setup,
+				Run:     run(tc.filter, tc.coll),
+			})
+		})
+	}
+}
+
+// Without a hint mongod answers from a partial index whenever the query
+// implies its filter expression, by the same rule as for a hinted one.
+func TestIndex_PartialUnhinted_Implied(t *testing.T) {
+	bExists := bson.D{{Key: "b", Value: cond("$exists", true)}}
+	for _, tc := range []struct {
+		name    string
+		filter  bson.D
+		support harness.DumboDBSupport
+	}{
+		{"ExistsUnderAnd", bson.D{{Key: "a", Value: cond("$gte", int32(-5))}, {Key: "$and", Value: bson.A{bExists}}}, harness.DumboDBFull},
+		{"NorNull", bson.D{{Key: "a", Value: cond("$gte", int32(-5))}, {Key: "$nor", Value: bson.A{bson.D{{Key: "b", Value: nil}}}}}, harness.DumboDBFull},
+		{"Exists", bson.D{{Key: "a", Value: cond("$gte", int32(-5))}, {Key: "b", Value: cond("$exists", true)}}, harness.DumboDBFull},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Index_PartialUnhinted_Implied_" + tc.name,
+				Support: tc.support,
+				Setup:   partialHintOrderSetup(bson.D{{Key: "a", Value: 1}}, bExists),
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					ids, err := cluFindIDs(tc.filter)(ctx, col)
+					if err != nil {
+						return nil, err
+					}
+					explain, err := explainRunExplain(ctx, col, cluFindCmd(tc.filter)(col), "queryPlanner")
+					if err != nil {
+						return nil, err
+					}
+					qp, _ := lookup(explain, "queryPlanner")
+					qpDoc, _ := asDoc(qp)
+					plan, _ := lookup(qpDoc, "winningPlan")
+					return bson.D{{Key: "find", Value: ids}, {Key: "stages", Value: planStages(plan)}}, nil
+				},
+			})
+		})
+	}
 }
