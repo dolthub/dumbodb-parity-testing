@@ -241,3 +241,89 @@ func TestIndex_PartialUnhinted_Implied(t *testing.T) {
 		})
 	}
 }
+
+// A collated partial index holds the documents its filter expression matches
+// under the index's collation: "N" and "Zed" sort after "m" under en/2.
+func partialCollatedSetup(ctx context.Context, col *mongo.Collection) error {
+	_, err := col.InsertMany(ctx, []interface{}{
+		bson.D{{Key: "_id", Value: int32(7)}, {Key: "a", Value: "s"}},
+		bson.D{{Key: "_id", Value: int32(8)}, {Key: "a", Value: bson.A{int32(0), "t", int32(7)}}},
+		bson.D{{Key: "_id", Value: int32(10)}, {Key: "a", Value: bson.A{int32(4), "u", nil}}},
+		bson.D{{Key: "_id", Value: int32(11)}, {Key: "a", Value: bson.A{math.NaN(), "N", int32(1)}}},
+		bson.D{{Key: "_id", Value: int32(13)}, {Key: "a", Value: "N"}},
+		bson.D{{Key: "_id", Value: int32(14)}, {Key: "a", Value: "Zed"}},
+		bson.D{{Key: "_id", Value: int32(15)}, {Key: "a", Value: "a"}},
+	})
+	if err != nil {
+		return err
+	}
+	_, err = col.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "a", Value: 1}},
+		Options: options.Index().SetCollation(&options.Collation{Locale: "en", Strength: 2}).
+			SetName(partialHintOrderIndexName).SetPartialFilterExpression(bson.D{{Key: "a", Value: cond("$gte", "m")}}),
+	})
+	return err
+}
+
+func TestIndex_PartialCollatedMembership(t *testing.T) {
+	en2 := &options.Collation{Locale: "en", Strength: 2}
+	read := func(filter bson.D, hinted bool) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			findOpts := options.Find().SetCollation(en2)
+			countOpts := options.Count().SetCollation(en2)
+			cmd := cluFindCmd(filter, bson.E{Key: "collation", Value: bson.D{{Key: "locale", Value: "en"}, {Key: "strength", Value: int32(2)}}})(col)
+			if hinted {
+				findOpts.SetHint(partialHintOrderIndexName)
+				countOpts.SetHint(partialHintOrderIndexName)
+				cmd = append(cmd, bson.E{Key: "hint", Value: partialHintOrderIndexName})
+			}
+			ids, err := cluFindIDs(filter, findOpts)(ctx, col)
+			if err != nil {
+				return nil, err
+			}
+			n, err := col.CountDocuments(ctx, filter, countOpts)
+			if err != nil {
+				return nil, err
+			}
+			explain, err := explainRunExplain(ctx, col, cmd, "queryPlanner")
+			if err != nil {
+				return nil, err
+			}
+			qp, _ := lookup(explain, "queryPlanner")
+			qpDoc, _ := asDoc(qp)
+			plan, _ := lookup(qpDoc, "winningPlan")
+			return bson.D{{Key: "find", Value: ids}, {Key: "count", Value: n}, {Key: "stages", Value: planStages(plan)}}, nil
+		}
+	}
+	// moveByCase sets _id 13 from "N" to "a" and _id 15 from "a" to "N", which
+	// moves each out of and into the index, then reads it hinted.
+	moveByCase := func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		for id, v := range map[int32]string{13: "a", 15: "N"} {
+			if _, err := col.UpdateOne(ctx, bson.D{{Key: "_id", Value: id}}, bson.D{{Key: "$set", Value: bson.D{{Key: "a", Value: v}}}}); err != nil {
+				return nil, err
+			}
+		}
+		return read(bson.D{{Key: "a", Value: cond("$gte", "n")}}, true)(ctx, col)
+	}
+	for _, tc := range []struct {
+		name    string
+		run     func(context.Context, *mongo.Collection) (interface{}, error)
+		support harness.DumboDBSupport
+	}{
+		{"UnhintedRange", read(bson.D{{Key: "a", Value: cond("$gte", "n")}}, false), harness.DumboDBFull},
+		{"UnhintedEquality", read(bson.D{{Key: "a", Value: "n"}}, false), harness.DumboDBFull},
+		{"HintedRange", read(bson.D{{Key: "a", Value: cond("$gte", "n")}}, true), harness.DumboDBFull},
+		{"HintedEquality", read(bson.D{{Key: "a", Value: "n"}}, true), harness.DumboDBFull},
+		{"HintedNumber", read(bson.D{{Key: "a", Value: cond("$gte", int32(1))}}, true), harness.DumboDBFull},
+		{"MoveByCase", moveByCase, harness.DumboDBFull},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Index_PartialCollatedMembership_" + tc.name,
+				Support: tc.support,
+				Setup:   partialCollatedSetup,
+				Run:     tc.run,
+			})
+		})
+	}
+}
