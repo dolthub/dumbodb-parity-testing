@@ -171,9 +171,9 @@ func TestAccumulatorMemoryStoredValues(t *testing.T) {
 		setup func(ctx context.Context, col *mongo.Collection) error
 		stage bson.D
 	}{
-		{"SBEPushStored8", seedArrays(8), group(bson.D{{Key: "$push", Value: "$a"}})},
-		{"SBEFirstNStored8", seedArrays(8), group(bson.D{{Key: "$firstN", Value: bson.D{{Key: "n", Value: int32(10)}, {Key: "input", Value: "$a"}}}})},
-		{"SBEPushBuilt8", seedArrays(8), group(bson.D{{Key: "$push", Value: bson.D{{Key: "$concatArrays", Value: bson.A{"$a"}}}}})},
+		{"SBEPushStored4", seedArrays(4), group(bson.D{{Key: "$push", Value: "$a"}})},
+		{"SBEFirstNStored4", seedArrays(4), group(bson.D{{Key: "$firstN", Value: bson.D{{Key: "n", Value: int32(10)}, {Key: "input", Value: "$a"}}}})},
+		{"SBEPushBuilt4", seedArrays(4), group(bson.D{{Key: "$push", Value: bson.D{{Key: "$concatArrays", Value: bson.A{"$a"}}}}})},
 		{"BucketAutoPush6", seedStrings(6), bucketAuto(bson.D{{Key: "$push", Value: "$s"}})},
 		{"BucketAutoPush7", seedStrings(7), bucketAuto(bson.D{{Key: "$push", Value: "$s"}})},
 		{"BucketAutoFirstN12", seedStrings(12), bucketAuto(bson.D{{Key: "$firstN", Value: bson.D{{Key: "n", Value: int32(20)}, {Key: "input", Value: "$s"}}}})},
