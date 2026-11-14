@@ -145,8 +145,8 @@ func TestArithmeticErrors(t *testing.T) {
 			bson.D{{Key: "$addFields", Value: bson.D{{Key: "r", Value: divide("$v", 0)}}}},
 		})},
 		// MongoDB evaluates $group expressions in its SBE engine, whose error
-		// codes differ (workspace-siq).
-		{"Divide_InGroupAccumulator", harness.DumboDBXFail, pipelineRun(bson.A{
+		// codes differ (dolthub/dumbodb#125).
+		{"Divide_InGroupAccumulator", harness.DumboDBFull, pipelineRun(bson.A{
 			bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "r", Value: bson.D{{Key: "$sum", Value: divide("$v", 0)}}}}}},
 		})},
 		{"Divide_InFindExpr", harness.DumboDBFull, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {

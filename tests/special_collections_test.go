@@ -2463,3 +2463,52 @@ func TestTimeSeries_MinAggregation(t *testing.T) {
 		},
 	})
 }
+
+// A view definition may hold the search stages, first in its pipeline or in
+// a $lookup's, but not the stages that run only on {aggregate: 1}; every
+// stage parses before either is checked.
+func TestCreateViewStageChecks(t *testing.T) {
+	cases := map[string]string{
+		"CurrentOp":          `[{"$currentOp":{}}]`,
+		"CurrentOpNotObject": `[{"$currentOp":5}]`,
+		"DocumentsFirst":     `[{"$documents":[]}]`,
+		"DocumentsLater":     `[{"$match":{}},{"$documents":[]}]`,
+		"DocumentsThenBogus": `[{"$documents":[]},{"$bogus":1}]`,
+		"ListLocalSessions":  `[{"$listLocalSessions":{}}]`,
+		"ListClusterCatalog": `[{"$listClusterCatalog":{}}]`,
+		"Search":             `[{"$search":{}}]`,
+		"SearchMeta":         `[{"$searchMeta":{}}]`,
+		"SearchNotFirst":     `[{"$match":{}},{"$search":{}}]`,
+		"LookupSearch":       `[{"$lookup":{"from":"x","pipeline":[{"$search":{}}],"as":"j"}}]`,
+		"LookupSearchLater":  `[{"$lookup":{"from":"x","pipeline":[{"$match":{}},{"$searchMeta":{}}],"as":"j"}}]`,
+		"LookupVectorSearch": `[{"$lookup":{"from":"x","pipeline":[{"$vectorSearch":{}}],"as":"j"}}]`,
+		"LookupSearchBogus":  `[{"$lookup":{"from":"x","pipeline":[{"$search":{}},{"$bogus":1}],"as":"j"}}]`,
+	}
+	for name, js := range cases {
+		var pipeline []bson.D
+		if err := bson.UnmarshalExtJSON([]byte(`{"p":`+js+`}`), false, &struct{ P *[]bson.D }{&pipeline}); err != nil {
+			t.Fatal(name, err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "CreateViewStageChecks_" + name,
+			Support: harness.DumboDBFull,
+			Setup: func(ctx context.Context, col *mongo.Collection) error {
+				_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}})
+				return err
+			},
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				db := col.Database()
+				view := col.Name() + "_v"
+				stages := make(bson.A, len(pipeline))
+				for i, st := range pipeline {
+					stages[i] = st
+				}
+				if err := db.RunCommand(ctx, bson.D{{Key: "create", Value: view}, {Key: "viewOn", Value: col.Name()}, {Key: "pipeline", Value: stages}}).Err(); err != nil {
+					return nil, err
+				}
+				defer db.Collection(view).Drop(ctx)
+				return bson.D{{Key: "created", Value: true}}, nil
+			},
+		})
+	}
+}
