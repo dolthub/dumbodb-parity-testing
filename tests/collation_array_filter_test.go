@@ -73,8 +73,11 @@ func TestCollation_ArrayFieldFilters(t *testing.T) {
 	}
 	filters := map[string]bson.D{
 		"eq_string":         {{Key: "a", Value: "abc"}},
+		"eq_nested_array":   {{Key: "a", Value: bson.A{"x", "y"}}},
+		"eq_document":       {{Key: "a", Value: bson.D{{Key: "k", Value: "q"}}}},
 		"ne_string":         f("$ne", "ABC"),
 		"in_numbers":        f("$in", nums),
+		"in_mixed":          f("$in", bson.A{"DEF", 7, bson.A{"X", "Y"}}),
 		"in_upper":          f("$in", upper),
 		"nin_mixed":         f("$nin", bson.A{"zZ", 2}),
 		"nin_numbers":       f("$nin", nums),
