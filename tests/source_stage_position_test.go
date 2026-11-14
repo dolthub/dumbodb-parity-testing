@@ -20,6 +20,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
@@ -52,4 +53,74 @@ func TestDatabaseSourceStageLaterFirstOnly(t *testing.T) {
 			},
 		})
 	}
+}
+
+// TestDatabaseSourceLaterStages: the stages after $listLocalSessions and
+// $currentOp run over the source's documents, and a stage that must be first
+// is refused with 40602 in any later position.
+func TestDatabaseSourceLaterStages(t *testing.T) {
+	type tc struct {
+		admin    bool
+		pipeline string
+	}
+	cases := map[string]tc{
+		"SessionsMatchNone":          {pipeline: `[{"$listLocalSessions":{}},{"$match":{"nope":1}}]`},
+		"SessionsLimitZero":          {pipeline: `[{"$listLocalSessions":{}},{"$limit":0}]`},
+		"SessionsSessions":           {pipeline: `[{"$listLocalSessions":{}},{"$listLocalSessions":{}}]`},
+		"SessionsCollStats":          {pipeline: `[{"$listLocalSessions":{}},{"$collStats":{}}]`},
+		"SessionsDocuments":          {pipeline: `[{"$listLocalSessions":{}},{"$documents":[]}]`},
+		"SessionsDocumentsNotArray":  {pipeline: `[{"$listLocalSessions":{}},{"$documents":5}]`},
+		"SessionsIndexStats":         {pipeline: `[{"$listLocalSessions":{}},{"$indexStats":{}}]`},
+		"SessionsOutNotLast":         {pipeline: `[{"$listLocalSessions":{}},{"$out":"o"},{"$match":{}}]`},
+		"SessionsDocumentsBeforeOut": {pipeline: `[{"$listLocalSessions":{}},{"$documents":[]},{"$out":"o"},{"$match":{}}]`},
+		"SessionsMergeSystem":        {pipeline: `[{"$listLocalSessions":{}},{"$merge":{"into":"system.foo"}}]`},
+
+		"AdminCurrentOpSessions":       {admin: true, pipeline: `[{"$currentOp":{}},{"$listLocalSessions":{}}]`},
+		"AdminCurrentOpDocuments":      {admin: true, pipeline: `[{"$currentOp":{}},{"$documents":[]}]`},
+		"AdminCurrentOpCurrentOp":      {admin: true, pipeline: `[{"$currentOp":{}},{"$currentOp":{}}]`},
+		"AdminCurrentOpOut":            {admin: true, pipeline: `[{"$currentOp":{}},{"$out":"o"}]`},
+		"AdminSessionsCurrentOp":       {admin: true, pipeline: `[{"$listLocalSessions":{}},{"$currentOp":{}}]`},
+		"AdminDocumentsCurrentOp":      {admin: true, pipeline: `[{"$documents":[]},{"$currentOp":{}}]`},
+		"AdminDocumentsThenQueryStats": {admin: true, pipeline: `[{"$listLocalSessions":{}},{"$documents":[]},{"$queryStats":{}}]`},
+	}
+	for name, c := range cases {
+		var pipeline bson.A
+		if err := bson.UnmarshalExtJSON([]byte(`{"p":`+c.pipeline+`}`), false, &struct{ P *bson.A }{&pipeline}); err != nil {
+			t.Fatal(name, err)
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "DatabaseSourceLaterStages_" + name,
+			Support: harness.DumboDBFull,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				db := col.Database()
+				if c.admin {
+					db = db.Client().Database("admin")
+				}
+				cursor, err := db.Aggregate(ctx, pipeline)
+				return drainCursor(ctx, cursor, err)
+			},
+		})
+	}
+}
+
+// TestDatabaseSourceSessionsOut: $out after $listLocalSessions writes the
+// documents the stages before it produce.
+func TestDatabaseSourceSessionsOut(t *testing.T) {
+	pipeline := bson.A{
+		bson.D{{Key: "$listLocalSessions", Value: bson.D{}}},
+		bson.D{{Key: "$limit", Value: int32(1)}},
+		bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: int32(0)}, {Key: "x", Value: bson.D{{Key: "$literal", Value: int32(1)}}}}}},
+		bson.D{{Key: "$out", Value: "o"}},
+	}
+	harness.PairTest(t, harness.TestCase{
+		Name:    "DatabaseSourceSessionsOut",
+		Support: harness.DumboDBFull,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cursor, err := col.Database().Aggregate(ctx, pipeline)
+			res, _ := drainCursor(ctx, cursor, err)
+			found, err := col.Database().Collection("o").Find(ctx, bson.D{}, options.Find().SetProjection(bson.D{{Key: "_id", Value: 0}}))
+			docs, _ := drainCursor(ctx, found, err)
+			return bson.M{"result": res, "target": docs}, nil
+		},
+	})
 }
