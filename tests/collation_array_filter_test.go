@@ -88,6 +88,7 @@ func TestCollation_ArrayFieldFilters(t *testing.T) {
 		"gt_string":         f("$gt", "S0500"),
 		"lte_string":        f("$lte", "ABC"),
 		"gte_number":        f("$gte", 7),
+		"lt_array":          f("$lt", bson.A{"X", "Z"}),
 		"elem_match_in":     f("$elemMatch", bson.D{{Key: "$in", Value: upper}}),
 		"elem_match_range":  f("$elemMatch", bson.D{{Key: "$gte", Value: "ABC"}, {Key: "$lt", Value: "DEG"}}),
 		"elem_match_eq_doc": f("$elemMatch", bson.D{{Key: "k", Value: "q"}}),
