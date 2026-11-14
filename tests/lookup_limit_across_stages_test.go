@@ -92,3 +92,67 @@ func TestLookupLimitAcrossStages(t *testing.T) {
 		})
 	}
 }
+
+// TestLookupMatchSplit: mongod moves the conditions of a $match after a
+// $lookup that do not read "as" ahead of it. A $jsonSchema is split by
+// field; a moved property constraint makes the $lookup run in the classic
+// engine, without SBE's limit on one document's matches, while a moved
+// required field does not. Whole $match stages that move keep their form.
+func TestLookupMatchSplit(t *testing.T) {
+	unwind := bson.D{{Key: "$unwind", Value: "$j"}}
+	count := bson.D{{Key: "$count", Value: "n"}}
+	sizeOfJ := bson.D{{Key: "$project", Value: bson.D{{Key: "s", Value: bson.D{{Key: "$size", Value: "$j"}}}}}}
+	match := func(filter bson.D) bson.D { return bson.D{{Key: "$match", Value: filter}} }
+	schema := func(s bson.D) bson.E { return bson.E{Key: "$jsonSchema", Value: s} }
+	propK := func(s bson.D) bson.E { return bson.E{Key: "properties", Value: bson.D{{Key: "k", Value: s}}} }
+	noOthers := bson.E{Key: "additionalProperties", Value: false}
+	jSize := bson.E{Key: "j", Value: bson.D{{Key: "$size", Value: int32(26)}}}
+	cases := []struct {
+		name  string
+		build func(col *mongo.Collection) []bson.D
+	}{
+		{"match_other", func(col *mongo.Collection) []bson.D {
+			return []bson.D{lookupLimitStage(col, nil), match(bson.D{{Key: "k", Value: int32(2)}}), sizeOfJ}
+		}},
+		{"match_other_and_as", func(col *mongo.Collection) []bson.D {
+			return []bson.D{lookupLimitStage(col, nil), match(bson.D{{Key: "k", Value: int32(2)}, {Key: "j", Value: bson.D{{Key: "$size", Value: int32(0)}}}}), sizeOfJ}
+		}},
+		{"schema_property_and_no_others", func(col *mongo.Collection) []bson.D {
+			return []bson.D{lookupLimitStage(col, nil), match(bson.D{schema(bson.D{propK(bson.D{{Key: "bsonType", Value: "int"}}), noOthers})}), unwind, count}
+		}},
+		{"schema_unconstrained_property_and_no_others", func(col *mongo.Collection) []bson.D {
+			return []bson.D{lookupLimitStage(col, nil), match(bson.D{schema(bson.D{propK(bson.D{}), noOthers})}), unwind, count}
+		}},
+		{"schema_required_and_no_others", func(col *mongo.Collection) []bson.D {
+			return []bson.D{lookupLimitStage(col, nil), match(bson.D{schema(bson.D{{Key: "required", Value: bson.A{"k"}}, noOthers})}), unwind, count}
+		}},
+		{"schema_required_as_and_property", func(col *mongo.Collection) []bson.D {
+			return []bson.D{lookupLimitStage(col, nil), match(bson.D{schema(bson.D{{Key: "required", Value: bson.A{"j"}}, propK(bson.D{{Key: "bsonType", Value: "int"}})})}), unwind, count}
+		}},
+		{"schema_property_and_as", func(col *mongo.Collection) []bson.D {
+			return []bson.D{lookupLimitStage(col, nil), match(bson.D{schema(bson.D{propK(bson.D{{Key: "enum", Value: bson.A{1, 2}}})}), jSize}), sizeOfJ}
+		}},
+		{"schema_required_and_as", func(col *mongo.Collection) []bson.D {
+			return []bson.D{lookupLimitStage(col, nil), match(bson.D{schema(bson.D{{Key: "required", Value: bson.A{"k"}}}), jSize}), sizeOfJ}
+		}},
+		{"schema_required_whole", func(col *mongo.Collection) []bson.D {
+			return []bson.D{lookupLimitStage(col, nil), match(bson.D{schema(bson.D{{Key: "required", Value: bson.A{"k"}}})}), sizeOfJ}
+		}},
+	}
+	harness.PairTest(t, harness.TestCase{
+		Name:    "LookupMatchSplit",
+		Support: harness.DumboDBFull,
+		Setup:   lookupLimitSeed,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			out := bson.M{}
+			for _, tc := range cases {
+				res, err := fieldOpsAgg(ctx, col, append(tc.build(col), bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}})...)
+				if err != nil {
+					res = errOutcome(err)
+				}
+				out[tc.name] = res
+			}
+			return out, nil
+		},
+	})
+}
