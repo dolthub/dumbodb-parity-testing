@@ -90,4 +90,40 @@ func TestBucketSwitchSize(t *testing.T) {
 			},
 		})
 	}
+
+	// Past the size limit, DumboDB folds no boundary given as an expression
+	// but the last, so memory and time stay bounded; mongod folds them all
+	// and reports an error among them that DumboDB does not see.
+	unsorted := append(ranges(8), bson.D{{Key: "$range", Value: bson.A{int32(0), int32(1)}}})
+	foldError := append(ranges(4), bson.D{{Key: "$divide", Value: bson.A{int32(1), int32(0)}}})
+	foldError = append(foldError, ranges(8)[4:]...)
+	deviations := map[string]struct {
+		spec      bson.D
+		mongoCode int32
+	}{
+		"LargeBoundaryLastUnsorted":    {bson.D{{Key: "groupBy", Value: "$x"}, {Key: "boundaries", Value: unsorted}}, 40194},
+		"LargeBoundaryMiddleFoldError": {bson.D{{Key: "groupBy", Value: "$x"}, {Key: "boundaries", Value: foldError}}, 2},
+	}
+	for name, tc := range deviations {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "BucketSwitchSize_" + name,
+			Support: harness.DumboDBDeviates,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				cursor, err := col.Aggregate(ctx, bson.A{bson.D{{Key: "$bucket", Value: tc.spec}}})
+				return drainCursor(ctx, cursor, err)
+			},
+			MongoExpect: expectErrorCode("mongo", tc.mongoCode),
+			DumboExpect: expectErrorCode("dumbodb", 10334),
+		})
+	}
+}
+
+func expectErrorCode(server string, code int32) func(*testing.T, interface{}, error) {
+	return func(t *testing.T, got interface{}, err error) {
+		t.Helper()
+		res, _ := got.(bson.M)
+		if err != nil || res == nil || res["code"] != code {
+			t.Errorf("%s: got %v (%v), want error code %d", server, got, err, code)
+		}
+	}
 }
