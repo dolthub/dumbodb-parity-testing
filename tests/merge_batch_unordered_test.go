@@ -16,6 +16,7 @@ package tests
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -187,5 +188,100 @@ func TestMergeBatchSameKey(t *testing.T) {
 				},
 			})
 		}
+	}
+}
+
+// TestMergeOnKeyMatching: $merge finds a document's target by the values of
+// its 'on' fields, so distinct values never match each other, equal numbers
+// of different types match, a dotted 'on' field matches a document the batch
+// inserted earlier, and writes past 16MB still match the earlier ones.
+func TestMergeOnKeyMatching(t *testing.T) {
+	str := func(s string) bson.D { return bson.D{{Key: "$literal", Value: s}} }
+	big := strings.Repeat("x", 5<<20)
+	cases := map[string]struct {
+		target []bson.D
+		index  bson.D
+		source bson.A
+		spec   bson.D
+	}{
+		"CompoundStringsWithSeparator": {
+			target: []bson.D{{{Key: "_id", Value: int32(1)}, {Key: "a", Value: "x|string:y"}, {Key: "b", Value: "z"}}},
+			index:  bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}},
+			source: bson.A{bson.D{{Key: "_id", Value: int32(2)}, {Key: "a", Value: "x"}, {Key: "b", Value: "y|string:z"}}},
+			spec:   bson.D{{Key: "on", Value: bson.A{"a", "b"}}, {Key: "whenMatched", Value: "merge"}},
+		},
+		"DocumentIDWithQuotes": {
+			target: []bson.D{{{Key: "_id", Value: bson.D{{Key: "x", Value: `a,"y":string:b`}}}, {Key: "v", Value: int32(0)}}},
+			source: bson.A{bson.D{{Key: "_id", Value: bson.D{{Key: "x", Value: "a"}, {Key: "y", Value: "b"}}}, {Key: "v", Value: int32(1)}}},
+			spec:   bson.D{{Key: "whenMatched", Value: "keepExisting"}},
+		},
+		"DocumentIDPipeline": {
+			target: []bson.D{{{Key: "_id", Value: bson.D{{Key: "x", Value: `a,"y":string:b`}}}, {Key: "v", Value: int32(0)}}},
+			source: bson.A{bson.D{{Key: "_id", Value: bson.D{{Key: "x", Value: "a"}, {Key: "y", Value: "b"}}}, {Key: "v", Value: int32(1)}}},
+			spec:   bson.D{{Key: "whenMatched", Value: bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "hit", Value: true}}}}}}},
+		},
+		"NumericTypes": {
+			target: []bson.D{{{Key: "_id", Value: int32(1)}, {Key: "k", Value: int64(1)}, {Key: "v", Value: int32(0)}}},
+			index:  bson.D{{Key: "k", Value: 1}},
+			source: bson.A{
+				bson.D{{Key: "_id", Value: int32(1)}, {Key: "k", Value: 1.0}, {Key: "a", Value: int32(1)}},
+				bson.D{{Key: "_id", Value: int32(2)}, {Key: "k", Value: int32(2)}, {Key: "b", Value: int32(2)}},
+				bson.D{{Key: "_id", Value: int32(2)}, {Key: "k", Value: 2.0}, {Key: "c", Value: int32(3)}},
+			},
+			spec: bson.D{{Key: "on", Value: "k"}},
+		},
+		"DottedSameKeyInBatch": {
+			index: bson.D{{Key: "b.c", Value: 1}},
+			source: bson.A{
+				bson.D{{Key: "_id", Value: int32(1)}, {Key: "b", Value: bson.D{{Key: "c", Value: int32(1)}}}, {Key: "a", Value: int32(1)}},
+				bson.D{{Key: "_id", Value: int32(1)}, {Key: "b", Value: bson.D{{Key: "c", Value: int32(1)}}}, {Key: "d", Value: int32(2)}},
+			},
+			spec: bson.D{{Key: "on", Value: "b.c"}},
+		},
+		"PipelinePast16MB": {
+			target: []bson.D{{{Key: "_id", Value: int32(1)}}, {{Key: "_id", Value: int32(2)}}},
+			source: bson.A{
+				bson.D{{Key: "_id", Value: int32(1)}}, bson.D{{Key: "_id", Value: int32(2)}},
+				bson.D{{Key: "_id", Value: int32(1)}}, bson.D{{Key: "_id", Value: int32(2)}},
+				bson.D{{Key: "_id", Value: int32(1)}}, bson.D{{Key: "_id", Value: int32(3)}},
+			},
+			spec: bson.D{{Key: "whenMatched", Value: bson.A{bson.D{{Key: "$set", Value: bson.D{
+				{Key: "big", Value: str(big)},
+				{Key: "n", Value: bson.D{{Key: "$add", Value: bson.A{bson.D{{Key: "$ifNull", Value: bson.A{"$n", 0}}}, 1}}}},
+			}}}}}},
+		},
+	}
+	for name, tc := range cases {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "MergeOnKeyMatching_" + name,
+			Support: harness.DumboDBFull,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				tgt := col.Database().Collection(col.Name() + "_tgt")
+				if len(tc.target) > 0 {
+					docs := make([]interface{}, len(tc.target))
+					for i, d := range tc.target {
+						docs[i] = d
+					}
+					if _, err := tgt.InsertMany(ctx, docs); err != nil {
+						return nil, err
+					}
+				}
+				if tc.index != nil {
+					if _, err := tgt.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: tc.index, Options: options.Index().SetUnique(true)}); err != nil {
+						return nil, err
+					}
+				}
+				cursor, err := col.Database().Aggregate(ctx, bson.A{
+					bson.D{{Key: "$documents", Value: tc.source}},
+					bson.D{{Key: "$merge", Value: append(bson.D{{Key: "into", Value: tgt.Name()}}, tc.spec...)}},
+				})
+				res, _ := drainCursor(ctx, cursor, err)
+				found, err := tgt.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "v", Value: 1}, {Key: "_id", Value: 1}}).
+					SetProjection(bson.D{{Key: "big", Value: bson.D{{Key: "$strLenBytes", Value: "$big"}}}, {Key: "a", Value: 1}, {Key: "b", Value: 1},
+						{Key: "c", Value: 1}, {Key: "d", Value: 1}, {Key: "k", Value: 1}, {Key: "v", Value: 1}, {Key: "n", Value: 1}, {Key: "hit", Value: 1}}))
+				docs, _ := drainCursor(ctx, found, err)
+				return bson.M{"result": res, "target": docs}, nil
+			},
+		})
 	}
 }
