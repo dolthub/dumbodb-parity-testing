@@ -190,7 +190,14 @@ func TestCollationForeignView(t *testing.T) {
 			return bson.D{{Key: "$graphLookup", Value: bson.D{{Key: "from", Value: v}, {Key: "startWith", Value: "$s"},
 				{Key: "connectFromField", Value: "k"}, {Key: "connectToField", Value: "k"}, {Key: "as", Value: "g"}}}}
 		}},
-		"union_with_over_ci": {"_vci", nil, func(v string) bson.D { return bson.D{{Key: "$unionWith", Value: v}} }},
+		"union_with_over_ci":       {"_vci", nil, func(v string) bson.D { return bson.D{{Key: "$unionWith", Value: v}} }},
+		"nested_lookup_over_ci":    {"_vci", nil, nestedLookupStage},
+		"nested_lookup_ci_over_ci": {"_vci", caseInsensitive, nestedLookupStage},
+		"nested_union_with_over_ci": {"_vci", nil, func(v string) bson.D {
+			return bson.D{{Key: "$unionWith", Value: bson.D{{Key: "coll", Value: v}, {Key: "pipeline", Value: bson.A{
+				bson.D{{Key: "$unionWith", Value: v}},
+			}}}}}
+		}},
 	}
 	for name, tc := range cases {
 		harness.PairTest(t, harness.TestCase{
@@ -207,6 +214,12 @@ func TestCollationForeignView(t *testing.T) {
 			},
 		})
 	}
+}
+
+// nestedLookupStage joins each document to the view's documents, each of
+// which joins the view again.
+func nestedLookupStage(view string) bson.D {
+	return bson.D{{Key: "$lookup", Value: bson.D{{Key: "from", Value: view}, {Key: "pipeline", Value: bson.A{lookupStage(view)}}, {Key: "as", Value: "j"}}}}
 }
 
 func lookupStage(view string) bson.D {
