@@ -20,6 +20,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
@@ -51,6 +52,70 @@ func TestMergeBatchUnordered(t *testing.T) {
 				return err
 			},
 			Run: mergePipelineRun(tc.spec, tc.target),
+		})
+	}
+}
+
+// TestMergeBatchUniqueConflict: a $merge document whose insert or update
+// would duplicate a unique key of the target is skipped, the batch's other
+// documents are written, and the duplicate key error is reported.
+func TestMergeBatchUniqueConflict(t *testing.T) {
+	cases := map[string]struct {
+		spec   string
+		target []bson.D
+	}{
+		"Insert":         {`{}`, []bson.D{{{Key: "_id", Value: int32(10)}, {Key: "k", Value: int32(2)}}}},
+		"InsertReplace":  {`{"whenMatched":"replace"}`, []bson.D{{{Key: "_id", Value: int32(10)}, {Key: "k", Value: int32(2)}}}},
+		"UpdateMerge":    {`{"whenMatched":"merge"}`, nil},
+		"UpdateReplace":  {`{"whenMatched":"replace"}`, nil},
+		"UpdatePipeline": {`{"whenMatched":[{"$set":{"k":"$$new.k"}}]}`, nil},
+	}
+	updateTarget := []bson.D{
+		{{Key: "_id", Value: int32(10)}, {Key: "k", Value: int32(2)}},
+		{{Key: "_id", Value: int32(1)}, {Key: "k", Value: int32(9)}},
+		{{Key: "_id", Value: int32(3)}, {Key: "k", Value: int32(8)}},
+	}
+	for name, tc := range cases {
+		target := tc.target
+		if target == nil {
+			target = updateTarget
+		}
+		harness.PairTest(t, harness.TestCase{
+			Name:    "MergeBatchUniqueConflict_" + name,
+			Support: harness.DumboDBFull,
+			Setup: func(ctx context.Context, col *mongo.Collection) error {
+				_, err := col.InsertMany(ctx, []interface{}{
+					bson.D{{Key: "_id", Value: int32(1)}, {Key: "k", Value: int32(1)}},
+					bson.D{{Key: "_id", Value: int32(2)}, {Key: "k", Value: int32(2)}},
+					bson.D{{Key: "_id", Value: int32(3)}, {Key: "k", Value: int32(3)}},
+				})
+				return err
+			},
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				var spec bson.D
+				if err := bson.UnmarshalExtJSON([]byte(tc.spec), false, &spec); err != nil {
+					return nil, err
+				}
+				tgt := col.Database().Collection(col.Name() + "_tgt")
+				docs := make([]interface{}, len(target))
+				for i, d := range target {
+					docs[i] = d
+				}
+				if _, err := tgt.InsertMany(ctx, docs); err != nil {
+					return nil, err
+				}
+				if _, err := tgt.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "k", Value: 1}}, Options: options.Index().SetUnique(true)}); err != nil {
+					return nil, err
+				}
+				cursor, err := col.Aggregate(ctx, bson.A{
+					bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+					bson.D{{Key: "$merge", Value: append(bson.D{{Key: "into", Value: tgt.Name()}}, spec...)}},
+				})
+				res, _ := drainCursor(ctx, cursor, err)
+				found, err := tgt.Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+				docsOut, _ := drainCursor(ctx, found, err)
+				return bson.M{"result": res, "target": docsOut}, nil
+			},
 		})
 	}
 }
