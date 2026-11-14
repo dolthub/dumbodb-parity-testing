@@ -176,3 +176,58 @@ func TestMergeTargetIDAndIndex(t *testing.T) {
 		})
 	}
 }
+
+// TestOutMergeSystemTargets: $out and $merge refuse a system collection
+// (17385, 31319) and the admin, local and config databases (31321, 31320)
+// while the stage parses, from a collection or an {aggregate: 1} pipeline.
+func TestOutMergeSystemTargets(t *testing.T) {
+	cases := map[string]string{
+		"OutSystem":            `[{"$out":"system.foo"}]`,
+		"OutSystemDot":         `[{"$out":"system."}]`,
+		"OutSystemNoDot":       `[{"$out":"system"}]`,
+		"OutAdminSystem":       `[{"$out":{"db":"admin","coll":"system.x"}}]`,
+		"OutAdmin":             `[{"$out":{"db":"admin","coll":"x"}}]`,
+		"OutLocal":             `[{"$out":{"db":"local","coll":"x"}}]`,
+		"OutConfig":            `[{"$out":{"db":"config","coll":"x"}}]`,
+		"OutSystemBeforeLimit": `[{"$out":"system.x"},{"$limit":0}]`,
+		"LimitBeforeOutSystem": `[{"$limit":0},{"$out":"system.x"}]`,
+		"MergeSystem":          `[{"$merge":"system.x"}]`,
+		"MergeIntoSystem":      `[{"$merge":{"into":"system.foo"}}]`,
+		"MergeAdmin":           `[{"$merge":{"into":{"db":"admin","coll":"x"}}}]`,
+		"MergeLocal":           `[{"$merge":{"into":{"db":"local","coll":"x"}}}]`,
+		"MergeConfig":          `[{"$merge":{"into":{"db":"config","coll":"x"}}}]`,
+		"MergeSystemOnNoIndex": `[{"$merge":{"into":"system.x","on":"a"}}]`,
+	}
+	for name, js := range cases {
+		var pipeline bson.A
+		if err := bson.UnmarshalExtJSON([]byte(`{"p":`+js+`}`), false, &struct{ P *bson.A }{&pipeline}); err != nil {
+			t.Fatal(name, err)
+		}
+		for _, dbLevel := range []bool{false, true} {
+			caseName := "OutMergeSystemTargets_" + name
+			run := pipeline
+			if dbLevel {
+				caseName += "_Documents"
+				run = append(bson.A{bson.D{{Key: "$documents", Value: bson.A{bson.D{{Key: "_id", Value: int32(1)}}}}}}, pipeline...)
+			}
+			harness.PairTest(t, harness.TestCase{
+				Name:    caseName,
+				Support: harness.DumboDBFull,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: int32(1)}})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					var cursor *mongo.Cursor
+					var err error
+					if dbLevel {
+						cursor, err = col.Database().Aggregate(ctx, run)
+					} else {
+						cursor, err = col.Aggregate(ctx, run)
+					}
+					return drainCursor(ctx, cursor, err)
+				},
+			})
+		}
+	}
+}
