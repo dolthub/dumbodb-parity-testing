@@ -229,3 +229,243 @@ func TestArrayIndexPath_AggregateMatch(t *testing.T) {
 		},
 	})
 }
+
+func arrayIndexPathReviewDocs() []interface{} {
+	return []interface{}{
+		bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: bson.A{bson.A{1}, bson.A{3}}}},
+		bson.D{{Key: "_id", Value: 4}, {Key: "a", Value: bson.A{bson.A{bson.A{1}}}}},
+		bson.D{{Key: "_id", Value: 6}, {Key: "a", Value: bson.A{bson.D{{Key: "0", Value: 1}}}}},
+		bson.D{{Key: "_id", Value: 7}, {Key: "a", Value: bson.D{{Key: "0", Value: bson.A{1}}}}},
+		bson.D{{Key: "_id", Value: 8}, {Key: "a", Value: bson.A{bson.D{{Key: "0", Value: bson.A{5}}}, 7}}},
+		bson.D{{Key: "_id", Value: 9}, {Key: "a", Value: bson.A{6}}},
+		bson.D{{Key: "_id", Value: 17}, {Key: "a", Value: bson.A{bson.A{1, 2}, bson.A{3}}}},
+		bson.D{{Key: "_id", Value: 20}, {Key: "a", Value: bson.A{bson.A{2, 3}}}},
+	}
+}
+
+// $all of $elemMatch documents on an array reached by index, and a numeric
+// path element that also names a field of the array's documents.
+func arrayIndexPathReviewFilters() []struct {
+	name   string
+	filter bson.D
+} {
+	elemMatch := func(op string, v interface{}) bson.D {
+		return bson.D{{Key: "$elemMatch", Value: bson.D{{Key: op, Value: v}}}}
+	}
+	all := func(path string, elems ...interface{}) bson.D {
+		return bson.D{{Key: path, Value: bson.D{{Key: "$all", Value: bson.A(elems)}}}}
+	}
+	op := func(path, name string, v interface{}) bson.D {
+		return bson.D{{Key: path, Value: bson.D{{Key: name, Value: v}}}}
+	}
+	return []struct {
+		name   string
+		filter bson.D
+	}{
+		{"all_elemMatch", all("a.0", elemMatch("$eq", 1))},
+		{"all_two_elemMatch", all("a.0", elemMatch("$gt", 0), elemMatch("$lt", 2))},
+		{"all_elemMatch_nested_index", all("a.0.0", elemMatch("$eq", 1))},
+		{"not_all_elemMatch", op("a.0", "$not", bson.D{{Key: "$all", Value: bson.A{elemMatch("$eq", 1)}}})},
+		{"nor_all_elemMatch", bson.D{{Key: "$nor", Value: bson.A{all("a.0", elemMatch("$gt", 2))}}}},
+		{"elemMatch_all_elemMatch", op("a", "$elemMatch", bson.D{{Key: "$all", Value: bson.A{elemMatch("$eq", 1)}}})},
+		{"field_zero_eq", bson.D{{Key: "a.0", Value: 1}}},
+		{"field_zero_array", bson.D{{Key: "a.0", Value: 5}}},
+		{"field_zero_ne", op("a.0", "$ne", 1)},
+		{"field_zero_in", op("a.0", "$in", bson.A{1, 5})},
+		{"field_zero_gt", op("a.0", "$gt", 4)},
+		{"field_zero_nin", op("a.0", "$nin", bson.A{5})},
+		{"field_zero_not", op("a.0", "$not", bson.D{{Key: "$eq", Value: 1}})},
+		{"field_zero_nor", bson.D{{Key: "$nor", Value: bson.A{bson.D{{Key: "a.0", Value: 5}}}}}},
+		{"field_zero_mod", op("a.0", "$mod", bson.A{5, 0})},
+		{"field_zero_type", op("a.0", "$type", "number")},
+		{"field_zero_exists", op("a.0", "$exists", false)},
+	}
+}
+
+func TestArrayIndexPath_Review(t *testing.T) {
+	set := bson.D{{Key: "$set", Value: bson.D{{Key: "hit", Value: true}}}}
+	for _, tc := range arrayIndexPathReviewFilters() {
+		for _, w := range []struct {
+			name string
+			run  func(ctx context.Context, col *mongo.Collection) (interface{}, error)
+		}{
+			{"find", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return findIDs(ctx, col, tc.filter)
+			}},
+			{"count", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return col.CountDocuments(ctx, tc.filter)
+			}},
+			{"hinted_find", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a.0", Value: 1}}}); err != nil {
+					return nil, err
+				}
+				cur, err := col.Find(ctx, tc.filter, options.Find().SetHint(bson.D{{Key: "a.0", Value: 1}}).
+					SetSort(bson.D{{Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}}))
+				if err != nil {
+					return nil, err
+				}
+				var docs []bson.D
+				err = cur.All(ctx, &docs)
+				return docs, err
+			}},
+			{"updateMany", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return writeOutcome(ctx, col, func() error {
+					_, err := col.UpdateMany(ctx, tc.filter, set)
+					return err
+				})
+			}},
+			{"deleteMany", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return writeOutcome(ctx, col, func() error {
+					_, err := col.DeleteMany(ctx, tc.filter)
+					return err
+				})
+			}},
+			{"findAndModify_remove", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return writeOutcome(ctx, col, func() error {
+					return col.FindOneAndDelete(ctx, tc.filter, options.FindOneAndDelete().SetSort(bson.D{{Key: "_id", Value: 1}})).Err()
+				})
+			}},
+		} {
+			t.Run(tc.name+"_"+w.name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "ArrayIndexPath_Review_" + tc.name + "_" + w.name,
+					Support: supportFor(t, arrayIndexPathReviewXFail),
+					Setup:   insertDocs(arrayIndexPathReviewDocs()...),
+					Run:     w.run,
+				})
+			})
+		}
+	}
+}
+
+// A positional update and arrayFilters whose matches an array index path
+// decides.
+func TestArrayIndexPath_PositionalUpdates(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		filter bson.D
+		update bson.D
+		opts   *options.UpdateOptions
+	}{
+		{"positional_by_index_filter", bson.D{{Key: "a.0", Value: 1}}, bson.D{{Key: "$set", Value: bson.D{{Key: "a.$", Value: 0}}}}, options.Update()},
+		{"positional_by_elemMatch", bson.D{{Key: "a", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "0", Value: 3}}}}}}, bson.D{{Key: "$set", Value: bson.D{{Key: "a.$", Value: 0}}}}, options.Update()},
+		{"array_filter_on_index", bson.D{}, bson.D{{Key: "$set", Value: bson.D{{Key: "a.$[e]", Value: 0}}}},
+			options.Update().SetArrayFilters(options.ArrayFilters{Filters: []interface{}{bson.D{{Key: "e.0", Value: 1}}}})},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "ArrayIndexPath_PositionalUpdates_" + tc.name,
+				Support: supportFor(t, arrayIndexPathReviewXFail),
+				Setup: insertDocs(
+					bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: bson.A{bson.A{1}, bson.A{3}}}},
+					bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: bson.A{bson.A{3, 1}, bson.A{1}}}},
+					bson.D{{Key: "_id", Value: 3}, {Key: "a", Value: bson.A{1, 3}}},
+				),
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return writeOutcome(ctx, col, func() error {
+						_, err := col.UpdateMany(ctx, tc.filter, tc.update, tc.opts)
+						return err
+					})
+				},
+			})
+		})
+	}
+}
+
+// arrayIndexPathReviewXFail lists the review cases DumboDB fails until the follow-up fix for
+// dolthub/dumbodb#296.
+var arrayIndexPathReviewXFail = map[string]bool{
+	"TestArrayIndexPath_PositionalUpdates/positional_by_index_filter":           true,
+	"TestArrayIndexPath_Review/all_elemMatch_count":                             true,
+	"TestArrayIndexPath_Review/all_elemMatch_deleteMany":                        true,
+	"TestArrayIndexPath_Review/all_elemMatch_find":                              true,
+	"TestArrayIndexPath_Review/all_elemMatch_findAndModify_remove":              true,
+	"TestArrayIndexPath_Review/all_elemMatch_hinted_find":                       true,
+	"TestArrayIndexPath_Review/all_elemMatch_nested_index_count":                true,
+	"TestArrayIndexPath_Review/all_elemMatch_nested_index_deleteMany":           true,
+	"TestArrayIndexPath_Review/all_elemMatch_nested_index_find":                 true,
+	"TestArrayIndexPath_Review/all_elemMatch_nested_index_findAndModify_remove": true,
+	"TestArrayIndexPath_Review/all_elemMatch_nested_index_hinted_find":          true,
+	"TestArrayIndexPath_Review/all_elemMatch_nested_index_updateMany":           true,
+	"TestArrayIndexPath_Review/all_elemMatch_updateMany":                        true,
+	"TestArrayIndexPath_Review/all_two_elemMatch_count":                         true,
+	"TestArrayIndexPath_Review/all_two_elemMatch_deleteMany":                    true,
+	"TestArrayIndexPath_Review/all_two_elemMatch_find":                          true,
+	"TestArrayIndexPath_Review/all_two_elemMatch_findAndModify_remove":          true,
+	"TestArrayIndexPath_Review/all_two_elemMatch_hinted_find":                   true,
+	"TestArrayIndexPath_Review/all_two_elemMatch_updateMany":                    true,
+	"TestArrayIndexPath_Review/elemMatch_all_elemMatch_count":                   true,
+	"TestArrayIndexPath_Review/elemMatch_all_elemMatch_deleteMany":              true,
+	"TestArrayIndexPath_Review/elemMatch_all_elemMatch_find":                    true,
+	"TestArrayIndexPath_Review/elemMatch_all_elemMatch_findAndModify_remove":    true,
+	"TestArrayIndexPath_Review/elemMatch_all_elemMatch_hinted_find":             true,
+	"TestArrayIndexPath_Review/elemMatch_all_elemMatch_updateMany":              true,
+	"TestArrayIndexPath_Review/field_zero_array_count":                          true,
+	"TestArrayIndexPath_Review/field_zero_array_deleteMany":                     true,
+	"TestArrayIndexPath_Review/field_zero_array_find":                           true,
+	"TestArrayIndexPath_Review/field_zero_array_findAndModify_remove":           true,
+	"TestArrayIndexPath_Review/field_zero_array_hinted_find":                    true,
+	"TestArrayIndexPath_Review/field_zero_array_updateMany":                     true,
+	"TestArrayIndexPath_Review/field_zero_eq_count":                             true,
+	"TestArrayIndexPath_Review/field_zero_eq_deleteMany":                        true,
+	"TestArrayIndexPath_Review/field_zero_eq_find":                              true,
+	"TestArrayIndexPath_Review/field_zero_eq_findAndModify_remove":              true,
+	"TestArrayIndexPath_Review/field_zero_eq_hinted_find":                       true,
+	"TestArrayIndexPath_Review/field_zero_eq_updateMany":                        true,
+	"TestArrayIndexPath_Review/field_zero_exists_hinted_find":                   true,
+	"TestArrayIndexPath_Review/field_zero_gt_count":                             true,
+	"TestArrayIndexPath_Review/field_zero_gt_deleteMany":                        true,
+	"TestArrayIndexPath_Review/field_zero_gt_find":                              true,
+	"TestArrayIndexPath_Review/field_zero_gt_findAndModify_remove":              true,
+	"TestArrayIndexPath_Review/field_zero_gt_hinted_find":                       true,
+	"TestArrayIndexPath_Review/field_zero_gt_updateMany":                        true,
+	"TestArrayIndexPath_Review/field_zero_in_count":                             true,
+	"TestArrayIndexPath_Review/field_zero_in_deleteMany":                        true,
+	"TestArrayIndexPath_Review/field_zero_in_find":                              true,
+	"TestArrayIndexPath_Review/field_zero_in_findAndModify_remove":              true,
+	"TestArrayIndexPath_Review/field_zero_in_hinted_find":                       true,
+	"TestArrayIndexPath_Review/field_zero_in_updateMany":                        true,
+	"TestArrayIndexPath_Review/field_zero_mod_count":                            true,
+	"TestArrayIndexPath_Review/field_zero_mod_deleteMany":                       true,
+	"TestArrayIndexPath_Review/field_zero_mod_find":                             true,
+	"TestArrayIndexPath_Review/field_zero_mod_findAndModify_remove":             true,
+	"TestArrayIndexPath_Review/field_zero_mod_hinted_find":                      true,
+	"TestArrayIndexPath_Review/field_zero_mod_updateMany":                       true,
+	"TestArrayIndexPath_Review/field_zero_ne_count":                             true,
+	"TestArrayIndexPath_Review/field_zero_ne_deleteMany":                        true,
+	"TestArrayIndexPath_Review/field_zero_ne_find":                              true,
+	"TestArrayIndexPath_Review/field_zero_ne_hinted_find":                       true,
+	"TestArrayIndexPath_Review/field_zero_ne_updateMany":                        true,
+	"TestArrayIndexPath_Review/field_zero_nin_count":                            true,
+	"TestArrayIndexPath_Review/field_zero_nin_deleteMany":                       true,
+	"TestArrayIndexPath_Review/field_zero_nin_find":                             true,
+	"TestArrayIndexPath_Review/field_zero_nin_hinted_find":                      true,
+	"TestArrayIndexPath_Review/field_zero_nin_updateMany":                       true,
+	"TestArrayIndexPath_Review/field_zero_nor_count":                            true,
+	"TestArrayIndexPath_Review/field_zero_nor_deleteMany":                       true,
+	"TestArrayIndexPath_Review/field_zero_nor_find":                             true,
+	"TestArrayIndexPath_Review/field_zero_nor_hinted_find":                      true,
+	"TestArrayIndexPath_Review/field_zero_nor_updateMany":                       true,
+	"TestArrayIndexPath_Review/field_zero_not_count":                            true,
+	"TestArrayIndexPath_Review/field_zero_not_deleteMany":                       true,
+	"TestArrayIndexPath_Review/field_zero_not_find":                             true,
+	"TestArrayIndexPath_Review/field_zero_not_hinted_find":                      true,
+	"TestArrayIndexPath_Review/field_zero_not_updateMany":                       true,
+	"TestArrayIndexPath_Review/field_zero_type_count":                           true,
+	"TestArrayIndexPath_Review/field_zero_type_deleteMany":                      true,
+	"TestArrayIndexPath_Review/field_zero_type_find":                            true,
+	"TestArrayIndexPath_Review/field_zero_type_findAndModify_remove":            true,
+	"TestArrayIndexPath_Review/field_zero_type_hinted_find":                     true,
+	"TestArrayIndexPath_Review/field_zero_type_updateMany":                      true,
+	"TestArrayIndexPath_Review/nor_all_elemMatch_count":                         true,
+	"TestArrayIndexPath_Review/nor_all_elemMatch_deleteMany":                    true,
+	"TestArrayIndexPath_Review/nor_all_elemMatch_find":                          true,
+	"TestArrayIndexPath_Review/nor_all_elemMatch_hinted_find":                   true,
+	"TestArrayIndexPath_Review/nor_all_elemMatch_updateMany":                    true,
+	"TestArrayIndexPath_Review/not_all_elemMatch_count":                         true,
+	"TestArrayIndexPath_Review/not_all_elemMatch_deleteMany":                    true,
+	"TestArrayIndexPath_Review/not_all_elemMatch_find":                          true,
+	"TestArrayIndexPath_Review/not_all_elemMatch_findAndModify_remove":          true,
+	"TestArrayIndexPath_Review/not_all_elemMatch_hinted_find":                   true,
+	"TestArrayIndexPath_Review/not_all_elemMatch_updateMany":                    true,
+}

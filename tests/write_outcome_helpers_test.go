@@ -16,9 +16,12 @@ package tests
 
 import (
 	"context"
+	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+
+	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
 // writeOutcome runs write and returns its error code with the collection's
@@ -38,4 +41,13 @@ func insertDocs(docs ...interface{}) func(ctx context.Context, col *mongo.Collec
 		_, err := col.InsertMany(ctx, docs)
 		return err
 	}
+}
+
+// supportFor is DumboDBXFail for a test xfail lists by name and DumboDBFull
+// otherwise.
+func supportFor(t *testing.T, xfail map[string]bool) harness.DumboDBSupport {
+	if xfail[t.Name()] {
+		return harness.DumboDBXFail
+	}
+	return harness.DumboDBFull
 }
