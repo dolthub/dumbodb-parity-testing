@@ -96,53 +96,13 @@ func runArrayFilterCases(t *testing.T, prefix string, xfail map[string]bool, set
 	}
 }
 
-// arrayFiltersValidationXFail lists the cases DumboDB fails until dolthub/dumbodb#244 is fixed.
-var arrayFiltersValidationXFail = map[string]bool{
-	"TestArrayFiltersValidation/duplicate_bulkWrite":                true,
-	"TestArrayFiltersValidation/duplicate_findAndModify":            true,
-	"TestArrayFiltersValidation/duplicate_updateMany":               true,
-	"TestArrayFiltersValidation/duplicate_updateOne":                true,
-	"TestArrayFiltersValidation/empty_filter_bulkWrite":             true,
-	"TestArrayFiltersValidation/empty_filter_findAndModify":         true,
-	"TestArrayFiltersValidation/empty_filter_updateMany":            true,
-	"TestArrayFiltersValidation/empty_filter_updateOne":             true,
-	"TestArrayFiltersValidation/missing_no_match_bulkWrite":         true,
-	"TestArrayFiltersValidation/missing_no_match_findAndModify":     true,
-	"TestArrayFiltersValidation/missing_no_match_updateMany":        true,
-	"TestArrayFiltersValidation/missing_no_match_updateOne":         true,
-	"TestArrayFiltersValidation/one_of_two_unused_bulkWrite":        true,
-	"TestArrayFiltersValidation/one_of_two_unused_findAndModify":    true,
-	"TestArrayFiltersValidation/one_of_two_unused_updateMany":       true,
-	"TestArrayFiltersValidation/one_of_two_unused_updateOne":        true,
-	"TestArrayFiltersValidation/pipeline_update_bulkWrite":          true,
-	"TestArrayFiltersValidation/pipeline_update_findAndModify":      true,
-	"TestArrayFiltersValidation/pipeline_update_updateMany":         true,
-	"TestArrayFiltersValidation/pipeline_update_updateOne":          true,
-	"TestArrayFiltersValidation/two_identifiers_bulkWrite":          true,
-	"TestArrayFiltersValidation/two_identifiers_findAndModify":      true,
-	"TestArrayFiltersValidation/two_identifiers_updateMany":         true,
-	"TestArrayFiltersValidation/two_identifiers_updateOne":          true,
-	"TestArrayFiltersValidation/unused_bulkWrite":                   true,
-	"TestArrayFiltersValidation/unused_findAndModify":               true,
-	"TestArrayFiltersValidation/unused_no_match_bulkWrite":          true,
-	"TestArrayFiltersValidation/unused_no_match_findAndModify":      true,
-	"TestArrayFiltersValidation/unused_no_match_updateMany":         true,
-	"TestArrayFiltersValidation/unused_no_match_updateOne":          true,
-	"TestArrayFiltersValidation/unused_updateMany":                  true,
-	"TestArrayFiltersValidation/unused_updateOne":                   true,
-	"TestArrayFiltersValidation/uppercase_identifier_bulkWrite":     true,
-	"TestArrayFiltersValidation/uppercase_identifier_findAndModify": true,
-	"TestArrayFiltersValidation/uppercase_identifier_updateMany":    true,
-	"TestArrayFiltersValidation/uppercase_identifier_updateOne":     true,
-}
-
 func TestArrayFiltersValidation(t *testing.T) {
 	one := bson.D{{Key: "_id", Value: 1}}
 	none := bson.D{{Key: "_id", Value: 9}}
 	setB := bson.D{{Key: "$set", Value: bson.D{{Key: "b", Value: 5}}}}
 	setE := bson.D{{Key: "$set", Value: bson.D{{Key: "a.$[e]", Value: 5}}}}
 	gt1 := func(id string) bson.D { return bson.D{{Key: id, Value: bson.D{{Key: "$gt", Value: 1}}}} }
-	runArrayFilterCases(t, "ArrayFiltersValidation", arrayFiltersValidationXFail, []interface{}{
+	runArrayFilterCases(t, "ArrayFiltersValidation", nil, []interface{}{
 		bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: 0}},
 	}, []struct {
 		name    string
