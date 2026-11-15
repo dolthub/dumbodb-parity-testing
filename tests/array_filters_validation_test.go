@@ -74,7 +74,7 @@ func arrayFilterWriters(filter, update interface{}, filters []interface{}) []str
 	}
 }
 
-func runArrayFilterCases(t *testing.T, prefix string, xfail map[string]bool, setup []interface{}, cases []struct {
+func runArrayFilterCases(t *testing.T, prefix string, setup []interface{}, cases []struct {
 	name    string
 	filter  bson.D
 	update  interface{}
@@ -85,7 +85,7 @@ func runArrayFilterCases(t *testing.T, prefix string, xfail map[string]bool, set
 			t.Run(c.name+"_"+w.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    prefix + "_" + c.name + "_" + w.name,
-					Support: supportFor(t, xfail),
+					Support: harness.DumboDBFull,
 					Setup:   insertDocs(setup...),
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 						return writeOutcome(ctx, col, func() error { return w.write(ctx, col) })
@@ -102,7 +102,7 @@ func TestArrayFiltersValidation(t *testing.T) {
 	setB := bson.D{{Key: "$set", Value: bson.D{{Key: "b", Value: 5}}}}
 	setE := bson.D{{Key: "$set", Value: bson.D{{Key: "a.$[e]", Value: 5}}}}
 	gt1 := func(id string) bson.D { return bson.D{{Key: id, Value: bson.D{{Key: "$gt", Value: 1}}}} }
-	runArrayFilterCases(t, "ArrayFiltersValidation", nil, []interface{}{
+	runArrayFilterCases(t, "ArrayFiltersValidation", []interface{}{
 		bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: 0}},
 	}, []struct {
 		name    string

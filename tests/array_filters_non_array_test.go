@@ -29,48 +29,11 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// arrayFiltersNonArrayXFail lists the cases DumboDB fails until dolthub/dumbodb#253 is fixed.
-var arrayFiltersNonArrayXFail = map[string]bool{
-	"TestArrayFiltersNonArray/all_positional_all_docs_bulkWrite":      true,
-	"TestArrayFiltersNonArray/all_positional_all_docs_updateMany":     true,
-	"TestArrayFiltersNonArray/all_positional_missing_bulkWrite":       true,
-	"TestArrayFiltersNonArray/all_positional_missing_findAndModify":   true,
-	"TestArrayFiltersNonArray/all_positional_missing_updateMany":      true,
-	"TestArrayFiltersNonArray/all_positional_missing_updateOne":       true,
-	"TestArrayFiltersNonArray/all_positional_non_array_bulkWrite":     true,
-	"TestArrayFiltersNonArray/all_positional_non_array_findAndModify": true,
-	"TestArrayFiltersNonArray/all_positional_non_array_updateMany":    true,
-	"TestArrayFiltersNonArray/all_positional_non_array_updateOne":     true,
-	"TestArrayFiltersNonArray/filtered_all_docs_bulkWrite":            true,
-	"TestArrayFiltersNonArray/filtered_all_docs_updateMany":           true,
-	"TestArrayFiltersNonArray/filtered_missing_bulkWrite":             true,
-	"TestArrayFiltersNonArray/filtered_missing_findAndModify":         true,
-	"TestArrayFiltersNonArray/filtered_missing_updateMany":            true,
-	"TestArrayFiltersNonArray/filtered_missing_updateOne":             true,
-	"TestArrayFiltersNonArray/filtered_non_array_bulkWrite":           true,
-	"TestArrayFiltersNonArray/filtered_non_array_findAndModify":       true,
-	"TestArrayFiltersNonArray/filtered_non_array_updateMany":          true,
-	"TestArrayFiltersNonArray/filtered_non_array_updateOne":           true,
-	"TestArrayFiltersNonArray/inc_non_array_bulkWrite":                true,
-	"TestArrayFiltersNonArray/inc_non_array_findAndModify":            true,
-	"TestArrayFiltersNonArray/inc_non_array_updateMany":               true,
-	"TestArrayFiltersNonArray/inc_non_array_updateOne":                true,
-	"TestArrayFiltersNonArray/nested_missing_path_bulkWrite":          true,
-	"TestArrayFiltersNonArray/nested_missing_path_findAndModify":      true,
-	"TestArrayFiltersNonArray/nested_missing_path_updateMany":         true,
-	"TestArrayFiltersNonArray/nested_missing_path_updateOne":          true,
-	"TestArrayFiltersNonArray/unset_non_array_bulkWrite":              true,
-	"TestArrayFiltersNonArray/unset_non_array_findAndModify":          true,
-	"TestArrayFiltersNonArray/unset_non_array_updateMany":             true,
-	"TestArrayFiltersNonArray/unset_non_array_updateOne":              true,
-	"TestArrayFiltersNonArrayUpsert":                                  true,
-}
-
 func TestArrayFiltersNonArray(t *testing.T) {
 	setE := bson.D{{Key: "$set", Value: bson.D{{Key: "x.$[e]", Value: 9}}}}
 	setAll := bson.D{{Key: "$set", Value: bson.D{{Key: "x.$[]", Value: 9}}}}
 	positive := []interface{}{bson.D{{Key: "e", Value: bson.D{{Key: "$gt", Value: 0}}}}}
-	runArrayFilterCases(t, "ArrayFiltersNonArray", arrayFiltersNonArrayXFail, []interface{}{
+	runArrayFilterCases(t, "ArrayFiltersNonArray", []interface{}{
 		bson.D{{Key: "_id", Value: 1}, {Key: "x", Value: bson.A{1, 2}}},
 		bson.D{{Key: "_id", Value: 2}, {Key: "x", Value: 5}},
 		bson.D{{Key: "_id", Value: 3}, {Key: "x", Value: bson.A{3}}},
@@ -97,7 +60,7 @@ func TestArrayFiltersNonArray(t *testing.T) {
 func TestArrayFiltersNonArrayUpsert(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ArrayFiltersNonArrayUpsert",
-		Support: supportFor(t, arrayFiltersNonArrayXFail),
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return writeOutcome(ctx, col, func() error {
 				_, err := col.UpdateOne(ctx, bson.D{{Key: "_id", Value: 7}},
