@@ -29,68 +29,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// arrayIndexPathXFail lists the cases DumboDB fails until dolthub/dumbodb#296 is fixed.
-var arrayIndexPathXFail = map[string]bool{
-	"TestArrayIndexPath_AggregateMatch":                      true,
-	"TestArrayIndexPath_Count/eq":                            true,
-	"TestArrayIndexPath_Count/eq_array":                      true,
-	"TestArrayIndexPath_Count/field_then_index":              true,
-	"TestArrayIndexPath_Count/gt":                            true,
-	"TestArrayIndexPath_Count/gte_lte":                       true,
-	"TestArrayIndexPath_Count/in":                            true,
-	"TestArrayIndexPath_Count/lt_array":                      true,
-	"TestArrayIndexPath_Count/mod":                           true,
-	"TestArrayIndexPath_Count/ne":                            true,
-	"TestArrayIndexPath_Count/nested_index":                  true,
-	"TestArrayIndexPath_Count/nested_index_gt":               true,
-	"TestArrayIndexPath_Count/nin":                           true,
-	"TestArrayIndexPath_Count/nor":                           true,
-	"TestArrayIndexPath_Count/not_eq":                        true,
-	"TestArrayIndexPath_Count/not_gt":                        true,
-	"TestArrayIndexPath_Count/type_int":                      true,
-	"TestArrayIndexPath_Find/eq":                             true,
-	"TestArrayIndexPath_Find/eq_array":                       true,
-	"TestArrayIndexPath_Find/field_then_index":               true,
-	"TestArrayIndexPath_Find/gt":                             true,
-	"TestArrayIndexPath_Find/gte_lte":                        true,
-	"TestArrayIndexPath_Find/in":                             true,
-	"TestArrayIndexPath_Find/lt_array":                       true,
-	"TestArrayIndexPath_Find/mod":                            true,
-	"TestArrayIndexPath_Find/ne":                             true,
-	"TestArrayIndexPath_Find/nested_index":                   true,
-	"TestArrayIndexPath_Find/nested_index_gt":                true,
-	"TestArrayIndexPath_Find/nin":                            true,
-	"TestArrayIndexPath_Find/nor":                            true,
-	"TestArrayIndexPath_Find/not_eq":                         true,
-	"TestArrayIndexPath_Find/not_gt":                         true,
-	"TestArrayIndexPath_Find/type_int":                       true,
-	"TestArrayIndexPath_IndexedCount/a_0_0_eq":               true,
-	"TestArrayIndexPath_IndexedCount/a_0_0_field_then_index": true,
-	"TestArrayIndexPath_IndexedCount/a_0_0_gt":               true,
-	"TestArrayIndexPath_IndexedCount/a_0_0_nested_index":     true,
-	"TestArrayIndexPath_IndexedCount/a_0_eq":                 true,
-	"TestArrayIndexPath_IndexedCount/a_0_field_then_index":   true,
-	"TestArrayIndexPath_IndexedCount/a_0_gt":                 true,
-	"TestArrayIndexPath_IndexedCount/a_0_nested_index":       true,
-	"TestArrayIndexPath_IndexedCount/a_b_0_eq":               true,
-	"TestArrayIndexPath_IndexedCount/a_b_0_field_then_index": true,
-	"TestArrayIndexPath_IndexedCount/a_b_0_gt":               true,
-	"TestArrayIndexPath_IndexedCount/a_b_0_nested_index":     true,
-	"TestArrayIndexPath_IndexedCount/a_eq":                   true,
-	"TestArrayIndexPath_IndexedCount/a_field_then_index":     true,
-	"TestArrayIndexPath_IndexedCount/a_gt":                   true,
-	"TestArrayIndexPath_IndexedCount/a_nested_index":         true,
-	"TestArrayIndexPath_Writes/bulkWrite_updateMany_eq":      true,
-	"TestArrayIndexPath_Writes/deleteMany_eq":                true,
-	"TestArrayIndexPath_Writes/deleteMany_mod":               true,
-	"TestArrayIndexPath_Writes/deleteMany_nor":               true,
-	"TestArrayIndexPath_Writes/findAndModify_gt":             true,
-	"TestArrayIndexPath_Writes/findAndModify_remove_gt":      true,
-	"TestArrayIndexPath_Writes/updateMany_eq":                true,
-	"TestArrayIndexPath_Writes/updateMany_nor":               true,
-	"TestArrayIndexPath_Writes/updateMany_not":               true,
-}
-
 func arrayIndexPathDocs() []interface{} {
 	return []interface{}{
 		bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: bson.A{bson.A{1}, bson.A{3}}}},
@@ -144,7 +82,7 @@ func TestArrayIndexPath_Find(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "ArrayIndexPath_Find_" + tc.name,
-				Support: supportFor(t, arrayIndexPathXFail),
+				Support: harness.DumboDBFull,
 				Setup:   insertDocs(arrayIndexPathDocs()...),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return sortedIDs(ctx, col, tc.filter)
@@ -159,7 +97,7 @@ func TestArrayIndexPath_Count(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "ArrayIndexPath_Count_" + tc.name,
-				Support: supportFor(t, arrayIndexPathXFail),
+				Support: harness.DumboDBFull,
 				Setup:   insertDocs(arrayIndexPathDocs()...),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return col.CountDocuments(ctx, tc.filter)
@@ -193,7 +131,7 @@ func TestArrayIndexPath_IndexedCount(t *testing.T) {
 			t.Run(idx.name+"_"+tc.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "ArrayIndexPath_IndexedCount_" + idx.name + "_" + tc.name,
-					Support: supportFor(t, arrayIndexPathXFail),
+					Support: harness.DumboDBFull,
 					Setup: func(ctx context.Context, col *mongo.Collection) error {
 						if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: idx.key}); err != nil {
 							return err
@@ -262,7 +200,7 @@ func TestArrayIndexPath_Writes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "ArrayIndexPath_Writes_" + tc.name,
-				Support: supportFor(t, arrayIndexPathXFail),
+				Support: harness.DumboDBFull,
 				Setup:   insertDocs(arrayIndexPathDocs()...),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return writeOutcome(ctx, col, func() error { return tc.write(ctx, col) })
@@ -275,7 +213,7 @@ func TestArrayIndexPath_Writes(t *testing.T) {
 func TestArrayIndexPath_AggregateMatch(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "ArrayIndexPath_AggregateMatch",
-		Support: supportFor(t, arrayIndexPathXFail),
+		Support: harness.DumboDBFull,
 		Setup:   insertDocs(arrayIndexPathDocs()...),
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			cur, err := col.Aggregate(ctx, bson.A{
