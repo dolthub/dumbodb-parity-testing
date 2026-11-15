@@ -77,7 +77,7 @@ func TestRenamePathPrecedence(t *testing.T) {
 			t.Run(c.name+"_"+w.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "RenamePathPrecedence_" + c.name + "_" + w.name,
-					Support: supportFor(t, renamePrecedenceXFail),
+					Support: harness.DumboDBFull,
 					Setup:   insertDocs(bson.D{{Key: "_id", Value: 1}, {Key: "s", Value: "x"}}),
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 						return writeOutcome(ctx, col, func() error { return w.write(ctx, col) })
@@ -86,41 +86,4 @@ func TestRenamePathPrecedence(t *testing.T) {
 			})
 		}
 	}
-}
-
-// renamePrecedenceXFail lists the review cases DumboDB fails until the follow-up fix for
-// dolthub/dumbodb#250.
-var renamePrecedenceXFail = map[string]bool{
-	"TestRenamePathPrecedence/rename_then_set_its_target_bulkWrite":             true,
-	"TestRenamePathPrecedence/rename_then_set_its_target_findAndModify":         true,
-	"TestRenamePathPrecedence/rename_then_set_its_target_updateMany":            true,
-	"TestRenamePathPrecedence/rename_then_set_its_target_updateOne":             true,
-	"TestRenamePathPrecedence/set_then_rename_onto_it_bulkWrite":                true,
-	"TestRenamePathPrecedence/set_then_rename_onto_it_findAndModify":            true,
-	"TestRenamePathPrecedence/set_then_rename_onto_it_updateMany":               true,
-	"TestRenamePathPrecedence/set_then_rename_onto_it_updateOne":                true,
-	"TestRenamePathPrecedence/set_then_rename_same_path_bulkWrite":              true,
-	"TestRenamePathPrecedence/set_then_rename_same_path_findAndModify":          true,
-	"TestRenamePathPrecedence/set_then_rename_same_path_no_match_bulkWrite":     true,
-	"TestRenamePathPrecedence/set_then_rename_same_path_no_match_findAndModify": true,
-	"TestRenamePathPrecedence/set_then_rename_same_path_no_match_updateMany":    true,
-	"TestRenamePathPrecedence/set_then_rename_same_path_no_match_updateOne":     true,
-	"TestRenamePathPrecedence/set_then_rename_same_path_updateMany":             true,
-	"TestRenamePathPrecedence/set_then_rename_same_path_updateOne":              true,
-	"TestRenamePathPrecedence/source_leading_dot_no_match_bulkWrite":            true,
-	"TestRenamePathPrecedence/source_leading_dot_no_match_findAndModify":        true,
-	"TestRenamePathPrecedence/source_leading_dot_no_match_updateMany":           true,
-	"TestRenamePathPrecedence/source_leading_dot_no_match_updateOne":            true,
-	"TestRenamePathPrecedence/target_empty_element_bulkWrite":                   true,
-	"TestRenamePathPrecedence/target_empty_element_findAndModify":               true,
-	"TestRenamePathPrecedence/target_empty_element_updateMany":                  true,
-	"TestRenamePathPrecedence/target_empty_element_updateOne":                   true,
-	"TestRenamePathPrecedence/target_leading_dot_bulkWrite":                     true,
-	"TestRenamePathPrecedence/target_leading_dot_findAndModify":                 true,
-	"TestRenamePathPrecedence/target_leading_dot_updateMany":                    true,
-	"TestRenamePathPrecedence/target_leading_dot_updateOne":                     true,
-	"TestRenamePathPrecedence/target_trailing_dot_bulkWrite":                    true,
-	"TestRenamePathPrecedence/target_trailing_dot_findAndModify":                true,
-	"TestRenamePathPrecedence/target_trailing_dot_updateMany":                   true,
-	"TestRenamePathPrecedence/target_trailing_dot_updateOne":                    true,
 }
