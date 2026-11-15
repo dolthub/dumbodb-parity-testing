@@ -30,28 +30,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// allOperatorDocumentsXFail lists the cases DumboDB fails until dolthub/dumbodb#289 is fixed.
-var allOperatorDocumentsXFail = map[string]bool{
-	"TestAllOperatorDocuments/empty_collection_elemMatch_after_value": true,
-	"TestAllOperatorDocuments/empty_collection_eq_document":           true,
-	"TestAllOperatorDocuments/empty_collection_gt_document":           true,
-	"TestAllOperatorDocuments/empty_collection_nested_under_not":      true,
-	"TestAllOperatorDocuments/empty_collection_nested_under_or":       true,
-	"TestAllOperatorDocuments/empty_collection_regex_document":        true,
-	"TestAllOperatorDocuments/empty_collection_value_after_elemMatch": true,
-	"TestAllOperatorDocuments/find_elemMatch_after_value":             true,
-	"TestAllOperatorDocuments/find_eq_document":                       true,
-	"TestAllOperatorDocuments/find_gt_document":                       true,
-	"TestAllOperatorDocuments/find_nested_under_not":                  true,
-	"TestAllOperatorDocuments/find_nested_under_or":                   true,
-	"TestAllOperatorDocuments/find_regex_document":                    true,
-	"TestAllOperatorDocuments/find_value_after_elemMatch":             true,
-	"TestAllOperatorDocuments/write_bulkWrite":                        true,
-	"TestAllOperatorDocuments/write_deleteMany":                       true,
-	"TestAllOperatorDocuments/write_findAndModify":                    true,
-	"TestAllOperatorDocuments/write_updateOne":                        true,
-}
-
 func TestAllOperatorDocuments(t *testing.T) {
 	all := func(elems ...interface{}) bson.D {
 		return bson.D{{Key: "x", Value: bson.D{{Key: "$all", Value: bson.A(elems)}}}}
@@ -82,7 +60,7 @@ func TestAllOperatorDocuments(t *testing.T) {
 		t.Run("find_"+tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "AllOperatorDocuments_find_" + tc.name,
-				Support: supportFor(t, allOperatorDocumentsXFail),
+				Support: harness.DumboDBFull,
 				Setup:   insertDocs(docs...),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return sortedIDs(ctx, col, tc.filter)
@@ -92,7 +70,7 @@ func TestAllOperatorDocuments(t *testing.T) {
 		t.Run("empty_collection_"+tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "AllOperatorDocuments_empty_" + tc.name,
-				Support: supportFor(t, allOperatorDocumentsXFail),
+				Support: harness.DumboDBFull,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return col.CountDocuments(ctx, tc.filter)
 				},
@@ -125,7 +103,7 @@ func TestAllOperatorDocuments(t *testing.T) {
 		t.Run("write_"+tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "AllOperatorDocuments_write_" + tc.name,
-				Support: supportFor(t, allOperatorDocumentsXFail),
+				Support: harness.DumboDBFull,
 				Setup:   insertDocs(docs...),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return writeOutcome(ctx, col, func() error { return tc.write(ctx, col) })
