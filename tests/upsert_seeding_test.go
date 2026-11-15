@@ -36,29 +36,6 @@ import (
 
 // docsWithoutID returns the collection's documents without _id, sorted by the
 // given key, for upserts whose generated _ids differ between servers.
-// upsertXFail lists the cases DumboDB fails until dolthub/dumbodb#262 is fixed.
-var upsertXFail = map[string]bool{
-	"TestBulkWriteUpsertedEntry":                    true,
-	"TestUpsertBatchStatementErrors/expr_ordered":   true,
-	"TestUpsertBatchStatementErrors/expr_unordered": true,
-	"TestUpsertSeeding/expr_bulkWrite":              true,
-	"TestUpsertSeeding/expr_findAndModify":          true,
-	"TestUpsertSeeding/expr_in_and_bulkWrite":       true,
-	"TestUpsertSeeding/expr_in_and_findAndModify":   true,
-	"TestUpsertSeeding/expr_in_and_pipeline":        true,
-	"TestUpsertSeeding/expr_in_and_replaceOne":      true,
-	"TestUpsertSeeding/expr_in_and_updateOne":       true,
-	"TestUpsertSeeding/expr_in_nor_bulkWrite":       true,
-	"TestUpsertSeeding/expr_in_nor_findAndModify":   true,
-	"TestUpsertSeeding/expr_in_nor_pipeline":        true,
-	"TestUpsertSeeding/expr_in_nor_replaceOne":      true,
-	"TestUpsertSeeding/expr_in_nor_updateOne":       true,
-	"TestUpsertSeeding/expr_pipeline":               true,
-	"TestUpsertSeeding/expr_replaceOne":             true,
-	"TestUpsertSeeding/expr_updateOne":              true,
-	"TestUpsertSeedingWithMatch/expr":               true,
-}
-
 func docsWithoutID(ctx context.Context, col *mongo.Collection, sort bson.D) ([]bson.D, error) {
 	cur, err := col.Find(ctx, bson.D{}, options.Find().SetProjection(bson.D{{Key: "_id", Value: 0}}).SetSort(sort))
 	if err != nil {
@@ -134,7 +111,7 @@ func TestUpsertSeeding(t *testing.T) {
 			t.Run(f.name+"_"+w.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "UpsertSeeding_" + f.name + "_" + w.name,
-					Support: supportFor(t, upsertXFail),
+					Support: harness.DumboDBFull,
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 						code := outcomeCode(w.write(ctx, col, f.filter))
 						docs, err := docsWithoutID(ctx, col, bson.D{{Key: "_id", Value: 1}})
@@ -159,7 +136,7 @@ func TestUpsertSeedingWithMatch(t *testing.T) {
 		t.Run(f.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "UpsertSeedingWithMatch_" + f.name,
-				Support: supportFor(t, upsertXFail),
+				Support: harness.DumboDBFull,
 				Setup:   insertDocs(bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 1}}),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return writeOutcome(ctx, col, func() error {
@@ -227,7 +204,7 @@ func TestUpsertBatchStatementErrors(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "UpsertBatchStatementErrors_" + name,
-					Support: supportFor(t, upsertXFail),
+					Support: harness.DumboDBFull,
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 						return updateBatchSummary(ctx, col, bson.D{
 							{Key: "update", Value: col.Name()},
@@ -271,7 +248,7 @@ func bulkWriteCursorEntries(ctx context.Context, col *mongo.Collection, ops bson
 func TestBulkWriteUpsertedEntry(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "BulkWriteUpsertedEntry",
-		Support: supportFor(t, upsertXFail),
+		Support: harness.DumboDBFull,
 		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 			return bulkWriteCursorEntries(ctx, col, bson.A{
 				bson.D{{Key: "update", Value: 0}, {Key: "filter", Value: bson.D{{Key: "_id", Value: 77}}},
