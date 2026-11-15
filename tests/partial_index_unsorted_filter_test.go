@@ -30,22 +30,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// partialIndexUnsortedFilterXFail lists the cases DumboDB fails until dolthub/dumbodb#208 is fixed.
-var partialIndexUnsortedFilterXFail = map[string]bool{
-	"TestPartialIndexUnsortedFilter/and_build_over_duplicates":     true,
-	"TestPartialIndexUnsortedFilter/and_insert_after_build":        true,
-	"TestPartialIndexUnsortedFilter/and_update_into_filter":        true,
-	"TestPartialIndexUnsortedFilter/eq_build_over_duplicates":      true,
-	"TestPartialIndexUnsortedFilter/eq_insert_after_build":         true,
-	"TestPartialIndexUnsortedFilter/eq_update_into_filter":         true,
-	"TestPartialIndexUnsortedFilter/in_build_over_duplicates":      true,
-	"TestPartialIndexUnsortedFilter/in_insert_after_build":         true,
-	"TestPartialIndexUnsortedFilter/in_update_into_filter":         true,
-	"TestPartialIndexUnsortedFilter/literal_build_over_duplicates": true,
-	"TestPartialIndexUnsortedFilter/literal_insert_after_build":    true,
-	"TestPartialIndexUnsortedFilter/literal_update_into_filter":    true,
-}
-
 func TestPartialIndexUnsortedFilter(t *testing.T) {
 	yx := bson.D{{Key: "y", Value: 1}, {Key: "x", Value: 1}}
 	for _, filter := range []struct {
@@ -63,7 +47,7 @@ func TestPartialIndexUnsortedFilter(t *testing.T) {
 		t.Run(filter.name+"_insert_after_build", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "PartialIndexUnsortedFilter_" + filter.name + "_insert_after_build",
-				Support: supportFor(t, partialIndexUnsortedFilterXFail),
+				Support: harness.DumboDBFull,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: 1}, {Key: "k", Value: 1}, {Key: "a", Value: yx}}); err != nil {
 						return err
@@ -82,7 +66,7 @@ func TestPartialIndexUnsortedFilter(t *testing.T) {
 		t.Run(filter.name+"_build_over_duplicates", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "PartialIndexUnsortedFilter_" + filter.name + "_build_over_duplicates",
-				Support: supportFor(t, partialIndexUnsortedFilterXFail),
+				Support: harness.DumboDBFull,
 				Setup: insertDocs(
 					bson.D{{Key: "_id", Value: 1}, {Key: "k", Value: 1}, {Key: "a", Value: yx}},
 					bson.D{{Key: "_id", Value: 2}, {Key: "k", Value: 1}, {Key: "a", Value: yx}},
@@ -96,7 +80,7 @@ func TestPartialIndexUnsortedFilter(t *testing.T) {
 		t.Run(filter.name+"_update_into_filter", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "PartialIndexUnsortedFilter_" + filter.name + "_update_into_filter",
-				Support: supportFor(t, partialIndexUnsortedFilterXFail),
+				Support: harness.DumboDBFull,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					if _, err := col.InsertMany(ctx, []interface{}{
 						bson.D{{Key: "_id", Value: 1}, {Key: "k", Value: 1}, {Key: "a", Value: yx}},
