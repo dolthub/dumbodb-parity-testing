@@ -161,7 +161,7 @@ func TestUpdateDollarPrefixedFieldStored(t *testing.T) {
 			t.Run(tc.name+"_"+target.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "UpdateDollarPrefixedFieldStored_" + tc.name + "_" + target.name,
-					Support: supportFor(t, updateDollarFieldReviewXFail),
+					Support: harness.DumboDBFull,
 					Setup:   insertDocs(tc.stored),
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 						opts := tc.opts
@@ -177,26 +177,4 @@ func TestUpdateDollarPrefixedFieldStored(t *testing.T) {
 			})
 		}
 	}
-}
-
-// updateDollarFieldReviewXFail lists the review cases DumboDB fails until the follow-up fix for
-// dolthub/dumbodb#254.
-var updateDollarFieldReviewXFail = map[string]bool{
-	"TestUpdateDollarPrefixedFieldStored/all_positional_first_match":         true,
-	"TestUpdateDollarPrefixedFieldStored/all_positional_first_no_match":      true,
-	"TestUpdateDollarPrefixedFieldStored/filtered_positional_first_match":    true,
-	"TestUpdateDollarPrefixedFieldStored/filtered_positional_first_no_match": true,
-	"TestUpdateDollarPrefixedFieldStored/max_unchanged_match":                true,
-	"TestUpdateDollarPrefixedFieldStored/pop_existing_match":                 true,
-	"TestUpdateDollarPrefixedFieldStored/positional_first_dotted_match":      true,
-	"TestUpdateDollarPrefixedFieldStored/positional_first_dotted_no_match":   true,
-	"TestUpdateDollarPrefixedFieldStored/positional_first_match":             true,
-	"TestUpdateDollarPrefixedFieldStored/positional_first_no_match":          true,
-	"TestUpdateDollarPrefixedFieldStored/pullAll_existing_match":             true,
-	"TestUpdateDollarPrefixedFieldStored/pull_existing_match":                true,
-	"TestUpdateDollarPrefixedFieldStored/setOnInsert_upsert_match_match":     true,
-	"TestUpdateDollarPrefixedFieldStored/setOnInsert_without_insert_match":   true,
-	"TestUpdateDollarPrefixedFieldStored/set_below_existing_match":           true,
-	"TestUpdateDollarPrefixedFieldStored/set_new_below_existing_match":       true,
-	"TestUpdateDollarPrefixedFieldStored/set_unchanged_match":                true,
 }
