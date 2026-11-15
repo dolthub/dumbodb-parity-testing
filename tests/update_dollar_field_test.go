@@ -81,39 +81,11 @@ func runUpdateCases(t *testing.T, prefix string, xfail map[string]bool, setup []
 	}
 }
 
-// updateDollarFieldXFail lists the cases DumboDB fails until dolthub/dumbodb#254 is fixed.
-var updateDollarFieldXFail = map[string]bool{
-	"TestUpdateDollarPrefixedField/inc_top_bulkWrite":            true,
-	"TestUpdateDollarPrefixedField/inc_top_findAndModify":        true,
-	"TestUpdateDollarPrefixedField/inc_top_updateMany":           true,
-	"TestUpdateDollarPrefixedField/inc_top_updateOne":            true,
-	"TestUpdateDollarPrefixedField/push_top_bulkWrite":           true,
-	"TestUpdateDollarPrefixedField/push_top_findAndModify":       true,
-	"TestUpdateDollarPrefixedField/push_top_updateMany":          true,
-	"TestUpdateDollarPrefixedField/push_top_updateOne":           true,
-	"TestUpdateDollarPrefixedField/rename_to_top_bulkWrite":      true,
-	"TestUpdateDollarPrefixedField/rename_to_top_findAndModify":  true,
-	"TestUpdateDollarPrefixedField/rename_to_top_updateMany":     true,
-	"TestUpdateDollarPrefixedField/rename_to_top_updateOne":      true,
-	"TestUpdateDollarPrefixedField/set_many_docs_bulkWrite":      true,
-	"TestUpdateDollarPrefixedField/set_many_docs_findAndModify":  true,
-	"TestUpdateDollarPrefixedField/set_many_docs_updateMany":     true,
-	"TestUpdateDollarPrefixedField/set_many_docs_updateOne":      true,
-	"TestUpdateDollarPrefixedField/set_top_bulkWrite":            true,
-	"TestUpdateDollarPrefixedField/set_top_dotted_bulkWrite":     true,
-	"TestUpdateDollarPrefixedField/set_top_dotted_findAndModify": true,
-	"TestUpdateDollarPrefixedField/set_top_dotted_updateMany":    true,
-	"TestUpdateDollarPrefixedField/set_top_dotted_updateOne":     true,
-	"TestUpdateDollarPrefixedField/set_top_findAndModify":        true,
-	"TestUpdateDollarPrefixedField/set_top_updateMany":           true,
-	"TestUpdateDollarPrefixedField/set_top_updateOne":            true,
-}
-
 func TestUpdateDollarPrefixedField(t *testing.T) {
 	one := bson.D{{Key: "_id", Value: 1}}
 	none := bson.D{{Key: "_id", Value: 9}}
 	set := func(k string) bson.D { return bson.D{{Key: "$set", Value: bson.D{{Key: k, Value: 1}}}} }
-	runUpdateCases(t, "UpdateDollarPrefixedField", updateDollarFieldXFail, []interface{}{
+	runUpdateCases(t, "UpdateDollarPrefixedField", nil, []interface{}{
 		bson.D{{Key: "_id", Value: 1}, {Key: "s", Value: "x"}, {Key: "a", Value: bson.D{{Key: "b", Value: 1}}}},
 		bson.D{{Key: "_id", Value: 2}, {Key: "s", Value: "y"}},
 	}, []struct {
