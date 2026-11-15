@@ -104,30 +104,9 @@ func runIndexWriteCases(t *testing.T, prefix string, xfail map[string]bool, case
 	}
 }
 
-// indexParallelArraysXFail lists the cases DumboDB fails until dolthub/dumbodb#228 is fixed.
-var indexParallelArraysXFail = map[string]bool{
-	"TestIndexParallelArrays/both_arrays_build":                true,
-	"TestIndexParallelArrays/both_arrays_insert":               true,
-	"TestIndexParallelArrays/both_arrays_update":               true,
-	"TestIndexParallelArrays/nested_and_top_build":             true,
-	"TestIndexParallelArrays/nested_and_top_insert":            true,
-	"TestIndexParallelArrays/partial_included_build":           true,
-	"TestIndexParallelArrays/partial_included_insert":          true,
-	"TestIndexParallelArrays/positional_build":                 true,
-	"TestIndexParallelArrays/positional_insert":                true,
-	"TestIndexParallelArrays/shared_parent_both_nested_build":  true,
-	"TestIndexParallelArrays/shared_parent_both_nested_insert": true,
-	"TestIndexParallelArrays/sparse_build":                     true,
-	"TestIndexParallelArrays/sparse_insert":                    true,
-	"TestIndexParallelArrays/three_fields_build":               true,
-	"TestIndexParallelArrays/three_fields_insert":              true,
-	"TestIndexParallelArraysBatch/ordered":                     true,
-	"TestIndexParallelArraysBatch/unordered":                   true,
-}
-
 func TestIndexParallelArrays(t *testing.T) {
 	ab := bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}}
-	runIndexWriteCases(t, "IndexParallelArrays", indexParallelArraysXFail, []indexWriteCase{
+	runIndexWriteCases(t, "IndexParallelArrays", nil, []indexWriteCase{
 		{"both_arrays", ab, nil, bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: bson.A{3, 4}}},
 			bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: bson.A{3, 4}}}},
 		{"one_array", ab, nil, bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: 3}},
@@ -162,7 +141,7 @@ func TestIndexParallelArraysBatch(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "IndexParallelArraysBatch_" + name,
-				Support: supportFor(t, indexParallelArraysXFail),
+				Support: harness.DumboDBFull,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}}})
 					return err
