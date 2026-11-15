@@ -59,7 +59,7 @@ func updateWriters(filter, update interface{}, upsert bool) []struct {
 	}
 }
 
-func runUpdateCases(t *testing.T, prefix string, xfail map[string]bool, setup []interface{}, cases []struct {
+func runUpdateCases(t *testing.T, prefix string, setup []interface{}, cases []struct {
 	name   string
 	filter bson.D
 	update interface{}
@@ -70,7 +70,7 @@ func runUpdateCases(t *testing.T, prefix string, xfail map[string]bool, setup []
 			t.Run(c.name+"_"+w.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    prefix + "_" + c.name + "_" + w.name,
-					Support: supportFor(t, xfail),
+					Support: harness.DumboDBFull,
 					Setup:   insertDocs(setup...),
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 						return writeOutcome(ctx, col, func() error { return w.write(ctx, col) })
@@ -85,7 +85,7 @@ func TestUpdateDollarPrefixedField(t *testing.T) {
 	one := bson.D{{Key: "_id", Value: 1}}
 	none := bson.D{{Key: "_id", Value: 9}}
 	set := func(k string) bson.D { return bson.D{{Key: "$set", Value: bson.D{{Key: k, Value: 1}}}} }
-	runUpdateCases(t, "UpdateDollarPrefixedField", nil, []interface{}{
+	runUpdateCases(t, "UpdateDollarPrefixedField", []interface{}{
 		bson.D{{Key: "_id", Value: 1}, {Key: "s", Value: "x"}, {Key: "a", Value: bson.D{{Key: "b", Value: 1}}}},
 		bson.D{{Key: "_id", Value: 2}, {Key: "s", Value: "y"}},
 	}, []struct {

@@ -23,33 +23,13 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// renameSamePathXFail lists the cases DumboDB fails until dolthub/dumbodb#250 is fixed.
-var renameSamePathXFail = map[string]bool{
-	"TestRenameSamePath/onto_parent_bulkWrite":                true,
-	"TestRenameSamePath/onto_parent_findAndModify":            true,
-	"TestRenameSamePath/onto_parent_updateMany":               true,
-	"TestRenameSamePath/onto_parent_updateOne":                true,
-	"TestRenameSamePath/onto_sub_path_bulkWrite":              true,
-	"TestRenameSamePath/onto_sub_path_findAndModify":          true,
-	"TestRenameSamePath/onto_sub_path_no_match_bulkWrite":     true,
-	"TestRenameSamePath/onto_sub_path_no_match_findAndModify": true,
-	"TestRenameSamePath/onto_sub_path_no_match_updateMany":    true,
-	"TestRenameSamePath/onto_sub_path_no_match_updateOne":     true,
-	"TestRenameSamePath/onto_sub_path_updateMany":             true,
-	"TestRenameSamePath/onto_sub_path_updateOne":              true,
-	"TestRenameSamePath/onto_sub_path_upsert_bulkWrite":       true,
-	"TestRenameSamePath/onto_sub_path_upsert_findAndModify":   true,
-	"TestRenameSamePath/onto_sub_path_upsert_updateMany":      true,
-	"TestRenameSamePath/onto_sub_path_upsert_updateOne":       true,
-}
-
 func TestRenameSamePath(t *testing.T) {
 	one := bson.D{{Key: "_id", Value: 1}}
 	none := bson.D{{Key: "_id", Value: 9}}
 	rename := func(from, to string) bson.D {
 		return bson.D{{Key: "$rename", Value: bson.D{{Key: from, Value: to}}}}
 	}
-	runUpdateCases(t, "RenameSamePath", renameSamePathXFail, []interface{}{
+	runUpdateCases(t, "RenameSamePath", []interface{}{
 		bson.D{{Key: "_id", Value: 1}, {Key: "s", Value: "x"}, {Key: "a", Value: bson.D{{Key: "b", Value: 1}}}},
 	}, []struct {
 		name   string
