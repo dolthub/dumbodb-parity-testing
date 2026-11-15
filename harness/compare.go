@@ -298,6 +298,24 @@ func normalize(v interface{}) interface{} {
 		return val
 	case primitive.DateTime:
 		return val
+	case primitive.Symbol:
+		return typedScalar{bsonType: "Symbol", value: string(val)}
+	case primitive.JavaScript:
+		return typedScalar{bsonType: "JavaScript", value: string(val)}
+	case primitive.CodeWithScope:
+		return typedScalar{bsonType: "CodeWithScope", value: fmt.Sprintf("%s %v", val.Code, normalize(val.Scope))}
+	case primitive.DBPointer:
+		return typedScalar{bsonType: "DBPointer", value: val.DB + "." + val.Pointer.Hex()}
+	case primitive.Decimal128:
+		return typedScalar{bsonType: "Decimal128", value: val.String()}
+	case primitive.Undefined:
+		return typedScalar{bsonType: "Undefined"}
+	case primitive.Null:
+		return nil
+	case primitive.MinKey:
+		return typedScalar{bsonType: "MinKey"}
+	case primitive.MaxKey:
+		return typedScalar{bsonType: "MaxKey"}
 	case primitive.Timestamp:
 		return "<Timestamp>"
 	case int32, int64:
@@ -460,4 +478,18 @@ func formatValue(v interface{}) string {
 	default:
 		return fmt.Sprintf("%v", val)
 	}
+}
+
+// typedScalar keeps a value's BSON type in the comparison for types the
+// driver decodes to Go kinds shared with other BSON types.
+type typedScalar struct {
+	bsonType string
+	value    string
+}
+
+func (s typedScalar) String() string {
+	if s.value == "" {
+		return s.bsonType + "()"
+	}
+	return fmt.Sprintf("%s(%q)", s.bsonType, s.value)
 }

@@ -257,3 +257,47 @@ func TestCompareResponses_ExactNumericTypesAndDates(t *testing.T) {
 		})
 	}
 }
+
+func TestCompareResponses_DistinguishesBSONTypesSharingGoKinds(t *testing.T) {
+	decimalOne, err := primitive.ParseDecimal128("1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	distinct := []struct {
+		name  string
+		value interface{}
+	}{
+		{"string", "abc"},
+		{"symbol", primitive.Symbol("abc")},
+		{"javascript", primitive.JavaScript("abc")},
+		{"codeWithScope", primitive.CodeWithScope{Code: "abc", Scope: bson.D{}}},
+		{"decimalOne", decimalOne},
+		{"stringOne", "1"},
+		{"null", nil},
+		{"undefined", primitive.Undefined{}},
+		{"minKey", primitive.MinKey{}},
+		{"maxKey", primitive.MaxKey{}},
+		{"emptyDocument", bson.D{}},
+	}
+	for _, a := range distinct {
+		for _, b := range distinct {
+			mongoDoc := bson.D{{Key: "v", Value: a.value}}
+			dumboDoc := bson.D{{Key: "v", Value: b.value}}
+			got := CompareResponses(mongoDoc, nil, dumboDoc, nil).Result
+			want := Diverge
+			if a.name == b.name {
+				want = Match
+			}
+			if got != want {
+				t.Errorf("%s vs %s: got %v, want %v", a.name, b.name, got, want)
+			}
+		}
+	}
+}
+
+func TestCompareResponses_NullDecodingsMatch(t *testing.T) {
+	got := CompareResponses(bson.D{{Key: "v", Value: primitive.Null{}}}, nil, bson.D{{Key: "v", Value: nil}}, nil)
+	if got.Result != Match {
+		t.Fatalf("primitive.Null vs nil: %v %s", got.Result, got.Diff)
+	}
+}
