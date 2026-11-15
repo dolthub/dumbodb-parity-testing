@@ -1,0 +1,183 @@
+// Copyright 2026 Dolthub, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package tests
+
+// A compound index refuses a document in which two of its fields pass through
+// arrays that do not share a parent array, with CannotIndexParallelArrays, on
+// insert, update and index build (dolthub/dumbodb#228).
+
+import (
+	"context"
+	"testing"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/dolthub/dumbodb-parity-testing/harness"
+)
+
+// indexWriteCase checks one write against a collection holding an index, and
+// the same document under an index built over it.
+type indexWriteCase struct {
+	name  string
+	key   bson.D
+	opts  *options.IndexOptions
+	doc   bson.D
+	write bson.D // a $set applied to the stored doc with _id 0; nil to skip
+}
+
+func runIndexWriteCases(t *testing.T, prefix string, xfail map[string]bool, cases []indexWriteCase) {
+	createIndex := func(ctx context.Context, col *mongo.Collection, c indexWriteCase) error {
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: c.key, Options: c.opts})
+		return err
+	}
+	for _, c := range cases {
+		t.Run(c.name+"_insert", func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    prefix + "_" + c.name + "_insert",
+				Support: supportFor(t, xfail),
+				Setup:   func(ctx context.Context, col *mongo.Collection) error { return createIndex(ctx, col, c) },
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return writeOutcome(ctx, col, func() error {
+						_, err := col.InsertOne(ctx, append(bson.D{{Key: "_id", Value: 1}}, c.doc...))
+						return err
+					})
+				},
+			})
+		})
+		t.Run(c.name+"_build", func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    prefix + "_" + c.name + "_build",
+				Support: supportFor(t, xfail),
+				Setup:   insertDocs(append(bson.D{{Key: "_id", Value: 1}}, c.doc...)),
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					code := outcomeCode(createIndex(ctx, col, c))
+					specs, err := col.Indexes().ListSpecifications(ctx)
+					if err != nil {
+						return nil, err
+					}
+					return bson.D{{Key: "code", Value: code}, {Key: "indexes", Value: len(specs)}}, nil
+				},
+			})
+		})
+		if c.write == nil {
+			continue
+		}
+		t.Run(c.name+"_update", func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    prefix + "_" + c.name + "_update",
+				Support: supportFor(t, xfail),
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					if err := createIndex(ctx, col, c); err != nil {
+						return err
+					}
+					_, err := col.InsertMany(ctx, []interface{}{bson.D{{Key: "_id", Value: 0}}, bson.D{{Key: "_id", Value: 1}}})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					set := bson.D{{Key: "$set", Value: c.write}}
+					return writeOutcome(ctx, col, func() error {
+						if _, err := col.UpdateOne(ctx, bson.D{{Key: "_id", Value: 0}}, set); err != nil {
+							return err
+						}
+						if err := col.FindOneAndUpdate(ctx, bson.D{{Key: "_id", Value: 1}}, set).Err(); err != nil {
+							return err
+						}
+						return nil
+					})
+				},
+			})
+		})
+	}
+}
+
+// indexParallelArraysXFail lists the cases DumboDB fails until dolthub/dumbodb#228 is fixed.
+var indexParallelArraysXFail = map[string]bool{
+	"TestIndexParallelArrays/both_arrays_build":                true,
+	"TestIndexParallelArrays/both_arrays_insert":               true,
+	"TestIndexParallelArrays/both_arrays_update":               true,
+	"TestIndexParallelArrays/nested_and_top_build":             true,
+	"TestIndexParallelArrays/nested_and_top_insert":            true,
+	"TestIndexParallelArrays/partial_included_build":           true,
+	"TestIndexParallelArrays/partial_included_insert":          true,
+	"TestIndexParallelArrays/positional_build":                 true,
+	"TestIndexParallelArrays/positional_insert":                true,
+	"TestIndexParallelArrays/shared_parent_both_nested_build":  true,
+	"TestIndexParallelArrays/shared_parent_both_nested_insert": true,
+	"TestIndexParallelArrays/sparse_build":                     true,
+	"TestIndexParallelArrays/sparse_insert":                    true,
+	"TestIndexParallelArrays/three_fields_build":               true,
+	"TestIndexParallelArrays/three_fields_insert":              true,
+	"TestIndexParallelArraysBatch/ordered":                     true,
+	"TestIndexParallelArraysBatch/unordered":                   true,
+}
+
+func TestIndexParallelArrays(t *testing.T) {
+	ab := bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}}
+	runIndexWriteCases(t, "IndexParallelArrays", indexParallelArraysXFail, []indexWriteCase{
+		{"both_arrays", ab, nil, bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: bson.A{3, 4}}},
+			bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: bson.A{3, 4}}}},
+		{"one_array", ab, nil, bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: 3}},
+			bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: 3}}},
+		{"three_fields", bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}, {Key: "c", Value: 1}}, nil,
+			bson.D{{Key: "a", Value: 1}, {Key: "b", Value: bson.A{1}}, {Key: "c", Value: bson.A{2}}}, nil},
+		{"shared_parent", bson.D{{Key: "a.x", Value: 1}, {Key: "a.y", Value: 1}}, nil,
+			bson.D{{Key: "a", Value: bson.A{bson.D{{Key: "x", Value: 1}, {Key: "y", Value: 2}}, bson.D{{Key: "x", Value: 3}, {Key: "y", Value: 4}}}}}, nil},
+		{"shared_parent_one_nested", bson.D{{Key: "a.x", Value: 1}, {Key: "a.y", Value: 1}}, nil,
+			bson.D{{Key: "a", Value: bson.A{bson.D{{Key: "x", Value: bson.A{1}}, {Key: "y", Value: 2}}}}}, nil},
+		{"shared_parent_both_nested", bson.D{{Key: "a.x", Value: 1}, {Key: "a.y", Value: 1}}, nil,
+			bson.D{{Key: "a", Value: bson.A{bson.D{{Key: "x", Value: bson.A{1}}, {Key: "y", Value: bson.A{2}}}}}}, nil},
+		{"nested_and_top", bson.D{{Key: "a.x", Value: 1}, {Key: "b", Value: 1}}, nil,
+			bson.D{{Key: "a", Value: bson.D{{Key: "x", Value: bson.A{1, 2}}}}, {Key: "b", Value: bson.A{3}}}, nil},
+		{"positional", bson.D{{Key: "a.0", Value: 1}, {Key: "b", Value: 1}}, nil,
+			bson.D{{Key: "a", Value: bson.A{bson.A{1, 2}}}, {Key: "b", Value: bson.A{3}}}, nil},
+		{"sparse", ab, options.Index().SetSparse(true),
+			bson.D{{Key: "a", Value: bson.A{1}}, {Key: "b", Value: bson.A{2}}}, nil},
+		{"partial_excluded", ab, options.Index().SetPartialFilterExpression(bson.D{{Key: "c", Value: 1}}),
+			bson.D{{Key: "a", Value: bson.A{1}}, {Key: "b", Value: bson.A{2}}}, nil},
+		{"partial_included", ab, options.Index().SetPartialFilterExpression(bson.D{{Key: "c", Value: 1}}),
+			bson.D{{Key: "a", Value: bson.A{1}}, {Key: "b", Value: bson.A{2}}, {Key: "c", Value: 1}}, nil},
+	})
+}
+
+func TestIndexParallelArraysBatch(t *testing.T) {
+	for _, ordered := range []bool{true, false} {
+		name := "ordered"
+		if !ordered {
+			name = "unordered"
+		}
+		t.Run(name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "IndexParallelArraysBatch_" + name,
+				Support: supportFor(t, indexParallelArraysXFail),
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}}})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return writeOutcome(ctx, col, func() error {
+						_, err := col.InsertMany(ctx, []interface{}{
+							bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: bson.A{1}}, {Key: "b", Value: 1}},
+							bson.D{{Key: "_id", Value: 2}, {Key: "a", Value: bson.A{1}}, {Key: "b", Value: bson.A{2}}},
+							bson.D{{Key: "_id", Value: 3}, {Key: "a", Value: 1}, {Key: "b", Value: bson.A{2}}},
+						}, options.InsertMany().SetOrdered(ordered))
+						return err
+					})
+				},
+			})
+		})
+	}
+}
