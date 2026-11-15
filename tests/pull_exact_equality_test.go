@@ -33,49 +33,6 @@ import (
 
 // pullWriters applies update to the document with _id id through update,
 // findAndModify and bulkWrite.
-// pullXFail lists the cases DumboDB fails until dolthub/dumbodb#234 is fixed.
-var pullXFail = map[string]bool{
-	"TestPullConditionValidation/geoNear_on_field_match_bulkWrite":        true,
-	"TestPullConditionValidation/geoNear_on_field_match_findAndModify":    true,
-	"TestPullConditionValidation/geoNear_on_field_match_update":           true,
-	"TestPullConditionValidation/geoNear_on_field_no_match_bulkWrite":     true,
-	"TestPullConditionValidation/geoNear_on_field_no_match_findAndModify": true,
-	"TestPullConditionValidation/geoNear_on_field_no_match_update":        true,
-	"TestPullConditionValidation/jsonSchema_in_or_match_bulkWrite":        true,
-	"TestPullConditionValidation/jsonSchema_in_or_match_findAndModify":    true,
-	"TestPullConditionValidation/jsonSchema_in_or_match_update":           true,
-	"TestPullConditionValidation/jsonSchema_in_or_no_match_bulkWrite":     true,
-	"TestPullConditionValidation/jsonSchema_in_or_no_match_findAndModify": true,
-	"TestPullConditionValidation/jsonSchema_in_or_no_match_update":        true,
-	"TestPullConditionValidation/jsonSchema_match_bulkWrite":              true,
-	"TestPullConditionValidation/jsonSchema_match_findAndModify":          true,
-	"TestPullConditionValidation/jsonSchema_match_update":                 true,
-	"TestPullConditionValidation/jsonSchema_no_match_bulkWrite":           true,
-	"TestPullConditionValidation/jsonSchema_no_match_findAndModify":       true,
-	"TestPullConditionValidation/jsonSchema_no_match_update":              true,
-	"TestPullConditionValidation/nearSphere_match_bulkWrite":              true,
-	"TestPullConditionValidation/nearSphere_match_findAndModify":          true,
-	"TestPullConditionValidation/nearSphere_match_update":                 true,
-	"TestPullConditionValidation/nearSphere_no_match_bulkWrite":           true,
-	"TestPullConditionValidation/nearSphere_no_match_findAndModify":       true,
-	"TestPullConditionValidation/nearSphere_no_match_update":              true,
-	"TestPullConditionValidation/near_match_bulkWrite":                    true,
-	"TestPullConditionValidation/near_match_findAndModify":                true,
-	"TestPullConditionValidation/near_match_update":                       true,
-	"TestPullConditionValidation/near_no_match_bulkWrite":                 true,
-	"TestPullConditionValidation/near_no_match_findAndModify":             true,
-	"TestPullConditionValidation/near_no_match_update":                    true,
-	"TestPullExactEquality/pullAll_document_bulkWrite":                    true,
-	"TestPullExactEquality/pullAll_document_findAndModify":                true,
-	"TestPullExactEquality/pullAll_document_update":                       true,
-	"TestPullExactEquality/pullAll_scalar_bulkWrite":                      true,
-	"TestPullExactEquality/pullAll_scalar_findAndModify":                  true,
-	"TestPullExactEquality/pullAll_scalar_update":                         true,
-	"TestPullExactEquality/pull_scalar_bulkWrite":                         true,
-	"TestPullExactEquality/pull_scalar_findAndModify":                     true,
-	"TestPullExactEquality/pull_scalar_update":                            true,
-}
-
 func pullWriters(id interface{}, update bson.D) []struct {
 	name  string
 	write func(ctx context.Context, col *mongo.Collection) error
@@ -118,7 +75,7 @@ func TestPullExactEquality(t *testing.T) {
 			t.Run(u.name+"_"+w.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "PullExactEquality_" + u.name + "_" + w.name,
-					Support: supportFor(t, pullXFail),
+					Support: harness.DumboDBFull,
 					Setup:   insertDocs(doc),
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 						return writeOutcome(ctx, col, func() error { return w.write(ctx, col) })
@@ -159,7 +116,7 @@ func TestPullConditionValidation(t *testing.T) {
 				t.Run(c.name+"_"+target.name+"_"+w.name, func(t *testing.T) {
 					harness.PairTest(t, harness.TestCase{
 						Name:    "PullConditionValidation_" + c.name + "_" + target.name + "_" + w.name,
-						Support: supportFor(t, pullXFail),
+						Support: harness.DumboDBFull,
 						Setup:   insertDocs(doc),
 						Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 							return writeOutcome(ctx, col, func() error { return w.write(ctx, col) })
@@ -184,7 +141,7 @@ func TestElemMatchExprFilter(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "ElemMatchExprFilter_" + tc.name,
-				Support: supportFor(t, pullXFail),
+				Support: harness.DumboDBFull,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return sortedIDs(ctx, col, tc.filter)
 				},
