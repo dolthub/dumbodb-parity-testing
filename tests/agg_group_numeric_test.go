@@ -166,16 +166,10 @@ func TestAggGroupNum_SumOrder(t *testing.T) {
 		{"long_and_doubles", bson.A{int64(1 << 60), 0.5, 0.25}},
 	}
 	for _, tc := range cases {
-		support := harness.DumboDBFull
-		if tc.name == "ints_doubles_decimal" {
-			// The last of 34 digits differs: mongod rounds its double-double's
-			// conversion to Decimal128 in a way DumboDB does not reproduce.
-			support = harness.DumboDBXFail
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:      "AggGroupNum_SumOrder_" + tc.name,
-				Support:   support,
+				Support:   harness.DumboDBFull,
 				Clustered: true,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					docs := make([]interface{}, len(tc.values))

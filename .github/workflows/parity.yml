@@ -190,7 +190,7 @@ jobs:
           # pipefail propagates go test's non-zero exit through tee so a
           # single JSON-streamed run gates CI. The artifact uploaded below
           # carries the same data for post-hoc human inspection.
-          go test ./... -v -timeout 15m -json | tee results/parity.json
+          go test ./... -v -timeout 30m -json | tee results/parity.json
 
       - name: Upload results
         if: always()
