@@ -184,7 +184,7 @@ func TestPullConditionOperands(t *testing.T) {
 				t.Run(c.name+"_"+target.name+"_"+w.name, func(t *testing.T) {
 					harness.PairTest(t, harness.TestCase{
 						Name:    "PullConditionOperands_" + c.name + "_" + target.name + "_" + w.name,
-						Support: supportFor(t, pullReviewXFail),
+						Support: harness.DumboDBFull,
 						Setup:   insertDocs(doc),
 						Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 							return writeOutcome(ctx, col, func() error { return w.write(ctx, col) })
@@ -230,7 +230,7 @@ func TestPullCollationAndRegex(t *testing.T) {
 			t.Run(tc.name+"_"+w, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "PullCollationAndRegex_" + tc.name + "_" + w,
-					Support: supportFor(t, pullReviewXFail),
+					Support: harness.DumboDBFull,
 					Setup: func(ctx context.Context, col *mongo.Collection) error {
 						if tc.defaulted {
 							if err := col.Drop(ctx); err != nil {
@@ -265,67 +265,4 @@ func TestPullCollationAndRegex(t *testing.T) {
 			})
 		}
 	}
-}
-
-// pullReviewXFail lists the review cases DumboDB fails until the follow-up fix for
-// dolthub/dumbodb#234.
-var pullReviewXFail = map[string]bool{
-	"TestPullCollationAndRegex/pullAll_collection_default_findAndModify":             true,
-	"TestPullCollationAndRegex/pullAll_collection_default_update":                    true,
-	"TestPullCollationAndRegex/pullAll_nested_findAndModify":                         true,
-	"TestPullCollationAndRegex/pullAll_nested_update":                                true,
-	"TestPullCollationAndRegex/pull_eq_findAndModify":                                true,
-	"TestPullCollationAndRegex/pull_eq_update":                                       true,
-	"TestPullCollationAndRegex/pull_in_findAndModify":                                true,
-	"TestPullCollationAndRegex/pull_in_update":                                       true,
-	"TestPullCollationAndRegex/pull_regex_findAndModify":                             true,
-	"TestPullCollationAndRegex/pull_regex_options_findAndModify":                     true,
-	"TestPullCollationAndRegex/pull_regex_options_update":                            true,
-	"TestPullCollationAndRegex/pull_regex_update":                                    true,
-	"TestPullCollationAndRegex/pull_string_collection_default_findAndModify":         true,
-	"TestPullCollationAndRegex/pull_string_collection_default_update":                true,
-	"TestPullCollationAndRegex/pull_string_findAndModify":                            true,
-	"TestPullCollationAndRegex/pull_string_update":                                   true,
-	"TestPullConditionOperands/eq_operand_match_bulkWrite":                           true,
-	"TestPullConditionOperands/eq_operand_match_findAndModify":                       true,
-	"TestPullConditionOperands/eq_operand_match_update":                              true,
-	"TestPullConditionOperands/eq_operand_no_match_bulkWrite":                        true,
-	"TestPullConditionOperands/eq_operand_no_match_findAndModify":                    true,
-	"TestPullConditionOperands/eq_operand_no_match_update":                           true,
-	"TestPullConditionOperands/in_document_match_bulkWrite":                          true,
-	"TestPullConditionOperands/in_document_match_findAndModify":                      true,
-	"TestPullConditionOperands/in_document_match_update":                             true,
-	"TestPullConditionOperands/in_document_no_match_bulkWrite":                       true,
-	"TestPullConditionOperands/in_document_no_match_findAndModify":                   true,
-	"TestPullConditionOperands/in_document_no_match_update":                          true,
-	"TestPullConditionOperands/in_operator_match_bulkWrite":                          true,
-	"TestPullConditionOperands/in_operator_match_findAndModify":                      true,
-	"TestPullConditionOperands/in_operator_match_update":                             true,
-	"TestPullConditionOperands/in_operator_no_match_bulkWrite":                       true,
-	"TestPullConditionOperands/in_operator_no_match_findAndModify":                   true,
-	"TestPullConditionOperands/in_operator_no_match_update":                          true,
-	"TestPullConditionOperands/jsonSchema_in_elemMatch_match_bulkWrite":              true,
-	"TestPullConditionOperands/jsonSchema_in_elemMatch_match_findAndModify":          true,
-	"TestPullConditionOperands/jsonSchema_in_elemMatch_match_update":                 true,
-	"TestPullConditionOperands/jsonSchema_in_elemMatch_no_match_bulkWrite":           true,
-	"TestPullConditionOperands/jsonSchema_in_elemMatch_no_match_findAndModify":       true,
-	"TestPullConditionOperands/jsonSchema_in_elemMatch_no_match_update":              true,
-	"TestPullConditionOperands/jsonSchema_in_field_elemMatch_match_bulkWrite":        true,
-	"TestPullConditionOperands/jsonSchema_in_field_elemMatch_match_findAndModify":    true,
-	"TestPullConditionOperands/jsonSchema_in_field_elemMatch_match_update":           true,
-	"TestPullConditionOperands/jsonSchema_in_field_elemMatch_no_match_bulkWrite":     true,
-	"TestPullConditionOperands/jsonSchema_in_field_elemMatch_no_match_findAndModify": true,
-	"TestPullConditionOperands/jsonSchema_in_field_elemMatch_no_match_update":        true,
-	"TestPullConditionOperands/literal_document_match_bulkWrite":                     true,
-	"TestPullConditionOperands/literal_document_match_findAndModify":                 true,
-	"TestPullConditionOperands/literal_document_match_update":                        true,
-	"TestPullConditionOperands/literal_document_no_match_bulkWrite":                  true,
-	"TestPullConditionOperands/literal_document_no_match_findAndModify":              true,
-	"TestPullConditionOperands/literal_document_no_match_update":                     true,
-	"TestPullConditionOperands/ne_operand_match_bulkWrite":                           true,
-	"TestPullConditionOperands/ne_operand_match_findAndModify":                       true,
-	"TestPullConditionOperands/ne_operand_match_update":                              true,
-	"TestPullConditionOperands/ne_operand_no_match_bulkWrite":                        true,
-	"TestPullConditionOperands/ne_operand_no_match_findAndModify":                    true,
-	"TestPullConditionOperands/ne_operand_no_match_update":                           true,
 }
