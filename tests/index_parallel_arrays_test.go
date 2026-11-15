@@ -39,7 +39,7 @@ type indexWriteCase struct {
 	write bson.D // a $set applied to the stored doc with _id 0; nil to skip
 }
 
-func runIndexWriteCases(t *testing.T, prefix string, xfail map[string]bool, cases []indexWriteCase) {
+func runIndexWriteCases(t *testing.T, prefix string, cases []indexWriteCase) {
 	createIndex := func(ctx context.Context, col *mongo.Collection, c indexWriteCase) error {
 		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: c.key, Options: c.opts})
 		return err
@@ -48,7 +48,7 @@ func runIndexWriteCases(t *testing.T, prefix string, xfail map[string]bool, case
 		t.Run(c.name+"_insert", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    prefix + "_" + c.name + "_insert",
-				Support: supportFor(t, xfail),
+				Support: harness.DumboDBFull,
 				Setup:   func(ctx context.Context, col *mongo.Collection) error { return createIndex(ctx, col, c) },
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return writeOutcome(ctx, col, func() error {
@@ -61,7 +61,7 @@ func runIndexWriteCases(t *testing.T, prefix string, xfail map[string]bool, case
 		t.Run(c.name+"_build", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    prefix + "_" + c.name + "_build",
-				Support: supportFor(t, xfail),
+				Support: harness.DumboDBFull,
 				Setup:   insertDocs(append(bson.D{{Key: "_id", Value: 1}}, c.doc...)),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					code := outcomeCode(createIndex(ctx, col, c))
@@ -79,7 +79,7 @@ func runIndexWriteCases(t *testing.T, prefix string, xfail map[string]bool, case
 		t.Run(c.name+"_update", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    prefix + "_" + c.name + "_update",
-				Support: supportFor(t, xfail),
+				Support: harness.DumboDBFull,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					if err := createIndex(ctx, col, c); err != nil {
 						return err
@@ -106,7 +106,7 @@ func runIndexWriteCases(t *testing.T, prefix string, xfail map[string]bool, case
 
 func TestIndexParallelArrays(t *testing.T) {
 	ab := bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}}
-	runIndexWriteCases(t, "IndexParallelArrays", nil, []indexWriteCase{
+	runIndexWriteCases(t, "IndexParallelArrays", []indexWriteCase{
 		{"both_arrays", ab, nil, bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: bson.A{3, 4}}},
 			bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: bson.A{3, 4}}}},
 		{"one_array", ab, nil, bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: 3}},
