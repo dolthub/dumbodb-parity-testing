@@ -17,13 +17,10 @@ package tests
 import (
 	"context"
 	"errors"
-	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-
-	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
 // outcomeCode is the error code of err: the first write error's for a write,
@@ -103,13 +100,4 @@ func sortedIDs(ctx context.Context, col *mongo.Collection, filter interface{}) (
 		ids = append(ids, d[0].Value)
 	}
 	return ids, nil
-}
-
-// supportFor is DumboDBXFail for a test xfail lists by name and DumboDBFull
-// otherwise.
-func supportFor(t *testing.T, xfail map[string]bool) harness.DumboDBSupport {
-	if xfail[t.Name()] {
-		return harness.DumboDBXFail
-	}
-	return harness.DumboDBFull
 }
