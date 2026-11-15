@@ -64,7 +64,7 @@ func runIndexWriteCases(t *testing.T, prefix string, cases []indexWriteCase) {
 				Support: harness.DumboDBFull,
 				Setup:   insertDocs(append(bson.D{{Key: "_id", Value: 1}}, c.doc...)),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-					code := outcomeCode(createIndex(ctx, col, c))
+					code := errCode(createIndex(ctx, col, c))
 					specs, err := col.Indexes().ListSpecifications(ctx)
 					if err != nil {
 						return nil, err

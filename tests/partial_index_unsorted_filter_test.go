@@ -73,7 +73,7 @@ func TestPartialIndexUnsortedFilter(t *testing.T) {
 				),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "k", Value: 1}}, Options: opts()})
-					return outcomeCode(err), nil
+					return errCode(err), nil
 				},
 			})
 		})

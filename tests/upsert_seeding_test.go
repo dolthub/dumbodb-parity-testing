@@ -113,7 +113,7 @@ func TestUpsertSeeding(t *testing.T) {
 					Name:    "UpsertSeeding_" + f.name + "_" + w.name,
 					Support: harness.DumboDBFull,
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-						code := outcomeCode(w.write(ctx, col, f.filter))
+						code := errCode(w.write(ctx, col, f.filter))
 						docs, err := docsWithoutID(ctx, col, bson.D{{Key: "_id", Value: 1}})
 						return bson.D{{Key: "code", Value: code}, {Key: "docs", Value: docs}}, err
 					},

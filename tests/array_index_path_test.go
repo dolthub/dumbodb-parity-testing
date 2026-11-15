@@ -85,7 +85,7 @@ func TestArrayIndexPath_Find(t *testing.T) {
 				Support: harness.DumboDBFull,
 				Setup:   insertDocs(arrayIndexPathDocs()...),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-					return sortedIDs(ctx, col, tc.filter)
+					return findIDs(ctx, col, tc.filter)
 				},
 			})
 		})
@@ -143,7 +143,7 @@ func TestArrayIndexPath_IndexedCount(t *testing.T) {
 						if err != nil {
 							return nil, err
 						}
-						ids, err := sortedIDs(ctx, col, tc.filter)
+						ids, err := findIDs(ctx, col, tc.filter)
 						return bson.A{n, ids}, err
 					},
 				})

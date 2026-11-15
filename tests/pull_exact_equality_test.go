@@ -143,7 +143,7 @@ func TestElemMatchExprFilter(t *testing.T) {
 				Name:    "ElemMatchExprFilter_" + tc.name,
 				Support: harness.DumboDBFull,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-					return sortedIDs(ctx, col, tc.filter)
+					return findIDs(ctx, col, tc.filter)
 				},
 			})
 		})

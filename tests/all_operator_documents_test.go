@@ -63,7 +63,7 @@ func TestAllOperatorDocuments(t *testing.T) {
 				Support: harness.DumboDBFull,
 				Setup:   insertDocs(docs...),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
-					return sortedIDs(ctx, col, tc.filter)
+					return findIDs(ctx, col, tc.filter)
 				},
 			})
 		})
