@@ -21,7 +21,9 @@ package tests
 
 import (
 	"context"
+	"errors"
 	"math"
+	"strings"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -185,4 +187,53 @@ func decimal(s string) primitive.Decimal128 {
 		panic(err)
 	}
 	return d
+}
+
+// mongod words a non-finite 2d bound as a region without positive area, and a
+// finite range too wide to scale as too small. Compares the text after the
+// last "caused by", since mongod adds an index build prefix.
+func TestGeo2DIndexOptionMessages(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		opts bson.D
+	}{
+		{"max_infinity", bson.D{{Key: "max", Value: math.Inf(1)}}},
+		{"min_negative_infinity", bson.D{{Key: "min", Value: math.Inf(-1)}}},
+		{"min_nan", bson.D{{Key: "min", Value: math.NaN()}}},
+		{"max_nan", bson.D{{Key: "max", Value: math.NaN()}}},
+		{"min_above_max", bson.D{{Key: "min", Value: 10}, {Key: "max", Value: -10}}},
+		{"range_overflows", bson.D{{Key: "min", Value: -1e308}, {Key: "max", Value: 1e308}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Geo2DIndexOptionMessages_" + tc.name,
+				Support: supportFor(t, geo2DIndexOptionMessagesXFail),
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					spec := append(bson.D{{Key: "key", Value: bson.D{{Key: "loc", Value: "2d"}}}, {Key: "name", Value: "ix"}}, tc.opts...)
+					err := col.Database().RunCommand(ctx, bson.D{
+						{Key: "createIndexes", Value: col.Name()},
+						{Key: "indexes", Value: bson.A{spec}},
+					}).Err()
+					var cmdErr mongo.CommandError
+					if !errors.As(err, &cmdErr) {
+						return bson.D{{Key: "err", Value: errCode(err)}}, nil
+					}
+					msg := cmdErr.Message
+					if i := strings.LastIndex(msg, " :: caused by :: "); i >= 0 {
+						msg = msg[i+len(" :: caused by :: "):]
+					}
+					return bson.D{{Key: "code", Value: cmdErr.Code}, {Key: "message", Value: msg}}, nil
+				},
+			})
+		})
+	}
+}
+
+// geo2DIndexOptionMessagesXFail lists the cases DumboDB fails until it words a
+// non-finite 2d bound as mongod does.
+var geo2DIndexOptionMessagesXFail = map[string]bool{
+	"TestGeo2DIndexOptionMessages/max_infinity":          true,
+	"TestGeo2DIndexOptionMessages/max_nan":               true,
+	"TestGeo2DIndexOptionMessages/min_nan":               true,
+	"TestGeo2DIndexOptionMessages/min_negative_infinity": true,
 }
