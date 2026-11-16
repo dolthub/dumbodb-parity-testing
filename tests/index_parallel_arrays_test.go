@@ -39,7 +39,7 @@ type indexWriteCase struct {
 	write bson.D // a $set applied to the stored doc with _id 0; nil to skip
 }
 
-func runIndexWriteCases(t *testing.T, prefix string, cases []indexWriteCase) {
+func runIndexWriteCases(t *testing.T, prefix string, xfail map[string]bool, cases []indexWriteCase) {
 	createIndex := func(ctx context.Context, col *mongo.Collection, c indexWriteCase) error {
 		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: c.key, Options: c.opts})
 		return err
@@ -48,7 +48,7 @@ func runIndexWriteCases(t *testing.T, prefix string, cases []indexWriteCase) {
 		t.Run(c.name+"_insert", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    prefix + "_" + c.name + "_insert",
-				Support: harness.DumboDBFull,
+				Support: supportFor(t, xfail),
 				Setup:   func(ctx context.Context, col *mongo.Collection) error { return createIndex(ctx, col, c) },
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return writeOutcome(ctx, col, func() error {
@@ -61,7 +61,7 @@ func runIndexWriteCases(t *testing.T, prefix string, cases []indexWriteCase) {
 		t.Run(c.name+"_build", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    prefix + "_" + c.name + "_build",
-				Support: harness.DumboDBFull,
+				Support: supportFor(t, xfail),
 				Setup:   insertDocs(append(bson.D{{Key: "_id", Value: 1}}, c.doc...)),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					code := errCode(createIndex(ctx, col, c))
@@ -79,7 +79,7 @@ func runIndexWriteCases(t *testing.T, prefix string, cases []indexWriteCase) {
 		t.Run(c.name+"_update", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    prefix + "_" + c.name + "_update",
-				Support: harness.DumboDBFull,
+				Support: supportFor(t, xfail),
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					if err := createIndex(ctx, col, c); err != nil {
 						return err
@@ -106,7 +106,7 @@ func runIndexWriteCases(t *testing.T, prefix string, cases []indexWriteCase) {
 
 func TestIndexParallelArrays(t *testing.T) {
 	ab := bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}}
-	runIndexWriteCases(t, "IndexParallelArrays", []indexWriteCase{
+	runIndexWriteCases(t, "IndexParallelArrays", nil, []indexWriteCase{
 		{"both_arrays", ab, nil, bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: bson.A{3, 4}}},
 			bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: bson.A{3, 4}}}},
 		{"one_array", ab, nil, bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: 3}},
@@ -159,4 +159,40 @@ func TestIndexParallelArraysBatch(t *testing.T) {
 			})
 		})
 	}
+}
+
+// mongod does not check parallel arrays in a 2d or 2dsphere compound index,
+// and counts an array a numeric path element reaches like any other.
+func TestIndexParallelArraysPositionalAndGeo(t *testing.T) {
+	ab := bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: bson.A{3, 4}}}
+	elems := bson.D{{Key: "a", Value: bson.A{bson.D{{Key: "x", Value: 1}, {Key: "y", Value: 2}}, bson.D{{Key: "x", Value: 3}, {Key: "y", Value: 4}}}}}
+	runIndexWriteCases(t, "IndexParallelArraysPositionalAndGeo", indexParallelRound3XFail, []indexWriteCase{
+		{"2dsphere_compound", bson.D{{Key: "loc", Value: "2dsphere"}, {Key: "a", Value: 1}, {Key: "b", Value: 1}}, nil,
+			bson.D{{Key: "loc", Value: bson.D{{Key: "type", Value: "Point"}, {Key: "coordinates", Value: bson.A{0, 0}}}}, {Key: "a", Value: bson.A{1}}, {Key: "b", Value: bson.A{2}}}, nil},
+		{"2d_compound", bson.D{{Key: "loc", Value: "2d"}, {Key: "a", Value: 1}, {Key: "b", Value: 1}}, nil,
+			bson.D{{Key: "loc", Value: bson.A{0, 0}}, {Key: "a", Value: bson.A{1}}, {Key: "b", Value: bson.A{2}}}, nil},
+		{"index_element_and_field", bson.D{{Key: "a.0", Value: 1}, {Key: "b", Value: 1}}, nil, ab, ab},
+		{"second_index_element_and_field", bson.D{{Key: "a.1", Value: 1}, {Key: "b", Value: 1}}, nil, ab, nil},
+		{"missing_index_element_and_field", bson.D{{Key: "a.5", Value: 1}, {Key: "b", Value: 1}}, nil, ab, nil},
+		{"nested_index_element_and_field", bson.D{{Key: "a.0", Value: 1}, {Key: "b", Value: 1}}, nil,
+			bson.D{{Key: "a", Value: bson.A{bson.A{1, 2}}}, {Key: "b", Value: bson.A{3}}}, nil},
+		{"two_index_elements", bson.D{{Key: "a.0", Value: 1}, {Key: "a.1", Value: 1}}, nil, ab, nil},
+		{"index_element_and_sibling", bson.D{{Key: "a.0", Value: 1}, {Key: "a.x", Value: 1}}, nil, elems, nil},
+		{"index_element_child_and_sibling", bson.D{{Key: "a.0.x", Value: 1}, {Key: "a.y", Value: 1}}, nil, elems, nil},
+	})
+}
+
+// indexParallelRound3XFail lists the cases DumboDB fails until the follow-up for dolthub/dumbodb#228.
+var indexParallelRound3XFail = map[string]bool{
+	"TestIndexParallelArraysPositionalAndGeo/2d_compound_build":                      true,
+	"TestIndexParallelArraysPositionalAndGeo/2d_compound_insert":                     true,
+	"TestIndexParallelArraysPositionalAndGeo/2dsphere_compound_build":                true,
+	"TestIndexParallelArraysPositionalAndGeo/2dsphere_compound_insert":               true,
+	"TestIndexParallelArraysPositionalAndGeo/index_element_and_field_build":          true,
+	"TestIndexParallelArraysPositionalAndGeo/index_element_and_field_insert":         true,
+	"TestIndexParallelArraysPositionalAndGeo/index_element_and_field_update":         true,
+	"TestIndexParallelArraysPositionalAndGeo/missing_index_element_and_field_build":  true,
+	"TestIndexParallelArraysPositionalAndGeo/missing_index_element_and_field_insert": true,
+	"TestIndexParallelArraysPositionalAndGeo/second_index_element_and_field_build":   true,
+	"TestIndexParallelArraysPositionalAndGeo/second_index_element_and_field_insert":  true,
 }

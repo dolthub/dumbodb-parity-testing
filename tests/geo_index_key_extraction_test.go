@@ -69,5 +69,5 @@ func TestGeoIndexKeyExtraction(t *testing.T) {
 			indexWriteCase{"2d_" + v.name, bson.D{{Key: "loc", Value: "2d"}}, nil, doc, doc},
 		)
 	}
-	runIndexWriteCases(t, "GeoIndexKeyExtraction", cases)
+	runIndexWriteCases(t, "GeoIndexKeyExtraction", nil, cases)
 }
