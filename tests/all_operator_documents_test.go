@@ -228,39 +228,6 @@ func TestNearPlacement(t *testing.T) {
 	}
 }
 
-// allDollarKeyLiteralsXFail lists the cases DumboDB fails until $all
-// classifies elements by their first key as written.
-var allDollarKeyLiteralsXFail = map[string]bool{
-	"TestAllDollarKeyLiterals/dbref_count":                             true,
-	"TestAllDollarKeyLiterals/dbref_find":                              true,
-	"TestAllDollarKeyLiterals/dbref_updateMany":                        true,
-	"TestAllDollarKeyLiterals/later_dollar_key_after_value_count":      true,
-	"TestAllDollarKeyLiterals/later_dollar_key_after_value_find":       true,
-	"TestAllDollarKeyLiterals/later_dollar_key_after_value_updateMany": true,
-	"TestAllDollarKeyLiterals/later_dollar_key_count":                  true,
-	"TestAllDollarKeyLiterals/later_dollar_key_find":                   true,
-	"TestAllDollarKeyLiterals/later_dollar_key_updateMany":             true,
-	"TestAllDollarKeyLiterals/later_elemMatch_key_count":               true,
-	"TestAllDollarKeyLiterals/later_elemMatch_key_find":                true,
-	"TestAllDollarKeyLiterals/later_elemMatch_key_updateMany":          true,
-	"TestAllDollarKeyLiterals/later_gt_key_count":                      true,
-	"TestAllDollarKeyLiterals/later_gt_key_find":                       true,
-	"TestAllDollarKeyLiterals/later_gt_key_updateMany":                 true,
-	"TestAllDollarKeyLiterals/maxDistance_first_key_count":             true,
-	"TestAllDollarKeyLiterals/maxDistance_first_key_find":              true,
-	"TestAllDollarKeyLiterals/maxDistance_first_key_updateMany":        true,
-	"TestAllDollarKeyLiterals/not_first_key_count":                     true,
-	"TestAllDollarKeyLiterals/not_first_key_find":                      true,
-	"TestAllDollarKeyLiterals/not_first_key_updateMany":                true,
-	"TestAllDollarKeyLiterals/pull":                                    true,
-	"TestAllDollarKeyLiterals/unknown_first_key_count":                 true,
-	"TestAllDollarKeyLiterals/unknown_first_key_find":                  true,
-	"TestAllDollarKeyLiterals/unknown_first_key_stored_count":          true,
-	"TestAllDollarKeyLiterals/unknown_first_key_stored_find":           true,
-	"TestAllDollarKeyLiterals/unknown_first_key_stored_updateMany":     true,
-	"TestAllDollarKeyLiterals/unknown_first_key_updateMany":            true,
-}
-
 // mongod classifies an $all element by its first key as written and refuses
 // only the operators it knows; any other '$' name is a literal value.
 func TestAllDollarKeyLiterals(t *testing.T) {
@@ -322,7 +289,7 @@ func TestAllDollarKeyLiterals(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "AllDollarKeyLiterals_" + name,
-					Support: supportFor(t, allDollarKeyLiteralsXFail),
+					Support: harness.DumboDBFull,
 					Setup:   insertDocs(docs...),
 					Run:     w.run,
 				})
@@ -332,7 +299,7 @@ func TestAllDollarKeyLiterals(t *testing.T) {
 	t.Run("pull", func(t *testing.T) {
 		harness.PairTest(t, harness.TestCase{
 			Name:    "AllDollarKeyLiterals_pull",
-			Support: supportFor(t, allDollarKeyLiteralsXFail),
+			Support: harness.DumboDBFull,
 			Setup:   insertDocs(d("_id", 1, "arr", bson.A{d("c", bson.A{d("a", 1, "$b", 2)}), d("c", bson.A{1})})),
 			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 				return writeOutcome(ctx, col, func() error {
