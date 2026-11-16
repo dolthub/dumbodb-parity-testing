@@ -205,7 +205,7 @@ func TestNearPlacement(t *testing.T) {
 		t.Run(tc.name+"_find", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "NearPlacement_" + tc.name + "_find",
-				Support: supportFor(t, nearPlacementXFail),
+				Support: harness.DumboDBFull,
 				Setup:   setup,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return findIDs(ctx, col, tc.filter)
@@ -215,7 +215,7 @@ func TestNearPlacement(t *testing.T) {
 		t.Run(tc.name+"_deleteMany", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "NearPlacement_" + tc.name + "_deleteMany",
-				Support: supportFor(t, nearPlacementXFail),
+				Support: harness.DumboDBFull,
 				Setup:   setup,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return writeOutcome(ctx, col, func() error {
@@ -226,25 +226,4 @@ func TestNearPlacement(t *testing.T) {
 			})
 		})
 	}
-}
-
-// nearPlacementXFail lists the cases DumboDB fails until $near is refused
-// outside the top level of a filter.
-var nearPlacementXFail = map[string]bool{
-	"TestNearPlacement/all_elemMatch_elemMatch_deleteMany": true,
-	"TestNearPlacement/all_elemMatch_elemMatch_find":       true,
-	"TestNearPlacement/elemMatch_field_deleteMany":         true,
-	"TestNearPlacement/elemMatch_field_find":               true,
-	"TestNearPlacement/elemMatch_nearSphere_deleteMany":    true,
-	"TestNearPlacement/elemMatch_nearSphere_find":          true,
-	"TestNearPlacement/elemMatch_operator_deleteMany":      true,
-	"TestNearPlacement/elemMatch_operator_find":            true,
-	"TestNearPlacement/elemMatch_or_deleteMany":            true,
-	"TestNearPlacement/elemMatch_or_find":                  true,
-	"TestNearPlacement/nor_deleteMany":                     true,
-	"TestNearPlacement/nor_find":                           true,
-	"TestNearPlacement/not_deleteMany":                     true,
-	"TestNearPlacement/not_find":                           true,
-	"TestNearPlacement/or_two_clauses_deleteMany":          true,
-	"TestNearPlacement/or_two_clauses_find":                true,
 }
