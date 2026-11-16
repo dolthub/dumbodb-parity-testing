@@ -266,3 +266,48 @@ func TestPullCollationAndRegex(t *testing.T) {
 		}
 	}
 }
+
+// $near inside the $elemMatch operands of $all in a $pull condition is refused.
+func TestPullNearInAll(t *testing.T) {
+	near := bson.D{{Key: "k", Value: bson.D{{Key: "$near", Value: bson.A{0, 0}}}}}
+	allElemMatch := func(v bson.D) bson.D {
+		return bson.D{{Key: "$all", Value: bson.A{bson.D{{Key: "$elemMatch", Value: v}}}}}
+	}
+	doc := bson.D{{Key: "_id", Value: 1}, {Key: "arr", Value: bson.A{
+		bson.A{bson.D{{Key: "k", Value: bson.A{0, 0}}}}, bson.A{bson.D{{Key: "k", Value: bson.A{50, 50}}}}, 5,
+	}}}
+	for _, c := range []struct {
+		name string
+		cond interface{}
+	}{
+		{"all_elemMatch", allElemMatch(near)},
+		{"field_all_elemMatch", bson.D{{Key: "k", Value: allElemMatch(bson.D{{Key: "$near", Value: bson.A{0, 0}}})}}},
+		{"all_elemMatch_or", allElemMatch(bson.D{{Key: "$or", Value: bson.A{near}}})},
+	} {
+		for _, w := range pullWriters(1, bson.D{{Key: "$pull", Value: bson.D{{Key: "arr", Value: c.cond}}}}) {
+			t.Run(c.name+"_"+w.name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "PullNearInAll_" + c.name + "_" + w.name,
+					Support: supportFor(t, pullNearInAllXFail),
+					Setup:   insertDocs(doc),
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						return writeOutcome(ctx, col, func() error { return w.write(ctx, col) })
+					},
+				})
+			})
+		}
+	}
+}
+
+// pullNearInAllXFail lists the cases DumboDB fails until $pull checks $all operands for $near.
+var pullNearInAllXFail = map[string]bool{
+	"TestPullNearInAll/all_elemMatch_bulkWrite":           true,
+	"TestPullNearInAll/all_elemMatch_findAndModify":       true,
+	"TestPullNearInAll/all_elemMatch_or_bulkWrite":        true,
+	"TestPullNearInAll/all_elemMatch_or_findAndModify":    true,
+	"TestPullNearInAll/all_elemMatch_or_update":           true,
+	"TestPullNearInAll/all_elemMatch_update":              true,
+	"TestPullNearInAll/field_all_elemMatch_bulkWrite":     true,
+	"TestPullNearInAll/field_all_elemMatch_findAndModify": true,
+	"TestPullNearInAll/field_all_elemMatch_update":        true,
+}
