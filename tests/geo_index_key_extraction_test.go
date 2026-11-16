@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -129,6 +130,20 @@ func TestGeoIndexKeyExtractionShapes(t *testing.T) {
 }
 
 // A 2d index's min, max and bits options must describe a valid region.
+// geo2DIndexOptionsXFail lists the cases DumboDB fails until it validates 2d
+// bits and ranges as mongod does.
+var geo2DIndexOptionsXFail = map[string]bool{
+	"TestGeo2DIndexOptions/bits_decimal":                 true,
+	"TestGeo2DIndexOptions/bits_decimal_too_large":       true,
+	"TestGeo2DIndexOptions/bits_fraction_above_max":      true,
+	"TestGeo2DIndexOptions/bits_fraction_below_one":      true,
+	"TestGeo2DIndexOptions/range_overflows":              true,
+	"TestGeo2DIndexOptions/range_too_large_for_one_bit":  true,
+	"TestGeo2DIndexOptions/range_too_large_to_hash":      true,
+	"TestGeo2DIndexOptions/range_too_large_to_hash_wide": true,
+	"TestGeo2DIndexOptions/range_too_small":              true,
+}
+
 func TestGeo2DIndexOptions(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -147,11 +162,24 @@ func TestGeo2DIndexOptions(t *testing.T) {
 		{"valid_bounds", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "min", Value: -10}, {Key: "max", Value: 10}}},
 		{"2dsphere_bounds_ignored", bson.D{{Key: "loc", Value: "2dsphere"}}, bson.D{{Key: "min", Value: 10}, {Key: "max", Value: -10}}},
 		{"plain_bounds_ignored", bson.D{{Key: "a", Value: 1}}, bson.D{{Key: "min", Value: 10}, {Key: "max", Value: -10}}},
+		{"bits_fraction_below_one", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "bits", Value: 0.5}}},
+		{"bits_fraction_above_max", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "bits", Value: 32.5}}},
+		{"bits_decimal", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "bits", Value: decimal("5")}}},
+		{"bits_decimal_too_large", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "bits", Value: decimal("33")}}},
+		{"bits_null", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "bits", Value: nil}}},
+		{"range_too_small", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "min", Value: 0}, {Key: "max", Value: 1e-300}}},
+		{"range_overflows", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "min", Value: -1e308}, {Key: "max", Value: 1e308}}},
+		{"min_negative_infinity", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "min", Value: math.Inf(-1)}}},
+		{"range_largest_hashable", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "min", Value: 0}, {Key: "max", Value: 6.3e161}}},
+		{"range_too_large_to_hash", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "min", Value: 0}, {Key: "max", Value: 6.4e161}}},
+		{"range_too_large_to_hash_wide", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "min", Value: -1e200}, {Key: "max", Value: 1e200}}},
+		{"range_too_large_for_one_bit", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "bits", Value: 1}, {Key: "min", Value: 0}, {Key: "max", Value: 1.9e154}}},
+		{"range_hashable_with_one_bit", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "bits", Value: 1}, {Key: "min", Value: 0}, {Key: "max", Value: 1.8e154}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "Geo2DIndexOptions_" + tc.name,
-				Support: harness.DumboDBFull,
+				Support: supportFor(t, geo2DIndexOptionsXFail),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					spec := append(bson.D{{Key: "key", Value: tc.key}, {Key: "name", Value: "ix"}}, tc.opts...)
 					err := col.Database().RunCommand(ctx, bson.D{
@@ -163,4 +191,12 @@ func TestGeo2DIndexOptions(t *testing.T) {
 			})
 		})
 	}
+}
+
+func decimal(s string) primitive.Decimal128 {
+	d, err := primitive.ParseDecimal128(s)
+	if err != nil {
+		panic(err)
+	}
+	return d
 }
