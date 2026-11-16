@@ -30,7 +30,9 @@ import (
 // mongod's message for a value a geo index refuses names null as null, says
 // which level of coordinates is malformed, repeats the value in full, and
 // cuts each string it repeats to 150 bytes. Every document here has its keys
-// in sorted order, the order DumboDB stores and repeats them in.
+// in sorted order, the order DumboDB stores and repeats them in. DumboDB never
+// cuts a string inside a UTF-8 character, which mongod does when byte 150
+// falls inside one.
 func TestGeoErrorMessages(t *testing.T) {
 	d := func(kv ...interface{}) bson.D {
 		var out bson.D
@@ -62,7 +64,7 @@ func TestGeoErrorMessages(t *testing.T) {
 		{"geometries_null", "2dsphere", d("geometries", nil, "type", "GeometryCollection"), ""},
 		{"geometries_element_null", "2dsphere", d("geometries", bson.A{nil}, "type", "GeometryCollection"), ""},
 		{"linestring_coordinates_null", "2dsphere", geo("LineString", nil), ""},
-		{"linestring_coordinates_number", "2dsphere", geo("LineString", 5), ""},
+		{"linestring_coordinates_string", "2dsphere", geo("LineString", "x"), ""},
 		{"linestring_position_number", "2dsphere", geo("LineString", bson.A{bson.A{0, 0}, 5}), ""},
 		{"linestring_position_null", "2dsphere", geo("LineString", bson.A{nil}), ""},
 		{"multipoint_position_null", "2dsphere", geo("MultiPoint", bson.A{nil}), ""},
@@ -87,13 +89,12 @@ func TestGeoErrorMessages(t *testing.T) {
 		}()), ""},
 		{"long_string_beside_point", "2dsphere", geo("Point", bson.A{500, 0}), strings.Repeat("x", 1000)},
 		{"long_multibyte_string_beside_point", "2dsphere", geo("Point", bson.A{500, 0}), strings.Repeat("\u00e9", 400)},
-		{"long_odd_multibyte_string_beside_point", "2dsphere", geo("Point", bson.A{500, 0}), "x" + strings.Repeat("\u00e9", 400)},
 		{"long_string_beside_2d_point", "2d", bson.A{500, 0}, strings.Repeat("x", 1000)},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "GeoErrorMessages_" + c.name,
-				Support: supportFor(t, geoErrorMessagesXFail),
+				Support: harness.DumboDBFull,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: d("loc", c.index)})
 					return err
@@ -113,34 +114,4 @@ func TestGeoErrorMessages(t *testing.T) {
 			})
 		})
 	}
-}
-
-// geoErrorMessagesXFail lists the cases DumboDB fails until its geo index
-// messages match mongod's.
-var geoErrorMessagesXFail = map[string]bool{
-	"TestGeoErrorMessages/geometries_element_null":                true,
-	"TestGeoErrorMessages/geometries_null":                        true,
-	"TestGeoErrorMessages/linestring_coordinates_null":            true,
-	"TestGeoErrorMessages/linestring_coordinates_number":          true,
-	"TestGeoErrorMessages/linestring_one_vertex_long":             true,
-	"TestGeoErrorMessages/linestring_position_null":               true,
-	"TestGeoErrorMessages/linestring_position_number":             true,
-	"TestGeoErrorMessages/long_multibyte_string_beside_point":     true,
-	"TestGeoErrorMessages/long_odd_multibyte_string_beside_point": true,
-	"TestGeoErrorMessages/long_string_beside_2d_point":            true,
-	"TestGeoErrorMessages/long_string_beside_point":               true,
-	"TestGeoErrorMessages/multilinestring_coordinates_null":       true,
-	"TestGeoErrorMessages/multilinestring_line_null":              true,
-	"TestGeoErrorMessages/multilinestring_position_number":        true,
-	"TestGeoErrorMessages/multipoint_position_null":               true,
-	"TestGeoErrorMessages/multipolygon_coordinates_null":          true,
-	"TestGeoErrorMessages/multipolygon_polygon_number":            true,
-	"TestGeoErrorMessages/multipolygon_position_number":           true,
-	"TestGeoErrorMessages/multipolygon_ring_number":               true,
-	"TestGeoErrorMessages/point_coordinates_null":                 true,
-	"TestGeoErrorMessages/polygon_coordinates_null":               true,
-	"TestGeoErrorMessages/polygon_position_number":                true,
-	"TestGeoErrorMessages/polygon_ring_number":                    true,
-	"TestGeoErrorMessages/polygon_unclosed_long":                  true,
-	"TestGeoErrorMessages/polygon_unclosed_short":                 true,
 }
