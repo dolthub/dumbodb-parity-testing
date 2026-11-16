@@ -25,29 +25,6 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// updateArrayFilterPathConflictsXFail lists the cases DumboDB fails until a
-// $[] or $[id] element next to another element under one path is refused.
-var updateArrayFilterPathConflictsXFail = map[string]bool{
-	"TestUpdateArrayFilterPathConflicts/all_nested_then_index_match":            true,
-	"TestUpdateArrayFilterPathConflicts/all_nested_then_index_nested_match":     true,
-	"TestUpdateArrayFilterPathConflicts/all_nested_then_index_nested_no_match":  true,
-	"TestUpdateArrayFilterPathConflicts/all_nested_then_index_no_match":         true,
-	"TestUpdateArrayFilterPathConflicts/all_then_field_match":                   true,
-	"TestUpdateArrayFilterPathConflicts/all_then_field_no_match":                true,
-	"TestUpdateArrayFilterPathConflicts/all_then_index_match":                   true,
-	"TestUpdateArrayFilterPathConflicts/all_then_index_no_match":                true,
-	"TestUpdateArrayFilterPathConflicts/all_then_index_other_operator_match":    true,
-	"TestUpdateArrayFilterPathConflicts/all_then_index_other_operator_no_match": true,
-	"TestUpdateArrayFilterPathConflicts/identifier_then_index_match":            true,
-	"TestUpdateArrayFilterPathConflicts/identifier_then_index_no_match":         true,
-	"TestUpdateArrayFilterPathConflicts/index_nested_then_all_nested_match":     true,
-	"TestUpdateArrayFilterPathConflicts/index_nested_then_all_nested_no_match":  true,
-	"TestUpdateArrayFilterPathConflicts/index_then_all_other_operator_match":    true,
-	"TestUpdateArrayFilterPathConflicts/index_then_all_other_operator_no_match": true,
-	"TestUpdateArrayFilterPathConflicts/positional_then_all_match":              true,
-	"TestUpdateArrayFilterPathConflicts/positional_then_all_no_match":           true,
-}
-
 // mongod refuses, while parsing an update, a $[] or $[id] element next to any
 // other element under the same path (40), even when nothing matches.
 func TestUpdateArrayFilterPathConflicts(t *testing.T) {
@@ -92,7 +69,7 @@ func TestUpdateArrayFilterPathConflicts(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "UpdateArrayFilterPathConflicts_" + name,
-					Support: supportFor(t, updateArrayFilterPathConflictsXFail),
+					Support: harness.DumboDBFull,
 					Setup: insertDocs(bson.D{
 						{Key: "_id", Value: 1}, {Key: "a", Value: bson.A{1, 2}},
 						{Key: "b", Value: bson.A{bson.D{{Key: "x", Value: 1}, {Key: "y", Value: 1}}}},
