@@ -24,8 +24,8 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// bulkWrite reports a document an index cannot hold with the index's own code
-// and message, as insert does.
+// TestBulkWriteIndexKeyErrors: bulkWrite reports a document an index cannot
+// hold with the index's own code and message, as insert does.
 func TestBulkWriteIndexKeyErrors(t *testing.T) {
 	d := func(kv ...interface{}) bson.D {
 		var out bson.D
