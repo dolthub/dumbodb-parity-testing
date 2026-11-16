@@ -101,3 +101,73 @@ func TestPartialIndexUnsortedFilter(t *testing.T) {
 		})
 	}
 }
+
+// A partial filter on an embedded document _id covers the documents whose _id
+// equals it as written: DumboDB keeps an _id's field order.
+func TestPartialIndexDocumentID(t *testing.T) {
+	yx := func(n int) bson.D { return bson.D{{Key: "y", Value: n}, {Key: "x", Value: n}} }
+	eqID := func(n int) bson.D { return bson.D{{Key: "_id", Value: bson.D{{Key: "$eq", Value: yx(n)}}}} }
+	t.Run("unique_or_of_ids", func(t *testing.T) {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "PartialIndexDocumentID_unique_or_of_ids",
+			Support: supportFor(t, partialIndexRound3XFail),
+			Setup: func(ctx context.Context, col *mongo.Collection) error {
+				if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: yx(1)}, {Key: "k", Value: 1}}); err != nil {
+					return err
+				}
+				_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "k", Value: 1}}, Options: options.Index().
+					SetUnique(true).SetPartialFilterExpression(bson.D{{Key: "$or", Value: bson.A{eqID(1), eqID(2)}}})})
+				return err
+			},
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return writeOutcome(ctx, col, func() error {
+					_, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: yx(2)}, {Key: "k", Value: 1}})
+					return err
+				})
+			},
+		})
+	})
+	for _, tc := range []struct {
+		name  string
+		pfe   bson.D
+		query bson.D
+	}{
+		{"id", bson.D{{Key: "_id", Value: yx(1)}}, bson.D{{Key: "_id", Value: yx(1)}, {Key: "k", Value: 1}}},
+		{"id_and_document", bson.D{{Key: "_id", Value: yx(1)}, {Key: "a", Value: bson.D{{Key: "q", Value: 1}}}},
+			bson.D{{Key: "_id", Value: yx(1)}, {Key: "a", Value: bson.D{{Key: "q", Value: 1}}}, {Key: "k", Value: 1}}},
+	} {
+		t.Run("hinted_"+tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "PartialIndexDocumentID_hinted_" + tc.name,
+				Support: supportFor(t, partialIndexRound3XFail),
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					if _, err := col.InsertMany(ctx, []interface{}{
+						bson.D{{Key: "_id", Value: yx(1)}, {Key: "k", Value: 1}, {Key: "a", Value: bson.D{{Key: "q", Value: 1}}}},
+						bson.D{{Key: "_id", Value: 2}, {Key: "k", Value: 1}},
+					}); err != nil {
+						return err
+					}
+					_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "k", Value: 1}},
+						Options: options.Index().SetName("ix").SetPartialFilterExpression(tc.pfe)})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					cur, err := col.Find(ctx, tc.query, options.Find().SetHint("ix"))
+					if err != nil {
+						return nil, err
+					}
+					var docs []bson.D
+					err = cur.All(ctx, &docs)
+					return docs, err
+				},
+			})
+		})
+	}
+}
+
+// partialIndexRound3XFail lists the cases DumboDB fails until the follow-up for dolthub/dumbodb#208.
+var partialIndexRound3XFail = map[string]bool{
+	"TestPartialIndexDocumentID/hinted_id":              true,
+	"TestPartialIndexDocumentID/hinted_id_and_document": true,
+	"TestPartialIndexDocumentID/unique_or_of_ids":       true,
+}
