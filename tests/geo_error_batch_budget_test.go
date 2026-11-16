@@ -81,7 +81,7 @@ func TestGeoErrorMessagesLargeEcho(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "GeoErrorMessagesLargeEcho_" + c.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "loc", Value: "2dsphere"}}})
 					return err
