@@ -74,7 +74,7 @@ func arrayFilterWriters(filter, update interface{}, filters []interface{}) []str
 	}
 }
 
-func runArrayFilterCases(t *testing.T, prefix string, setup []interface{}, cases []struct {
+func runArrayFilterCases(t *testing.T, prefix string, xfail map[string]bool, setup []interface{}, cases []struct {
 	name    string
 	filter  bson.D
 	update  interface{}
@@ -85,7 +85,7 @@ func runArrayFilterCases(t *testing.T, prefix string, setup []interface{}, cases
 			t.Run(c.name+"_"+w.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    prefix + "_" + c.name + "_" + w.name,
-					Support: harness.DumboDBFull,
+					Support: supportFor(t, xfail),
 					Setup:   insertDocs(setup...),
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 						return writeOutcome(ctx, col, func() error { return w.write(ctx, col) })
@@ -102,7 +102,7 @@ func TestArrayFiltersValidation(t *testing.T) {
 	setB := bson.D{{Key: "$set", Value: bson.D{{Key: "b", Value: 5}}}}
 	setE := bson.D{{Key: "$set", Value: bson.D{{Key: "a.$[e]", Value: 5}}}}
 	gt1 := func(id string) bson.D { return bson.D{{Key: id, Value: bson.D{{Key: "$gt", Value: 1}}}} }
-	runArrayFilterCases(t, "ArrayFiltersValidation", []interface{}{
+	runArrayFilterCases(t, "ArrayFiltersValidation", nil, []interface{}{
 		bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: 0}},
 	}, []struct {
 		name    string
@@ -208,4 +208,119 @@ func runPipelineFindAndModify(ctx context.Context, col *mongo.Collection, args b
 		{Key: "update", Value: args[1]},
 		{Key: "arrayFilters", Value: args[2]},
 	}).Err()
+}
+
+// mongod parses each array filter's body before reading a document.
+func TestArrayFiltersBodies(t *testing.T) {
+	setE := bson.D{{Key: "$set", Value: bson.D{{Key: "a.$[x]", Value: 5}}}}
+	x := func(v interface{}) bson.D { return bson.D{{Key: "x", Value: v}} }
+	op := func(name string, v interface{}) bson.D { return bson.D{{Key: name, Value: v}} }
+	var cases []struct {
+		name    string
+		filter  bson.D
+		update  interface{}
+		filters []interface{}
+	}
+	for _, f := range []struct {
+		name    string
+		filters []interface{}
+	}{
+		{"non_document", []interface{}{x(op("$gt", 1)), 5}},
+		{"expr", []interface{}{bson.D{{Key: "x", Value: op("$gt", 1)}, {Key: "$expr", Value: true}}}},
+		{"unknown_operator", []interface{}{x(op("$foo", 1))}},
+		{"where", []interface{}{bson.D{{Key: "x", Value: 1}, {Key: "$where", Value: "1"}}}},
+		{"text", []interface{}{bson.D{{Key: "x", Value: 1}, {Key: "$text", Value: op("$search", "a")}}}},
+		{"near", []interface{}{x(op("$near", bson.A{0, 0}))}},
+		{"bad_regex", []interface{}{x(op("$regex", "("))}},
+		{"bad_type", []interface{}{x(op("$type", "bogus"))}},
+		{"jsonSchema_in_elemMatch", []interface{}{x(op("$elemMatch", op("$jsonSchema", bson.D{})))}},
+		{"unknown_operator_in_elemMatch", []interface{}{x(op("$elemMatch", op("$foo", 1)))}},
+	} {
+		for _, target := range []struct {
+			name string
+			id   int
+		}{{"match", 1}, {"no_match", 9}} {
+			cases = append(cases, struct {
+				name    string
+				filter  bson.D
+				update  interface{}
+				filters []interface{}
+			}{f.name + "_" + target.name, bson.D{{Key: "_id", Value: target.id}}, setE, f.filters})
+		}
+	}
+	runArrayFilterCases(t, "ArrayFiltersBodies", arrayFiltersBodiesXFail, []interface{}{
+		bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: bson.A{1, 2}}},
+	}, cases)
+}
+
+// arrayFiltersBodiesXFail lists the cases DumboDB fails until array filter bodies are parsed up front.
+var arrayFiltersBodiesXFail = map[string]bool{
+	"TestArrayFiltersBodies/bad_regex_match_bulkWrite":                            true,
+	"TestArrayFiltersBodies/bad_regex_match_findAndModify":                        true,
+	"TestArrayFiltersBodies/bad_regex_match_updateMany":                           true,
+	"TestArrayFiltersBodies/bad_regex_match_updateOne":                            true,
+	"TestArrayFiltersBodies/bad_regex_no_match_bulkWrite":                         true,
+	"TestArrayFiltersBodies/bad_regex_no_match_findAndModify":                     true,
+	"TestArrayFiltersBodies/bad_regex_no_match_updateMany":                        true,
+	"TestArrayFiltersBodies/bad_regex_no_match_updateOne":                         true,
+	"TestArrayFiltersBodies/bad_type_no_match_bulkWrite":                          true,
+	"TestArrayFiltersBodies/bad_type_no_match_findAndModify":                      true,
+	"TestArrayFiltersBodies/bad_type_no_match_updateMany":                         true,
+	"TestArrayFiltersBodies/bad_type_no_match_updateOne":                          true,
+	"TestArrayFiltersBodies/expr_match_bulkWrite":                                 true,
+	"TestArrayFiltersBodies/expr_match_findAndModify":                             true,
+	"TestArrayFiltersBodies/expr_match_updateMany":                                true,
+	"TestArrayFiltersBodies/expr_match_updateOne":                                 true,
+	"TestArrayFiltersBodies/expr_no_match_bulkWrite":                              true,
+	"TestArrayFiltersBodies/expr_no_match_findAndModify":                          true,
+	"TestArrayFiltersBodies/expr_no_match_updateMany":                             true,
+	"TestArrayFiltersBodies/expr_no_match_updateOne":                              true,
+	"TestArrayFiltersBodies/jsonSchema_in_elemMatch_match_bulkWrite":              true,
+	"TestArrayFiltersBodies/jsonSchema_in_elemMatch_match_findAndModify":          true,
+	"TestArrayFiltersBodies/jsonSchema_in_elemMatch_match_updateMany":             true,
+	"TestArrayFiltersBodies/jsonSchema_in_elemMatch_match_updateOne":              true,
+	"TestArrayFiltersBodies/jsonSchema_in_elemMatch_no_match_bulkWrite":           true,
+	"TestArrayFiltersBodies/jsonSchema_in_elemMatch_no_match_findAndModify":       true,
+	"TestArrayFiltersBodies/jsonSchema_in_elemMatch_no_match_updateMany":          true,
+	"TestArrayFiltersBodies/jsonSchema_in_elemMatch_no_match_updateOne":           true,
+	"TestArrayFiltersBodies/near_match_bulkWrite":                                 true,
+	"TestArrayFiltersBodies/near_match_findAndModify":                             true,
+	"TestArrayFiltersBodies/near_match_updateMany":                                true,
+	"TestArrayFiltersBodies/near_match_updateOne":                                 true,
+	"TestArrayFiltersBodies/near_no_match_bulkWrite":                              true,
+	"TestArrayFiltersBodies/near_no_match_findAndModify":                          true,
+	"TestArrayFiltersBodies/near_no_match_updateMany":                             true,
+	"TestArrayFiltersBodies/near_no_match_updateOne":                              true,
+	"TestArrayFiltersBodies/non_document_match_bulkWrite":                         true,
+	"TestArrayFiltersBodies/non_document_match_findAndModify":                     true,
+	"TestArrayFiltersBodies/non_document_match_updateMany":                        true,
+	"TestArrayFiltersBodies/non_document_match_updateOne":                         true,
+	"TestArrayFiltersBodies/non_document_no_match_bulkWrite":                      true,
+	"TestArrayFiltersBodies/non_document_no_match_findAndModify":                  true,
+	"TestArrayFiltersBodies/non_document_no_match_updateMany":                     true,
+	"TestArrayFiltersBodies/non_document_no_match_updateOne":                      true,
+	"TestArrayFiltersBodies/text_match_bulkWrite":                                 true,
+	"TestArrayFiltersBodies/text_match_findAndModify":                             true,
+	"TestArrayFiltersBodies/text_match_updateMany":                                true,
+	"TestArrayFiltersBodies/text_match_updateOne":                                 true,
+	"TestArrayFiltersBodies/text_no_match_bulkWrite":                              true,
+	"TestArrayFiltersBodies/text_no_match_findAndModify":                          true,
+	"TestArrayFiltersBodies/text_no_match_updateMany":                             true,
+	"TestArrayFiltersBodies/text_no_match_updateOne":                              true,
+	"TestArrayFiltersBodies/unknown_operator_in_elemMatch_match_bulkWrite":        true,
+	"TestArrayFiltersBodies/unknown_operator_in_elemMatch_match_findAndModify":    true,
+	"TestArrayFiltersBodies/unknown_operator_in_elemMatch_match_updateMany":       true,
+	"TestArrayFiltersBodies/unknown_operator_in_elemMatch_match_updateOne":        true,
+	"TestArrayFiltersBodies/unknown_operator_in_elemMatch_no_match_bulkWrite":     true,
+	"TestArrayFiltersBodies/unknown_operator_in_elemMatch_no_match_findAndModify": true,
+	"TestArrayFiltersBodies/unknown_operator_in_elemMatch_no_match_updateMany":    true,
+	"TestArrayFiltersBodies/unknown_operator_in_elemMatch_no_match_updateOne":     true,
+	"TestArrayFiltersBodies/unknown_operator_no_match_bulkWrite":                  true,
+	"TestArrayFiltersBodies/unknown_operator_no_match_findAndModify":              true,
+	"TestArrayFiltersBodies/unknown_operator_no_match_updateMany":                 true,
+	"TestArrayFiltersBodies/unknown_operator_no_match_updateOne":                  true,
+	"TestArrayFiltersBodies/where_no_match_bulkWrite":                             true,
+	"TestArrayFiltersBodies/where_no_match_findAndModify":                         true,
+	"TestArrayFiltersBodies/where_no_match_updateMany":                            true,
+	"TestArrayFiltersBodies/where_no_match_updateOne":                             true,
 }
