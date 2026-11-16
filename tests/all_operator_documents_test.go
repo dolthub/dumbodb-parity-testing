@@ -168,3 +168,83 @@ func TestAllOperatorDocumentsNested(t *testing.T) {
 		})
 	}
 }
+
+// mongod accepts $near, $nearSphere and $geoNear only at the top level of a
+// filter, in $and, and in a one-clause $or, and refuses them elsewhere before
+// reading a document.
+func TestNearPlacement(t *testing.T) {
+	near := bson.D{{Key: "$near", Value: bson.A{0, 0}}}
+	k := bson.D{{Key: "k", Value: near}}
+	elemMatch := func(v interface{}) bson.D { return bson.D{{Key: "$elemMatch", Value: v}} }
+	filters := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"all_elemMatch_elemMatch", bson.D{{Key: "arr", Value: bson.D{{Key: "$all", Value: bson.A{elemMatch(elemMatch(k))}}}}}},
+		{"elemMatch_field", bson.D{{Key: "arr", Value: elemMatch(k)}}},
+		{"elemMatch_operator", bson.D{{Key: "arr", Value: elemMatch(near)}}},
+		{"elemMatch_nearSphere", bson.D{{Key: "arr", Value: elemMatch(bson.D{{Key: "k", Value: bson.D{{Key: "$nearSphere", Value: bson.A{0, 0}}}}})}}},
+		{"elemMatch_or", bson.D{{Key: "arr", Value: elemMatch(bson.D{{Key: "$or", Value: bson.A{k}}})}}},
+		{"not", bson.D{{Key: "loc", Value: bson.D{{Key: "$not", Value: near}}}}},
+		{"nor", bson.D{{Key: "$nor", Value: bson.A{bson.D{{Key: "loc", Value: near}}}}}},
+		{"or_two_clauses", bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "loc", Value: near}}, bson.D{{Key: "_id", Value: 2}}}}}},
+		{"or_one_clause", bson.D{{Key: "$or", Value: bson.A{bson.D{{Key: "loc", Value: near}}}}}},
+		{"and", bson.D{{Key: "$and", Value: bson.A{bson.D{{Key: "loc", Value: near}}, bson.D{{Key: "_id", Value: 1}}}}}},
+		{"top_level", bson.D{{Key: "loc", Value: near}}},
+	}
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "loc", Value: "2d"}}}); err != nil {
+			return err
+		}
+		return insertDocs(
+			bson.D{{Key: "_id", Value: 1}, {Key: "loc", Value: bson.A{0, 0}}, {Key: "arr", Value: bson.A{bson.A{bson.D{{Key: "k", Value: bson.A{0, 0}}}}}}},
+			bson.D{{Key: "_id", Value: 2}, {Key: "loc", Value: bson.A{5, 5}}, {Key: "arr", Value: 5}},
+		)(ctx, col)
+	}
+	for _, tc := range filters {
+		t.Run(tc.name+"_find", func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "NearPlacement_" + tc.name + "_find",
+				Support: supportFor(t, nearPlacementXFail),
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return findIDs(ctx, col, tc.filter)
+				},
+			})
+		})
+		t.Run(tc.name+"_deleteMany", func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "NearPlacement_" + tc.name + "_deleteMany",
+				Support: supportFor(t, nearPlacementXFail),
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return writeOutcome(ctx, col, func() error {
+						_, err := col.DeleteMany(ctx, tc.filter)
+						return err
+					})
+				},
+			})
+		})
+	}
+}
+
+// nearPlacementXFail lists the cases DumboDB fails until $near is refused
+// outside the top level of a filter.
+var nearPlacementXFail = map[string]bool{
+	"TestNearPlacement/all_elemMatch_elemMatch_deleteMany": true,
+	"TestNearPlacement/all_elemMatch_elemMatch_find":       true,
+	"TestNearPlacement/elemMatch_field_deleteMany":         true,
+	"TestNearPlacement/elemMatch_field_find":               true,
+	"TestNearPlacement/elemMatch_nearSphere_deleteMany":    true,
+	"TestNearPlacement/elemMatch_nearSphere_find":          true,
+	"TestNearPlacement/elemMatch_operator_deleteMany":      true,
+	"TestNearPlacement/elemMatch_operator_find":            true,
+	"TestNearPlacement/elemMatch_or_deleteMany":            true,
+	"TestNearPlacement/elemMatch_or_find":                  true,
+	"TestNearPlacement/nor_deleteMany":                     true,
+	"TestNearPlacement/nor_find":                           true,
+	"TestNearPlacement/not_deleteMany":                     true,
+	"TestNearPlacement/not_find":                           true,
+	"TestNearPlacement/or_two_clauses_deleteMany":          true,
+	"TestNearPlacement/or_two_clauses_find":                true,
+}
