@@ -146,7 +146,7 @@ func TestAllOperatorDocumentsNested(t *testing.T) {
 		t.Run(tc.name+"_find", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "AllOperatorDocumentsNested_" + tc.name + "_find",
-				Support: supportFor(t, allNestedXFail),
+				Support: harness.DumboDBFull,
 				Setup:   insertDocs(tcDocs...),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return findIDs(ctx, col, tc.filter)
@@ -156,7 +156,7 @@ func TestAllOperatorDocumentsNested(t *testing.T) {
 		t.Run(tc.name+"_deleteMany", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "AllOperatorDocumentsNested_" + tc.name + "_deleteMany",
-				Support: supportFor(t, allNestedXFail),
+				Support: harness.DumboDBFull,
 				Setup:   insertDocs(tcDocs...),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return writeOutcome(ctx, col, func() error {
@@ -167,16 +167,4 @@ func TestAllOperatorDocumentsNested(t *testing.T) {
 			})
 		})
 	}
-}
-
-// allNestedXFail lists the cases DumboDB fails until $all operands are validated and classified as sent.
-var allNestedXFail = map[string]bool{
-	"TestAllOperatorDocumentsNested/literal_before_elemMatch_key_deleteMany":  true,
-	"TestAllOperatorDocumentsNested/literal_before_elemMatch_key_find":        true,
-	"TestAllOperatorDocumentsNested/nor_all_nested_operator_deleteMany":       true,
-	"TestAllOperatorDocumentsNested/nor_all_nested_operator_find":             true,
-	"TestAllOperatorDocumentsNested/not_all_bad_elemMatch_deleteMany":         true,
-	"TestAllOperatorDocumentsNested/not_all_bad_elemMatch_find":               true,
-	"TestAllOperatorDocumentsNested/operator_before_elemMatch_key_deleteMany": true,
-	"TestAllOperatorDocumentsNested/operator_before_elemMatch_key_find":       true,
 }
