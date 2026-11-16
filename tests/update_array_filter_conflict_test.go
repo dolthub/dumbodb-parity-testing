@@ -89,3 +89,68 @@ func TestUpdateArrayFilterPathConflicts(t *testing.T) {
 		}
 	}
 }
+
+// mongod resolves every positional path against the document as stored, then
+// refuses two resolved paths that reach the same element (40), and applies
+// none of the update.
+func TestUpdatePositionalApplyConflicts(t *testing.T) {
+	d := func(kv ...interface{}) bson.D {
+		var out bson.D
+		for i := 0; i < len(kv); i += 2 {
+			out = append(out, bson.E{Key: kv[i].(string), Value: kv[i+1]})
+		}
+		return out
+	}
+	filters := func(fs ...bson.D) []interface{} {
+		out := make([]interface{}, len(fs))
+		for i, f := range fs {
+			out[i] = f
+		}
+		return out
+	}
+	for _, c := range []struct {
+		name    string
+		update  bson.D
+		filters []interface{}
+	}{
+		{"all_and_identifier", d("$set", d("a.$[]", 5), "$inc", d("a.$[x]", 1)), filters(d("x", 1))},
+		{"all_and_identifier_disjoint", d("$set", d("a.$[]", 5), "$inc", d("a.$[x]", 1)), filters(d("x", 99))},
+		{"identifiers_overlap", d("$set", d("a.$[x]", 5), "$inc", d("a.$[y]", 1)), filters(d("x", 1), d("y", d("$gt", 0)))},
+		{"identifiers_overlap_second", d("$set", d("a.$[x]", 5), "$inc", d("a.$[y]", 1)), filters(d("x", 2), d("y", d("$gt", 0)))},
+		{"identifiers_disjoint", d("$set", d("a.$[x]", 5), "$inc", d("a.$[y]", 1)), filters(d("x", 1), d("y", 2))},
+		{"identifiers_one_operator", d("$set", d("a.$[x]", 5, "a.$[y]", 6)), filters(d("x", 1), d("y", 1))},
+		{"subfields", d("$set", d("b.$[].x", 5, "b.$[e].y", 7)), filters(d("e.x", 1))},
+		{"same_subfield", d("$set", d("b.$[].x", 5, "b.$[e].x", 7)), filters(d("e.x", 1))},
+		{"element_and_subfield", d("$set", d("b.$[e]", 5, "b.$[f].x", 7)), filters(d("e.x", 1), d("f.y", 1))},
+		{"subfield_and_element", d("$set", d("b.$[f].x", 7, "b.$[e]", 5)), filters(d("e.x", 1), d("f.y", 1))},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "UpdatePositionalApplyConflicts_" + c.name,
+				Support: supportFor(t, updatePositionalApplyConflictsXFail),
+				Setup: insertDocs(d("_id", 1, "a", bson.A{1, 2},
+					"b", bson.A{d("x", 1, "y", 1), d("x", 2, "y", 2)})),
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return writeOutcome(ctx, col, func() error {
+						opts := options.Update().SetArrayFilters(options.ArrayFilters{Filters: c.filters})
+						_, err := col.UpdateOne(ctx, d("_id", 1), c.update, opts)
+						return err
+					})
+				},
+			})
+		})
+	}
+}
+
+// updatePositionalApplyConflictsXFail lists the cases DumboDB fails until it
+// resolves positional paths before applying them and refuses overlaps.
+var updatePositionalApplyConflictsXFail = map[string]bool{
+	"TestUpdatePositionalApplyConflicts/all_and_identifier":         true,
+	"TestUpdatePositionalApplyConflicts/element_and_subfield":       true,
+	"TestUpdatePositionalApplyConflicts/identifiers_one_operator":   true,
+	"TestUpdatePositionalApplyConflicts/identifiers_overlap":        true,
+	"TestUpdatePositionalApplyConflicts/identifiers_overlap_second": true,
+	"TestUpdatePositionalApplyConflicts/same_subfield":              true,
+	"TestUpdatePositionalApplyConflicts/subfield_and_element":       true,
+	"TestUpdatePositionalApplyConflicts/subfields":                  true,
+}
