@@ -236,23 +236,11 @@ func TestIndexParallelArraysPerElement(t *testing.T) {
 		bson.D{{Key: "b", Value: bson.A{1}}, {Key: "c", Value: 2}},
 	}}}
 	together := bson.D{{Key: "a", Value: bson.A{bson.D{{Key: "b", Value: bson.A{1}}, {Key: "c", Value: bson.A{2}}}}}}
-	runIndexWriteCases(t, "IndexParallelArraysPerElement", parallelPerElementXFail, []indexWriteCase{
+	runIndexWriteCases(t, "IndexParallelArraysPerElement", nil, []indexWriteCase{
 		{"arrays_in_different_elements", bc, nil, apart, apart},
 		{"arrays_crossed_across_elements", bc, nil, crossed, crossed},
 		{"arrays_in_one_element", bc, nil, together, nil},
 		{"partial_arrays_in_different_elements", bc, options.Index().SetPartialFilterExpression(bson.D{{Key: "k", Value: 1}}),
 			append(bson.D{{Key: "k", Value: 1}}, apart...), nil},
 	})
-}
-
-// parallelPerElementXFail lists the cases DumboDB fails until parallel arrays are checked per array element.
-var parallelPerElementXFail = map[string]bool{
-	"TestIndexParallelArraysPerElement/arrays_crossed_across_elements_build":        true,
-	"TestIndexParallelArraysPerElement/arrays_crossed_across_elements_insert":       true,
-	"TestIndexParallelArraysPerElement/arrays_crossed_across_elements_update":       true,
-	"TestIndexParallelArraysPerElement/arrays_in_different_elements_build":          true,
-	"TestIndexParallelArraysPerElement/arrays_in_different_elements_insert":         true,
-	"TestIndexParallelArraysPerElement/arrays_in_different_elements_update":         true,
-	"TestIndexParallelArraysPerElement/partial_arrays_in_different_elements_build":  true,
-	"TestIndexParallelArraysPerElement/partial_arrays_in_different_elements_insert": true,
 }
