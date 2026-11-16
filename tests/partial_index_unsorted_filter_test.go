@@ -164,3 +164,75 @@ func TestPartialIndexDocumentID(t *testing.T) {
 		})
 	}
 }
+
+// A partial filter comparing an embedded document with a range operator
+// covers the same documents an index plan and a collection scan see.
+func TestPartialIndexRangeOnDocument(t *testing.T) {
+	xy := bson.D{{Key: "x", Value: 1}, {Key: "y", Value: 1}}
+	lt := bson.D{{Key: "a", Value: bson.D{{Key: "$lt", Value: xy}}}}
+	docs := []interface{}{
+		bson.D{{Key: "_id", Value: 1}, {Key: "k", Value: 1}, {Key: "a", Value: bson.D{{Key: "y", Value: 2}, {Key: "x", Value: 0}}}},
+		bson.D{{Key: "_id", Value: 2}, {Key: "k", Value: 1}, {Key: "a", Value: bson.D{{Key: "x", Value: 0}, {Key: "y", Value: 2}}}},
+	}
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "k", Value: 1}},
+			Options: options.Index().SetName("ix").SetPartialFilterExpression(lt)}); err != nil {
+			return err
+		}
+		return insertDocs(docs...)(ctx, col)
+	}
+	query := bson.D{{Key: "k", Value: 1}, {Key: "a", Value: bson.D{{Key: "$lt", Value: xy}}}}
+	for _, hint := range []struct {
+		name string
+		hint interface{}
+	}{{"index", "ix"}, {"natural", bson.D{{Key: "$natural", Value: 1}}}} {
+		t.Run("find_"+hint.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "PartialIndexRangeOnDocument_find_" + hint.name,
+				Support: supportFor(t, partialRangeXFail),
+				Setup:   setup,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					cur, err := col.Find(ctx, query, options.Find().SetHint(hint.hint).SetSort(bson.D{{Key: "_id", Value: 1}}))
+					if err != nil {
+						return nil, err
+					}
+					var out []bson.D
+					err = cur.All(ctx, &out)
+					return out, err
+				},
+			})
+		})
+	}
+	t.Run("unique_reinsert_after_delete", func(t *testing.T) {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "PartialIndexRangeOnDocument_unique_reinsert_after_delete",
+			Support: supportFor(t, partialRangeXFail),
+			Setup: func(ctx context.Context, col *mongo.Collection) error {
+				_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "k", Value: 1}}, Options: options.Index().
+					SetUnique(true).SetPartialFilterExpression(bson.D{{Key: "a", Value: bson.D{{Key: "$gt", Value: xy}}}})})
+				return err
+			},
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				doc := func(id int) bson.D {
+					return bson.D{{Key: "_id", Value: id}, {Key: "k", Value: 5}, {Key: "a", Value: bson.D{{Key: "y", Value: 0}, {Key: "x", Value: 0}}}}
+				}
+				return writeOutcome(ctx, col, func() error {
+					if _, err := col.InsertOne(ctx, doc(1)); err != nil {
+						return err
+					}
+					if _, err := col.DeleteOne(ctx, bson.D{{Key: "_id", Value: 1}}); err != nil {
+						return err
+					}
+					_, err := col.InsertOne(ctx, doc(2))
+					return err
+				})
+			},
+		})
+	})
+}
+
+// partialRangeXFail lists the cases DumboDB fails until range filters on embedded documents use the stored form.
+var partialRangeXFail = map[string]bool{
+	"TestPartialIndexRangeOnDocument/find_natural":                 true,
+	"TestPartialIndexRangeOnDocument/unique_reinsert_after_delete": true,
+}
