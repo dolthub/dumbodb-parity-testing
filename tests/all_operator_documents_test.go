@@ -310,7 +310,7 @@ func TestNearInMatchContexts(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "NearInMatchContexts_" + name,
-					Support: supportFor(t, nearInMatchContextsXFail),
+					Support: harness.DumboDBFull,
 					Setup: insertDocs(
 						d("_id", 1, "loc", bson.A{0, 0}, "arr", bson.A{d("k", bson.A{0, 0})}),
 					),
@@ -321,48 +321,6 @@ func TestNearInMatchContexts(t *testing.T) {
 			})
 		}
 	}
-}
-
-// nearInMatchContextsXFail lists the cases DumboDB fails until it refuses
-// $near anywhere in $match and validators.
-var nearInMatchContextsXFail = map[string]bool{
-	"TestNearInMatchContexts/all_elemMatch_aggregate":        true,
-	"TestNearInMatchContexts/all_elemMatch_countDocuments":   true,
-	"TestNearInMatchContexts/all_elemMatch_facet":            true,
-	"TestNearInMatchContexts/all_elemMatch_lookup":           true,
-	"TestNearInMatchContexts/all_elemMatch_validator":        true,
-	"TestNearInMatchContexts/all_elemMatch_view":             true,
-	"TestNearInMatchContexts/elemMatch_field_aggregate":      true,
-	"TestNearInMatchContexts/elemMatch_field_countDocuments": true,
-	"TestNearInMatchContexts/elemMatch_field_facet":          true,
-	"TestNearInMatchContexts/elemMatch_field_lookup":         true,
-	"TestNearInMatchContexts/elemMatch_field_validator":      true,
-	"TestNearInMatchContexts/elemMatch_field_view":           true,
-	"TestNearInMatchContexts/nearSphere_not_aggregate":       true,
-	"TestNearInMatchContexts/nearSphere_not_countDocuments":  true,
-	"TestNearInMatchContexts/nearSphere_not_facet":           true,
-	"TestNearInMatchContexts/nearSphere_not_lookup":          true,
-	"TestNearInMatchContexts/nearSphere_not_validator":       true,
-	"TestNearInMatchContexts/nearSphere_not_view":            true,
-	"TestNearInMatchContexts/nor_aggregate":                  true,
-	"TestNearInMatchContexts/nor_countDocuments":             true,
-	"TestNearInMatchContexts/nor_facet":                      true,
-	"TestNearInMatchContexts/nor_lookup":                     true,
-	"TestNearInMatchContexts/nor_validator":                  true,
-	"TestNearInMatchContexts/nor_view":                       true,
-	"TestNearInMatchContexts/not_aggregate":                  true,
-	"TestNearInMatchContexts/not_countDocuments":             true,
-	"TestNearInMatchContexts/not_facet":                      true,
-	"TestNearInMatchContexts/not_lookup":                     true,
-	"TestNearInMatchContexts/not_validator":                  true,
-	"TestNearInMatchContexts/not_view":                       true,
-	"TestNearInMatchContexts/or_two_clauses_aggregate":       true,
-	"TestNearInMatchContexts/or_two_clauses_countDocuments":  true,
-	"TestNearInMatchContexts/or_two_clauses_facet":           true,
-	"TestNearInMatchContexts/or_two_clauses_lookup":          true,
-	"TestNearInMatchContexts/or_two_clauses_validator":       true,
-	"TestNearInMatchContexts/or_two_clauses_view":            true,
-	"TestNearInMatchContexts/top_level_validator":            true,
 }
 
 // mongod classifies an $all element by its first key as written and refuses
