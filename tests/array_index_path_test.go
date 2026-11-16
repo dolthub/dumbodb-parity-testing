@@ -377,7 +377,6 @@ func TestArrayIndexPath_ReviewHinted(t *testing.T) {
 	}
 }
 
-// Positional updates and arrayFilters driven by array index paths.
 // positionalNoMatchXFail lists a case DumboDB fails until
 // dolthub/dumbodb#301 is fixed: mongod refuses a positional update whose
 // filter records no array position; DumboDB updates nothing.
@@ -385,6 +384,7 @@ var positionalNoMatchXFail = map[string]bool{
 	"TestArrayIndexPath_PositionalUpdates/positional_by_index_filter": true,
 }
 
+// Positional updates and arrayFilters driven by array index paths.
 func TestArrayIndexPath_PositionalUpdates(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
