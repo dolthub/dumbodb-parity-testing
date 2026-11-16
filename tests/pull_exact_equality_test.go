@@ -288,7 +288,7 @@ func TestPullNearInAll(t *testing.T) {
 			t.Run(c.name+"_"+w.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "PullNearInAll_" + c.name + "_" + w.name,
-					Support: supportFor(t, pullNearInAllXFail),
+					Support: harness.DumboDBFull,
 					Setup:   insertDocs(doc),
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 						return writeOutcome(ctx, col, func() error { return w.write(ctx, col) })
@@ -297,17 +297,4 @@ func TestPullNearInAll(t *testing.T) {
 			})
 		}
 	}
-}
-
-// pullNearInAllXFail lists the cases DumboDB fails until $pull checks $all operands for $near.
-var pullNearInAllXFail = map[string]bool{
-	"TestPullNearInAll/all_elemMatch_bulkWrite":           true,
-	"TestPullNearInAll/all_elemMatch_findAndModify":       true,
-	"TestPullNearInAll/all_elemMatch_or_bulkWrite":        true,
-	"TestPullNearInAll/all_elemMatch_or_findAndModify":    true,
-	"TestPullNearInAll/all_elemMatch_or_update":           true,
-	"TestPullNearInAll/all_elemMatch_update":              true,
-	"TestPullNearInAll/field_all_elemMatch_bulkWrite":     true,
-	"TestPullNearInAll/field_all_elemMatch_findAndModify": true,
-	"TestPullNearInAll/field_all_elemMatch_update":        true,
 }
