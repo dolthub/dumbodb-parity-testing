@@ -40,7 +40,7 @@ func TestFindAndModifyRemoveArrayFilters(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "FindAndModifyRemoveArrayFilters_" + c.name,
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup:   insertDocs(bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: bson.A{1, 2}}}),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return writeOutcome(ctx, col, func() error {
