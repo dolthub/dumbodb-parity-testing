@@ -20,11 +20,15 @@ package tests
 // (dolthub/dumbodb#242).
 
 import (
+	"context"
 	"math"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
 func TestGeoIndexKeyExtraction(t *testing.T) {
@@ -122,4 +126,53 @@ func TestGeoIndexKeyExtractionShapes(t *testing.T) {
 		c{"2d_nan", planar, nil, loc(bson.A{math.NaN(), 0}), nil},
 		c{"2d_infinity", planar, nil, loc(bson.A{math.Inf(1), 0}), nil},
 	})
+}
+
+// A 2d index's min, max and bits options must describe a valid region.
+func TestGeo2DIndexOptions(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		key  bson.D
+		opts bson.D
+	}{
+		{"min_nan", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "min", Value: math.NaN()}}},
+		{"min_above_max", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "min", Value: 10}, {Key: "max", Value: -10}}},
+		{"min_equals_max", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "min", Value: 5}, {Key: "max", Value: 5}}},
+		{"min_string", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "min", Value: "x"}}},
+		{"max_infinity", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "max", Value: math.Inf(1)}}},
+		{"bits_too_large", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "bits", Value: 1000000}}},
+		{"bits_zero", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "bits", Value: 0}}},
+		{"bits_max", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "bits", Value: 32}}},
+		{"bits_string", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "bits", Value: "x"}}},
+		{"valid_bounds", bson.D{{Key: "loc", Value: "2d"}}, bson.D{{Key: "min", Value: -10}, {Key: "max", Value: 10}}},
+		{"2dsphere_bounds_ignored", bson.D{{Key: "loc", Value: "2dsphere"}}, bson.D{{Key: "min", Value: 10}, {Key: "max", Value: -10}}},
+		{"plain_bounds_ignored", bson.D{{Key: "a", Value: 1}}, bson.D{{Key: "min", Value: 10}, {Key: "max", Value: -10}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "Geo2DIndexOptions_" + tc.name,
+				Support: supportFor(t, geo2DOptionsXFail),
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					spec := append(bson.D{{Key: "key", Value: tc.key}, {Key: "name", Value: "ix"}}, tc.opts...)
+					err := col.Database().RunCommand(ctx, bson.D{
+						{Key: "createIndexes", Value: col.Name()},
+						{Key: "indexes", Value: bson.A{spec}},
+					}).Err()
+					return errCode(err), nil
+				},
+			})
+		})
+	}
+}
+
+// geo2DOptionsXFail lists the cases DumboDB fails until 2d index options are validated.
+var geo2DOptionsXFail = map[string]bool{
+	"TestGeo2DIndexOptions/bits_string":    true,
+	"TestGeo2DIndexOptions/bits_too_large": true,
+	"TestGeo2DIndexOptions/bits_zero":      true,
+	"TestGeo2DIndexOptions/max_infinity":   true,
+	"TestGeo2DIndexOptions/min_above_max":  true,
+	"TestGeo2DIndexOptions/min_equals_max": true,
+	"TestGeo2DIndexOptions/min_nan":        true,
+	"TestGeo2DIndexOptions/min_string":     true,
 }
