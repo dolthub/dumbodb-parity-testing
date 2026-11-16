@@ -48,7 +48,7 @@ func TestOperatorDocumentNonOperatorKeys(t *testing.T) {
 		t.Run(c.name+"_find", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "OperatorDocumentNonOperatorKeys_" + c.name + "_find",
-				Support: supportFor(t, operatorDocumentNonOperatorKeysXFail),
+				Support: harness.DumboDBFull,
 				Setup:   insertDocs(d("_id", 1, "a", 1)),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					_, err := findIDs(ctx, col, c.filter)
@@ -59,7 +59,7 @@ func TestOperatorDocumentNonOperatorKeys(t *testing.T) {
 		t.Run(c.name+"_partial_index", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "OperatorDocumentNonOperatorKeys_" + c.name + "_partial_index",
-				Support: supportFor(t, operatorDocumentNonOperatorKeysXFail),
+				Support: harness.DumboDBFull,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 						Keys:    d("k", 1),
@@ -70,18 +70,4 @@ func TestOperatorDocumentNonOperatorKeys(t *testing.T) {
 			})
 		})
 	}
-}
-
-// operatorDocumentNonOperatorKeysXFail lists the cases DumboDB fails until it
-// refuses non-operator keys in a document of operators.
-var operatorDocumentNonOperatorKeysXFail = map[string]bool{
-	"TestOperatorDocumentNonOperatorKeys/embedded_document_operand_find":          true,
-	"TestOperatorDocumentNonOperatorKeys/embedded_document_operand_partial_index": true,
-	"TestOperatorDocumentNonOperatorKeys/key_before_dollar_find":                  true,
-	"TestOperatorDocumentNonOperatorKeys/key_before_dollar_partial_index":         true,
-	"TestOperatorDocumentNonOperatorKeys/letter_key_find":                         true,
-	"TestOperatorDocumentNonOperatorKeys/letter_key_partial_index":                true,
-	"TestOperatorDocumentNonOperatorKeys/space_key_find":                          true,
-	"TestOperatorDocumentNonOperatorKeys/space_key_partial_index":                 true,
-	"TestOperatorDocumentNonOperatorKeys/unknown_operator_partial_index":          true,
 }

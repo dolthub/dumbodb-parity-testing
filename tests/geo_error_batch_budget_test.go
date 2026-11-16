@@ -33,7 +33,7 @@ import (
 func TestGeoErrorMessagesBatchBudget(t *testing.T) {
 	harness.PairTest(t, harness.TestCase{
 		Name:    "GeoErrorMessagesBatchBudget",
-		Support: supportFor(t, geoErrorMessagesBatchBudgetXFail),
+		Support: harness.DumboDBFull,
 		Setup: func(ctx context.Context, col *mongo.Collection) error {
 			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "loc", Value: "2dsphere"}}})
 			return err
@@ -66,10 +66,4 @@ func TestGeoErrorMessagesBatchBudget(t *testing.T) {
 			return bson.D{{Key: "errors", Value: len(errs)}, {Key: "full", Value: full}}, nil
 		},
 	})
-}
-
-// geoErrorMessagesBatchBudgetXFail lists the cases DumboDB fails until it
-// shortens error messages past a per-reply budget.
-var geoErrorMessagesBatchBudgetXFail = map[string]bool{
-	"TestGeoErrorMessagesBatchBudget": true,
 }
