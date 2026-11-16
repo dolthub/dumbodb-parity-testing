@@ -27,9 +27,27 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// DumboDB rejects Symbol and JavaScript values as InvalidBSON, so every case
-// diverges.
-const symbolJavaScriptSupport = harness.DumboDBXFail
+// symbolJavaScriptXFail names the cases DumboDB does not match yet.
+var symbolJavaScriptXFail = map[string]bool{
+	"Scan_Regex":             true,
+	"Indexed_Regex":          true,
+	"IDSymbol":               true,
+	"IDSymbolFoundByString":  true,
+	"IDStringAfterSymbol":    true,
+	"IDJavaScript":           true,
+	"DistinctScan":           true,
+	"DistinctIndexed":        true,
+	"GroupBySymbolAndString": true,
+
+	"ToUpper_SymbolField":           true,
+	"ToUpper_JavaScriptField":       true,
+	"ToUpper_SymbolLiteral":         true,
+	"ToUpper_JavaScriptLiteral":     true,
+	"SubstrBytes_SymbolField":       true,
+	"SubstrBytes_JavaScriptField":   true,
+	"SubstrBytes_SymbolLiteral":     true,
+	"SubstrBytes_JavaScriptLiteral": true,
+}
 
 type symbolJavaScriptCase struct {
 	name  string
@@ -43,9 +61,13 @@ func runSymbolJavaScriptCases(t *testing.T, cases []symbolJavaScriptCase) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup runs inside Run so a server that rejects the fixture
 			// diverges instead of failing setup, which XFail does not cover.
+			support := harness.DumboDBFull
+			if symbolJavaScriptXFail[tc.name] {
+				support = harness.DumboDBXFail
+			}
 			harness.PairTest(t, harness.TestCase{
 				Name:      "SymJS_" + tc.name,
-				Support:   symbolJavaScriptSupport,
+				Support:   support,
 				Clustered: true,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					if tc.setup != nil {
