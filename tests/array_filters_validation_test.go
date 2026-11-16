@@ -126,3 +126,94 @@ func TestArrayFiltersValidation(t *testing.T) {
 		{"pipeline_update", none, bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "b", Value: 1}}}}}, []interface{}{gt1("e")}},
 	})
 }
+
+// An empty arrayFilters list is allowed with a pipeline update by update and
+// bulkWrite; findAndModify refuses any arrayFilters with a pipeline.
+func TestArrayFiltersPipelineEmpty(t *testing.T) {
+	pipeline := bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "b", Value: 1}}}}}
+	for _, tc := range []struct {
+		name    string
+		filters bson.A
+		run     func(ctx context.Context, col *mongo.Collection, filters bson.A) error
+	}{
+		{"update_empty", bson.A{}, runPipelineUpdate},
+		{"update_one_filter", bson.A{bson.D{{Key: "e", Value: 1}}}, runPipelineUpdate},
+		{"bulkWrite_empty", bson.A{}, runPipelineBulkWrite},
+		{"findAndModify_empty", bson.A{}, runPipelineFindAndModify},
+		{"findAndModify_one_filter", bson.A{bson.D{{Key: "e", Value: 1}}}, runPipelineFindAndModify},
+	} {
+		for _, target := range []struct {
+			name string
+			id   int
+		}{{"match", 1}, {"no_match", 9}} {
+			t.Run(tc.name+"_"+target.name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "ArrayFiltersPipelineEmpty_" + tc.name + "_" + target.name,
+					Support: supportFor(t, arrayFiltersRound3XFail),
+					Setup:   insertDocs(bson.D{{Key: "_id", Value: 1}}),
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						filter := bson.D{{Key: "_id", Value: target.id}}
+						return writeOutcome(ctx, col, func() error {
+							return tc.run(ctx, col, bson.A{filter, pipeline, tc.filters})
+						})
+					},
+				})
+			})
+		}
+	}
+}
+
+// runPipelineUpdate runs the update command for args: filter, pipeline and
+// arrayFilters.
+func runPipelineUpdate(ctx context.Context, col *mongo.Collection, args bson.A) error {
+	var res bson.M
+	err := col.Database().RunCommand(ctx, bson.D{
+		{Key: "update", Value: col.Name()},
+		{Key: "updates", Value: bson.A{bson.D{{Key: "q", Value: args[0]}, {Key: "u", Value: args[1]}, {Key: "arrayFilters", Value: args[2]}}}},
+	}).Decode(&res)
+	if err != nil {
+		return err
+	}
+	if we, ok := res["writeErrors"].(bson.A); ok && len(we) > 0 {
+		code, _ := we[0].(bson.M)["code"].(int32)
+		return mongo.CommandError{Code: code}
+	}
+	return nil
+}
+
+// runPipelineBulkWrite is runPipelineUpdate through the bulkWrite command.
+func runPipelineBulkWrite(ctx context.Context, col *mongo.Collection, args bson.A) error {
+	var res bson.M
+	err := col.Database().Client().Database("admin").RunCommand(ctx, bson.D{
+		{Key: "bulkWrite", Value: 1},
+		{Key: "ops", Value: bson.A{bson.D{{Key: "update", Value: 0}, {Key: "filter", Value: args[0]}, {Key: "updateMods", Value: args[1]}, {Key: "arrayFilters", Value: args[2]}}}},
+		{Key: "nsInfo", Value: bson.A{bson.D{{Key: "ns", Value: col.Database().Name() + "." + col.Name()}}}},
+	}).Decode(&res)
+	if err != nil {
+		return err
+	}
+	for _, e := range res["cursor"].(bson.M)["firstBatch"].(bson.A) {
+		if code, ok := e.(bson.M)["code"].(int32); ok {
+			return mongo.CommandError{Code: code}
+		}
+	}
+	return nil
+}
+
+// runPipelineFindAndModify is runPipelineUpdate through findAndModify.
+func runPipelineFindAndModify(ctx context.Context, col *mongo.Collection, args bson.A) error {
+	return col.Database().RunCommand(ctx, bson.D{
+		{Key: "findAndModify", Value: col.Name()},
+		{Key: "query", Value: args[0]},
+		{Key: "update", Value: args[1]},
+		{Key: "arrayFilters", Value: args[2]},
+	}).Err()
+}
+
+// arrayFiltersRound3XFail lists the cases DumboDB fails until the second follow-up for dolthub/dumbodb#244.
+var arrayFiltersRound3XFail = map[string]bool{
+	"TestArrayFiltersPipelineEmpty/bulkWrite_empty_match":    true,
+	"TestArrayFiltersPipelineEmpty/bulkWrite_empty_no_match": true,
+	"TestArrayFiltersPipelineEmpty/update_empty_match":       true,
+	"TestArrayFiltersPipelineEmpty/update_empty_no_match":    true,
+}
