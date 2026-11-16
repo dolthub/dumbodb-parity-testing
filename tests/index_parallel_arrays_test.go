@@ -40,6 +40,12 @@ type indexWriteCase struct {
 }
 
 func runIndexWriteCases(t *testing.T, prefix string, cases []indexWriteCase) {
+	runIndexWriteCasesXFail(t, prefix, cases, nil)
+}
+
+// runIndexWriteCasesXFail is runIndexWriteCases with the cases xfail lists by
+// test name marked XFail.
+func runIndexWriteCasesXFail(t *testing.T, prefix string, cases []indexWriteCase, xfail map[string]bool) {
 	createIndex := func(ctx context.Context, col *mongo.Collection, c indexWriteCase) error {
 		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: c.key, Options: c.opts})
 		return err
@@ -48,7 +54,7 @@ func runIndexWriteCases(t *testing.T, prefix string, cases []indexWriteCase) {
 		t.Run(c.name+"_insert", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    prefix + "_" + c.name + "_insert",
-				Support: harness.DumboDBFull,
+				Support: supportFor(t, xfail),
 				Setup:   func(ctx context.Context, col *mongo.Collection) error { return createIndex(ctx, col, c) },
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return writeOutcome(ctx, col, func() error {
@@ -61,7 +67,7 @@ func runIndexWriteCases(t *testing.T, prefix string, cases []indexWriteCase) {
 		t.Run(c.name+"_build", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    prefix + "_" + c.name + "_build",
-				Support: harness.DumboDBFull,
+				Support: supportFor(t, xfail),
 				Setup:   insertDocs(append(bson.D{{Key: "_id", Value: 1}}, c.doc...)),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					code := errCode(createIndex(ctx, col, c))
@@ -79,7 +85,7 @@ func runIndexWriteCases(t *testing.T, prefix string, cases []indexWriteCase) {
 		t.Run(c.name+"_update", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    prefix + "_" + c.name + "_update",
-				Support: harness.DumboDBFull,
+				Support: supportFor(t, xfail),
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					if err := createIndex(ctx, col, c); err != nil {
 						return err
@@ -243,4 +249,56 @@ func TestIndexParallelArraysPerElement(t *testing.T) {
 		{"partial_arrays_in_different_elements", bc, options.Index().SetPartialFilterExpression(bson.D{{Key: "k", Value: 1}}),
 			append(bson.D{{Key: "k", Value: 1}}, apart...), nil},
 	})
+}
+
+// mongod expands one array at a time, only into elements that are documents,
+// and a numeric path element picks its array element once, so the arrays
+// under it are parallel to the arrays in every other element.
+func TestIndexParallelArraysAcrossElements(t *testing.T) {
+	key := func(fields ...string) bson.D {
+		var k bson.D
+		for _, f := range fields {
+			k = append(k, bson.E{Key: f, Value: 1})
+		}
+		return k
+	}
+	a := func(elems ...interface{}) bson.D { return bson.D{{Key: "a", Value: bson.A(elems)}} }
+	d := func(k string, v interface{}) bson.D { return bson.D{{Key: k, Value: v}} }
+	crossed := a(bson.D{{Key: "b", Value: 1}, {Key: "c", Value: bson.A{3, 4}}}, bson.D{{Key: "b", Value: bson.A{1}}, {Key: "c", Value: 2}})
+	xy := a(d("x", bson.A{1}), d("y", bson.A{2}))
+	nested := a(bson.A{bson.D{{Key: "b", Value: bson.A{1}}, {Key: "c", Value: bson.A{2}}}})
+	runIndexWriteCasesXFail(t, "IndexParallelArraysAcrossElements", []indexWriteCase{
+		{"positional_and_field_crossed", key("a.0.c", "a.b"), nil, crossed, crossed},
+		{"positionals_in_different_elements", key("a.0.x", "a.1.y"), nil, xy, xy},
+		{"positional_and_field", key("a.0.x", "a.y"), nil, xy, nil},
+		{"positionals_reversed", key("a.1.x", "a.0.y"), nil, a(d("y", bson.A{1}), d("x", bson.A{2})), nil},
+		{"positional_scalar", key("a.0.x", "a.1.y"), nil, a(d("x", bson.A{1}), d("y", 2)), nil},
+		{"positional_arrays", key("a.0", "a.1"), nil, a(bson.A{1}, bson.A{2}), nil},
+		{"positional_same_element", key("a.0.x", "a.0.y"), nil, a(bson.D{{Key: "x", Value: bson.A{1}}, {Key: "y", Value: bson.A{2}}}), nil},
+		{"nested_array_of_documents", key("a.b", "a.c"), nil, nested, nested},
+		{"nested_array_positional", key("a.0.c", "a.b.c"), nil, a(bson.A{d("c", bson.A{1})}, d("b", d("c", bson.A{2}))), nil},
+		{"nested_array_deeper", key("a.b.0", "a.c.b"), nil, a(bson.D{{Key: "b", Value: bson.A{bson.A{1}}}, {Key: "c", Value: d("b", bson.A{2})}}), nil},
+	}, indexParallelArraysAcrossElementsXFail)
+}
+
+// indexParallelArraysAcrossElementsXFail lists the cases DumboDB fails until
+// it expands arrays for an index as mongod does.
+var indexParallelArraysAcrossElementsXFail = map[string]bool{
+	"TestIndexParallelArraysAcrossElements/nested_array_of_documents_build":          true,
+	"TestIndexParallelArraysAcrossElements/nested_array_of_documents_insert":         true,
+	"TestIndexParallelArraysAcrossElements/nested_array_of_documents_update":         true,
+	"TestIndexParallelArraysAcrossElements/nested_array_positional_build":            true,
+	"TestIndexParallelArraysAcrossElements/nested_array_positional_insert":           true,
+	"TestIndexParallelArraysAcrossElements/positional_and_field_build":               true,
+	"TestIndexParallelArraysAcrossElements/positional_and_field_crossed_build":       true,
+	"TestIndexParallelArraysAcrossElements/positional_and_field_crossed_insert":      true,
+	"TestIndexParallelArraysAcrossElements/positional_and_field_crossed_update":      true,
+	"TestIndexParallelArraysAcrossElements/positional_and_field_insert":              true,
+	"TestIndexParallelArraysAcrossElements/positional_arrays_build":                  true,
+	"TestIndexParallelArraysAcrossElements/positional_arrays_insert":                 true,
+	"TestIndexParallelArraysAcrossElements/positionals_in_different_elements_build":  true,
+	"TestIndexParallelArraysAcrossElements/positionals_in_different_elements_insert": true,
+	"TestIndexParallelArraysAcrossElements/positionals_in_different_elements_update": true,
+	"TestIndexParallelArraysAcrossElements/positionals_reversed_build":               true,
+	"TestIndexParallelArraysAcrossElements/positionals_reversed_insert":              true,
 }
