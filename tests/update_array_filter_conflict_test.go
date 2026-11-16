@@ -127,7 +127,7 @@ func TestUpdatePositionalApplyConflicts(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "UpdatePositionalApplyConflicts_" + c.name,
-				Support: supportFor(t, updatePositionalApplyConflictsXFail),
+				Support: harness.DumboDBFull,
 				Setup: insertDocs(d("_id", 1, "a", bson.A{1, 2},
 					"b", bson.A{d("x", 1, "y", 1), d("x", 2, "y", 2)})),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
@@ -140,17 +140,4 @@ func TestUpdatePositionalApplyConflicts(t *testing.T) {
 			})
 		})
 	}
-}
-
-// updatePositionalApplyConflictsXFail lists the cases DumboDB fails until it
-// resolves positional paths before applying them and refuses overlaps.
-var updatePositionalApplyConflictsXFail = map[string]bool{
-	"TestUpdatePositionalApplyConflicts/all_and_identifier":         true,
-	"TestUpdatePositionalApplyConflicts/element_and_subfield":       true,
-	"TestUpdatePositionalApplyConflicts/identifiers_one_operator":   true,
-	"TestUpdatePositionalApplyConflicts/identifiers_overlap":        true,
-	"TestUpdatePositionalApplyConflicts/identifiers_overlap_second": true,
-	"TestUpdatePositionalApplyConflicts/same_subfield":              true,
-	"TestUpdatePositionalApplyConflicts/subfield_and_element":       true,
-	"TestUpdatePositionalApplyConflicts/subfields":                  true,
 }
