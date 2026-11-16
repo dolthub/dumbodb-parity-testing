@@ -35,14 +35,6 @@ func writeOutcome(ctx context.Context, col *mongo.Collection, write func() error
 	return bson.D{{Key: "code", Value: code}, {Key: "docs", Value: docs}}, nil
 }
 
-// insertDocs returns a Setup inserting docs.
-func insertDocs(docs ...interface{}) func(ctx context.Context, col *mongo.Collection) error {
-	return func(ctx context.Context, col *mongo.Collection) error {
-		_, err := col.InsertMany(ctx, docs)
-		return err
-	}
-}
-
 // supportFor is DumboDBXFail for a test xfail lists by name and DumboDBFull
 // otherwise.
 func supportFor(t *testing.T, xfail map[string]bool) harness.DumboDBSupport {
