@@ -89,9 +89,9 @@ func TestOperatorDocumentPlainKeyFirst(t *testing.T) {
 		filter  bson.D
 		support harness.DumboDBSupport
 	}{
-		{"eq", d("a", d("y", 1, "$eq", 1)), harness.DumboDBXFail},
-		{"gt", d("a", d("y", 1, "$gt", 0)), harness.DumboDBXFail},
-		{"under_and", d("$and", bson.A{d("a", d("y", 1, "$eq", 1))}), harness.DumboDBXFail},
+		{"eq", d("a", d("y", 1, "$eq", 1)), harness.DumboDBFull},
+		{"gt", d("a", d("y", 1, "$gt", 0)), harness.DumboDBFull},
+		{"under_and", d("$and", bson.A{d("a", d("y", 1, "$eq", 1))}), harness.DumboDBFull},
 		{"under_elem_match", d("a", d("$elemMatch", d("y", 1, "$eq", 1))), harness.DumboDBFull},
 	} {
 		t.Run(c.name+"_find", func(t *testing.T) {
