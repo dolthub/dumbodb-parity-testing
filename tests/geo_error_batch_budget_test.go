@@ -67,3 +67,55 @@ func TestGeoErrorMessagesBatchBudget(t *testing.T) {
 		},
 	})
 }
+
+// TestGeoErrorMessagesLargeEcho: mongod keeps every message up to about 1 MiB
+// in full, and of longer ones keeps the first two and empties the rest.
+func TestGeoErrorMessagesLargeEcho(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		keys int
+	}{
+		{"under_one_mib", 33000},
+		{"over_one_mib", 35000},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "GeoErrorMessagesLargeEcho_" + c.name,
+				Support: harness.DumboDBXFail,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "loc", Value: "2dsphere"}}})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					var m bson.D
+					for i := 0; i < c.keys; i++ {
+						m = append(m, bson.E{Key: fmt.Sprintf("k%d", i), Value: primitive.MinKey{}})
+					}
+					var docs bson.A
+					for i := 0; i < 8; i++ {
+						docs = append(docs, bson.D{{Key: "_id", Value: i}, {Key: "loc", Value: bson.D{{Key: "type", Value: "Foo"}, {Key: "m", Value: m}}}})
+					}
+					err := col.Database().RunCommand(ctx, bson.D{
+						{Key: "insert", Value: col.Name()},
+						{Key: "documents", Value: docs},
+						{Key: "ordered", Value: false},
+					}).Err()
+					var we mongo.WriteException
+					if !errors.As(err, &we) {
+						return nil, err
+					}
+					full, empty := 0, 0
+					for _, e := range we.WriteErrors {
+						switch {
+						case len(e.Message) > 900000:
+							full++
+						case e.Message == "":
+							empty++
+						}
+					}
+					return bson.D{{Key: "errors", Value: len(we.WriteErrors)}, {Key: "full", Value: full}, {Key: "empty", Value: empty}}, nil
+				},
+			})
+		})
+	}
+}
