@@ -181,3 +181,53 @@ func TestIndexParallelArraysPositionalAndGeo(t *testing.T) {
 		{"index_element_child_and_sibling", bson.D{{Key: "a.0.x", Value: 1}, {Key: "a.y", Value: 1}}, nil, elems, nil},
 	})
 }
+
+// An update that brings a document with parallel arrays into a partial or
+// sparse compound index is refused, as an insert would be.
+func TestIndexParallelArraysUpdateIntoIndex(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		opts   *options.IndexOptions
+		stored bson.D
+		update bson.D
+	}{
+		{"partial", options.Index().SetPartialFilterExpression(bson.D{{Key: "k", Value: 1}}),
+			bson.D{{Key: "_id", Value: 1}, {Key: "k", Value: 2}, {Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: bson.A{3, 4}}},
+			bson.D{{Key: "$set", Value: bson.D{{Key: "k", Value: 1}}}}},
+		{"sparse", options.Index().SetSparse(true),
+			bson.D{{Key: "_id", Value: 1}, {Key: "c", Value: 1}},
+			bson.D{{Key: "$set", Value: bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: bson.A{3, 4}}}}}},
+	} {
+		for _, w := range []string{"update", "findAndModify"} {
+			t.Run(tc.name+"_"+w, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "IndexParallelArraysUpdateIntoIndex_" + tc.name + "_" + w,
+					Support: supportFor(t, parallelUpdateIntoIndexXFail),
+					Setup: func(ctx context.Context, col *mongo.Collection) error {
+						if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}}, Options: tc.opts}); err != nil {
+							return err
+						}
+						_, err := col.InsertOne(ctx, tc.stored)
+						return err
+					},
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						filter := bson.D{{Key: "_id", Value: 1}}
+						return writeOutcome(ctx, col, func() error {
+							if w == "update" {
+								_, err := col.UpdateOne(ctx, filter, tc.update)
+								return err
+							}
+							return col.FindOneAndUpdate(ctx, filter, tc.update).Err()
+						})
+					},
+				})
+			})
+		}
+	}
+}
+
+// parallelUpdateIntoIndexXFail lists the cases DumboDB fails until an update into an index is checked like an insert.
+var parallelUpdateIntoIndexXFail = map[string]bool{
+	"TestIndexParallelArraysUpdateIntoIndex/partial_findAndModify": true,
+	"TestIndexParallelArraysUpdateIntoIndex/partial_update":        true,
+}
