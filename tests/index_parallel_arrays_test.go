@@ -274,4 +274,3 @@ func TestIndexParallelArraysAcrossElements(t *testing.T) {
 		{"nested_array_deeper", key("a.b.0", "a.c.b"), nil, a(bson.D{{Key: "b", Value: bson.A{bson.A{1}}}, {Key: "c", Value: d("b", bson.A{2})}}), nil},
 	})
 }
-
