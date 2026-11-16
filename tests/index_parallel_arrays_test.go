@@ -166,7 +166,7 @@ func TestIndexParallelArraysBatch(t *testing.T) {
 func TestIndexParallelArraysPositionalAndGeo(t *testing.T) {
 	ab := bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: bson.A{3, 4}}}
 	elems := bson.D{{Key: "a", Value: bson.A{bson.D{{Key: "x", Value: 1}, {Key: "y", Value: 2}}, bson.D{{Key: "x", Value: 3}, {Key: "y", Value: 4}}}}}
-	runIndexWriteCases(t, "IndexParallelArraysPositionalAndGeo", indexParallelRound3XFail, []indexWriteCase{
+	runIndexWriteCases(t, "IndexParallelArraysPositionalAndGeo", nil, []indexWriteCase{
 		{"2dsphere_compound", bson.D{{Key: "loc", Value: "2dsphere"}, {Key: "a", Value: 1}, {Key: "b", Value: 1}}, nil,
 			bson.D{{Key: "loc", Value: bson.D{{Key: "type", Value: "Point"}, {Key: "coordinates", Value: bson.A{0, 0}}}}, {Key: "a", Value: bson.A{1}}, {Key: "b", Value: bson.A{2}}}, nil},
 		{"2d_compound", bson.D{{Key: "loc", Value: "2d"}, {Key: "a", Value: 1}, {Key: "b", Value: 1}}, nil,
@@ -180,19 +180,4 @@ func TestIndexParallelArraysPositionalAndGeo(t *testing.T) {
 		{"index_element_and_sibling", bson.D{{Key: "a.0", Value: 1}, {Key: "a.x", Value: 1}}, nil, elems, nil},
 		{"index_element_child_and_sibling", bson.D{{Key: "a.0.x", Value: 1}, {Key: "a.y", Value: 1}}, nil, elems, nil},
 	})
-}
-
-// indexParallelRound3XFail lists the cases DumboDB fails until the follow-up for dolthub/dumbodb#228.
-var indexParallelRound3XFail = map[string]bool{
-	"TestIndexParallelArraysPositionalAndGeo/2d_compound_build":                      true,
-	"TestIndexParallelArraysPositionalAndGeo/2d_compound_insert":                     true,
-	"TestIndexParallelArraysPositionalAndGeo/2dsphere_compound_build":                true,
-	"TestIndexParallelArraysPositionalAndGeo/2dsphere_compound_insert":               true,
-	"TestIndexParallelArraysPositionalAndGeo/index_element_and_field_build":          true,
-	"TestIndexParallelArraysPositionalAndGeo/index_element_and_field_insert":         true,
-	"TestIndexParallelArraysPositionalAndGeo/index_element_and_field_update":         true,
-	"TestIndexParallelArraysPositionalAndGeo/missing_index_element_and_field_build":  true,
-	"TestIndexParallelArraysPositionalAndGeo/missing_index_element_and_field_insert": true,
-	"TestIndexParallelArraysPositionalAndGeo/second_index_element_and_field_build":   true,
-	"TestIndexParallelArraysPositionalAndGeo/second_index_element_and_field_insert":  true,
 }
