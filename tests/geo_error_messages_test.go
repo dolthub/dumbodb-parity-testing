@@ -59,52 +59,47 @@ func TestGeoErrorMessages(t *testing.T) {
 		index string
 		loc   interface{}
 		pad   interface{}
-		xfail bool
 	}{
-		{"point_coordinates_null", "2dsphere", geo("Point", nil), "", false},
-		{"point_coordinates_missing", "2dsphere", d("type", "Point"), "", false},
-		{"geometries_null", "2dsphere", d("geometries", nil, "type", "GeometryCollection"), "", false},
-		{"geometries_element_null", "2dsphere", d("geometries", bson.A{nil}, "type", "GeometryCollection"), "", false},
-		{"linestring_coordinates_null", "2dsphere", geo("LineString", nil), "", false},
-		{"linestring_coordinates_string", "2dsphere", geo("LineString", "x"), "", false},
-		{"linestring_position_number", "2dsphere", geo("LineString", bson.A{bson.A{0, 0}, 5}), "", false},
-		{"linestring_position_null", "2dsphere", geo("LineString", bson.A{nil}), "", false},
-		{"multipoint_position_null", "2dsphere", geo("MultiPoint", bson.A{nil}), "", false},
-		{"polygon_coordinates_null", "2dsphere", geo("Polygon", nil), "", false},
-		{"polygon_ring_number", "2dsphere", geo("Polygon", bson.A{5}), "", false},
-		{"polygon_position_number", "2dsphere", geo("Polygon", bson.A{bson.A{bson.A{0, 0}, 5, bson.A{1, 1}, bson.A{0, 0}}}), "", false},
-		{"polygon_unclosed_short", "2dsphere", geo("Polygon", bson.A{bson.A{bson.A{0, 0}, bson.A{1, 1}, bson.A{2, 0}}}), "", false},
-		{"multilinestring_coordinates_null", "2dsphere", geo("MultiLineString", nil), "", false},
-		{"multilinestring_line_null", "2dsphere", geo("MultiLineString", bson.A{nil}), "", false},
-		{"multilinestring_position_number", "2dsphere", geo("MultiLineString", bson.A{bson.A{5}}), "", false},
-		{"multipolygon_coordinates_null", "2dsphere", geo("MultiPolygon", nil), "", false},
-		{"multipolygon_polygon_number", "2dsphere", geo("MultiPolygon", bson.A{5}), "", false},
-		{"multipolygon_ring_number", "2dsphere", geo("MultiPolygon", bson.A{bson.A{5}}), "", false},
-		{"multipolygon_position_number", "2dsphere", geo("MultiPolygon", bson.A{bson.A{bson.A{5}}}), "", false},
-		{"polygon_unclosed_long", "2dsphere", geo("Polygon", bson.A{circle(500, false)}), "", false},
+		{"point_coordinates_null", "2dsphere", geo("Point", nil), ""},
+		{"point_coordinates_missing", "2dsphere", d("type", "Point"), ""},
+		{"geometries_null", "2dsphere", d("geometries", nil, "type", "GeometryCollection"), ""},
+		{"geometries_element_null", "2dsphere", d("geometries", bson.A{nil}, "type", "GeometryCollection"), ""},
+		{"linestring_coordinates_null", "2dsphere", geo("LineString", nil), ""},
+		{"linestring_coordinates_string", "2dsphere", geo("LineString", "x"), ""},
+		{"linestring_position_number", "2dsphere", geo("LineString", bson.A{bson.A{0, 0}, 5}), ""},
+		{"linestring_position_null", "2dsphere", geo("LineString", bson.A{nil}), ""},
+		{"multipoint_position_null", "2dsphere", geo("MultiPoint", bson.A{nil}), ""},
+		{"polygon_coordinates_null", "2dsphere", geo("Polygon", nil), ""},
+		{"polygon_ring_number", "2dsphere", geo("Polygon", bson.A{5}), ""},
+		{"polygon_position_number", "2dsphere", geo("Polygon", bson.A{bson.A{bson.A{0, 0}, 5, bson.A{1, 1}, bson.A{0, 0}}}), ""},
+		{"polygon_unclosed_short", "2dsphere", geo("Polygon", bson.A{bson.A{bson.A{0, 0}, bson.A{1, 1}, bson.A{2, 0}}}), ""},
+		{"multilinestring_coordinates_null", "2dsphere", geo("MultiLineString", nil), ""},
+		{"multilinestring_line_null", "2dsphere", geo("MultiLineString", bson.A{nil}), ""},
+		{"multilinestring_position_number", "2dsphere", geo("MultiLineString", bson.A{bson.A{5}}), ""},
+		{"multipolygon_coordinates_null", "2dsphere", geo("MultiPolygon", nil), ""},
+		{"multipolygon_polygon_number", "2dsphere", geo("MultiPolygon", bson.A{5}), ""},
+		{"multipolygon_ring_number", "2dsphere", geo("MultiPolygon", bson.A{bson.A{5}}), ""},
+		{"multipolygon_position_number", "2dsphere", geo("MultiPolygon", bson.A{bson.A{bson.A{5}}}), ""},
+		{"polygon_unclosed_long", "2dsphere", geo("Polygon", bson.A{circle(500, false)}), ""},
 		{"linestring_one_vertex_long", "2dsphere", geo("LineString", func() bson.A {
 			var line bson.A
 			for i := 0; i < 400; i++ {
 				line = append(line, bson.A{1.25, 2.5})
 			}
 			return line
-		}()), "", false},
-		{"long_string_beside_point", "2dsphere", geo("Point", bson.A{500, 0}), strings.Repeat("x", 1000), false},
-		{"long_multibyte_string_beside_point", "2dsphere", geo("Point", bson.A{500, 0}), strings.Repeat("\u00e9", 400), false},
-		{"long_string_beside_2d_point", "2d", bson.A{500, 0}, strings.Repeat("x", 1000), false},
-		{"symbol_loc", "2dsphere", primitive.Symbol("x"), nil, true},
-		{"javascript_loc", "2dsphere", primitive.JavaScript("f"), nil, true},
-		{"long_symbol_beside_point", "2dsphere", geo("Point", bson.A{500, 0}), primitive.Symbol(strings.Repeat("x", 1000)), true},
-		{"long_javascript_beside_point", "2dsphere", geo("Point", bson.A{500, 0}), primitive.JavaScript(strings.Repeat("x", 1000)), true},
+		}()), ""},
+		{"long_string_beside_point", "2dsphere", geo("Point", bson.A{500, 0}), strings.Repeat("x", 1000)},
+		{"long_multibyte_string_beside_point", "2dsphere", geo("Point", bson.A{500, 0}), strings.Repeat("\u00e9", 400)},
+		{"long_string_beside_2d_point", "2d", bson.A{500, 0}, strings.Repeat("x", 1000)},
+		{"symbol_loc", "2dsphere", primitive.Symbol("x"), nil},
+		{"javascript_loc", "2dsphere", primitive.JavaScript("f"), nil},
+		{"long_symbol_beside_point", "2dsphere", geo("Point", bson.A{500, 0}), primitive.Symbol(strings.Repeat("x", 1000))},
+		{"long_javascript_beside_point", "2dsphere", geo("Point", bson.A{500, 0}), primitive.JavaScript(strings.Repeat("x", 1000))},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			support := harness.DumboDBFull
-			if c.xfail {
-				support = harness.DumboDBXFail
-			}
 			harness.PairTest(t, harness.TestCase{
 				Name:    "GeoErrorMessages_" + c.name,
-				Support: support,
+				Support: harness.DumboDBFull,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: d("loc", c.index)})
 					return err
