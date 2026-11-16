@@ -130,20 +130,6 @@ func TestGeoIndexKeyExtractionShapes(t *testing.T) {
 }
 
 // A 2d index's min, max and bits options must describe a valid region.
-// geo2DIndexOptionsXFail lists the cases DumboDB fails until it validates 2d
-// bits and ranges as mongod does.
-var geo2DIndexOptionsXFail = map[string]bool{
-	"TestGeo2DIndexOptions/bits_decimal":                 true,
-	"TestGeo2DIndexOptions/bits_decimal_too_large":       true,
-	"TestGeo2DIndexOptions/bits_fraction_above_max":      true,
-	"TestGeo2DIndexOptions/bits_fraction_below_one":      true,
-	"TestGeo2DIndexOptions/range_overflows":              true,
-	"TestGeo2DIndexOptions/range_too_large_for_one_bit":  true,
-	"TestGeo2DIndexOptions/range_too_large_to_hash":      true,
-	"TestGeo2DIndexOptions/range_too_large_to_hash_wide": true,
-	"TestGeo2DIndexOptions/range_too_small":              true,
-}
-
 func TestGeo2DIndexOptions(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -179,7 +165,7 @@ func TestGeo2DIndexOptions(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "Geo2DIndexOptions_" + tc.name,
-				Support: supportFor(t, geo2DIndexOptionsXFail),
+				Support: harness.DumboDBFull,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					spec := append(bson.D{{Key: "key", Value: tc.key}, {Key: "name", Value: "ix"}}, tc.opts...)
 					err := col.Database().RunCommand(ctx, bson.D{
