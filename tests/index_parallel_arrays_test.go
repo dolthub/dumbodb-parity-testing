@@ -202,7 +202,7 @@ func TestIndexParallelArraysUpdateIntoIndex(t *testing.T) {
 			t.Run(tc.name+"_"+w, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "IndexParallelArraysUpdateIntoIndex_" + tc.name + "_" + w,
-					Support: supportFor(t, parallelUpdateIntoIndexXFail),
+					Support: harness.DumboDBFull,
 					Setup: func(ctx context.Context, col *mongo.Collection) error {
 						if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}}, Options: tc.opts}); err != nil {
 							return err
@@ -224,10 +224,4 @@ func TestIndexParallelArraysUpdateIntoIndex(t *testing.T) {
 			})
 		}
 	}
-}
-
-// parallelUpdateIntoIndexXFail lists the cases DumboDB fails until an update into an index is checked like an insert.
-var parallelUpdateIntoIndexXFail = map[string]bool{
-	"TestIndexParallelArraysUpdateIntoIndex/partial_findAndModify": true,
-	"TestIndexParallelArraysUpdateIntoIndex/partial_update":        true,
 }
