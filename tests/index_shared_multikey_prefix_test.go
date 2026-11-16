@@ -80,7 +80,7 @@ func TestIndexSharedMultikeyPrefix(t *testing.T) {
 				t.Run(name, func(t *testing.T) {
 					harness.PairTest(t, harness.TestCase{
 						Name:    "IndexSharedMultikeyPrefix_" + name,
-						Support: supportFor(t, indexSharedMultikeyPrefixXFail),
+						Support: harness.DumboDBFull,
 						Setup: func(ctx context.Context, col *mongo.Collection) error {
 							if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: c.key}); err != nil {
 								return err
@@ -100,39 +100,4 @@ func TestIndexSharedMultikeyPrefix(t *testing.T) {
 			}
 		}
 	}
-}
-
-// indexSharedMultikeyPrefixXFail lists the cases DumboDB fails until its index
-// plans stop bounding fields that share a multikey prefix.
-var indexSharedMultikeyPrefixXFail = map[string]bool{
-	"TestIndexSharedMultikeyPrefix/deeper_and_sibling_count_hinted":                true,
-	"TestIndexSharedMultikeyPrefix/deeper_and_sibling_count_planned":               true,
-	"TestIndexSharedMultikeyPrefix/deeper_and_sibling_deleteMany_hinted":           true,
-	"TestIndexSharedMultikeyPrefix/deeper_and_sibling_deleteMany_planned":          true,
-	"TestIndexSharedMultikeyPrefix/deeper_and_sibling_find_hinted":                 true,
-	"TestIndexSharedMultikeyPrefix/deeper_and_sibling_find_planned":                true,
-	"TestIndexSharedMultikeyPrefix/nested_field_and_parent_count_hinted":           true,
-	"TestIndexSharedMultikeyPrefix/nested_field_and_parent_count_planned":          true,
-	"TestIndexSharedMultikeyPrefix/nested_field_and_parent_deleteMany_hinted":      true,
-	"TestIndexSharedMultikeyPrefix/nested_field_and_parent_deleteMany_planned":     true,
-	"TestIndexSharedMultikeyPrefix/nested_field_and_parent_find_hinted":            true,
-	"TestIndexSharedMultikeyPrefix/nested_field_and_parent_find_planned":           true,
-	"TestIndexSharedMultikeyPrefix/sibling_fields_count_hinted":                    true,
-	"TestIndexSharedMultikeyPrefix/sibling_fields_count_planned":                   true,
-	"TestIndexSharedMultikeyPrefix/sibling_fields_deleteMany_hinted":               true,
-	"TestIndexSharedMultikeyPrefix/sibling_fields_deleteMany_planned":              true,
-	"TestIndexSharedMultikeyPrefix/sibling_fields_find_hinted":                     true,
-	"TestIndexSharedMultikeyPrefix/sibling_fields_find_planned":                    true,
-	"TestIndexSharedMultikeyPrefix/sibling_fields_reversed_count_hinted":           true,
-	"TestIndexSharedMultikeyPrefix/sibling_fields_reversed_count_planned":          true,
-	"TestIndexSharedMultikeyPrefix/sibling_fields_reversed_deleteMany_hinted":      true,
-	"TestIndexSharedMultikeyPrefix/sibling_fields_reversed_deleteMany_planned":     true,
-	"TestIndexSharedMultikeyPrefix/sibling_fields_reversed_find_hinted":            true,
-	"TestIndexSharedMultikeyPrefix/sibling_fields_reversed_find_planned":           true,
-	"TestIndexSharedMultikeyPrefix/sibling_fields_same_element_count_hinted":       true,
-	"TestIndexSharedMultikeyPrefix/sibling_fields_same_element_count_planned":      true,
-	"TestIndexSharedMultikeyPrefix/sibling_fields_same_element_deleteMany_hinted":  true,
-	"TestIndexSharedMultikeyPrefix/sibling_fields_same_element_deleteMany_planned": true,
-	"TestIndexSharedMultikeyPrefix/sibling_fields_same_element_find_hinted":        true,
-	"TestIndexSharedMultikeyPrefix/sibling_fields_same_element_find_planned":       true,
 }
