@@ -227,3 +227,120 @@ func TestNearPlacement(t *testing.T) {
 		})
 	}
 }
+
+// allDollarKeyLiteralsXFail lists the cases DumboDB fails until $all
+// classifies elements by their first key as written.
+var allDollarKeyLiteralsXFail = map[string]bool{
+	"TestAllDollarKeyLiterals/dbref_count":                             true,
+	"TestAllDollarKeyLiterals/dbref_find":                              true,
+	"TestAllDollarKeyLiterals/dbref_updateMany":                        true,
+	"TestAllDollarKeyLiterals/later_dollar_key_after_value_count":      true,
+	"TestAllDollarKeyLiterals/later_dollar_key_after_value_find":       true,
+	"TestAllDollarKeyLiterals/later_dollar_key_after_value_updateMany": true,
+	"TestAllDollarKeyLiterals/later_dollar_key_count":                  true,
+	"TestAllDollarKeyLiterals/later_dollar_key_find":                   true,
+	"TestAllDollarKeyLiterals/later_dollar_key_updateMany":             true,
+	"TestAllDollarKeyLiterals/later_elemMatch_key_count":               true,
+	"TestAllDollarKeyLiterals/later_elemMatch_key_find":                true,
+	"TestAllDollarKeyLiterals/later_elemMatch_key_updateMany":          true,
+	"TestAllDollarKeyLiterals/later_gt_key_count":                      true,
+	"TestAllDollarKeyLiterals/later_gt_key_find":                       true,
+	"TestAllDollarKeyLiterals/later_gt_key_updateMany":                 true,
+	"TestAllDollarKeyLiterals/maxDistance_first_key_count":             true,
+	"TestAllDollarKeyLiterals/maxDistance_first_key_find":              true,
+	"TestAllDollarKeyLiterals/maxDistance_first_key_updateMany":        true,
+	"TestAllDollarKeyLiterals/not_first_key_count":                     true,
+	"TestAllDollarKeyLiterals/not_first_key_find":                      true,
+	"TestAllDollarKeyLiterals/not_first_key_updateMany":                true,
+	"TestAllDollarKeyLiterals/pull":                                    true,
+	"TestAllDollarKeyLiterals/unknown_first_key_count":                 true,
+	"TestAllDollarKeyLiterals/unknown_first_key_find":                  true,
+	"TestAllDollarKeyLiterals/unknown_first_key_stored_count":          true,
+	"TestAllDollarKeyLiterals/unknown_first_key_stored_find":           true,
+	"TestAllDollarKeyLiterals/unknown_first_key_stored_updateMany":     true,
+	"TestAllDollarKeyLiterals/unknown_first_key_updateMany":            true,
+}
+
+// mongod classifies an $all element by its first key as written and refuses
+// only the operators it knows; any other '$' name is a literal value.
+func TestAllDollarKeyLiterals(t *testing.T) {
+	d := func(kv ...interface{}) bson.D {
+		var out bson.D
+		for i := 0; i < len(kv); i += 2 {
+			out = append(out, bson.E{Key: kv[i].(string), Value: kv[i+1]})
+		}
+		return out
+	}
+	all := func(elems ...interface{}) bson.D {
+		return d("x", d("$all", bson.A(elems)))
+	}
+	docs := []interface{}{
+		d("_id", 1, "x", bson.A{d("a", 1, "$b", 2)}),
+		d("_id", 2, "x", bson.A{5, d("a", d("d", 1, "c", 2), "$b", 2)}),
+		d("_id", 3, "x", bson.A{d("$b", 2)}),
+		d("_id", 4, "x", bson.A{d("$ref", "c", "$id", 1)}),
+		d("_id", 5, "x", bson.A{d("z", 1, "$elemMatch", d("q", 1))}),
+		d("_id", 6, "x", bson.A{d("a", 1, "$gt", 1)}),
+		d("_id", 7, "x", bson.A{d("$not", 1)}),
+	}
+	for _, c := range []struct {
+		name   string
+		filter bson.D
+	}{
+		{"later_dollar_key", all(d("a", 1, "$b", 2))},
+		{"later_dollar_key_after_value", all(5, d("a", d("d", 1, "c", 2), "$b", 2))},
+		{"unknown_first_key", all(d("$foo", 1))},
+		{"unknown_first_key_stored", all(d("$b", 2))},
+		{"dbref", all(d("$ref", "c", "$id", 1))},
+		{"later_elemMatch_key", all(d("z", 1, "$elemMatch", d("q", 1)))},
+		{"later_gt_key", all(d("a", 1, "$gt", 1))},
+		{"not_first_key", all(d("$not", 1))},
+		{"maxDistance_first_key", all(d("$maxDistance", 1))},
+		{"eq_first_key", all(d("$eq", 1))},
+		{"regex_first_key", all(d("$regex", "a"))},
+		{"options_first_key", all(d("$options", "i"))},
+		{"in_first_key_after_value", all(5, d("$in", bson.A{1}))},
+	} {
+		for _, w := range []struct {
+			name string
+			run  func(ctx context.Context, col *mongo.Collection) (interface{}, error)
+		}{
+			{"find", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return findIDs(ctx, col, c.filter)
+			}},
+			{"count", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return col.CountDocuments(ctx, c.filter)
+			}},
+			{"updateMany", func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return writeOutcome(ctx, col, func() error {
+					_, err := col.UpdateMany(ctx, c.filter, d("$set", d("hit", true)))
+					return err
+				})
+			}},
+		} {
+			name := c.name + "_" + w.name
+			t.Run(name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "AllDollarKeyLiterals_" + name,
+					Support: supportFor(t, allDollarKeyLiteralsXFail),
+					Setup:   insertDocs(docs...),
+					Run:     w.run,
+				})
+			})
+		}
+	}
+	t.Run("pull", func(t *testing.T) {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "AllDollarKeyLiterals_pull",
+			Support: supportFor(t, allDollarKeyLiteralsXFail),
+			Setup:   insertDocs(d("_id", 1, "arr", bson.A{d("c", bson.A{d("a", 1, "$b", 2)}), d("c", bson.A{1})})),
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return writeOutcome(ctx, col, func() error {
+					_, err := col.UpdateOne(ctx, d("_id", 1),
+						d("$pull", d("arr", d("c", d("$all", bson.A{d("a", 1, "$b", 2)})))))
+					return err
+				})
+			},
+		})
+	})
+}
