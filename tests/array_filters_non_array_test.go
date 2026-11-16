@@ -33,7 +33,7 @@ func TestArrayFiltersNonArray(t *testing.T) {
 	setE := bson.D{{Key: "$set", Value: bson.D{{Key: "x.$[e]", Value: 9}}}}
 	setAll := bson.D{{Key: "$set", Value: bson.D{{Key: "x.$[]", Value: 9}}}}
 	positive := []interface{}{bson.D{{Key: "e", Value: bson.D{{Key: "$gt", Value: 0}}}}}
-	runArrayFilterCases(t, "ArrayFiltersNonArray", nil, []interface{}{
+	runArrayFilterCases(t, "ArrayFiltersNonArray", []interface{}{
 		bson.D{{Key: "_id", Value: 1}, {Key: "x", Value: bson.A{1, 2}}},
 		bson.D{{Key: "_id", Value: 2}, {Key: "x", Value: 5}},
 		bson.D{{Key: "_id", Value: 3}, {Key: "x", Value: bson.A{3}}},
