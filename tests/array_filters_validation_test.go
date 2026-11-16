@@ -149,7 +149,7 @@ func TestArrayFiltersPipelineEmpty(t *testing.T) {
 			t.Run(tc.name+"_"+target.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "ArrayFiltersPipelineEmpty_" + tc.name + "_" + target.name,
-					Support: supportFor(t, arrayFiltersRound3XFail),
+					Support: harness.DumboDBFull,
 					Setup:   insertDocs(bson.D{{Key: "_id", Value: 1}}),
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 						filter := bson.D{{Key: "_id", Value: target.id}}
@@ -208,12 +208,4 @@ func runPipelineFindAndModify(ctx context.Context, col *mongo.Collection, args b
 		{Key: "update", Value: args[1]},
 		{Key: "arrayFilters", Value: args[2]},
 	}).Err()
-}
-
-// arrayFiltersRound3XFail lists the cases DumboDB fails until the second follow-up for dolthub/dumbodb#244.
-var arrayFiltersRound3XFail = map[string]bool{
-	"TestArrayFiltersPipelineEmpty/bulkWrite_empty_match":    true,
-	"TestArrayFiltersPipelineEmpty/bulkWrite_empty_no_match": true,
-	"TestArrayFiltersPipelineEmpty/update_empty_match":       true,
-	"TestArrayFiltersPipelineEmpty/update_empty_no_match":    true,
 }
