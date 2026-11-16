@@ -21,6 +21,7 @@ package tests
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -111,4 +112,71 @@ func TestAllOperatorDocuments(t *testing.T) {
 			})
 		})
 	}
+}
+
+// mongod validates the $elemMatch operands of $all, and classifies each $all
+// element by its first key as sent, before any document is read.
+func TestAllOperatorDocumentsNested(t *testing.T) {
+	elemMatch := func(v bson.D) bson.D { return bson.D{{Key: "$elemMatch", Value: v}} }
+	all := func(elems ...interface{}) bson.D { return bson.D{{Key: "$all", Value: bson.A(elems)}} }
+	filters := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"not_all_bad_elemMatch", bson.D{{Key: "a", Value: bson.D{{Key: "$not", Value: all(elemMatch(bson.D{{Key: "$foo", Value: 1}}))}}}}},
+		{"nor_all_nested_operator", bson.D{{Key: "$nor", Value: bson.A{bson.D{{Key: "a", Value: all(elemMatch(bson.D{{Key: "b", Value: all(bson.D{{Key: "$lt", Value: 1}})}}))}}}}}},
+		{"literal_before_elemMatch_key", bson.D{{Key: "a", Value: all(bson.D{{Key: "z", Value: 1}, {Key: "$elemMatch", Value: bson.D{{Key: "$gt", Value: 0}}}})}}},
+		{"operator_before_elemMatch_key", bson.D{{Key: "a", Value: bson.D{{Key: "$not", Value: all(bson.D{{Key: "$gt", Value: 1}, {Key: "$elemMatch", Value: bson.D{{Key: "$gt", Value: 1}}}})}}}}},
+	}
+	docs := []interface{}{
+		bson.D{{Key: "_id", Value: 1}, {Key: "a", Value: 5}},
+		bson.D{{Key: "_id", Value: 2}, {Key: "x", Value: 1}},
+		bson.D{{Key: "_id", Value: 3}, {Key: "a", Value: bson.D{{Key: "b", Value: 1}}}},
+		bson.D{{Key: "_id", Value: 4}, {Key: "a", Value: bson.A{bson.D{{Key: "z", Value: 1}}}}},
+		bson.D{{Key: "_id", Value: 5}, {Key: "a", Value: bson.A{5}}},
+	}
+	// The malformed $elemMatch cases need documents without arrays at a,
+	// where nothing evaluates the operand.
+	noArrays := docs[:3]
+	for _, tc := range filters {
+		tcDocs := docs
+		if strings.HasPrefix(tc.name, "not_all") || strings.HasPrefix(tc.name, "nor_all") {
+			tcDocs = noArrays
+		}
+		t.Run(tc.name+"_find", func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "AllOperatorDocumentsNested_" + tc.name + "_find",
+				Support: supportFor(t, allNestedXFail),
+				Setup:   insertDocs(tcDocs...),
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return findIDs(ctx, col, tc.filter)
+				},
+			})
+		})
+		t.Run(tc.name+"_deleteMany", func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "AllOperatorDocumentsNested_" + tc.name + "_deleteMany",
+				Support: supportFor(t, allNestedXFail),
+				Setup:   insertDocs(tcDocs...),
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					return writeOutcome(ctx, col, func() error {
+						_, err := col.DeleteMany(ctx, tc.filter)
+						return err
+					})
+				},
+			})
+		})
+	}
+}
+
+// allNestedXFail lists the cases DumboDB fails until $all operands are validated and classified as sent.
+var allNestedXFail = map[string]bool{
+	"TestAllOperatorDocumentsNested/literal_before_elemMatch_key_deleteMany":  true,
+	"TestAllOperatorDocumentsNested/literal_before_elemMatch_key_find":        true,
+	"TestAllOperatorDocumentsNested/nor_all_nested_operator_deleteMany":       true,
+	"TestAllOperatorDocumentsNested/nor_all_nested_operator_find":             true,
+	"TestAllOperatorDocumentsNested/not_all_bad_elemMatch_deleteMany":         true,
+	"TestAllOperatorDocumentsNested/not_all_bad_elemMatch_find":               true,
+	"TestAllOperatorDocumentsNested/operator_before_elemMatch_key_deleteMany": true,
+	"TestAllOperatorDocumentsNested/operator_before_elemMatch_key_find":       true,
 }
