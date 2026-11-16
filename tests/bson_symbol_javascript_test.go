@@ -631,6 +631,287 @@ func TestSymbolJavaScript_Collation(t *testing.T) {
 	})
 }
 
+func TestSymbolJavaScript_CollatedIndexQueries(t *testing.T) {
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		if err := insertDocs(symJSDoc(1, "abc"), symJSDoc(2, "ABC"), symJSDoc(4, "abd"))(ctx, col); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+			Keys: bson.D{{Key: "v", Value: 1}}, Options: options.Index().SetCollation(symJSCollation),
+		})
+		return err
+	}
+	sym := primitive.Symbol("ABC")
+	ids := func() *options.FindOptions {
+		return options.Find().SetProjection(bson.D{{Key: "_id", Value: 1}}).SetSort(bson.D{{Key: "_id", Value: 1}})
+	}
+	eq := bson.D{{Key: "v", Value: sym}}
+	runSymbolJavaScriptCases(t, []symbolJavaScriptCase{
+		{"CollatedIndexFindSymbol", setup, findDocs(eq, ids())},
+		{"CollatedIndexFindSymbolCollated", setup, findDocs(eq, ids().SetCollation(symJSCollation))},
+		{"CollatedIndexFindSymbolNatural", setup, findDocs(eq, ids().SetHint(bson.D{{Key: "$natural", Value: 1}}))},
+		{"CollatedIndexFindSymbolIn", setup, findDocs(bson.D{{Key: "v", Value: bson.D{{Key: "$in", Value: bson.A{"x", sym}}}}}, ids())},
+		{"CollatedIndexFindSymbolNe", setup, findDocs(bson.D{{Key: "v", Value: bson.D{{Key: "$ne", Value: sym}}}}, ids())},
+		{"CollatedIndexFindSymbolGt", setup, findDocs(bson.D{{Key: "v", Value: bson.D{{Key: "$gt", Value: sym}}}}, ids())},
+		{"CollatedIndexFindSymbolInOr", setup, findDocs(bson.D{{Key: "$or", Value: bson.A{eq, bson.D{{Key: "w", Value: 1}}}}}, ids())},
+		{"CollatedIndexFindSymbolOtherField", setup, findDocs(bson.D{{Key: "w", Value: sym}}, ids())},
+		{"CollatedIndexFindJavaScript", setup, findDocs(bson.D{{Key: "v", Value: jsAbc}}, ids())},
+		{"CollatedIndexCountSymbol", setup, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return col.CountDocuments(ctx, eq)
+		}},
+		{"CollatedIndexDistinctSymbol", setup, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return col.Distinct(ctx, "_id", eq)
+		}},
+		{"CollatedIndexMatchSymbol", setup, aggregateDocs(bson.A{bson.D{{Key: "$match", Value: eq}}})},
+		{"CollatedIndexUpdateManySymbol", setup, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			res, err := col.UpdateMany(ctx, eq, bson.D{{Key: "$set", Value: bson.D{{Key: "h", Value: 1}}}})
+			if err != nil {
+				return nil, err
+			}
+			return res.ModifiedCount, nil
+		}},
+		{"CollatedIndexDeleteManySymbol", setup, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			res, err := col.DeleteMany(ctx, eq)
+			if err != nil {
+				return nil, err
+			}
+			return res.DeletedCount, nil
+		}},
+		{"CollatedIndexFindOneAndDeleteSymbol", setup, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			var doc bson.D
+			err := col.FindOneAndDelete(ctx, eq).Decode(&doc)
+			return doc, err
+		}},
+	})
+}
+
+func TestSymbolJavaScript_CollatedEquality(t *testing.T) {
+	ids := func() *options.FindOptions {
+		return options.Find().SetProjection(bson.D{{Key: "_id", Value: 1}}).SetSort(bson.D{{Key: "_id", Value: 1}}).SetCollation(symJSCollation)
+	}
+	exprEq := func(a, b interface{}) bson.D {
+		return bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{a, b}}}}}
+	}
+	lookupInto := func(foreignCollation *options.Collation, local interface{}) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			foreignName := col.Name() + "_foreign"
+			opts := options.CreateCollection()
+			if foreignCollation != nil {
+				opts.SetCollation(foreignCollation)
+			}
+			if err := col.Database().CreateCollection(ctx, foreignName, opts); err != nil {
+				return nil, err
+			}
+			foreign := col.Database().Collection(foreignName)
+			defer func() { _ = foreign.Drop(ctx) }()
+			if err := insertDocs(symJSDoc(1, "abc"), symJSDoc(2, "ABC"), symJSDoc(4, "abd"), symJSDoc(5, primitive.Symbol("abc")))(ctx, foreign); err != nil {
+				return nil, err
+			}
+			if err := insertDocs(bson.D{{Key: "_id", Value: int32(1)}, {Key: "s", Value: local}})(ctx, col); err != nil {
+				return nil, err
+			}
+			return aggregateDocs(bson.A{
+				bson.D{{Key: "$lookup", Value: bson.D{
+					{Key: "from", Value: foreignName}, {Key: "localField", Value: "s"}, {Key: "foreignField", Value: "v"}, {Key: "as", Value: "m"},
+				}}},
+				bson.D{{Key: "$project", Value: bson.D{{Key: "ids", Value: "$m._id"}}}},
+			})(ctx, col)
+		}
+	}
+	runSymbolJavaScriptCases(t, []symbolJavaScriptCase{
+		{"CollatedExprStringFieldEqSymbol", insertSymbolJavaScriptCases, findDocs(exprEq("$v", primitive.Symbol("ABC")), ids())},
+		{"CollatedExprSymbolEqStringField", insertSymbolJavaScriptCases, findDocs(exprEq(primitive.Symbol("ABC"), "$v"), ids())},
+		{"CollatedExprStringEqSymbolField", insertSymbolJavaScriptCases, findDocs(exprEq("ABC", "$v"), ids())},
+		{"CollatedExprSymbolFieldEqString", insertSymbolJavaScriptCases, findDocs(exprEq("$v", "ABC"), ids())},
+		{"LookupSymbolIntoCollated", nil, lookupInto(symJSCollation, primitive.Symbol("ABC"))},
+		{"LookupStringIntoCollated", nil, lookupInto(symJSCollation, "ABC")},
+		{"LookupSymbolIntoSimple", nil, lookupInto(nil, primitive.Symbol("abc"))},
+	})
+}
+
+// TestSymbolJavaScript_CollatedIndexCandidates checks which collated indexes
+// mongod's planner considers for a Symbol filter, refusing it with 201.
+func TestSymbolJavaScript_CollatedIndexCandidates(t *testing.T) {
+	sym := primitive.Symbol("a")
+	collated := func(keys bson.D, opts *options.IndexOptions) mongo.IndexModel {
+		return mongo.IndexModel{Keys: keys, Options: opts.SetCollation(symJSCollation)}
+	}
+	shapes := []struct {
+		name    string
+		indexes []mongo.IndexModel
+		hint    interface{}
+	}{
+		{"Compound", []mongo.IndexModel{collated(bson.D{{Key: "a", Value: 1}, {Key: "v", Value: 1}}, options.Index())}, nil},
+		{"Hidden", []mongo.IndexModel{collated(bson.D{{Key: "v", Value: 1}}, options.Index().SetHidden(true))}, nil},
+		{"Partial", []mongo.IndexModel{collated(bson.D{{Key: "v", Value: 1}}, options.Index().SetPartialFilterExpression(bson.D{{Key: "p", Value: true}}))}, nil},
+		{"Sparse", []mongo.IndexModel{collated(bson.D{{Key: "v", Value: 1}}, options.Index().SetSparse(true))}, nil},
+		{"Hashed", []mongo.IndexModel{collated(bson.D{{Key: "v", Value: "hashed"}}, options.Index())}, nil},
+		{"HintOther", []mongo.IndexModel{
+			collated(bson.D{{Key: "v", Value: 1}}, options.Index()),
+			{Keys: bson.D{{Key: "w", Value: 1}}},
+		}, bson.D{{Key: "w", Value: 1}}},
+		{"Dotted", []mongo.IndexModel{collated(bson.D{{Key: "v.a", Value: 1}}, options.Index())}, nil},
+		{"Plain", []mongo.IndexModel{collated(bson.D{{Key: "v", Value: 1}}, options.Index())}, nil},
+	}
+	filters := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"Eq", bson.D{{Key: "v", Value: sym}}},
+		{"EqWithLeading", bson.D{{Key: "v", Value: sym}, {Key: "a", Value: int32(1)}}},
+		{"EqWithPartial", bson.D{{Key: "v", Value: sym}, {Key: "p", Value: true}}},
+		{"Ne", bson.D{{Key: "v", Value: bson.D{{Key: "$ne", Value: sym}}}}},
+		{"Nin", bson.D{{Key: "v", Value: bson.D{{Key: "$nin", Value: bson.A{sym}}}}}},
+		{"Not", bson.D{{Key: "v", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$eq", Value: sym}}}}}}},
+		{"Nor", bson.D{{Key: "$nor", Value: bson.A{bson.D{{Key: "v", Value: sym}}}}}},
+		{"Gt", bson.D{{Key: "v", Value: bson.D{{Key: "$gt", Value: sym}}}}},
+		{"In", bson.D{{Key: "v", Value: bson.D{{Key: "$in", Value: bson.A{sym}}}}}},
+		{"ElemMatch", bson.D{{Key: "v", Value: bson.D{{Key: "$elemMatch", Value: bson.D{{Key: "$eq", Value: sym}}}}}}},
+		{"ExprEq", bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{"$v", sym}}}}}},
+		{"ExprEqReversed", bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{sym, "$v"}}}}}},
+		{"ExprGt", bson.D{{Key: "$expr", Value: bson.D{{Key: "$gt", Value: bson.A{"$v", sym}}}}}},
+		{"ExprEqAnd", bson.D{{Key: "$expr", Value: bson.D{{Key: "$and", Value: bson.A{bson.D{{Key: "$eq", Value: bson.A{"$v", sym}}}}}}}}},
+	}
+	var cases []symbolJavaScriptCase
+	for _, shape := range shapes {
+		setup := func(ctx context.Context, col *mongo.Collection) error {
+			if err := insertDocs(
+				bson.D{{Key: "_id", Value: int32(1)}, {Key: "v", Value: "A"}, {Key: "w", Value: int32(1)}, {Key: "a", Value: int32(1)}, {Key: "p", Value: true}},
+				bson.D{{Key: "_id", Value: int32(2)}, {Key: "v", Value: "b"}, {Key: "w", Value: int32(2)}},
+			)(ctx, col); err != nil {
+				return err
+			}
+			_, err := col.Indexes().CreateMany(ctx, shape.indexes)
+			return err
+		}
+		for _, f := range filters {
+			opts := options.Find().SetProjection(bson.D{{Key: "_id", Value: 1}}).SetSort(bson.D{{Key: "_id", Value: 1}})
+			if shape.hint != nil {
+				opts.SetHint(shape.hint)
+			}
+			cases = append(cases, symbolJavaScriptCase{"Candidate_" + shape.name + "_" + f.name, setup, findDocs(f.filter, opts)})
+		}
+		filter := bson.D{{Key: "v", Value: sym}}
+		cases = append(cases,
+			symbolJavaScriptCase{"Candidate_" + shape.name + "_Count", setup, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				opts := options.Count()
+				if shape.hint != nil {
+					opts.SetHint(shape.hint)
+				}
+				return col.CountDocuments(ctx, filter, opts)
+			}},
+			symbolJavaScriptCase{"Candidate_" + shape.name + "_DeleteMany", setup, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				opts := options.Delete()
+				if shape.hint != nil {
+					opts.SetHint(shape.hint)
+				}
+				res, err := col.DeleteMany(ctx, filter, opts)
+				if err != nil {
+					return nil, err
+				}
+				return res.DeletedCount, nil
+			}},
+		)
+	}
+	runSymbolJavaScriptCases(t, cases)
+}
+
+func TestSymbolJavaScript_CollatedMixedStringSymbol(t *testing.T) {
+	collatedAgg := func(pipeline bson.A) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cursor, err := col.Aggregate(ctx, pipeline, options.Aggregate().SetCollation(symJSCollation))
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			err = cursor.All(ctx, &docs)
+			return docs, err
+		}
+	}
+	project := func(expr interface{}) bson.A {
+		return bson.A{bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "r", Value: expr}}}}}
+	}
+	in := func(needle interface{}, list ...interface{}) bson.D {
+		return bson.D{{Key: "$in", Value: bson.A{bson.D{{Key: "$literal", Value: needle}}, bson.D{{Key: "$literal", Value: bson.A(list)}}}}}
+	}
+	one := insertDocs(symJSDoc(1, nil))
+	symABC := primitive.Symbol("ABC")
+	lookupFields := func(local, foreign []interface{}) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			foreignCol := col.Database().Collection(col.Name() + "_foreign")
+			defer func() { _ = foreignCol.Drop(ctx) }()
+			if _, err := foreignCol.InsertMany(ctx, foreign); err != nil {
+				return nil, err
+			}
+			if _, err := col.InsertMany(ctx, local); err != nil {
+				return nil, err
+			}
+			return collatedAgg(bson.A{
+				bson.D{{Key: "$lookup", Value: bson.D{
+					{Key: "from", Value: foreignCol.Name()}, {Key: "localField", Value: "k"}, {Key: "foreignField", Value: "k"}, {Key: "as", Value: "m"},
+				}}},
+				bson.D{{Key: "$project", Value: bson.D{{Key: "ids", Value: "$m._id"}}}},
+				bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+			})(ctx, col)
+		}
+	}
+	kdoc := func(id int32, v interface{}) bson.D { return bson.D{{Key: "_id", Value: id}, {Key: "k", Value: v}} }
+	c15Local := []interface{}{kdoc(1, symAbc), kdoc(2, "abc"), kdoc(3, symABC)}
+	c15Foreign := []interface{}{kdoc(10, "abc"), kdoc(11, symAbc), kdoc(12, "ABC"), kdoc(13, jsAbc)}
+	d3Local := []interface{}{kdoc(1, symABC), kdoc(2, "ABC"), kdoc(3, primitive.JavaScript("ABC")), kdoc(4, bson.A{"x", primitive.Symbol("abd")})}
+	d3Foreign := []interface{}{kdoc(1, "ABC"), kdoc(2, symABC), kdoc(3, primitive.JavaScript("ABC")), kdoc(4, "abc"), kdoc(5, primitive.JavaScript("abc"))}
+	minMax := func(values ...interface{}) func(context.Context, *mongo.Collection) error {
+		var docs []interface{}
+		for i, v := range values {
+			docs = append(docs, symJSDoc(int32(i+1), v))
+		}
+		return insertDocs(docs...)
+	}
+	groupMinMax := collatedAgg(bson.A{
+		bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+		bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: nil},
+			{Key: "mn", Value: bson.D{{Key: "$min", Value: "$v"}}},
+			{Key: "mx", Value: bson.D{{Key: "$max", Value: "$v"}}},
+		}}},
+	})
+	hiddenIndex := func(ctx context.Context, col *mongo.Collection) error {
+		if err := insertDocs(symJSDoc(1, "A"), symJSDoc(2, "b"))(ctx, col); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+			Keys: bson.D{{Key: "v", Value: 1}}, Options: options.Index().SetCollation(symJSCollation).SetHidden(true),
+		})
+		return err
+	}
+	collatedIDs := func() *options.FindOptions {
+		return options.Find().SetProjection(bson.D{{Key: "_id", Value: 1}}).SetSort(bson.D{{Key: "_id", Value: 1}}).SetCollation(symJSCollation)
+	}
+	runSymbolJavaScriptCases(t, []symbolJavaScriptCase{
+		{"CollatedInStringInSymbols", one, collatedAgg(project(in("abc", symAbc)))},
+		{"CollatedInSymbolInStrings", one, collatedAgg(project(in(symAbc, "abc")))},
+		{"CollatedInStringInOtherCaseSymbols", one, collatedAgg(project(in("abc", symABC)))},
+		{"CollatedInSymbolInOtherCaseStrings", one, collatedAgg(project(in(symABC, "abc")))},
+		{"CollatedInSymbolInSymbols", one, collatedAgg(project(in(symABC, symAbc)))},
+		{"CollatedExprInField", insertSymbolJavaScriptCases,
+			findDocs(bson.D{{Key: "$expr", Value: bson.D{{Key: "$in", Value: bson.A{"$v", bson.A{symABC}}}}}}, collatedIDs())},
+		{"CollatedLookupFields", nil, lookupFields(c15Local, c15Foreign)},
+		{"CollatedLookupFieldsMixed", nil, lookupFields(d3Local, d3Foreign)},
+		{"CollatedMinMaxSymbolStringSymbol", minMax(symAbc, "abc", symABC), groupMinMax},
+		{"CollatedMinMaxStringSymbol", minMax("abc", symABC), groupMinMax},
+		{"CollatedMinMaxSymbolString", minMax(symABC, "abc"), groupMinMax},
+		{"CollatedMinMaxStrings", minMax("abc", "ABC"), groupMinMax},
+		{"CollatedMinMaxSymbols", minMax(symAbc, symABC), groupMinMax},
+		{"CollatedMinMaxOrdered", minMax(symAbd, "abc", primitive.Symbol("ABB")), groupMinMax},
+		{"HiddenCollatedIndexSymbolEq", hiddenIndex, findDocs(bson.D{{Key: "v", Value: primitive.Symbol("a")}}, collatedIDs())},
+		{"HiddenCollatedIndexSymbolGte", hiddenIndex, findDocs(bson.D{{Key: "v", Value: bson.D{{Key: "$gte", Value: primitive.Symbol("a")}}}}, collatedIDs())},
+		{"HiddenCollatedIndexSymbolCount", hiddenIndex, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return col.CountDocuments(ctx, bson.D{{Key: "v", Value: primitive.Symbol("a")}}, options.Count().SetCollation(symJSCollation))
+		}},
+	})
+
+}
+
 func TestSymbolJavaScript_JSONSchema(t *testing.T) {
 	idsOnly := func() *options.FindOptions {
 		return options.Find().SetProjection(bson.D{{Key: "_id", Value: 1}}).SetSort(bson.D{{Key: "_id", Value: 1}})
@@ -687,7 +968,9 @@ func TestSymbolJavaScript_RegexAndGroups(t *testing.T) {
 		{"GroupJavaScriptAndString", insertDocs(symJSDoc(1, "abc"), symJSDoc(2, jsAbc), symJSDoc(3, jsAbc)), group},
 		{"DistinctSymbolsAndCode", insertDocs(symJSDoc(1, primitive.Symbol("a")), symJSDoc(2, primitive.Symbol("b")),
 			symJSDoc(3, primitive.JavaScript("x")), symJSDoc(4, primitive.JavaScript("x")), symJSDoc(5, "a")),
-			func(ctx context.Context, col *mongo.Collection) (interface{}, error) { return col.Distinct(ctx, "v", bson.D{}) }},
+			func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return col.Distinct(ctx, "v", bson.D{})
+			}},
 		{"GraphLookupSymbolToJavaScript", insertDocs(
 			bson.D{{Key: "_id", Value: int32(1)}, {Key: "from", Value: symAbc}},
 			bson.D{{Key: "_id", Value: int32(2)}, {Key: "to", Value: jsAbc}},
@@ -705,8 +988,10 @@ func TestSymbolJavaScript_RegexAndGroups(t *testing.T) {
 	})
 }
 
-// mongod's $sort after $group returns Symbol and JavaScript group keys as
-// strings, though $group alone keeps their types; DumboDB keeps them either way.
+// When any stage follows a $group that mongod runs in SBE, mongod returns every
+// Symbol and JavaScript value in the group's output as a string, keys and
+// accumulator values alike; a final $group keeps their types. DumboDB keeps
+// them either way.
 func TestSymbolJavaScript_GroupThenSortKeyTypes(t *testing.T) {
 	keyTypes := func(res interface{}) []string {
 		var out []string
