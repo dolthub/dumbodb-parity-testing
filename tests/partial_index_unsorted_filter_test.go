@@ -110,7 +110,7 @@ func TestPartialIndexDocumentID(t *testing.T) {
 	t.Run("unique_or_of_ids", func(t *testing.T) {
 		harness.PairTest(t, harness.TestCase{
 			Name:    "PartialIndexDocumentID_unique_or_of_ids",
-			Support: supportFor(t, partialIndexRound3XFail),
+			Support: harness.DumboDBFull,
 			Setup: func(ctx context.Context, col *mongo.Collection) error {
 				if _, err := col.InsertOne(ctx, bson.D{{Key: "_id", Value: yx(1)}, {Key: "k", Value: 1}}); err != nil {
 					return err
@@ -139,7 +139,7 @@ func TestPartialIndexDocumentID(t *testing.T) {
 		t.Run("hinted_"+tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "PartialIndexDocumentID_hinted_" + tc.name,
-				Support: supportFor(t, partialIndexRound3XFail),
+				Support: harness.DumboDBFull,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					if _, err := col.InsertMany(ctx, []interface{}{
 						bson.D{{Key: "_id", Value: yx(1)}, {Key: "k", Value: 1}, {Key: "a", Value: bson.D{{Key: "q", Value: 1}}}},
@@ -163,11 +163,4 @@ func TestPartialIndexDocumentID(t *testing.T) {
 			})
 		})
 	}
-}
-
-// partialIndexRound3XFail lists the cases DumboDB fails until the follow-up for dolthub/dumbodb#208.
-var partialIndexRound3XFail = map[string]bool{
-	"TestPartialIndexDocumentID/hinted_id":              true,
-	"TestPartialIndexDocumentID/hinted_id_and_document": true,
-	"TestPartialIndexDocumentID/unique_or_of_ids":       true,
 }
