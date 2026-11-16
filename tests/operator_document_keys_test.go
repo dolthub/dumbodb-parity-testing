@@ -157,7 +157,7 @@ func TestPartialIndexPlainKeyFirstFilter(t *testing.T) {
 		t.Run(c.name+"_unique", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "PartialIndexPlainKeyFirstFilter_" + c.name + "_unique",
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 						Keys:    d("k", 1),
@@ -175,7 +175,7 @@ func TestPartialIndexPlainKeyFirstFilter(t *testing.T) {
 		t.Run(c.name+"_hinted_find", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "PartialIndexPlainKeyFirstFilter_" + c.name + "_hinted_find",
-				Support: harness.DumboDBXFail,
+				Support: harness.DumboDBFull,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 						Keys:    d("k", 1),
