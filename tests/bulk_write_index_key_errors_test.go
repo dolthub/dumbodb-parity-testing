@@ -45,7 +45,7 @@ func TestBulkWriteIndexKeyErrors(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "BulkWriteIndexKeyErrors_" + c.name,
-				Support: supportFor(t, bulkWriteIndexKeyErrorsXFail),
+				Support: harness.DumboDBFull,
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: c.key})
 					return err
@@ -69,11 +69,4 @@ func TestBulkWriteIndexKeyErrors(t *testing.T) {
 			})
 		})
 	}
-}
-
-// bulkWriteIndexKeyErrorsXFail lists the cases DumboDB fails until bulkWrite
-// reports index key errors as insert does.
-var bulkWriteIndexKeyErrorsXFail = map[string]bool{
-	"TestBulkWriteIndexKeyErrors/geo":             true,
-	"TestBulkWriteIndexKeyErrors/parallel_arrays": true,
 }
