@@ -70,7 +70,7 @@ func TestGeoIndexKeyExtraction(t *testing.T) {
 			indexWriteCase{"2d_" + v.name, bson.D{{Key: "loc", Value: "2d"}}, nil, doc, doc},
 		)
 	}
-	runIndexWriteCases(t, "GeoIndexKeyExtraction", nil, cases)
+	runIndexWriteCases(t, "GeoIndexKeyExtraction", cases)
 }
 
 // Index options and value shapes the first geo cases leave out: 2d bounds
@@ -94,7 +94,7 @@ func TestGeoIndexKeyExtractionShapes(t *testing.T) {
 	partial := options.Index().SetPartialFilterExpression(bson.D{{Key: "k", Value: 1}})
 	sparse := options.Index().SetSparse(true)
 	type c = indexWriteCase
-	runIndexWriteCases(t, "GeoIndexKeyExtractionShapes", geoRound3XFail, []indexWriteCase{
+	runIndexWriteCases(t, "GeoIndexKeyExtractionShapes", []indexWriteCase{
 		c{"2d_bounds_inside", planar, bounds(0, 1000), loc(bson.A{500, 500}), loc(bson.A{500, 500})},
 		c{"2d_bounds_below", planar, bounds(0, 1000), loc(bson.A{-5, 5}), loc(bson.A{-5, 5})},
 		c{"2d_small_bounds", planar, bounds(-10, 10), loc(bson.A{50, 0}), nil},
@@ -122,56 +122,4 @@ func TestGeoIndexKeyExtractionShapes(t *testing.T) {
 		c{"2d_nan", planar, nil, loc(bson.A{math.NaN(), 0}), nil},
 		c{"2d_infinity", planar, nil, loc(bson.A{math.Inf(1), 0}), nil},
 	})
-}
-
-// geoRound3XFail lists the cases DumboDB fails until the follow-up for dolthub/dumbodb#242.
-var geoRound3XFail = map[string]bool{
-	"TestGeoIndexKeyExtractionShapes/2d_array_of_point_documents_build":            true,
-	"TestGeoIndexKeyExtractionShapes/2d_array_of_point_documents_insert":           true,
-	"TestGeoIndexKeyExtractionShapes/2d_array_path_build":                          true,
-	"TestGeoIndexKeyExtractionShapes/2d_array_path_insert":                         true,
-	"TestGeoIndexKeyExtractionShapes/2d_bounds_below_build":                        true,
-	"TestGeoIndexKeyExtractionShapes/2d_bounds_below_insert":                       true,
-	"TestGeoIndexKeyExtractionShapes/2d_bounds_below_update":                       true,
-	"TestGeoIndexKeyExtractionShapes/2d_bounds_inside_build":                       true,
-	"TestGeoIndexKeyExtractionShapes/2d_bounds_inside_insert":                      true,
-	"TestGeoIndexKeyExtractionShapes/2d_bounds_inside_update":                      true,
-	"TestGeoIndexKeyExtractionShapes/2d_infinity_build":                            true,
-	"TestGeoIndexKeyExtractionShapes/2d_infinity_insert":                           true,
-	"TestGeoIndexKeyExtractionShapes/2d_nan_build":                                 true,
-	"TestGeoIndexKeyExtractionShapes/2d_nan_insert":                                true,
-	"TestGeoIndexKeyExtractionShapes/2d_nested_pair_build":                         true,
-	"TestGeoIndexKeyExtractionShapes/2d_nested_pair_insert":                        true,
-	"TestGeoIndexKeyExtractionShapes/2d_pair_and_number_build":                     true,
-	"TestGeoIndexKeyExtractionShapes/2d_pair_and_number_insert":                    true,
-	"TestGeoIndexKeyExtractionShapes/2d_partial_excluded_build":                    true,
-	"TestGeoIndexKeyExtractionShapes/2d_partial_excluded_insert":                   true,
-	"TestGeoIndexKeyExtractionShapes/2d_small_bounds_build":                        true,
-	"TestGeoIndexKeyExtractionShapes/2d_small_bounds_insert":                       true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_array_path_build":                    true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_array_path_insert":                   true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_collection_empty_build":              true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_collection_empty_insert":             true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_coordinates_without_type_build":      true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_coordinates_without_type_insert":     true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_legacy_document_one_field_build":     true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_legacy_document_one_field_insert":    true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_legacy_document_out_of_range_build":  true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_legacy_document_out_of_range_insert": true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_legacy_document_string_build":        true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_legacy_document_string_insert":       true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_linestring_one_vertex_build":         true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_linestring_one_vertex_insert":        true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_multilinestring_empty_build":         true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_multilinestring_empty_insert":        true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_multipoint_empty_build":              true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_multipoint_empty_insert":             true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_multipolygon_empty_build":            true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_multipolygon_empty_insert":           true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_partial_excluded_build":              true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_partial_excluded_insert":             true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_point_document_coordinates_build":    true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_point_document_coordinates_insert":   true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_polygon_empty_build":                 true,
-	"TestGeoIndexKeyExtractionShapes/2dsphere_polygon_empty_insert":                true,
 }
