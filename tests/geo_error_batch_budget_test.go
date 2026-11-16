@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -118,4 +119,93 @@ func TestGeoErrorMessagesLargeEcho(t *testing.T) {
 			})
 		})
 	}
+}
+
+// TestGeoErrorMessagesEmptiedEcho: once a reply has kept two messages over
+// 1 MiB, mongod empties each later one but still reports a short one in full.
+func TestGeoErrorMessagesEmptiedEcho(t *testing.T) {
+	var pad bson.A
+	for i := 0; i < 7000; i++ {
+		pad = append(pad, strings.Repeat("x", 150))
+	}
+	order := []int{1, 1, 1, 2, 1}
+	describe := func(errs []mongo.WriteError) bson.A {
+		var out bson.A
+		for _, e := range errs {
+			switch {
+			case len(e.Message) > 900000:
+				out = append(out, bson.D{{Key: "index", Value: e.Index}, {Key: "code", Value: e.Code}, {Key: "message", Value: "full"}})
+			default:
+				out = append(out, bson.D{{Key: "index", Value: e.Index}, {Key: "code", Value: e.Code}, {Key: "message", Value: e.Message}})
+			}
+		}
+		return out
+	}
+	setup := func(ctx context.Context, col *mongo.Collection) error {
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "loc", Value: "2dsphere"}}})
+		return err
+	}
+	point := bson.D{{Key: "type", Value: "Point"}, {Key: "coordinates", Value: bson.A{0, 0}}}
+
+	harness.PairTest(t, harness.TestCase{
+		Name:    "GeoErrorMessagesEmptiedEcho_update",
+		Support: harness.DumboDBFull,
+		Setup: func(ctx context.Context, col *mongo.Collection) error {
+			if err := setup(ctx, col); err != nil {
+				return err
+			}
+			_, err := col.InsertMany(ctx, []interface{}{
+				bson.D{{Key: "_id", Value: 1}, {Key: "loc", Value: point}, {Key: "pad", Value: pad}},
+				bson.D{{Key: "_id", Value: 2}, {Key: "loc", Value: point}},
+			})
+			return err
+		},
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			var updates bson.A
+			for _, id := range order {
+				updates = append(updates, bson.D{
+					{Key: "q", Value: bson.D{{Key: "_id", Value: id}}},
+					{Key: "u", Value: bson.D{{Key: "$set", Value: bson.D{{Key: "loc", Value: "bad"}}}}},
+				})
+			}
+			var res struct {
+				WriteErrors []mongo.WriteError `bson:"writeErrors"`
+			}
+			err := col.Database().RunCommand(ctx, bson.D{
+				{Key: "update", Value: col.Name()},
+				{Key: "updates", Value: updates},
+				{Key: "ordered", Value: false},
+			}).Decode(&res)
+			if err != nil {
+				return nil, err
+			}
+			return describe(res.WriteErrors), nil
+		},
+	})
+
+	harness.PairTest(t, harness.TestCase{
+		Name:    "GeoErrorMessagesEmptiedEcho_insert",
+		Support: harness.DumboDBFull,
+		Setup:   setup,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			var docs bson.A
+			for i, id := range order {
+				doc := bson.D{{Key: "_id", Value: i}, {Key: "loc", Value: "bad"}}
+				if id == 1 {
+					doc = append(doc, bson.E{Key: "pad", Value: pad})
+				}
+				docs = append(docs, doc)
+			}
+			err := col.Database().RunCommand(ctx, bson.D{
+				{Key: "insert", Value: col.Name()},
+				{Key: "documents", Value: docs},
+				{Key: "ordered", Value: false},
+			}).Err()
+			var we mongo.WriteException
+			if !errors.As(err, &we) {
+				return nil, err
+			}
+			return describe(we.WriteErrors), nil
+		},
+	})
 }
