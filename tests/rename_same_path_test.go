@@ -87,3 +87,49 @@ func TestRenamePathPrecedence(t *testing.T) {
 		}
 	}
 }
+
+// With several errors in one update, mongod reports the first it meets while
+// parsing the operators in order.
+func TestUpdateErrorPrecedence(t *testing.T) {
+	e := func(op string, field string, v interface{}) bson.E {
+		return bson.E{Key: op, Value: bson.D{{Key: field, Value: v}}}
+	}
+	for _, c := range []struct {
+		name   string
+		update bson.D
+	}{
+		{"positional_first_then_unknown_modifier", bson.D{e("$set", "$", 1), e("$foo", "a", 1)}},
+		{"unknown_modifier_then_positional_first", bson.D{e("$foo", "a", 1), e("$set", "$", 1)}},
+		{"rename_same_path_then_positional_first", bson.D{e("$rename", "s", "s.t"), e("$set", "$", 1)}},
+		{"positional_first_then_rename_same_path", bson.D{e("$set", "$", 1), e("$rename", "s", "s.t")}},
+		{"set_then_rename_to_empty_name", bson.D{e("$set", "s", 1), e("$rename", "s", "s.")}},
+		{"rename_to_empty_name_then_set", bson.D{e("$rename", "s", "s."), e("$set", "s", 1)}},
+		{"rename_then_inc_below_source", bson.D{e("$rename", "s", "t"), e("$inc", "s.a", 1)}},
+		{"set_then_rename_below_target", bson.D{e("$set", "t", 1), e("$rename", "s.a", "t.b")}},
+	} {
+		for _, w := range updateWriters(bson.D{{Key: "_id", Value: 1}}, c.update, false) {
+			t.Run(c.name+"_"+w.name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "UpdateErrorPrecedence_" + c.name + "_" + w.name,
+					Support: supportFor(t, updatePrecedenceXFail),
+					Setup:   insertDocs(bson.D{{Key: "_id", Value: 1}, {Key: "s", Value: "x"}}),
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						return writeOutcome(ctx, col, func() error { return w.write(ctx, col) })
+					},
+				})
+			})
+		}
+	}
+}
+
+// updatePrecedenceXFail lists the cases DumboDB fails until update operators are validated in order.
+var updatePrecedenceXFail = map[string]bool{
+	"TestUpdateErrorPrecedence/positional_first_then_unknown_modifier_bulkWrite":     true,
+	"TestUpdateErrorPrecedence/positional_first_then_unknown_modifier_findAndModify": true,
+	"TestUpdateErrorPrecedence/positional_first_then_unknown_modifier_updateMany":    true,
+	"TestUpdateErrorPrecedence/positional_first_then_unknown_modifier_updateOne":     true,
+	"TestUpdateErrorPrecedence/set_then_rename_to_empty_name_bulkWrite":              true,
+	"TestUpdateErrorPrecedence/set_then_rename_to_empty_name_findAndModify":          true,
+	"TestUpdateErrorPrecedence/set_then_rename_to_empty_name_updateMany":             true,
+	"TestUpdateErrorPrecedence/set_then_rename_to_empty_name_updateOne":              true,
+}
