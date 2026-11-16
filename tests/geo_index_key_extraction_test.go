@@ -207,7 +207,7 @@ func TestGeo2DIndexOptionMessages(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "Geo2DIndexOptionMessages_" + tc.name,
-				Support: supportFor(t, geo2DIndexOptionMessagesXFail),
+				Support: harness.DumboDBFull,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					spec := append(bson.D{{Key: "key", Value: bson.D{{Key: "loc", Value: "2d"}}}, {Key: "name", Value: "ix"}}, tc.opts...)
 					err := col.Database().RunCommand(ctx, bson.D{
@@ -227,13 +227,4 @@ func TestGeo2DIndexOptionMessages(t *testing.T) {
 			})
 		})
 	}
-}
-
-// geo2DIndexOptionMessagesXFail lists the cases DumboDB fails until it words a
-// non-finite 2d bound as mongod does.
-var geo2DIndexOptionMessagesXFail = map[string]bool{
-	"TestGeo2DIndexOptionMessages/max_infinity":          true,
-	"TestGeo2DIndexOptionMessages/max_nan":               true,
-	"TestGeo2DIndexOptionMessages/min_nan":               true,
-	"TestGeo2DIndexOptionMessages/min_negative_infinity": true,
 }
