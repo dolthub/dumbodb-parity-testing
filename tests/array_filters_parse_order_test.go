@@ -66,7 +66,7 @@ func TestArrayFiltersParseOrder(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "ArrayFiltersParseOrder_" + name,
-					Support: supportFor(t, arrayFiltersParseOrderXFail),
+					Support: harness.DumboDBFull,
 					Setup:   insertDocs(d("_id", 1, "a", bson.A{1, 2})),
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 						return writeOutcome(ctx, col, func() error {
@@ -113,30 +113,4 @@ func TestArrayFiltersParseOrder(t *testing.T) {
 			})
 		}
 	}
-}
-
-// arrayFiltersParseOrderXFail lists the cases DumboDB fails until it checks
-// array filters before the update, for every kind of update.
-var arrayFiltersParseOrderXFail = map[string]bool{
-	"TestArrayFiltersParseOrder/body_before_pipeline_refusal_bulkWrite":         true,
-	"TestArrayFiltersParseOrder/body_before_pipeline_refusal_update":            true,
-	"TestArrayFiltersParseOrder/body_before_unknown_modifier_bulkWrite":         true,
-	"TestArrayFiltersParseOrder/body_before_unknown_modifier_findAndModify":     true,
-	"TestArrayFiltersParseOrder/body_before_unknown_modifier_update":            true,
-	"TestArrayFiltersParseOrder/non_document_after_valid_filter_bulkWrite":      true,
-	"TestArrayFiltersParseOrder/non_document_after_valid_filter_update":         true,
-	"TestArrayFiltersParseOrder/non_document_after_valid_statement_bulkWrite":   true,
-	"TestArrayFiltersParseOrder/non_document_after_valid_statement_update":      true,
-	"TestArrayFiltersParseOrder/non_document_pipeline_bulkWrite":                true,
-	"TestArrayFiltersParseOrder/non_document_pipeline_findAndModify":            true,
-	"TestArrayFiltersParseOrder/non_document_pipeline_update":                   true,
-	"TestArrayFiltersParseOrder/non_document_replacement_bulkWrite":             true,
-	"TestArrayFiltersParseOrder/non_document_replacement_findAndModify":         true,
-	"TestArrayFiltersParseOrder/non_document_replacement_update":                true,
-	"TestArrayFiltersParseOrder/replacement_bad_body_bulkWrite":                 true,
-	"TestArrayFiltersParseOrder/replacement_bad_body_findAndModify":             true,
-	"TestArrayFiltersParseOrder/replacement_bad_body_update":                    true,
-	"TestArrayFiltersParseOrder/replacement_duplicate_identifier_bulkWrite":     true,
-	"TestArrayFiltersParseOrder/replacement_duplicate_identifier_findAndModify": true,
-	"TestArrayFiltersParseOrder/replacement_duplicate_identifier_update":        true,
 }
