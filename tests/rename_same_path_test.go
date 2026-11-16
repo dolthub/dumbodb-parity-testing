@@ -100,7 +100,17 @@ func TestUpdateErrorPrecedence(t *testing.T) {
 	}{
 		{"positional_first_then_unknown_modifier", bson.D{e("$set", "$", 1), e("$foo", "a", 1)}},
 		{"unknown_modifier_then_positional_first", bson.D{e("$foo", "a", 1), e("$set", "$", 1)}},
-		{"rename_same_path_then_positional_first", bson.D{e("$rename", "s", "s.t"), e("$set", "$", 1)}},
+		{"rename_same_path_then_empty_path", bson.D{e("$rename", "s", "s.t"), e("$set", "", 1)}},
+		{"positional_first_then_empty_path", bson.D{e("$set", "$", 1), e("$inc", "", 1)}},
+		{"empty_path_then_positional_first", bson.D{e("$set", "", 1), e("$inc", "$", 1)}},
+		{"unset_positional_first_then_empty_element", bson.D{e("$unset", "$", 1), e("$addToSet", "a.", 1)}},
+		{"conflict_within_operator_then_positional_first", bson.D{{Key: "$set", Value: bson.D{{Key: "s", Value: 1}, {Key: "s.a", Value: 1}}}, e("$inc", "$", 1)}},
+		{"non_document_operand_then_positional_first", bson.D{{Key: "$set", Value: 5}, e("$inc", "$", 1)}},
+		{"positional_first_then_non_document_operand", bson.D{e("$inc", "$", 1), {Key: "$set", Value: 5}}},
+		{"rename_non_string_then_empty_path", bson.D{e("$rename", "s", 5), e("$set", "", 1)}},
+		{"empty_path_then_rename_non_string", bson.D{e("$set", "", 1), e("$rename", "s", 5)}},
+		{"rename_chain", bson.D{{Key: "$rename", Value: bson.D{{Key: "s", Value: "b"}, {Key: "b", Value: "c"}}}}},
+		{"rename_positional_source", bson.D{e("$rename", "$", "b")}},
 		{"positional_first_then_rename_same_path", bson.D{e("$set", "$", 1), e("$rename", "s", "s.t")}},
 		{"set_then_rename_to_empty_name", bson.D{e("$set", "s", 1), e("$rename", "s", "s.")}},
 		{"rename_to_empty_name_then_set", bson.D{e("$rename", "s", "s."), e("$set", "s", 1)}},
@@ -111,7 +121,7 @@ func TestUpdateErrorPrecedence(t *testing.T) {
 			t.Run(c.name+"_"+w.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "UpdateErrorPrecedence_" + c.name + "_" + w.name,
-					Support: harness.DumboDBFull,
+					Support: supportFor(t, updatePrecedenceRound4XFail),
 					Setup:   insertDocs(bson.D{{Key: "_id", Value: 1}, {Key: "s", Value: "x"}}),
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 						return writeOutcome(ctx, col, func() error { return w.write(ctx, col) })
@@ -120,4 +130,40 @@ func TestUpdateErrorPrecedence(t *testing.T) {
 			})
 		}
 	}
+}
+
+// updatePrecedenceRound4XFail lists the cases DumboDB fails until update operators are validated in the update's order.
+var updatePrecedenceRound4XFail = map[string]bool{
+	"TestUpdateErrorPrecedence/conflict_within_operator_then_positional_first_bulkWrite":     true,
+	"TestUpdateErrorPrecedence/conflict_within_operator_then_positional_first_findAndModify": true,
+	"TestUpdateErrorPrecedence/conflict_within_operator_then_positional_first_updateMany":    true,
+	"TestUpdateErrorPrecedence/conflict_within_operator_then_positional_first_updateOne":     true,
+	"TestUpdateErrorPrecedence/empty_path_then_positional_first_bulkWrite":                   true,
+	"TestUpdateErrorPrecedence/empty_path_then_positional_first_findAndModify":               true,
+	"TestUpdateErrorPrecedence/empty_path_then_positional_first_updateMany":                  true,
+	"TestUpdateErrorPrecedence/empty_path_then_positional_first_updateOne":                   true,
+	"TestUpdateErrorPrecedence/positional_first_then_empty_path_bulkWrite":                   true,
+	"TestUpdateErrorPrecedence/positional_first_then_empty_path_findAndModify":               true,
+	"TestUpdateErrorPrecedence/positional_first_then_empty_path_updateMany":                  true,
+	"TestUpdateErrorPrecedence/positional_first_then_empty_path_updateOne":                   true,
+	"TestUpdateErrorPrecedence/positional_first_then_non_document_operand_bulkWrite":         true,
+	"TestUpdateErrorPrecedence/positional_first_then_non_document_operand_findAndModify":     true,
+	"TestUpdateErrorPrecedence/positional_first_then_non_document_operand_updateMany":        true,
+	"TestUpdateErrorPrecedence/positional_first_then_non_document_operand_updateOne":         true,
+	"TestUpdateErrorPrecedence/rename_non_string_then_empty_path_bulkWrite":                  true,
+	"TestUpdateErrorPrecedence/rename_non_string_then_empty_path_findAndModify":              true,
+	"TestUpdateErrorPrecedence/rename_non_string_then_empty_path_updateMany":                 true,
+	"TestUpdateErrorPrecedence/rename_non_string_then_empty_path_updateOne":                  true,
+	"TestUpdateErrorPrecedence/rename_positional_source_bulkWrite":                           true,
+	"TestUpdateErrorPrecedence/rename_positional_source_findAndModify":                       true,
+	"TestUpdateErrorPrecedence/rename_positional_source_updateMany":                          true,
+	"TestUpdateErrorPrecedence/rename_positional_source_updateOne":                           true,
+	"TestUpdateErrorPrecedence/rename_same_path_then_empty_path_bulkWrite":                   true,
+	"TestUpdateErrorPrecedence/rename_same_path_then_empty_path_findAndModify":               true,
+	"TestUpdateErrorPrecedence/rename_same_path_then_empty_path_updateMany":                  true,
+	"TestUpdateErrorPrecedence/rename_same_path_then_empty_path_updateOne":                   true,
+	"TestUpdateErrorPrecedence/unset_positional_first_then_empty_element_bulkWrite":          true,
+	"TestUpdateErrorPrecedence/unset_positional_first_then_empty_element_findAndModify":      true,
+	"TestUpdateErrorPrecedence/unset_positional_first_then_empty_element_updateMany":         true,
+	"TestUpdateErrorPrecedence/unset_positional_first_then_empty_element_updateOne":          true,
 }
