@@ -16,6 +16,8 @@ package tests
 
 import (
 	"context"
+	"fmt"
+	"sort"
 	"strings"
 	"testing"
 
@@ -26,28 +28,6 @@ import (
 
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
-
-// symbolJavaScriptXFail names the cases DumboDB does not match yet.
-var symbolJavaScriptXFail = map[string]bool{
-	"Scan_Regex":             true,
-	"Indexed_Regex":          true,
-	"IDSymbol":               true,
-	"IDSymbolFoundByString":  true,
-	"IDStringAfterSymbol":    true,
-	"IDJavaScript":           true,
-	"DistinctScan":           true,
-	"DistinctIndexed":        true,
-	"GroupBySymbolAndString": true,
-
-	"ToUpper_SymbolField":           true,
-	"ToUpper_JavaScriptField":       true,
-	"ToUpper_SymbolLiteral":         true,
-	"ToUpper_JavaScriptLiteral":     true,
-	"SubstrBytes_SymbolField":       true,
-	"SubstrBytes_JavaScriptField":   true,
-	"SubstrBytes_SymbolLiteral":     true,
-	"SubstrBytes_JavaScriptLiteral": true,
-}
 
 type symbolJavaScriptCase struct {
 	name  string
@@ -61,13 +41,9 @@ func runSymbolJavaScriptCases(t *testing.T, cases []symbolJavaScriptCase) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup runs inside Run so a server that rejects the fixture
 			// diverges instead of failing setup, which XFail does not cover.
-			support := harness.DumboDBFull
-			if symbolJavaScriptXFail[tc.name] {
-				support = harness.DumboDBXFail
-			}
 			harness.PairTest(t, harness.TestCase{
 				Name:      "SymJS_" + tc.name,
-				Support:   support,
+				Support:   harness.DumboDBFull,
 				Clustered: true,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					if tc.setup != nil {
@@ -156,6 +132,21 @@ func aggregateDocs(pipeline bson.A) func(context.Context, *mongo.Collection) (in
 		if err := cursor.All(ctx, &docs); err != nil {
 			return nil, err
 		}
+		return docs, nil
+	}
+}
+
+// aggregateSortedByID sorts the results by _id on the client: mongod's $sort
+// after $group returns Symbol and JavaScript group keys as strings.
+func aggregateSortedByID(pipeline bson.A) func(context.Context, *mongo.Collection) (interface{}, error) {
+	return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+		res, err := aggregateDocs(pipeline)(ctx, col)
+		if err != nil {
+			return nil, err
+		}
+		docs := res.([]bson.D)
+		key := func(d bson.D) string { return fmt.Sprintf("%T %v", d[0].Value, d[0].Value) }
+		sort.SliceStable(docs, func(i, j int) bool { return key(docs[i]) < key(docs[j]) })
 		return docs, nil
 	}
 }
@@ -377,6 +368,17 @@ func TestSymbolJavaScript_Expressions(t *testing.T) {
 		{"Concat", func(x interface{}) interface{} { return bson.D{{Key: "$concat", Value: bson.A{x, "z"}}} }},
 		{"ToUpper", func(x interface{}) interface{} { return bson.D{{Key: "$toUpper", Value: x}} }},
 		{"SubstrBytes", func(x interface{}) interface{} { return bson.D{{Key: "$substrBytes", Value: bson.A{x, 0, 1}}} }},
+		{"ToLower", func(x interface{}) interface{} { return bson.D{{Key: "$toLower", Value: x}} }},
+		{"SubstrCP", func(x interface{}) interface{} { return bson.D{{Key: "$substrCP", Value: bson.A{x, 1, 2}}} }},
+		{"Substr", func(x interface{}) interface{} { return bson.D{{Key: "$substr", Value: bson.A{x, 0, 2}}} }},
+		{"Strcasecmp", func(x interface{}) interface{} { return bson.D{{Key: "$strcasecmp", Value: bson.A{x, "ABC"}}} }},
+		{"StrcasecmpSecond", func(x interface{}) interface{} { return bson.D{{Key: "$strcasecmp", Value: bson.A{"abd", x}}} }},
+		{"ReplaceAll", func(x interface{}) interface{} {
+			return bson.D{{Key: "$replaceAll", Value: bson.D{{Key: "input", Value: x}, {Key: "find", Value: "a"}, {Key: "replacement", Value: "b"}}}}
+		}},
+		{"RegexFind", func(x interface{}) interface{} {
+			return bson.D{{Key: "$regexFind", Value: bson.D{{Key: "input", Value: x}, {Key: "regex", Value: "b"}}}}
+		}},
 		{"Split", func(x interface{}) interface{} { return bson.D{{Key: "$split", Value: bson.A{x, "b"}}} }},
 		{"Trim", func(x interface{}) interface{} {
 			return bson.D{{Key: "$trim", Value: bson.D{{Key: "input", Value: x}}}}
@@ -399,10 +401,13 @@ func TestSymbolJavaScript_Expressions(t *testing.T) {
 		}
 	}
 	cases = append(cases,
-		symbolJavaScriptCase{"GroupBySymbolAndString", insertSymbolJavaScriptStrings, aggregateDocs(bson.A{
+		symbolJavaScriptCase{"GroupBySymbolAndString", insertSymbolJavaScriptStrings, aggregateSortedByID(bson.A{
 			bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
 			bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: "$v"}, {Key: "n", Value: bson.D{{Key: "$sum", Value: int32(1)}}}}}},
-			bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+		})},
+		symbolJavaScriptCase{"GroupBySymbolAndStringReversed", insertSymbolJavaScriptStrings, aggregateSortedByID(bson.A{
+			bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: -1}}}},
+			bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: bson.D{{Key: "k", Value: "$v"}}}, {Key: "n", Value: bson.D{{Key: "$sum", Value: int32(1)}}}}}},
 		})},
 		symbolJavaScriptCase{"AddToSetSize", insertSymbolJavaScriptStrings, aggregateDocs(bson.A{
 			bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: nil}, {Key: "set", Value: bson.D{{Key: "$addToSet", Value: "$v"}}}}}},
@@ -473,5 +478,228 @@ func TestSymbolJavaScript_Updates(t *testing.T) {
 			}},
 		{"UpdatePipelineSymbol", insertDocs(symJSDoc(1, "abc")),
 			updateThenFind(byID, bson.A{bson.D{{Key: "$set", Value: bson.D{{Key: "w", Value: bson.D{{Key: "$literal", Value: symAbc}}}}}}})},
+	})
+}
+
+func TestSymbolJavaScript_IndexPlanner(t *testing.T) {
+	stageAfter := func(prepare func(context.Context, *mongo.Collection) error, filter bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if err := prepare(ctx, col); err != nil {
+				return nil, err
+			}
+			return winningStage(explainFind(ctx, col, filter, nil, "queryPlanner")), nil
+		}
+	}
+	deleteSymbolsAndCode := func(ctx context.Context, col *mongo.Collection) error {
+		_, err := col.DeleteMany(ctx, bson.D{{Key: "_id", Value: bson.D{{Key: "$in", Value: bson.A{int32(2), int32(3), int32(5), int32(6), int32(10), int32(11)}}}}})
+		return err
+	}
+	noop := func(context.Context, *mongo.Collection) error { return nil }
+	hinted := func() *options.FindOptions {
+		return options.Find().SetHint(bson.D{{Key: "v", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}}).SetSort(bson.D{{Key: "_id", Value: 1}})
+	}
+	countHinted := func(filter bson.D) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return col.CountDocuments(ctx, filter, options.Count().SetHint(bson.D{{Key: "v", Value: 1}}))
+		}
+	}
+	nullsAndStrings := insertDocs(symJSDoc(1, "x"), symJSDoc(2, nil), bson.D{{Key: "_id", Value: int32(3)}},
+		symJSDoc(6, "y"), symJSDoc(7, bson.A{nil, "z"}))
+	compoundIndex := func(ctx context.Context, col *mongo.Collection) error {
+		if err := insertSymbolJavaScriptMixed(ctx, col); err != nil {
+			return err
+		}
+		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "v", Value: 1}, {Key: "_id", Value: 1}}})
+		return err
+	}
+	runSymbolJavaScriptCases(t, []symbolJavaScriptCase{
+		{"PlanWithSymbolStored", withValueIndex(insertSymbolJavaScriptMixed), stageAfter(noop, bson.D{{Key: "v", Value: int32(5)}})},
+		{"PlanAfterSymbolDeleted", withValueIndex(insertSymbolJavaScriptMixed), stageAfter(deleteSymbolsAndCode, bson.D{{Key: "v", Value: int32(5)}})},
+		{"PlanSymbolEquality", withValueIndex(insertSymbolJavaScriptMixed), stageAfter(noop, bson.D{{Key: "v", Value: symAbc}})},
+		{"PlanJavaScriptEquality", withValueIndex(insertSymbolJavaScriptMixed), stageAfter(noop, bson.D{{Key: "v", Value: jsAbc}})},
+		{"IndexedSymbolNotNull", withValueIndex(nullsAndStrings), findDocs(bson.D{{Key: "v", Value: primitive.Symbol("x")}}, hinted())},
+		{"IndexedJavaScriptNotNull", withValueIndex(nullsAndStrings), findDocs(bson.D{{Key: "v", Value: primitive.JavaScript("x")}}, hinted())},
+		{"IndexedInSymbolAndJavaScript", withValueIndex(nullsAndStrings),
+			findDocs(bson.D{{Key: "v", Value: bson.D{{Key: "$in", Value: bson.A{primitive.JavaScript("x"), primitive.Symbol("y")}}}}}, hinted())},
+		{"IndexedGteSymbol", withValueIndex(nullsAndStrings),
+			findDocs(bson.D{{Key: "v", Value: bson.D{{Key: "$gte", Value: primitive.Symbol("x")}}}}, hinted())},
+		{"IndexedGtJavaScript", withValueIndex(insertSymbolJavaScriptMixed),
+			findDocs(bson.D{{Key: "v", Value: bson.D{{Key: "$gt", Value: primitive.JavaScript("abc")}}}}, hinted())},
+		{"IndexedCountJavaScript", withValueIndex(nullsAndStrings), countHinted(bson.D{{Key: "v", Value: primitive.JavaScript("x")}})},
+		{"IndexedCountSymbol", withValueIndex(nullsAndStrings), countHinted(bson.D{{Key: "v", Value: primitive.Symbol("x")}})},
+		{"IndexedUpdateManySymbol", withValueIndex(nullsAndStrings), func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			res, err := col.UpdateMany(ctx, bson.D{{Key: "v", Value: primitive.Symbol("x")}}, bson.D{{Key: "$set", Value: bson.D{{Key: "hit", Value: true}}}})
+			if err != nil {
+				return nil, err
+			}
+			return res.ModifiedCount, nil
+		}},
+		{"IndexedDistinctSymbolFilter", withValueIndex(nullsAndStrings), func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return col.Distinct(ctx, "_id", bson.D{{Key: "v", Value: primitive.Symbol("x")}})
+		}},
+		{"CompoundIndexSymbol", compoundIndex, findDocs(bson.D{{Key: "v", Value: symAbc}},
+			options.Find().SetHint(bson.D{{Key: "v", Value: 1}, {Key: "_id", Value: 1}}).SetProjection(bson.D{{Key: "_id", Value: 1}}))},
+		{"CompoundIndexSortAsc", compoundIndex, findDocs(bson.D{},
+			options.Find().SetHint(bson.D{{Key: "v", Value: 1}, {Key: "_id", Value: 1}}).SetSort(bson.D{{Key: "v", Value: 1}, {Key: "_id", Value: 1}}))},
+	})
+}
+
+var symJSCollation = &options.Collation{Locale: "en", Strength: 2}
+
+func insertSymbolJavaScriptCases(ctx context.Context, col *mongo.Collection) error {
+	_, err := col.InsertMany(ctx, []interface{}{
+		symJSDoc(1, "abc"),
+		symJSDoc(2, symAbc),
+		symJSDoc(3, jsAbc),
+		symJSDoc(4, "ABC"),
+		symJSDoc(5, primitive.Symbol("ABC")),
+		symJSDoc(6, int32(5)),
+	})
+	return err
+}
+
+func TestSymbolJavaScript_Collation(t *testing.T) {
+	idsOnly := func() *options.FindOptions {
+		return options.Find().SetProjection(bson.D{{Key: "_id", Value: 1}}).SetSort(bson.D{{Key: "_id", Value: 1}}).SetCollation(symJSCollation)
+	}
+	collatedAggregate := func(pipeline bson.A) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			cursor, err := col.Aggregate(ctx, pipeline, options.Aggregate().SetCollation(symJSCollation))
+			if err != nil {
+				return nil, err
+			}
+			var docs []bson.D
+			if err := cursor.All(ctx, &docs); err != nil {
+				return nil, err
+			}
+			return docs, nil
+		}
+	}
+	collatedIndex := func(unique bool) func(context.Context, *mongo.Collection) error {
+		return func(ctx context.Context, col *mongo.Collection) error {
+			_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+				Keys:    bson.D{{Key: "v", Value: 1}},
+				Options: options.Index().SetUnique(unique).SetCollation(symJSCollation),
+			})
+			return err
+		}
+	}
+	insertThenFind := func(docs ...interface{}) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			for _, d := range docs {
+				if _, err := col.InsertOne(ctx, d); err != nil {
+					return nil, err
+				}
+			}
+			return findDocs(bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))(ctx, col)
+		}
+	}
+	groupPipeline := bson.A{
+		bson.D{{Key: "$match", Value: bson.D{{Key: "_id", Value: bson.D{{Key: "$in", Value: bson.A{int32(1), int32(5)}}}}}}},
+		bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+		bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: "$v"}, {Key: "n", Value: bson.D{{Key: "$sum", Value: int32(1)}}}}}},
+	}
+	runSymbolJavaScriptCases(t, []symbolJavaScriptCase{
+		{"CollatedFindEq", insertSymbolJavaScriptCases, findDocs(bson.D{{Key: "v", Value: "abc"}}, idsOnly())},
+		{"CollatedFindEqSymbol", insertSymbolJavaScriptCases, findDocs(bson.D{{Key: "v", Value: symAbc}}, idsOnly())},
+		{"CollatedFindIn", insertSymbolJavaScriptCases, findDocs(bson.D{{Key: "v", Value: bson.D{{Key: "$in", Value: bson.A{"abc"}}}}}, idsOnly())},
+		{"CollatedFindGt", insertSymbolJavaScriptCases, findDocs(bson.D{{Key: "v", Value: bson.D{{Key: "$gt", Value: "abb"}}}}, idsOnly())},
+		{"CollatedFindNe", insertSymbolJavaScriptCases, findDocs(bson.D{{Key: "v", Value: bson.D{{Key: "$ne", Value: "abc"}}}}, idsOnly())},
+		{"CollatedExprEq", insertSymbolJavaScriptCases,
+			findDocs(bson.D{{Key: "$expr", Value: bson.D{{Key: "$eq", Value: bson.A{"$v", "abc"}}}}}, idsOnly())},
+		{"CollatedMatch", insertSymbolJavaScriptCases, collatedAggregate(bson.A{
+			bson.D{{Key: "$match", Value: bson.D{{Key: "v", Value: "abc"}}}},
+			bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: 1}}}},
+			bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+		})},
+		{"CollatedGroup", insertSymbolJavaScriptCases, collatedAggregate(groupPipeline)},
+		{"CollatedDistinct", insertSymbolJavaScriptCases, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			return col.Distinct(ctx, "v", bson.D{{Key: "_id", Value: bson.D{{Key: "$lt", Value: int32(6)}}}}, options.Distinct().SetCollation(symJSCollation))
+		}},
+		{"CollatedSort", insertSymbolJavaScriptCases,
+			findDocs(bson.D{}, options.Find().SetSort(bson.D{{Key: "v", Value: 1}, {Key: "_id", Value: 1}}).SetCollation(&options.Collation{Locale: "en", Strength: 1}))},
+		{"CollatedIndexInsertSymbol", collatedIndex(false), insertThenFind(symJSDoc(1, "abc"), symJSDoc(2, primitive.Symbol("ABC")))},
+		{"CollatedUniqueIndexInsertSymbol", collatedIndex(true), insertThenFind(symJSDoc(1, "abc"), symJSDoc(2, primitive.Symbol("ABC")))},
+		{"CollatedIndexInsertJavaScript", collatedIndex(false), insertThenFind(symJSDoc(1, "abc"), symJSDoc(2, jsAbc))},
+		{"CollatedIndexBuildOverSymbol", insertSymbolJavaScriptCases, func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if err := collatedIndex(false)(ctx, col); err != nil {
+				return nil, err
+			}
+			return findDocs(bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))(ctx, col)
+		}},
+	})
+}
+
+func TestSymbolJavaScript_JSONSchema(t *testing.T) {
+	idsOnly := func() *options.FindOptions {
+		return options.Find().SetProjection(bson.D{{Key: "_id", Value: 1}}).SetSort(bson.D{{Key: "_id", Value: 1}})
+	}
+	schema := func(bsonType interface{}) bson.D {
+		return bson.D{{Key: "$jsonSchema", Value: bson.D{
+			{Key: "required", Value: bson.A{"v"}},
+			{Key: "properties", Value: bson.D{{Key: "v", Value: bson.D{{Key: "bsonType", Value: bsonType}}}}},
+		}}}
+	}
+	validated := func(bsonType string, doc interface{}) func(context.Context, *mongo.Collection) (interface{}, error) {
+		return func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if err := col.Database().RunCommand(ctx, bson.D{{Key: "collMod", Value: col.Name()}, {Key: "validator", Value: schema(bsonType)}}).Err(); err != nil {
+				return nil, err
+			}
+			if _, err := col.InsertOne(ctx, doc); err != nil {
+				return nil, err
+			}
+			return findDocs(bson.D{}, nil)(ctx, col)
+		}
+	}
+	runSymbolJavaScriptCases(t, []symbolJavaScriptCase{
+		{"SchemaSymbol", insertSymbolJavaScriptCases, findDocs(schema("symbol"), idsOnly())},
+		{"SchemaJavaScript", insertSymbolJavaScriptCases, findDocs(schema("javascript"), idsOnly())},
+		{"SchemaString", insertSymbolJavaScriptCases, findDocs(schema("string"), idsOnly())},
+		{"SchemaJavaScriptOrString", insertSymbolJavaScriptCases, findDocs(schema(bson.A{"javascript", "string"}), idsOnly())},
+		{"ValidatorAcceptsSymbol", insertDocs(symJSDoc(1, "abc")), validated("symbol", symJSDoc(2, symAbc))},
+		{"ValidatorRejectsStringForSymbol", insertDocs(symJSDoc(1, symAbc)), validated("symbol", symJSDoc(2, "abc"))},
+		{"ValidatorAcceptsJavaScript", insertDocs(symJSDoc(1, jsAbc)), validated("javascript", symJSDoc(2, jsFunc))},
+	})
+}
+
+func TestSymbolJavaScript_RegexAndGroups(t *testing.T) {
+	idsOnly := func() *options.FindOptions {
+		return options.Find().SetProjection(bson.D{{Key: "_id", Value: 1}}).SetSort(bson.D{{Key: "_id", Value: 1}})
+	}
+	re := primitive.Regex{Pattern: "^ab"}
+	group := aggregateSortedByID(bson.A{
+		bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+		bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: "$v"}, {Key: "n", Value: bson.D{{Key: "$sum", Value: int32(1)}}}}}},
+	})
+	runSymbolJavaScriptCases(t, []symbolJavaScriptCase{
+		{"RegexLiteral", insertSymbolJavaScriptCases, findDocs(bson.D{{Key: "v", Value: re}}, idsOnly())},
+		{"RegexInList", insertSymbolJavaScriptCases, findDocs(bson.D{{Key: "v", Value: bson.D{{Key: "$in", Value: bson.A{re}}}}}, idsOnly())},
+		{"RegexNot", insertSymbolJavaScriptCases, findDocs(bson.D{{Key: "v", Value: bson.D{{Key: "$not", Value: re}}}}, idsOnly())},
+		{"RegexNin", insertSymbolJavaScriptCases, findDocs(bson.D{{Key: "v", Value: bson.D{{Key: "$nin", Value: bson.A{re}}}}}, idsOnly())},
+		{"RegexCaseInsensitive", insertSymbolJavaScriptCases,
+			findDocs(bson.D{{Key: "v", Value: bson.D{{Key: "$regex", Value: "^abc$"}, {Key: "$options", Value: "i"}}}}, idsOnly())},
+		{"RegexIndexed", withValueIndex(insertSymbolJavaScriptCases),
+			findDocs(bson.D{{Key: "v", Value: re}}, idsOnly().SetHint(bson.D{{Key: "v", Value: 1}}))},
+		{"GroupDistinctSymbols", insertDocs(symJSDoc(1, primitive.Symbol("a")), symJSDoc(2, primitive.Symbol("b")),
+			symJSDoc(3, primitive.JavaScript("x")), symJSDoc(4, primitive.JavaScript("y"))), group},
+		{"GroupStringBeforeSymbol", insertDocs(symJSDoc(1, "abc"), symJSDoc(2, symAbc)), group},
+		{"GroupJavaScriptAndString", insertDocs(symJSDoc(1, "abc"), symJSDoc(2, jsAbc), symJSDoc(3, jsAbc)), group},
+		{"DistinctSymbolsAndCode", insertDocs(symJSDoc(1, primitive.Symbol("a")), symJSDoc(2, primitive.Symbol("b")),
+			symJSDoc(3, primitive.JavaScript("x")), symJSDoc(4, primitive.JavaScript("x")), symJSDoc(5, "a")),
+			func(ctx context.Context, col *mongo.Collection) (interface{}, error) { return col.Distinct(ctx, "v", bson.D{}) }},
+		{"GraphLookupSymbolToJavaScript", insertDocs(
+			bson.D{{Key: "_id", Value: int32(1)}, {Key: "from", Value: symAbc}},
+			bson.D{{Key: "_id", Value: int32(2)}, {Key: "to", Value: jsAbc}},
+			bson.D{{Key: "_id", Value: int32(3)}, {Key: "to", Value: "abc"}}),
+			func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				return aggregateDocs(bson.A{
+					bson.D{{Key: "$match", Value: bson.D{{Key: "_id", Value: int32(1)}}}},
+					bson.D{{Key: "$graphLookup", Value: bson.D{
+						{Key: "from", Value: col.Name()}, {Key: "startWith", Value: "$from"},
+						{Key: "connectFromField", Value: "from"}, {Key: "connectToField", Value: "to"}, {Key: "as", Value: "hits"},
+					}}},
+					bson.D{{Key: "$project", Value: bson.D{{Key: "ids", Value: "$hits._id"}}}},
+				})(ctx, col)
+			}},
 	})
 }

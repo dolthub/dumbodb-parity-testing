@@ -543,6 +543,9 @@ func BSONTypeCorpus() []interface{} {
 		bson.D{{Key: "_id", Value: "t-decimal128"}, {Key: "v", Value: dec}},
 		bson.D{{Key: "_id", Value: "t-minkey"}, {Key: "v", Value: primitive.MinKey{}}},
 		bson.D{{Key: "_id", Value: "t-maxkey"}, {Key: "v", Value: primitive.MaxKey{}}},
+		bson.D{{Key: "_id", Value: "t-symbol"}, {Key: "v", Value: primitive.Symbol("sym")}},
+		bson.D{{Key: "_id", Value: "t-javascript"}, {Key: "v", Value: primitive.JavaScript("function () { return 1; }")}},
+		bson.D{{Key: "_id", Value: primitive.Symbol("t-symbol-id")}, {Key: "v", Value: bson.A{primitive.Symbol("a"), primitive.JavaScript("b")}}},
 		bson.D{{Key: "_id", Value: "t-num-int32"}, {Key: "v", Value: int32(42)}},
 		bson.D{{Key: "_id", Value: "t-num-int64"}, {Key: "v", Value: int64(42)}},
 		bson.D{{Key: "_id", Value: "t-num-double"}, {Key: "v", Value: float64(42)}},
@@ -579,8 +582,8 @@ func manyFields(n int) bson.D {
 
 func UndecodableTypeCorpus() []interface{} {
 	return []interface{}{
-		bson.D{{Key: "_id", Value: "u-javascript"}, {Key: "v", Value: primitive.JavaScript("function () { return 1; }")}},
-		bson.D{{Key: "_id", Value: "u-symbol"}, {Key: "v", Value: primitive.Symbol("sym")}},
+		bson.D{{Key: "_id", Value: "u-javascript-with-scope"}, {Key: "v", Value: primitive.CodeWithScope{Code: "function () { return x; }", Scope: bson.D{{Key: "x", Value: int32(1)}}}}},
+		bson.D{{Key: "_id", Value: "u-dbpointer"}, {Key: "v", Value: primitive.DBPointer{DB: "db.coll", Pointer: primitive.NewObjectID()}}},
 		bson.D{{Key: "_id", Value: "u-undefined"}, {Key: "v", Value: primitive.Undefined{}}},
 	}
 }

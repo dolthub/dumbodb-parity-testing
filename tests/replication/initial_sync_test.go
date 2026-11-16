@@ -304,7 +304,7 @@ func TestInitialSync_UndecodableTypesFailHonestly(t *testing.T) {
 		t.Fatalf("initialSyncStatus is %T, want a document", status["initialSyncStatus"])
 	}
 	for field, want := range map[string]string{
-		"bsonType":  "JavaScript",
+		"bsonType":  "JavaScriptWithScope",
 		"namespace": syncDB + ".undecodable",
 	} {
 		got, _ := sync[field].(string)
@@ -313,7 +313,7 @@ func TestInitialSync_UndecodableTypesFailHonestly(t *testing.T) {
 		}
 	}
 	message, _ := sync["initialSyncFailure"].(string)
-	for _, fragment := range []string{"does not support", "JavaScript", syncDB + ".undecodable"} {
+	for _, fragment := range []string{"does not support", "JavaScriptWithScope", syncDB + ".undecodable"} {
 		if !contains(message, fragment) {
 			t.Errorf("initialSyncFailure message %q does not mention %q", message, fragment)
 		}
