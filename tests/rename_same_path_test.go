@@ -111,7 +111,7 @@ func TestUpdateErrorPrecedence(t *testing.T) {
 			t.Run(c.name+"_"+w.name, func(t *testing.T) {
 				harness.PairTest(t, harness.TestCase{
 					Name:    "UpdateErrorPrecedence_" + c.name + "_" + w.name,
-					Support: supportFor(t, updatePrecedenceXFail),
+					Support: harness.DumboDBFull,
 					Setup:   insertDocs(bson.D{{Key: "_id", Value: 1}, {Key: "s", Value: "x"}}),
 					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 						return writeOutcome(ctx, col, func() error { return w.write(ctx, col) })
@@ -120,16 +120,4 @@ func TestUpdateErrorPrecedence(t *testing.T) {
 			})
 		}
 	}
-}
-
-// updatePrecedenceXFail lists the cases DumboDB fails until update operators are validated in order.
-var updatePrecedenceXFail = map[string]bool{
-	"TestUpdateErrorPrecedence/positional_first_then_unknown_modifier_bulkWrite":     true,
-	"TestUpdateErrorPrecedence/positional_first_then_unknown_modifier_findAndModify": true,
-	"TestUpdateErrorPrecedence/positional_first_then_unknown_modifier_updateMany":    true,
-	"TestUpdateErrorPrecedence/positional_first_then_unknown_modifier_updateOne":     true,
-	"TestUpdateErrorPrecedence/set_then_rename_to_empty_name_bulkWrite":              true,
-	"TestUpdateErrorPrecedence/set_then_rename_to_empty_name_findAndModify":          true,
-	"TestUpdateErrorPrecedence/set_then_rename_to_empty_name_updateMany":             true,
-	"TestUpdateErrorPrecedence/set_then_rename_to_empty_name_updateOne":              true,
 }
