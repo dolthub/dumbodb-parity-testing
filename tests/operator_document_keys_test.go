@@ -25,8 +25,9 @@ import (
 	"github.com/dolthub/dumbodb-parity-testing/harness"
 )
 
-// mongod refuses a document of operators that also holds a key that is not an
-// operator (2 "unknown operator"), in a query and in a partial filter.
+// TestOperatorDocumentNonOperatorKeys: mongod refuses a document of operators
+// that also holds a key that is not an operator (2 "unknown operator"), in a
+// query and in a partial filter.
 func TestOperatorDocumentNonOperatorKeys(t *testing.T) {
 	d := func(kv ...interface{}) bson.D {
 		var out bson.D
@@ -70,4 +71,67 @@ func TestOperatorDocumentNonOperatorKeys(t *testing.T) {
 			})
 		})
 	}
+}
+
+// TestOperatorDocumentPlainKeyFirst: a document whose first key is not an
+// operator is a value to equal, even when a later key starts with '$'.
+func TestOperatorDocumentPlainKeyFirst(t *testing.T) {
+	d := func(kv ...interface{}) bson.D {
+		var out bson.D
+		for i := 0; i < len(kv); i += 2 {
+			out = append(out, bson.E{Key: kv[i].(string), Value: kv[i+1]})
+		}
+		return out
+	}
+	seed := insertDocs(d("_id", 1, "a", 1), d("_id", 2, "a", d("y", 1, "$eq", 1)))
+	for _, c := range []struct {
+		name    string
+		filter  bson.D
+		support harness.DumboDBSupport
+	}{
+		{"eq", d("a", d("y", 1, "$eq", 1)), harness.DumboDBXFail},
+		{"gt", d("a", d("y", 1, "$gt", 0)), harness.DumboDBXFail},
+		{"under_and", d("$and", bson.A{d("a", d("y", 1, "$eq", 1))}), harness.DumboDBXFail},
+		{"under_elem_match", d("a", d("$elemMatch", d("y", 1, "$eq", 1))), harness.DumboDBFull},
+	} {
+		t.Run(c.name+"_find", func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "OperatorDocumentPlainKeyFirst_" + c.name + "_find",
+				Support: c.support,
+				Setup:   seed,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					ids, err := findIDs(ctx, col, c.filter)
+					return bson.A{ids, errCode(err)}, nil
+				},
+			})
+		})
+		t.Run(c.name+"_delete", func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "OperatorDocumentPlainKeyFirst_" + c.name + "_delete",
+				Support: c.support,
+				Setup:   seed,
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					res, err := col.DeleteMany(ctx, c.filter)
+					var n int64
+					if res != nil {
+						n = res.DeletedCount
+					}
+					return bson.A{n, errCode(err)}, nil
+				},
+			})
+		})
+	}
+	t.Run("partial_index", func(t *testing.T) {
+		harness.PairTest(t, harness.TestCase{
+			Name:    "OperatorDocumentPlainKeyFirst_partial_index",
+			Support: harness.DumboDBFull,
+			Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+				_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+					Keys:    d("k", 1),
+					Options: options.Index().SetPartialFilterExpression(d("a", d("y", 1, "$eq", 1))),
+				})
+				return errCode(err), nil
+			},
+		})
+	})
 }
