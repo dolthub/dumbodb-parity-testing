@@ -228,6 +228,143 @@ func TestNearPlacement(t *testing.T) {
 	}
 }
 
+// In $match, in any pipeline, and in validators, mongod refuses a well-formed
+// $near, $nearSphere or $geoNear anywhere in the query with 5626500, ahead of
+// the placement error find reports.
+func TestNearInMatchContexts(t *testing.T) {
+	d := func(kv ...interface{}) bson.D {
+		var out bson.D
+		for i := 0; i < len(kv); i += 2 {
+			out = append(out, bson.E{Key: kv[i].(string), Value: kv[i+1]})
+		}
+		return out
+	}
+	near := d("$near", bson.A{0, 0})
+	filters := []struct {
+		name   string
+		filter bson.D
+	}{
+		{"not", d("loc", d("$not", near))},
+		{"elemMatch_field", d("arr", d("$elemMatch", d("k", near)))},
+		{"all_elemMatch", d("arr", d("$all", bson.A{d("$elemMatch", d("k", near))}))},
+		{"or_two_clauses", d("$or", bson.A{d("loc", near), d("_id", 2)})},
+		{"nor", d("$nor", bson.A{d("loc", near)})},
+		{"nearSphere_not", d("loc", d("$not", d("$nearSphere", bson.A{0, 0})))},
+		{"top_level", d("loc", near)},
+		{"malformed_top_level", d("loc", d("$near", 5))},
+		{"malformed_not", d("loc", d("$not", d("$near", 5)))},
+	}
+	contexts := []struct {
+		name string
+		run  func(ctx context.Context, col *mongo.Collection, filter bson.D) error
+	}{
+		{"aggregate", func(ctx context.Context, col *mongo.Collection, filter bson.D) error {
+			cur, err := col.Aggregate(ctx, mongo.Pipeline{d("$match", filter)})
+			if err == nil {
+				err = cur.All(ctx, &[]bson.D{})
+			}
+			return err
+		}},
+		{"countDocuments", func(ctx context.Context, col *mongo.Collection, filter bson.D) error {
+			_, err := col.CountDocuments(ctx, filter)
+			return err
+		}},
+		{"lookup", func(ctx context.Context, col *mongo.Collection, filter bson.D) error {
+			cur, err := col.Aggregate(ctx, mongo.Pipeline{d("$lookup", d("from", col.Name(), "pipeline", bson.A{d("$match", filter)}, "as", "j"))})
+			if err == nil {
+				err = cur.All(ctx, &[]bson.D{})
+			}
+			return err
+		}},
+		{"facet", func(ctx context.Context, col *mongo.Collection, filter bson.D) error {
+			cur, err := col.Aggregate(ctx, mongo.Pipeline{d("$facet", d("a", bson.A{d("$match", filter)}))})
+			if err == nil {
+				err = cur.All(ctx, &[]bson.D{})
+			}
+			return err
+		}},
+		{"view", func(ctx context.Context, col *mongo.Collection, filter bson.D) error {
+			view := col.Name() + "_view"
+			_ = col.Database().Collection(view).Drop(ctx)
+			if err := col.Database().CreateView(ctx, view, col.Name(), mongo.Pipeline{d("$match", filter)}); err != nil {
+				return err
+			}
+			defer col.Database().Collection(view).Drop(ctx)
+			cur, err := col.Database().Collection(view).Find(ctx, bson.D{})
+			if err == nil {
+				err = cur.All(ctx, &[]bson.D{})
+			}
+			return err
+		}},
+		{"validator", func(ctx context.Context, col *mongo.Collection, filter bson.D) error {
+			name := col.Name() + "_validated"
+			_ = col.Database().Collection(name).Drop(ctx)
+			err := col.Database().RunCommand(ctx, d("create", name, "validator", d("$nor", bson.A{filter}))).Err()
+			_ = col.Database().Collection(name).Drop(ctx)
+			return err
+		}},
+	}
+	for _, f := range filters {
+		for _, c := range contexts {
+			name := f.name + "_" + c.name
+			t.Run(name, func(t *testing.T) {
+				harness.PairTest(t, harness.TestCase{
+					Name:    "NearInMatchContexts_" + name,
+					Support: supportFor(t, nearInMatchContextsXFail),
+					Setup: insertDocs(
+						d("_id", 1, "loc", bson.A{0, 0}, "arr", bson.A{d("k", bson.A{0, 0})}),
+					),
+					Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+						return errCode(c.run(ctx, col, f.filter)), nil
+					},
+				})
+			})
+		}
+	}
+}
+
+// nearInMatchContextsXFail lists the cases DumboDB fails until it refuses
+// $near anywhere in $match and validators.
+var nearInMatchContextsXFail = map[string]bool{
+	"TestNearInMatchContexts/all_elemMatch_aggregate":        true,
+	"TestNearInMatchContexts/all_elemMatch_countDocuments":   true,
+	"TestNearInMatchContexts/all_elemMatch_facet":            true,
+	"TestNearInMatchContexts/all_elemMatch_lookup":           true,
+	"TestNearInMatchContexts/all_elemMatch_validator":        true,
+	"TestNearInMatchContexts/all_elemMatch_view":             true,
+	"TestNearInMatchContexts/elemMatch_field_aggregate":      true,
+	"TestNearInMatchContexts/elemMatch_field_countDocuments": true,
+	"TestNearInMatchContexts/elemMatch_field_facet":          true,
+	"TestNearInMatchContexts/elemMatch_field_lookup":         true,
+	"TestNearInMatchContexts/elemMatch_field_validator":      true,
+	"TestNearInMatchContexts/elemMatch_field_view":           true,
+	"TestNearInMatchContexts/nearSphere_not_aggregate":       true,
+	"TestNearInMatchContexts/nearSphere_not_countDocuments":  true,
+	"TestNearInMatchContexts/nearSphere_not_facet":           true,
+	"TestNearInMatchContexts/nearSphere_not_lookup":          true,
+	"TestNearInMatchContexts/nearSphere_not_validator":       true,
+	"TestNearInMatchContexts/nearSphere_not_view":            true,
+	"TestNearInMatchContexts/nor_aggregate":                  true,
+	"TestNearInMatchContexts/nor_countDocuments":             true,
+	"TestNearInMatchContexts/nor_facet":                      true,
+	"TestNearInMatchContexts/nor_lookup":                     true,
+	"TestNearInMatchContexts/nor_validator":                  true,
+	"TestNearInMatchContexts/nor_view":                       true,
+	"TestNearInMatchContexts/not_aggregate":                  true,
+	"TestNearInMatchContexts/not_countDocuments":             true,
+	"TestNearInMatchContexts/not_facet":                      true,
+	"TestNearInMatchContexts/not_lookup":                     true,
+	"TestNearInMatchContexts/not_validator":                  true,
+	"TestNearInMatchContexts/not_view":                       true,
+	"TestNearInMatchContexts/or_two_clauses_aggregate":       true,
+	"TestNearInMatchContexts/or_two_clauses_countDocuments":  true,
+	"TestNearInMatchContexts/or_two_clauses_facet":           true,
+	"TestNearInMatchContexts/or_two_clauses_lookup":          true,
+	"TestNearInMatchContexts/or_two_clauses_validator":       true,
+	"TestNearInMatchContexts/or_two_clauses_view":            true,
+	"TestNearInMatchContexts/top_level_validator":            true,
+}
+
 // mongod classifies an $all element by its first key as written and refuses
 // only the operators it knows; any other '$' name is a literal value.
 func TestAllDollarKeyLiterals(t *testing.T) {
