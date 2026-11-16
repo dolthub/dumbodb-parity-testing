@@ -135,3 +135,77 @@ func TestOperatorDocumentPlainKeyFirst(t *testing.T) {
 		})
 	})
 }
+
+// TestPartialIndexPlainKeyFirstFilter: a partial index whose filter equals a
+// document whose first key is plain holds the documents equal to it.
+func TestPartialIndexPlainKeyFirstFilter(t *testing.T) {
+	d := func(kv ...interface{}) bson.D {
+		var out bson.D
+		for i := 0; i < len(kv); i += 2 {
+			out = append(out, bson.E{Key: kv[i].(string), Value: kv[i+1]})
+		}
+		return out
+	}
+	for _, c := range []struct {
+		name  string
+		value bson.D
+	}{
+		{"eq", d("y", 1, "$eq", 1)},
+		{"dollar_field", d("b", 1, "$b", 1)},
+	} {
+		filter := d("a", c.value)
+		t.Run(c.name+"_unique", func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "PartialIndexPlainKeyFirstFilter_" + c.name + "_unique",
+				Support: harness.DumboDBXFail,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+						Keys:    d("k", 1),
+						Options: options.Index().SetUnique(true).SetPartialFilterExpression(filter),
+					})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					_, err1 := col.InsertOne(ctx, d("_id", 1, "k", 1, "a", c.value))
+					_, err2 := col.InsertOne(ctx, d("_id", 2, "k", 1, "a", c.value))
+					return bson.A{errCode(err1), errCode(err2)}, nil
+				},
+			})
+		})
+		t.Run(c.name+"_hinted_find", func(t *testing.T) {
+			harness.PairTest(t, harness.TestCase{
+				Name:    "PartialIndexPlainKeyFirstFilter_" + c.name + "_hinted_find",
+				Support: harness.DumboDBXFail,
+				Setup: func(ctx context.Context, col *mongo.Collection) error {
+					if _, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+						Keys:    d("k", 1),
+						Options: options.Index().SetName("ix").SetPartialFilterExpression(filter),
+					}); err != nil {
+						return err
+					}
+					_, err := col.InsertMany(ctx, []interface{}{
+						d("_id", 1, "k", 1, "a", 1),
+						d("_id", 2, "k", 1, "a", c.value),
+						d("_id", 3, "k", 2, "a", c.value),
+					})
+					return err
+				},
+				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+					cur, err := col.Find(ctx, d("a", c.value, "k", 1), options.Find().SetHint("ix").SetSort(d("_id", 1)))
+					if err != nil {
+						return errCode(err), nil
+					}
+					var out []bson.M
+					if err := cur.All(ctx, &out); err != nil {
+						return nil, err
+					}
+					var ids bson.A
+					for _, m := range out {
+						ids = append(ids, m["_id"])
+					}
+					return ids, nil
+				},
+			})
+		})
+	}
+}
