@@ -39,7 +39,7 @@ type indexWriteCase struct {
 	write bson.D // a $set applied to the stored doc with _id 0; nil to skip
 }
 
-func runIndexWriteCases(t *testing.T, prefix string, cases []indexWriteCase) {
+func runIndexWriteCases(t *testing.T, prefix string, xfail map[string]bool, cases []indexWriteCase) {
 	createIndex := func(ctx context.Context, col *mongo.Collection, c indexWriteCase) error {
 		_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{Keys: c.key, Options: c.opts})
 		return err
@@ -48,7 +48,7 @@ func runIndexWriteCases(t *testing.T, prefix string, cases []indexWriteCase) {
 		t.Run(c.name+"_insert", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    prefix + "_" + c.name + "_insert",
-				Support: harness.DumboDBFull,
+				Support: supportFor(t, xfail),
 				Setup:   func(ctx context.Context, col *mongo.Collection) error { return createIndex(ctx, col, c) },
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					return writeOutcome(ctx, col, func() error {
@@ -61,7 +61,7 @@ func runIndexWriteCases(t *testing.T, prefix string, cases []indexWriteCase) {
 		t.Run(c.name+"_build", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    prefix + "_" + c.name + "_build",
-				Support: harness.DumboDBFull,
+				Support: supportFor(t, xfail),
 				Setup:   insertDocs(append(bson.D{{Key: "_id", Value: 1}}, c.doc...)),
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					code := errCode(createIndex(ctx, col, c))
@@ -79,7 +79,7 @@ func runIndexWriteCases(t *testing.T, prefix string, cases []indexWriteCase) {
 		t.Run(c.name+"_update", func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    prefix + "_" + c.name + "_update",
-				Support: harness.DumboDBFull,
+				Support: supportFor(t, xfail),
 				Setup: func(ctx context.Context, col *mongo.Collection) error {
 					if err := createIndex(ctx, col, c); err != nil {
 						return err
@@ -106,7 +106,7 @@ func runIndexWriteCases(t *testing.T, prefix string, cases []indexWriteCase) {
 
 func TestIndexParallelArrays(t *testing.T) {
 	ab := bson.D{{Key: "a", Value: 1}, {Key: "b", Value: 1}}
-	runIndexWriteCases(t, "IndexParallelArrays", []indexWriteCase{
+	runIndexWriteCases(t, "IndexParallelArrays", nil, []indexWriteCase{
 		{"both_arrays", ab, nil, bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: bson.A{3, 4}}},
 			bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: bson.A{3, 4}}}},
 		{"one_array", ab, nil, bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: 3}},
@@ -166,7 +166,7 @@ func TestIndexParallelArraysBatch(t *testing.T) {
 func TestIndexParallelArraysPositionalAndGeo(t *testing.T) {
 	ab := bson.D{{Key: "a", Value: bson.A{1, 2}}, {Key: "b", Value: bson.A{3, 4}}}
 	elems := bson.D{{Key: "a", Value: bson.A{bson.D{{Key: "x", Value: 1}, {Key: "y", Value: 2}}, bson.D{{Key: "x", Value: 3}, {Key: "y", Value: 4}}}}}
-	runIndexWriteCases(t, "IndexParallelArraysPositionalAndGeo", []indexWriteCase{
+	runIndexWriteCases(t, "IndexParallelArraysPositionalAndGeo", nil, []indexWriteCase{
 		{"2dsphere_compound", bson.D{{Key: "loc", Value: "2dsphere"}, {Key: "a", Value: 1}, {Key: "b", Value: 1}}, nil,
 			bson.D{{Key: "loc", Value: bson.D{{Key: "type", Value: "Point"}, {Key: "coordinates", Value: bson.A{0, 0}}}}, {Key: "a", Value: bson.A{1}}, {Key: "b", Value: bson.A{2}}}, nil},
 		{"2d_compound", bson.D{{Key: "loc", Value: "2d"}, {Key: "a", Value: 1}, {Key: "b", Value: 1}}, nil,
@@ -224,4 +224,35 @@ func TestIndexParallelArraysUpdateIntoIndex(t *testing.T) {
 			})
 		}
 	}
+}
+
+// mongod checks parallel arrays within each element of an array the index
+// fields share, so arrays in different elements are not parallel.
+func TestIndexParallelArraysPerElement(t *testing.T) {
+	bc := bson.D{{Key: "a.b", Value: 1}, {Key: "a.c", Value: 1}}
+	apart := bson.D{{Key: "a", Value: bson.A{bson.D{{Key: "b", Value: bson.A{1}}}, bson.D{{Key: "c", Value: bson.A{2}}}}}}
+	crossed := bson.D{{Key: "a", Value: bson.A{
+		bson.D{{Key: "b", Value: 1}, {Key: "c", Value: bson.A{3, 4}}},
+		bson.D{{Key: "b", Value: bson.A{1}}, {Key: "c", Value: 2}},
+	}}}
+	together := bson.D{{Key: "a", Value: bson.A{bson.D{{Key: "b", Value: bson.A{1}}, {Key: "c", Value: bson.A{2}}}}}}
+	runIndexWriteCases(t, "IndexParallelArraysPerElement", parallelPerElementXFail, []indexWriteCase{
+		{"arrays_in_different_elements", bc, nil, apart, apart},
+		{"arrays_crossed_across_elements", bc, nil, crossed, crossed},
+		{"arrays_in_one_element", bc, nil, together, nil},
+		{"partial_arrays_in_different_elements", bc, options.Index().SetPartialFilterExpression(bson.D{{Key: "k", Value: 1}}),
+			append(bson.D{{Key: "k", Value: 1}}, apart...), nil},
+	})
+}
+
+// parallelPerElementXFail lists the cases DumboDB fails until parallel arrays are checked per array element.
+var parallelPerElementXFail = map[string]bool{
+	"TestIndexParallelArraysPerElement/arrays_crossed_across_elements_build":        true,
+	"TestIndexParallelArraysPerElement/arrays_crossed_across_elements_insert":       true,
+	"TestIndexParallelArraysPerElement/arrays_crossed_across_elements_update":       true,
+	"TestIndexParallelArraysPerElement/arrays_in_different_elements_build":          true,
+	"TestIndexParallelArraysPerElement/arrays_in_different_elements_insert":         true,
+	"TestIndexParallelArraysPerElement/arrays_in_different_elements_update":         true,
+	"TestIndexParallelArraysPerElement/partial_arrays_in_different_elements_build":  true,
+	"TestIndexParallelArraysPerElement/partial_arrays_in_different_elements_insert": true,
 }

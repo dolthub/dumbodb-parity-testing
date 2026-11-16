@@ -70,7 +70,7 @@ func TestGeoIndexKeyExtraction(t *testing.T) {
 			indexWriteCase{"2d_" + v.name, bson.D{{Key: "loc", Value: "2d"}}, nil, doc, doc},
 		)
 	}
-	runIndexWriteCases(t, "GeoIndexKeyExtraction", cases)
+	runIndexWriteCases(t, "GeoIndexKeyExtraction", nil, cases)
 }
 
 // Index options and value shapes the first geo cases leave out: 2d bounds
@@ -94,7 +94,7 @@ func TestGeoIndexKeyExtractionShapes(t *testing.T) {
 	partial := options.Index().SetPartialFilterExpression(bson.D{{Key: "k", Value: 1}})
 	sparse := options.Index().SetSparse(true)
 	type c = indexWriteCase
-	runIndexWriteCases(t, "GeoIndexKeyExtractionShapes", []indexWriteCase{
+	runIndexWriteCases(t, "GeoIndexKeyExtractionShapes", nil, []indexWriteCase{
 		c{"2d_bounds_inside", planar, bounds(0, 1000), loc(bson.A{500, 500}), loc(bson.A{500, 500})},
 		c{"2d_bounds_below", planar, bounds(0, 1000), loc(bson.A{-5, 5}), loc(bson.A{-5, 5})},
 		c{"2d_small_bounds", planar, bounds(-10, 10), loc(bson.A{50, 0}), nil},
