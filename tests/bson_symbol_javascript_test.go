@@ -17,6 +17,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -701,5 +702,41 @@ func TestSymbolJavaScript_RegexAndGroups(t *testing.T) {
 					bson.D{{Key: "$project", Value: bson.D{{Key: "ids", Value: "$hits._id"}}}},
 				})(ctx, col)
 			}},
+	})
+}
+
+// mongod's $sort after $group returns Symbol and JavaScript group keys as
+// strings, though $group alone keeps their types; DumboDB keeps them either way.
+func TestSymbolJavaScript_GroupThenSortKeyTypes(t *testing.T) {
+	keyTypes := func(res interface{}) []string {
+		var out []string
+		for _, d := range res.([]bson.D) {
+			out = append(out, fmt.Sprintf("%T", d[0].Value))
+		}
+		return out
+	}
+	harness.PairTest(t, harness.TestCase{
+		Name:      "SymJS_GroupThenSortKeyTypes",
+		Support:   harness.DumboDBDeviates,
+		Clustered: true,
+		Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
+			if err := insertDocs(symJSDoc(1, primitive.Symbol("a")), symJSDoc(2, primitive.JavaScript("b")))(ctx, col); err != nil {
+				return nil, err
+			}
+			return aggregateDocs(bson.A{
+				bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: "$v"}}}},
+				bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+			})(ctx, col)
+		},
+		MongoExpect: func(t *testing.T, res interface{}, err error) {
+			if err != nil || !slices.Equal(keyTypes(res), []string{"string", "string"}) {
+				t.Errorf("mongo: want keys as strings, got %v %v", res, err)
+			}
+		},
+		DumboExpect: func(t *testing.T, res interface{}, err error) {
+			if err != nil || !slices.Equal(keyTypes(res), []string{"primitive.Symbol", "primitive.JavaScript"}) {
+				t.Errorf("dumbodb: want Symbol and JavaScript keys, got %v %v", res, err)
+			}
+		},
 	})
 }
