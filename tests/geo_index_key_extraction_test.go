@@ -151,7 +151,7 @@ func TestGeo2DIndexOptions(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			harness.PairTest(t, harness.TestCase{
 				Name:    "Geo2DIndexOptions_" + tc.name,
-				Support: supportFor(t, geo2DOptionsXFail),
+				Support: harness.DumboDBFull,
 				Run: func(ctx context.Context, col *mongo.Collection) (interface{}, error) {
 					spec := append(bson.D{{Key: "key", Value: tc.key}, {Key: "name", Value: "ix"}}, tc.opts...)
 					err := col.Database().RunCommand(ctx, bson.D{
@@ -163,16 +163,4 @@ func TestGeo2DIndexOptions(t *testing.T) {
 			})
 		})
 	}
-}
-
-// geo2DOptionsXFail lists the cases DumboDB fails until 2d index options are validated.
-var geo2DOptionsXFail = map[string]bool{
-	"TestGeo2DIndexOptions/bits_string":    true,
-	"TestGeo2DIndexOptions/bits_too_large": true,
-	"TestGeo2DIndexOptions/bits_zero":      true,
-	"TestGeo2DIndexOptions/max_infinity":   true,
-	"TestGeo2DIndexOptions/min_above_max":  true,
-	"TestGeo2DIndexOptions/min_equals_max": true,
-	"TestGeo2DIndexOptions/min_nan":        true,
-	"TestGeo2DIndexOptions/min_string":     true,
 }
